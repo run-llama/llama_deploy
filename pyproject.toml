@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "agentfile"
+version = "0.1.0"
+description = ""
+authors = ["Logan Markewich <logan.markewich@live.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.8.1,<4.0"
+fastapi = "^0.111.0"
+llama-index-core = "^0.10.40"
+llama-index-agent-openai = "^0.2.5"
+llama-index-embeddings-openai = "^0.1.10"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
