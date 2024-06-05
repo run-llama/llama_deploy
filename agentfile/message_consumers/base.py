@@ -15,11 +15,11 @@ class BaseMessageQueueConsumer(ABC):
     message_type: Type[BaseMessage]
 
     @abstractmethod
-    def process_message(self, message: BaseMessage, **kwargs: Any) -> Any:
+    async def process_message(self, message: BaseMessage, **kwargs: Any) -> Any:
         """Logic for processing message."""
 
-    def start_consuming(self, message_queue: BaseMessageQueue, **kwargs: Any) -> None:
+    async def start_consuming(
+        self, message_queue: BaseMessageQueue, **kwargs: Any
+    ) -> None:
         """Begin consuming messages."""
-        message_queue.register_consumer(
-            self.id_, self.message_type, self.process_message, **kwargs
-        )
+        await message_queue.register_consumer(self, **kwargs)

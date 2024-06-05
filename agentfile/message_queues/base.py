@@ -1,7 +1,8 @@
 """Message queue module."""
 
-from abc import abstractmethod
-from typing import Any, Dict, Protocol, Type
+from abc import ABC, abstractmethod
+from typing import Any, Protocol
+from llama_index.core.bridge.pydantic import BaseModel
 from agentfile.messages.base import BaseMessage
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 
@@ -13,30 +14,24 @@ class MessageProcessor(Protocol):
         ...
 
 
-class BaseMessageQueue:
+class BaseMessageQueue(BaseModel, ABC):
     """Message broker interface between publisher and consumer."""
 
-    consumers: Dict[str, BaseMessageQueueConsumer]  # Message Class Name as key
-
     @abstractmethod
-    def _publish(self, message: BaseMessage, **kwargs: Any) -> Any:
+    async def _publish(self, message: BaseMessage, **kwargs: Any) -> Any:
         """Subclasses implement publish logic here."""
         ...
 
-    def publish(self, message: BaseMessage, **kwargs: Any) -> Any:
+    async def publish(self, message: BaseMessage, **kwargs: Any) -> Any:
         """Send message to a consumer."""
-        self._publish(message, **kwargs)
+        await self._publish(message, **kwargs)
 
     @abstractmethod
-    def register_consumer(
-        self,
-        consumer_id: str,
-        message_type: Type[BaseMessage],
-        processor: MessageProcessor,
-        **kwargs: Any
+    async def register_consumer(
+        self, consumer: BaseMessageQueueConsumer, **kwargs: Any
     ) -> Any:
         """Register consumer to start consuming messages."""
 
     @abstractmethod
-    def deregister_consumer(self, consumer_id: str) -> Any:
+    async def deregister_consumer(self, consumer_id: str, message_type_str: str) -> Any:
         """Deregister consumer to stop publishing messages)."""
