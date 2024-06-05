@@ -29,8 +29,8 @@ class SimpleMessageQueue(BaseMessageQueue):
 
     async def _publish(self, message: BaseMessage, **kwargs: Any) -> Any:
         """Publish message to a consumer."""
-
         consumer = self._select_consumer(message)
+        print(f"consumer: {consumer}")
         try:
             await consumer.process_message(message, **kwargs)
         except Exception:

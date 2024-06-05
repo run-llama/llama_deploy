@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class BaseMessageQueueConsumer(BaseModel, ABC):
     """Consumer of a MessageQueue."""
 
-    id_: str = Field(default_factory=uuid.uuid4)
+    id_: str = Field(default_factory=lambda: str(uuid.uuid4()))
     message_type: Type[BaseMessage] = Field(default=BaseMessage)
 
     class Config:
@@ -27,7 +27,7 @@ class BaseMessageQueueConsumer(BaseModel, ABC):
         """Logic for processing message."""
         if not isinstance(message, self.message_type):
             raise ValueError("Consumer cannot process the given kind of Message.")
-        return self._process_message(message, **kwargs)
+        return await self._process_message(message, **kwargs)
 
     async def start_consuming(
         self, message_queue: "BaseMessageQueue", **kwargs: Any
