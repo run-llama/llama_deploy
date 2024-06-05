@@ -4,7 +4,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from typing import AsyncGenerator, Dict, List, Literal
 
-from agentfile.schema import _Task, _TaskSate, _TaskStep, _TaskStepOutput, _ChatMessage
+from agentfile.agent_server.base import BaseAgentServer
+from agentfile.agent_server.types import (
+    _Task,
+    _TaskSate,
+    _TaskStep,
+    _TaskStepOutput,
+    _ChatMessage,
+)
 from llama_index.core.agent import AgentRunner
 
 import logging
@@ -14,7 +21,7 @@ logger.setLevel(logging.INFO)
 logging.basicConfig(level=logging.INFO)
 
 
-class AgentServer:
+class FastAPIAgentServer(BaseAgentServer):
     def __init__(
         self,
         agent: AgentRunner,
@@ -38,7 +45,7 @@ class AgentServer:
             "/tasks", self.get_tasks, methods=["GET"], tags=["Tasks"]
         )
         self.app.add_api_route(
-            "/tasks/{task_id}", self.get_task, methods=["GET"], tags=["Tasks"]
+            "/tasks/{task_id}", self.get_task_state, methods=["GET"], tags=["Tasks"]
         )
         self.app.add_api_route(
             "/completed_tasks",
@@ -146,7 +153,7 @@ class AgentServer:
 
         return _tasks
 
-    async def get_task(self, task_id: str) -> _TaskSate:
+    async def get_task_state(self, task_id: str) -> _TaskSate:
         task_state = self.agent.state.task_dict.get(task_id)
         if task_state is None:
             raise HTTPException(status_code=404, detail="Task not found")
@@ -214,5 +221,5 @@ if __name__ == "__main__":
     index = VectorStoreIndex.from_documents([Document.example()])
     agent = index.as_chat_engine()
 
-    server = AgentServer(agent)
+    server = FastAPIAgentServer(agent)
     server.launch()
