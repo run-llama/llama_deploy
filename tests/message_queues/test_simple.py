@@ -10,16 +10,27 @@ class MockMessageConsumer(BaseMessageQueueConsumer):
         print(f"Processed: {message.class_name()}")
 
 
+class MockMessage(BaseMessage):
+    @classmethod
+    def class_name(cls) -> str:
+        return "MockMessage"
+
+
 @pytest.mark.asyncio()
 async def test_simple_register_consumer() -> None:
     # Arrange
-    consumer = MockMessageConsumer()
+    consumer_one = MockMessageConsumer()
+    consumer_two = MockMessageConsumer(message_type=MockMessage)
     mq = SimpleMessageQueue()
 
     # Act
-    await mq.register_consumer(consumer)
+    await mq.register_consumer(consumer_one)
+    await mq.register_consumer(consumer_two)
 
     # Assert
-    assert consumer.id_ in [
-        c.id_ for c in await mq.get_consumers(consumer.message_type)
+    assert consumer_one.id_ in [
+        c.id_ for c in await mq.get_consumers(consumer_one.message_type)
+    ]
+    assert consumer_two.id_ in [
+        c.id_ for c in await mq.get_consumers(consumer_two.message_type)
     ]
