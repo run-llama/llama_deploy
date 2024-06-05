@@ -38,7 +38,7 @@ class BaseMessageQueue(BaseModel, ABC):
         """Register consumer to start consuming messages."""
 
     @abstractmethod
-    async def deregister_consumer(self, consumer_id: str, message_type_str: str) -> Any:
+    async def deregister_consumer(self, consumer: "BaseMessageQueueConsumer") -> Any:
         """Deregister consumer to stop publishing messages)."""
 
     async def get_consumers(

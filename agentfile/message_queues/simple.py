@@ -50,13 +50,14 @@ class SimpleMessageQueue(BaseMessageQueue):
 
             self.consumers[message_type_str][consumer.id_] = consumer
 
-    async def deregister_consumer(
-        self, consumer_id: str, message_type_str: str
-    ) -> None:
-        if consumer_id not in self.consumers[message_type_str]:
-            raise ValueError("No consumer found for the supplied message type.")
+    async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> None:
+        message_type_str = consumer.message_type.class_name()
+        if consumer.id_ not in self.consumers[message_type_str]:
+            raise ValueError("No consumer found for associated message type.")
 
-        del self.consumers[message_type_str][consumer_id]
+        del self.consumers[message_type_str][consumer.id_]
+        if len(self.consumers[message_type_str]) == 0:
+            del self.consumers[message_type_str]
 
     async def get_consumers(
         self, message_type: Type[BaseMessage]
