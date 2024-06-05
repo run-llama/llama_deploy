@@ -3,7 +3,7 @@
 import random
 
 from queue import Queue
-from typing import Any, Dict
+from typing import Any, Dict, List, Type
 from llama_index.core.bridge.pydantic import Field
 from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.messages.base import BaseMessage
@@ -17,7 +17,7 @@ class SimpleMessageQueue(BaseMessageQueue):
     """
 
     consumers: Dict[str, Dict[str, BaseMessageQueueConsumer]] = Field(
-        default_factory={}
+        default_factory=dict
     )
     queues: Dict[str, Queue] = Field(default_factory=dict)
 
@@ -41,10 +41,14 @@ class SimpleMessageQueue(BaseMessageQueue):
     ) -> None:
         """Register a new consumer."""
         message_type_str = consumer.message_type.class_name()
-        if consumer.id_ in self.consumers[message_type_str]:
-            raise ValueError("Consumer has already been added.")
 
-        self.consumers[message_type_str][consumer.id_] = consumer
+        if message_type_str not in self.consumers:
+            self.consumers[message_type_str] = {consumer.id_: consumer}
+        else:
+            if consumer.id_ in self.consumers[message_type_str]:
+                raise ValueError("Consumer has already been added.")
+
+            self.consumers[message_type_str][consumer.id_] = consumer
 
     async def deregister_consumer(
         self, consumer_id: str, message_type_str: str
@@ -53,3 +57,12 @@ class SimpleMessageQueue(BaseMessageQueue):
             raise ValueError("No consumer found for the supplied message type.")
 
         del self.consumers[message_type_str][consumer_id]
+
+    async def get_consumers(
+        self, message_type: Type[BaseMessage]
+    ) -> List[BaseMessageQueueConsumer]:
+        message_type_str = message_type.class_name()
+        if message_type_str not in self.consumers:
+            return []
+
+        return list(self.consumers[message_type_str].values())

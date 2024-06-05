@@ -1,10 +1,12 @@
 """Message queue module."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Protocol
+from typing import Any, List, Protocol, Type, TYPE_CHECKING
 from llama_index.core.bridge.pydantic import BaseModel
 from agentfile.messages.base import BaseMessage
-from agentfile.message_consumers.base import BaseMessageQueueConsumer
+
+if TYPE_CHECKING:
+    from agentfile.message_consumers.base import BaseMessageQueueConsumer
 
 
 class MessageProcessor(Protocol):
@@ -17,6 +19,9 @@ class MessageProcessor(Protocol):
 class BaseMessageQueue(BaseModel, ABC):
     """Message broker interface between publisher and consumer."""
 
+    class Config:
+        arbitrary_types_allowed = True
+
     @abstractmethod
     async def _publish(self, message: BaseMessage, **kwargs: Any) -> Any:
         """Subclasses implement publish logic here."""
@@ -28,10 +33,18 @@ class BaseMessageQueue(BaseModel, ABC):
 
     @abstractmethod
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, **kwargs: Any
+        self, consumer: "BaseMessageQueueConsumer", **kwargs: Any
     ) -> Any:
         """Register consumer to start consuming messages."""
 
     @abstractmethod
     async def deregister_consumer(self, consumer_id: str, message_type_str: str) -> Any:
         """Deregister consumer to stop publishing messages)."""
+
+    async def get_consumers(
+        self, message_type: Type[BaseMessage]
+    ) -> List["BaseMessageQueueConsumer"]:
+        """Gets list of consumers according to a message type."""
+        raise NotImplementedError(
+            "`get_consumers()` is not implemented for this class."
+        )
