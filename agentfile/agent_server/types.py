@@ -1,9 +1,12 @@
+import uuid
+from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
-from pydantic import BaseModel
 
 from llama_index.core.agent.types import TaskStep, TaskStepOutput, Task
 from llama_index.core.agent.runner.base import AgentState, TaskState
 from llama_index.core.llms import ChatMessage
+
+# ------ FastAPI types ------
 
 
 class _Task(BaseModel):
@@ -113,3 +116,18 @@ class _ChatMessage(BaseModel):
             role=str(chat_message.role),
             additional_kwargs=chat_message.additional_kwargs,
         )
+
+
+# ------ General types ------
+
+
+class AgentRole(BaseModel):
+    agent_name: str = Field(description="The name of the agent.")
+    description: str = Field(description="A description of the agent and it's purpose.")
+    prompt: List[ChatMessage] = Field(
+        default_factory=list, description="Specific instructions for the agent."
+    )
+    agent_id: str = Field(
+        default_factory=str(uuid.uuid4()),
+        description="A unique identifier for the agent.",
+    )

@@ -1,12 +1,12 @@
 from llama_index.core.llms import MockLLM
 from llama_index.core.agent import ReActAgent
 
-from agentfile.agent import AgentServer
+from agentfile.agent_server import FastAPIAgentServer
 
 
 def test_init() -> None:
     agent = ReActAgent.from_tools([], llm=MockLLM())
-    server = AgentServer(
+    server = FastAPIAgentServer(
         agent, running=False, description="Test Agent Server", step_interval=0.5
     )
 
