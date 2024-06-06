@@ -128,6 +128,6 @@ class AgentRole(BaseModel):
         default_factory=list, description="Specific instructions for the agent."
     )
     agent_id: str = Field(
-        default_factory=str(uuid.uuid4()),
+        default_factory=lambda: str(uuid.uuid4()),
         description="A unique identifier for the agent.",
     )
