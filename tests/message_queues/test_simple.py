@@ -1,6 +1,7 @@
 import asyncio
 import pytest
 from typing import Any, List
+from llama_index.core.bridge.pydantic import PrivateAttr
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.messages.base import BaseMessage
@@ -8,10 +9,10 @@ from agentfile.messages.base import BaseMessage
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
     processed_messages: List[BaseMessage] = []
-    lock: asyncio.Lock = asyncio.Lock()
+    _lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
 
     async def _process_message(self, message: BaseMessage, **kwargs: Any) -> None:
-        async with self.lock:
+        async with self._lock:
             self.processed_messages.append(message)
 
 
