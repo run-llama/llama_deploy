@@ -1,8 +1,9 @@
 """Simple Message Queue."""
 
+import asyncio
 import random
 
-from queue import Queue
+from collections import deque
 from typing import Any, Dict, List, Type
 from llama_index.core.bridge.pydantic import Field
 from agentfile.message_queues.base import BaseMessageQueue
@@ -19,7 +20,15 @@ class SimpleMessageQueue(BaseMessageQueue):
     consumers: Dict[str, Dict[str, BaseMessageQueueConsumer]] = Field(
         default_factory=dict
     )
-    queues: Dict[str, Queue] = Field(default_factory=dict)
+    queues: Dict[str, deque] = Field(default_factory=dict)
+    running: bool = True
+
+    def __init__(
+        self,
+        consumers: Dict[str, Dict[str, BaseMessageQueueConsumer]] = {},
+        queues: Dict[str, deque] = {},
+    ):
+        super().__init__(consumers=consumers, queues=queues)
 
     def _select_consumer(self, message: BaseMessage) -> BaseMessageQueueConsumer:
         """Select a single consumer to publish a message to."""
@@ -28,13 +37,35 @@ class SimpleMessageQueue(BaseMessageQueue):
         return self.consumers[message_type_str][consumer_id]
 
     async def _publish(self, message: BaseMessage, **kwargs: Any) -> Any:
+        """Publish message to a queue."""
+        message_type_str = message.class_name()
+
+        if message_type_str not in self.consumers:
+            raise ValueError(f"No consumer for {message_type_str} has been registered.")
+
+        if message_type_str not in self.queues:
+            self.queues[message_type_str] = deque()
+
+        self.queues[message_type_str].append(message)
+
+    async def _publish_to_consumer(self, message: BaseMessage, **kwargs: Any) -> Any:
         """Publish message to a consumer."""
         consumer = self._select_consumer(message)
-        print(f"consumer: {consumer}")
         try:
             await consumer.process_message(message, **kwargs)
         except Exception:
             raise
+
+    async def start(self) -> None:
+        """A loop for getting messages from queues and sending to consumer."""
+        while self.running:
+            print(self.queues)
+            for queue in self.queues.values():
+                if queue:
+                    message = queue.popleft()
+                    await self._publish_to_consumer(message)
+            print(self.queues)
+            await asyncio.sleep(0.1)
 
     async def register_consumer(
         self, consumer: BaseMessageQueueConsumer, **kwargs: Any
@@ -49,6 +80,9 @@ class SimpleMessageQueue(BaseMessageQueue):
                 raise ValueError("Consumer has already been added.")
 
             self.consumers[message_type_str][consumer.id_] = consumer
+
+        if message_type_str not in self.queues:
+            self.queues[message_type_str] = deque()
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> None:
         message_type_str = consumer.message_type.class_name()

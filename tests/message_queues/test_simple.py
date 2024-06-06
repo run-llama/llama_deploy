@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 from typing import Any, List
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
@@ -7,10 +8,11 @@ from agentfile.messages.base import BaseMessage
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
     processed_messages: List[BaseMessage] = []
+    lock: asyncio.Lock = asyncio.Lock()
 
     async def _process_message(self, message: BaseMessage, **kwargs: Any) -> None:
-        print(f"Processed: {message.class_name()}")
-        self.processed_messages.append(message)
+        async with self.lock:
+            self.processed_messages.append(message)
 
 
 class MockMessage(BaseMessage):
@@ -70,6 +72,7 @@ async def test_simple_publish_consumer() -> None:
     consumer_one = MockMessageConsumer()
     consumer_two = MockMessageConsumer(message_type=MockMessage)
     mq = SimpleMessageQueue()
+    task = asyncio.create_task(mq.start())
 
     await mq.register_consumer(consumer_one)
     await mq.register_consumer(consumer_two)
@@ -78,6 +81,10 @@ async def test_simple_publish_consumer() -> None:
     await mq.publish(BaseMessage(id_="1"))
     await mq.publish(MockMessage(id_="2"))
     await mq.publish(MockMessage(id_="3"))
+
+    # Give some time for last message to get published and sent to consumers
+    await asyncio.sleep(0.5)
+    task.cancel()
 
     # Assert
     assert ["1"] == [m.id_ for m in consumer_one.processed_messages]
