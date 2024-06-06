@@ -4,10 +4,10 @@ import asyncio
 import random
 
 from collections import deque
-from typing import Any, Dict, List, Type
+from typing import Any, Dict, List
 from llama_index.core.bridge.pydantic import Field
 from agentfile.message_queues.base import BaseMessageQueue
-from agentfile.messages.base import BaseMessage
+from agentfile.messages.base import QueueMessage
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 
 
@@ -30,15 +30,15 @@ class SimpleMessageQueue(BaseMessageQueue):
     ):
         super().__init__(consumers=consumers, queues=queues)
 
-    def _select_consumer(self, message: BaseMessage) -> BaseMessageQueueConsumer:
+    def _select_consumer(self, message: QueueMessage) -> BaseMessageQueueConsumer:
         """Select a single consumer to publish a message to."""
-        message_type_str = message.class_name()
+        message_type_str = message.type
         consumer_id = random.choice(list(self.consumers[message_type_str].keys()))
         return self.consumers[message_type_str][consumer_id]
 
-    async def _publish(self, message: BaseMessage, **kwargs: Any) -> Any:
+    async def _publish(self, message: QueueMessage, **kwargs: Any) -> Any:
         """Publish message to a queue."""
-        message_type_str = message.class_name()
+        message_type_str = message.type
 
         if message_type_str not in self.consumers:
             raise ValueError(f"No consumer for {message_type_str} has been registered.")
@@ -48,7 +48,7 @@ class SimpleMessageQueue(BaseMessageQueue):
 
         self.queues[message_type_str].append(message)
 
-    async def _publish_to_consumer(self, message: BaseMessage, **kwargs: Any) -> Any:
+    async def _publish_to_consumer(self, message: QueueMessage, **kwargs: Any) -> Any:
         """Publish message to a consumer."""
         consumer = self._select_consumer(message)
         try:
@@ -71,7 +71,7 @@ class SimpleMessageQueue(BaseMessageQueue):
         self, consumer: BaseMessageQueueConsumer, **kwargs: Any
     ) -> None:
         """Register a new consumer."""
-        message_type_str = consumer.message_type.class_name()
+        message_type_str = consumer.message_type
 
         if message_type_str not in self.consumers:
             self.consumers[message_type_str] = {consumer.id_: consumer}
@@ -85,19 +85,16 @@ class SimpleMessageQueue(BaseMessageQueue):
             self.queues[message_type_str] = deque()
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> None:
-        message_type_str = consumer.message_type.class_name()
-        if consumer.id_ not in self.consumers[message_type_str]:
+        message_type_str = consumer.message_type
+        if consumer.id_ not in self.consumers.get(message_type_str, {}):
             raise ValueError("No consumer found for associated message type.")
 
         del self.consumers[message_type_str][consumer.id_]
         if len(self.consumers[message_type_str]) == 0:
             del self.consumers[message_type_str]
 
-    async def get_consumers(
-        self, message_type: Type[BaseMessage]
-    ) -> List[BaseMessageQueueConsumer]:
-        message_type_str = message_type.class_name()
-        if message_type_str not in self.consumers:
+    async def get_consumers(self, message_type: str) -> List[BaseMessageQueueConsumer]:
+        if message_type not in self.consumers:
             return []
 
-        return list(self.consumers[message_type_str].values())
+        return list(self.consumers[message_type].values())

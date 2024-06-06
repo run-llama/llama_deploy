@@ -5,14 +5,12 @@ from typing import Any, Optional
 from llama_index.core.bridge.pydantic import BaseModel, Field
 
 
-class BaseMessage(BaseModel):
+class QueueMessage(BaseModel):
     id_: str = Field(default_factory=lambda: str(uuid.uuid4))
     data: Optional[Any] = Field(default_factory=None)
-
-    @classmethod
-    def class_name(cls) -> str:
-        """Class name."""
-        return "BaseMessage"
+    type: str = Field(
+        default="default", description="Type of the message, used for routing."
+    )
 
     class Config:
         arbitrary_types_allowed = True

@@ -4,29 +4,23 @@ from typing import Any, List
 from llama_index.core.bridge.pydantic import PrivateAttr
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_queues.simple import SimpleMessageQueue
-from agentfile.messages.base import BaseMessage
+from agentfile.messages.base import QueueMessage
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
-    processed_messages: List[BaseMessage] = []
+    processed_messages: List[QueueMessage] = []
     _lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
 
-    async def _process_message(self, message: BaseMessage, **kwargs: Any) -> None:
+    async def _process_message(self, message: QueueMessage, **kwargs: Any) -> None:
         async with self._lock:
             self.processed_messages.append(message)
-
-
-class MockMessage(BaseMessage):
-    @classmethod
-    def class_name(cls) -> str:
-        return "MockMessage"
 
 
 @pytest.mark.asyncio()
 async def test_simple_register_consumer() -> None:
     # Arrange
     consumer_one = MockMessageConsumer()
-    consumer_two = MockMessageConsumer(message_type=MockMessage)
+    consumer_two = MockMessageConsumer(type="two")
     mq = SimpleMessageQueue()
 
     # Act
@@ -48,8 +42,8 @@ async def test_simple_register_consumer() -> None:
 async def test_simple_deregister_consumer() -> None:
     # Arrange
     consumer_one = MockMessageConsumer()
-    consumer_two = MockMessageConsumer(message_type=MockMessage)
-    consumer_three = MockMessageConsumer(message_type=MockMessage)
+    consumer_two = MockMessageConsumer(message_type="one")
+    consumer_three = MockMessageConsumer(message_type="two")
     mq = SimpleMessageQueue()
 
     await mq.register_consumer(consumer_one)
@@ -63,15 +57,15 @@ async def test_simple_deregister_consumer() -> None:
         await mq.deregister_consumer(consumer_three)
 
     # Assert
-    assert len(await mq.get_consumers(MockMessage)) == 1
-    assert len(await mq.get_consumers(BaseMessage)) == 0
+    assert len(await mq.get_consumers("one")) == 1
+    assert len(await mq.get_consumers("zero")) == 0
 
 
 @pytest.mark.asyncio()
 async def test_simple_publish_consumer() -> None:
     # Arrange
     consumer_one = MockMessageConsumer()
-    consumer_two = MockMessageConsumer(message_type=MockMessage)
+    consumer_two = MockMessageConsumer(message_type="two")
     mq = SimpleMessageQueue()
     task = asyncio.create_task(mq.start())
 
@@ -79,9 +73,9 @@ async def test_simple_publish_consumer() -> None:
     await mq.register_consumer(consumer_two)
 
     # Act
-    await mq.publish(BaseMessage(id_="1"))
-    await mq.publish(MockMessage(id_="2"))
-    await mq.publish(MockMessage(id_="3"))
+    await mq.publish(QueueMessage(id_="1"))
+    await mq.publish(QueueMessage(id_="2", type="two"))
+    await mq.publish(QueueMessage(id_="3", type="two"))
 
     # Give some time for last message to get published and sent to consumers
     await asyncio.sleep(0.5)
