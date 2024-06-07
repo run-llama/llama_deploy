@@ -7,8 +7,8 @@ from agentfile.types import AgentDefinition
 
 
 class BaseAgentServer(ABC):
-    @abstractmethod
     @property
+    @abstractmethod
     def agent_definition(self) -> AgentDefinition:
         """Get the agent definition."""
         ...
