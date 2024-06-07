@@ -11,6 +11,9 @@ class QueueMessage(BaseModel):
     type: str = Field(
         default="default", description="Type of the message, used for routing."
     )
+    action: str = Field(
+        default_factory=str, description="Action of message, used for processing."
+    )
 
     class Config:
         arbitrary_types_allowed = True
