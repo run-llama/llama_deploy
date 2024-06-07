@@ -59,12 +59,10 @@ class SimpleMessageQueue(BaseMessageQueue):
     async def start(self) -> None:
         """A loop for getting messages from queues and sending to consumer."""
         while self.running:
-            print(self.queues)
             for queue in self.queues.values():
                 if queue:
                     message = queue.popleft()
                     await self._publish_to_consumer(message)
-            print(self.queues)
             await asyncio.sleep(0.1)
 
     async def register_consumer(

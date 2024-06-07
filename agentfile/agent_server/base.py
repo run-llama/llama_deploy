@@ -2,12 +2,30 @@ from abc import ABC, abstractmethod
 from typing import Dict, List
 
 from agentfile.agent_server.types import _Task, _TaskSate, _TaskStep, _TaskStepOutput
+from agentfile.message_consumers.base import BaseMessageQueueConsumer
+from agentfile.types import AgentDefinition
 
 
 class BaseAgentServer(ABC):
     @abstractmethod
+    @property
+    def agent_definition(self) -> AgentDefinition:
+        """Get the agent definition."""
+        ...
+
+    @abstractmethod
+    async def start_processing_loop(self) -> None:
+        """The main processing loop of the agent server."""
+        ...
+
+    @abstractmethod
     def launch(self) -> None:
         """Launch the agent server."""
+        ...
+
+    @abstractmethod
+    def get_consumer(self) -> BaseMessageQueueConsumer:
+        """Get the consumer for the message queue."""
         ...
 
     @abstractmethod

@@ -2,7 +2,7 @@ import asyncio
 import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
-from typing import AsyncGenerator, Dict, List, Literal
+from typing import Any, AsyncGenerator, Callable, Dict, List, Literal, Optional
 
 from agentfile.agent_server.base import BaseAgentServer
 from agentfile.agent_server.types import (
@@ -12,6 +12,10 @@ from agentfile.agent_server.types import (
     _TaskStepOutput,
     _ChatMessage,
 )
+from agentfile.message_consumers.base import BaseMessageQueueConsumer
+from agentfile.message_queues.base import BaseMessageQueue
+from agentfile.messages.base import QueueMessage
+from agentfile.types import ActionTypes, TaskResult, AgentDefinition
 from llama_index.core.agent import AgentRunner
 
 import logging
@@ -21,15 +25,39 @@ logger.setLevel(logging.INFO)
 logging.basicConfig(level=logging.INFO)
 
 
+class AgentMessageConsumer(BaseMessageQueueConsumer):
+    message_handler: Dict[str, Callable]
+    message_type: str = "default_agent"
+
+    async def _process_message(self, message: QueueMessage, **kwargs: Any) -> None:
+        action = message.action
+        if action not in self.message_handler:
+            raise ValueError(f"Action {action} not supported by control plane")
+
+        if (
+            action == ActionTypes.NEW_TASK
+            and isinstance(message.data, dict)
+            and "input" in message.data
+        ):
+            await self.message_handler[action](message.data["input"])
+
+
 class FastAPIAgentServer(BaseAgentServer):
     def __init__(
         self,
         agent: AgentRunner,
+        message_queue: BaseMessageQueue,
         running: bool = True,
         description: str = "Agent Server",
+        agent_id: str = "default_agent",
+        agent_definition: Optional[AgentDefinition] = None,
         step_interval: float = 0.1,
-    ):
+    ) -> None:
+        self._agent_definition = agent_definition or AgentDefinition(
+            agent_id=agent_id, description=description
+        )
         self.agent = agent
+        self.message_queue = message_queue
         self.description = description
         self.running = running
         self.step_interval = step_interval
@@ -94,26 +122,38 @@ class FastAPIAgentServer(BaseAgentServer):
             "/reset_agent", self.reset_agent, methods=["POST"], tags=["Agent State"]
         )
 
+    @property
+    def agent_definition(self) -> AgentDefinition:
+        return self._agent_definition
+
     @asynccontextmanager
     async def lifespan(self, app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("Starting up")
-        asyncio.create_task(self.processing_loop())
+        asyncio.create_task(self.start_processing_loop())
         yield
         logger.info("Shutting down")
 
     def launch(self) -> None:
         uvicorn.run(self.app)
 
+    def get_consumer(self) -> BaseMessageQueueConsumer:
+        return AgentMessageConsumer(
+            message_type=self.agent_definition.agent_id,
+            message_handler={
+                ActionTypes.NEW_TASK: self.create_task,
+            },
+        )
+
     async def home(self) -> Dict[str, str]:
         return {
-            "agent_description": str(self.description),
+            **self.agent_definition.model_dump(),
             "running": str(self.running),
             "step_interval": f"{self.step_interval} seconds",
             "num_tasks": str(len(self.agent.list_tasks())),
             "num_completed_tasks": str(len(self.agent.get_completed_tasks())),
         }
 
-    async def processing_loop(self) -> None:
+    async def start_processing_loop(self) -> None:
         while True:
             if not self.running:
                 await asyncio.sleep(self.step_interval)
@@ -132,7 +172,19 @@ class FastAPIAgentServer(BaseAgentServer):
                 step_output = await self.agent.arun_step(task_id)
 
                 if step_output.is_last:
-                    self.agent.finalize_response(task_id, step_output=step_output)
+                    response = self.agent.finalize_response(
+                        task_id, step_output=step_output
+                    )
+                    await self.message_queue.publish(
+                        QueueMessage(
+                            type="control_plane",
+                            action=ActionTypes.COMPLETED_TASK,
+                            data=TaskResult(
+                                task_id=task_id,
+                                result=response.response,
+                            ).model_dump(),
+                        )
+                    )
 
             await asyncio.sleep(self.step_interval)
 
@@ -213,13 +265,3 @@ class FastAPIAgentServer(BaseAgentServer):
         self.agent.reset()
 
         return {"message": "Agent reset"}
-
-
-if __name__ == "__main__":
-    from llama_index.core import VectorStoreIndex, Document
-
-    index = VectorStoreIndex.from_documents([Document.example()])
-    agent = index.as_chat_engine()
-
-    server = FastAPIAgentServer(agent)
-    server.launch()
