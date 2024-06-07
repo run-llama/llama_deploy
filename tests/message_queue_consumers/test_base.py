@@ -17,7 +17,7 @@ class MockMessageConsumer(BaseMessageQueueConsumer):
 
 
 @pytest.mark.asyncio()
-async def test_simple_register_consumer() -> None:
+async def test_consumer_consumes_messages() -> None:
     # Arrange
     consumer_one = MockMessageConsumer()
     mq = SimpleMessageQueue()
