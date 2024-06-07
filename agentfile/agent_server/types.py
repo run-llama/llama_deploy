@@ -1,5 +1,4 @@
-import uuid
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from typing import Dict, List, Optional
 
 from llama_index.core.agent.types import TaskStep, TaskStepOutput, Task
@@ -116,18 +115,3 @@ class _ChatMessage(BaseModel):
             role=str(chat_message.role),
             additional_kwargs=chat_message.additional_kwargs,
         )
-
-
-# ------ General types ------
-
-
-class AgentRole(BaseModel):
-    agent_name: str = Field(description="The name of the agent.")
-    description: str = Field(description="A description of the agent and it's purpose.")
-    prompt: List[ChatMessage] = Field(
-        default_factory=list, description="Specific instructions for the agent."
-    )
-    agent_id: str = Field(
-        default_factory=lambda: str(uuid.uuid4()),
-        description="A unique identifier for the agent.",
-    )
