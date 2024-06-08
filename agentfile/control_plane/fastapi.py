@@ -1,9 +1,16 @@
 import uvicorn
 from fastapi import FastAPI
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
+from llama_index.core import StorageContext, VectorStoreIndex
+from llama_index.core.llms import LLM
+from llama_index.core.objects import ObjectIndex, SimpleObjectNodeMapping
 from llama_index.core.storage.kvstore.types import BaseKVStore
 from llama_index.core.storage.kvstore import SimpleKVStore
+from llama_index.core.selectors import PydanticMultiSelector
+from llama_index.core.settings import Settings
+from llama_index.core.tools import ToolMetadata
+from llama_index.core.vector_stores.types import BasePydanticVectorStore
 
 from agentfile.control_plane.base import BaseControlPlane
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
@@ -43,6 +50,8 @@ class FastAPIControlPlane(BaseControlPlane):
     def __init__(
         self,
         message_queue: BaseMessageQueue,
+        llm: Optional[LLM] = None,
+        vector_store: Optional[BasePydanticVectorStore] = None,
         state_store: Optional[BaseKVStore] = None,
         agents_store_key: str = "agents",
         flows_store_key: str = "flows",
@@ -51,6 +60,14 @@ class FastAPIControlPlane(BaseControlPlane):
         step_interval: float = 0.1,
         running: bool = True,
     ) -> None:
+        self.llm = llm or Settings.llm
+        self.object_index = ObjectIndex(
+            VectorStoreIndex(
+                nodes=[],
+                storage_context=StorageContext.from_defaults(vector_store=vector_store),
+            ),
+            SimpleObjectNodeMapping(),
+        )
         self.step_interval = step_interval
         self.running = running
 
@@ -112,25 +129,26 @@ class FastAPIControlPlane(BaseControlPlane):
 
     async def register_agent(self, agent_def: AgentDefinition) -> None:
         await self.state_store.aput(
-            agent_def.agent_id, agent_def.model_dump(), collection=self.agents_store_key
+            agent_def.agent_id, agent_def.dict(), collection=self.agents_store_key
         )
+        # TODO: currently blocking, should be async
+        self.object_index.insert_object(agent_def.dict())
 
     async def deregister_agent(self, agent_id: str) -> None:
         await self.state_store.adelete(agent_id, collection=self.agents_store_key)
+        # object index does not have delete yet
 
     async def register_flow(self, flow_def: FlowDefinition) -> None:
         await self.state_store.aput(
-            flow_def.flow_id, flow_def.model_dump(), collection=self.flows_store_key
+            flow_def.flow_id, flow_def.dict(), collection=self.flows_store_key
         )
 
     async def deregister_flow(self, flow_id: str) -> None:
         await self.state_store.adelete(flow_id, collection=self.flows_store_key)
 
     async def create_task(self, task_def: TaskDefinition) -> None:
-        # TODO: route task to flows or agent?
-        # Right now assumes task def contains destination agent_id
         await self.state_store.aput(
-            task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
+            task_def.task_id, task_def.dict(), collection=self.tasks_store_key
         )
 
         await self.send_task_to_agent(task_def)
@@ -142,22 +160,47 @@ class FastAPIControlPlane(BaseControlPlane):
         if state_dict is None:
             raise ValueError(f"Task with id {task_id} not found")
 
-        return TaskDefinition.model_validate(state_dict)
+        return TaskDefinition.parse_obj(state_dict)
 
     async def get_all_tasks(self) -> Dict[str, TaskDefinition]:
         state_dicts = await self.state_store.aget_all(collection=self.tasks_store_key)
         return {
-            task_id: TaskDefinition.model_validate(state_dict)
+            task_id: TaskDefinition.parse_obj(state_dict)
             for task_id, state_dict in state_dicts.items()
         }
 
     async def send_task_to_agent(self, task_def: TaskDefinition) -> None:
-        all_agents = await self.state_store.aget_all(collection=self.agents_store_key)
-        agent_id = task_def.agent_id or list(all_agents.keys())[0]
+        agent_retriever = self.object_index.as_retriever(similarity_top_k=5)
+
+        # could also route based on similarity alone.
+        # TODO: Figure out user-specified routing
+        agent_def_dicts: List[dict] = agent_retriever.retrieve(task_def.input)
+        agent_defs = [
+            AgentDefinition.parse_obj(agent_def_dict)
+            for agent_def_dict in agent_def_dicts
+        ]
+        if len(agent_def_dicts) > 1:
+            selector = PydanticMultiSelector.from_defaults(
+                llm=self.llm,
+            )
+            agent_def_metadata = [
+                ToolMetadata(
+                    description=agent_def.description,
+                    name=agent_def.agent_id,
+                )
+                for agent_def in agent_defs
+            ]
+            result = await selector.aselect(agent_def_metadata, task_def.input)
+
+            selected_agent_id = agent_defs[result.inds[0]].agent_id
+        else:
+            selected_agent_id = agent_defs[0].agent_id
 
         await self.message_queue.publish(
             QueueMessage(
-                type=agent_id, data=task_def.model_dump(), action=ActionTypes.NEW_TASK
+                type=selected_agent_id,
+                data=task_def.dict(),
+                action=ActionTypes.NEW_TASK,
             )
         )
 
@@ -167,6 +210,7 @@ class FastAPIControlPlane(BaseControlPlane):
     ) -> None:
         # TODO: figure out logic for deciding what to do next
         # by default, assume done (return to user?)
+        # TaskResult has chat history to help with next decision
         await self.state_store.adelete(
             task_result.task_id, collection=self.tasks_store_key
         )

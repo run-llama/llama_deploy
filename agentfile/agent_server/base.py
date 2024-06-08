@@ -3,7 +3,7 @@ from typing import Dict, List
 
 from agentfile.agent_server.types import _Task, _TaskSate, _TaskStep, _TaskStepOutput
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
-from agentfile.types import AgentDefinition
+from agentfile.types import AgentDefinition, TaskDefinition
 
 
 class BaseAgentServer(ABC):
@@ -34,7 +34,7 @@ class BaseAgentServer(ABC):
         ...
 
     @abstractmethod
-    async def create_task(self, input: str) -> _Task:
+    async def create_task(self, task_def: TaskDefinition) -> _Task:
         """Create a new task."""
         ...
 

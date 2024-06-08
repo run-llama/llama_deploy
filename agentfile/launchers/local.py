@@ -66,7 +66,7 @@ class LocalLauncher:
             QueueMessage(
                 type="control_plane",
                 action=ActionTypes.NEW_TASK,
-                data=TaskDefinition(input=initial_task).model_dump(),
+                data=TaskDefinition(input=initial_task).dict(),
             )
         )
 

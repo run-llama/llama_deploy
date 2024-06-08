@@ -1,8 +1,8 @@
 import uuid
 from enum import Enum
-from pydantic import BaseModel, Field
 from typing import List, Optional
 
+from llama_index.core.bridge.pydantic import BaseModel, Field
 from llama_index.core.llms import ChatMessage
 
 
@@ -24,6 +24,7 @@ class TaskDefinition(BaseModel):
 
 class TaskResult(BaseModel):
     task_id: str
+    history: List[ChatMessage]
     result: str
 
 

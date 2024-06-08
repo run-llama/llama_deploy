@@ -8,6 +8,12 @@ from agentfile.messages.base import QueueMessage
 if TYPE_CHECKING:
     from agentfile.message_consumers.base import BaseMessageQueueConsumer
 
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logging.basicConfig(level=logging.INFO)
+
 
 class MessageProcessor(Protocol):
     """Protocol for a callable that processes messages."""
@@ -29,6 +35,7 @@ class BaseMessageQueue(BaseModel, ABC):
 
     async def publish(self, message: QueueMessage, **kwargs: Any) -> Any:
         """Send message to a consumer."""
+        logger.info("Publishing message: " + str(message))
         await self._publish(message, **kwargs)
 
     @abstractmethod

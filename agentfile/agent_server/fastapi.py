@@ -15,7 +15,7 @@ from agentfile.agent_server.types import (
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.messages.base import QueueMessage
-from agentfile.types import ActionTypes, TaskResult, AgentDefinition
+from agentfile.types import ActionTypes, TaskResult, AgentDefinition, TaskDefinition
 from llama_index.core.agent import AgentRunner
 
 import logging
@@ -39,7 +39,7 @@ class AgentMessageConsumer(BaseMessageQueueConsumer):
             and isinstance(message.data, dict)
             and "input" in message.data
         ):
-            await self.message_handler[action](message.data["input"])
+            await self.message_handler[action](TaskDefinition(**message.data))
 
 
 class FastAPIAgentServer(BaseAgentServer):
@@ -146,7 +146,7 @@ class FastAPIAgentServer(BaseAgentServer):
 
     async def home(self) -> Dict[str, str]:
         return {
-            **self.agent_definition.model_dump(),
+            **self.agent_definition.dict(),
             "running": str(self.running),
             "step_interval": f"{self.step_interval} seconds",
             "num_tasks": str(len(self.agent.list_tasks())),
@@ -172,17 +172,24 @@ class FastAPIAgentServer(BaseAgentServer):
                 step_output = await self.agent.arun_step(task_id)
 
                 if step_output.is_last:
+                    # finalize the response
                     response = self.agent.finalize_response(
                         task_id, step_output=step_output
                     )
+
+                    # get the latest history
+                    history = self.agent.memory.get()
+
+                    # publish the completed task
                     await self.message_queue.publish(
                         QueueMessage(
                             type="control_plane",
                             action=ActionTypes.COMPLETED_TASK,
                             data=TaskResult(
                                 task_id=task_id,
+                                history=history,
                                 result=response.response,
-                            ).model_dump(),
+                            ).dict(),
                         )
                     )
 
@@ -191,8 +198,8 @@ class FastAPIAgentServer(BaseAgentServer):
     async def get_description(self) -> str:
         return self.description
 
-    async def create_task(self, input: str) -> _Task:
-        task = self.agent.create_task(input)
+    async def create_task(self, task_def: TaskDefinition) -> _Task:
+        task = self.agent.create_task(task_def.input, task_id=task_def.task_id)
 
         return _Task.from_task(task)
 
