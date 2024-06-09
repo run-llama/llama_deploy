@@ -73,9 +73,9 @@ async def test_simple_publish_consumer() -> None:
     await mq.register_consumer(consumer_two)
 
     # Act
-    await mq.publish(QueueMessage(id_="1"))
-    await mq.publish(QueueMessage(id_="2", type="two"))
-    await mq.publish(QueueMessage(id_="3", type="two"))
+    await mq.publish(QueueMessage(source_id="test", id_="1"))
+    await mq.publish(QueueMessage(source_id="test", id_="2", type="two"))
+    await mq.publish(QueueMessage(source_id="test", id_="3", type="two"))
 
     # Give some time for last message to get published and sent to consumers
     await asyncio.sleep(0.5)
