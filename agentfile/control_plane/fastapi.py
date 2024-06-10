@@ -1,3 +1,4 @@
+import uuid
 import uvicorn
 from fastapi import FastAPI
 from typing import Any, Callable, Dict, Optional
@@ -61,7 +62,8 @@ class FastAPIControlPlane(BaseControlPlane):
         self.active_flows_store_key = active_flows_store_key
         self.tasks_store_key = tasks_store_key
 
-        self.message_queue = message_queue
+        self._message_queue = message_queue
+        self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
 
         self.app = FastAPI()
         self.app.add_api_route("/", self.home, methods=["GET"], tags=["Control Plane"])
@@ -89,6 +91,14 @@ class FastAPIControlPlane(BaseControlPlane):
         self.app.add_api_route(
             "/tasks/{task_id}", self.get_task_state, methods=["GET"], tags=["Tasks"]
         )
+
+    @property
+    def message_queue(self) -> BaseMessageQueue:
+        return self._message_queue
+
+    @property
+    def publisher_id(self) -> str:
+        return self._publisher_id
 
     def get_consumer(self) -> BaseMessageQueueConsumer:
         return ControlPlaneMessageConsumer(
@@ -155,9 +165,9 @@ class FastAPIControlPlane(BaseControlPlane):
         all_agents = await self.state_store.aget_all(collection=self.agents_store_key)
         agent_id = task_def.agent_id or list(all_agents.keys())[0]
 
-        await self.message_queue.publish(
+        await self.publish(
             QueueMessage(
-                source_id=self.id_,
+                source_id=self.publisher_id,
                 type=agent_id,
                 data=task_def.model_dump(),
                 action=ActionTypes.NEW_TASK,
@@ -174,9 +184,9 @@ class FastAPIControlPlane(BaseControlPlane):
             task_result.task_id, collection=self.tasks_store_key
         )
 
-        await self.message_queue.publish(
+        await self.publish(
             QueueMessage(
-                source_id=self.id_,
+                source_id=self.publisher_id,
                 type="human",
                 action=ActionTypes.COMPLETED_TASK,
                 data=task_result.result,

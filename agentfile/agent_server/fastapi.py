@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
@@ -57,10 +58,11 @@ class FastAPIAgentServer(BaseAgentServer):
             agent_id=agent_id, description=description
         )
         self.agent = agent
-        self.message_queue = message_queue
+        self._message_queue = message_queue
         self.description = description
         self.running = running
         self.step_interval = step_interval
+        self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
 
         self.app = FastAPI(lifespan=self.lifespan)
 
@@ -126,6 +128,14 @@ class FastAPIAgentServer(BaseAgentServer):
     def agent_definition(self) -> AgentDefinition:
         return self._agent_definition
 
+    @property
+    def message_queue(self) -> BaseMessageQueue:
+        return self._message_queue
+
+    @property
+    def publisher_id(self) -> str:
+        return self._publisher_id
+
     @asynccontextmanager
     async def lifespan(self, app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("Starting up")
@@ -175,9 +185,9 @@ class FastAPIAgentServer(BaseAgentServer):
                     response = self.agent.finalize_response(
                         task_id, step_output=step_output
                     )
-                    await self.message_queue.publish(
+                    await self.publish(
                         QueueMessage(
-                            source_id=self.id_,
+                            source_id=self.publisher_id,
                             type="control_plane",
                             action=ActionTypes.COMPLETED_TASK,
                             data=TaskResult(
