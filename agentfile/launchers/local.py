@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 from typing import Any, Callable, Dict, List, Optional
 
 from agentfile.agent_server.base import BaseAgentServer
@@ -32,7 +33,16 @@ class LocalLauncher(MessageQueuePublisherMixin):
     ) -> None:
         self.agent_servers = agent_servers
         self.control_plane = control_plane
-        self.message_queue = message_queue
+        self._message_queue = message_queue
+        self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
+
+    @property
+    def message_queue(self) -> SimpleMessageQueue:
+        return self._message_queue
+
+    @property
+    def publisher_id(self) -> str:
+        return self._publisher_id
 
     async def handle_human_message(self, **kwargs: Any) -> None:
         print("Got response:\n", str(kwargs), flush=True)
@@ -63,9 +73,9 @@ class LocalLauncher(MessageQueuePublisherMixin):
         await self.register_consumers([human_consumer])
 
         # publish initial task
-        await self.message_queue.publish(
+        await self.publish(
             QueueMessage(
-                source_id=self.id_,
+                source_id=self.publisher_id,
                 type="control_plane",
                 action=ActionTypes.NEW_TASK,
                 data=TaskDefinition(input=initial_task).model_dump(),
