@@ -7,6 +7,7 @@ from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.messages.base import QueueMessage
 from agentfile.types import ActionTypes, TaskDefinition
+from agentfile.message_publishers.publisher import MessageQueuePublisherMixin
 
 
 class HumanMessageConsumer(BaseMessageQueueConsumer):
@@ -22,7 +23,7 @@ class HumanMessageConsumer(BaseMessageQueueConsumer):
             await self.message_handler[action](result=message.data)
 
 
-class LocalLauncher:
+class LocalLauncher(MessageQueuePublisherMixin):
     def __init__(
         self,
         agent_servers: List[BaseAgentServer],
@@ -64,6 +65,7 @@ class LocalLauncher:
         # publish initial task
         await self.message_queue.publish(
             QueueMessage(
+                source_id=self.id_,
                 type="control_plane",
                 action=ActionTypes.NEW_TASK,
                 data=TaskDefinition(input=initial_task).model_dump(),

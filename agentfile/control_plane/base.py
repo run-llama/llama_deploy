@@ -10,9 +10,10 @@ from abc import ABC, abstractmethod
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.types import AgentDefinition, FlowDefinition, TaskDefinition, TaskResult
+from agentfile.message_publishers.publisher import MessageQueuePublisherMixin
 
 
-class BaseControlPlane(ABC):
+class BaseControlPlane(MessageQueuePublisherMixin, ABC):
     @abstractmethod
     def get_consumer(self) -> BaseMessageQueueConsumer:
         """
