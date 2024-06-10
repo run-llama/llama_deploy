@@ -1,16 +1,33 @@
 """Message queue module."""
 
+import inspect
 from abc import ABC, abstractmethod
-from typing import Any, List, Protocol, TYPE_CHECKING
+from typing import Any, List, Optional, Protocol, TYPE_CHECKING
 from llama_index.core.bridge.pydantic import BaseModel
 from agentfile.messages.base import QueueMessage
 
 if TYPE_CHECKING:
     from agentfile.message_consumers.base import BaseMessageQueueConsumer
 
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logging.basicConfig(level=logging.INFO)
+
 
 class MessageProcessor(Protocol):
     """Protocol for a callable that processes messages."""
+
+    def __call__(self, message: QueueMessage, **kwargs: Any) -> None:
+        ...
+
+
+class PublishCallback(Protocol):
+    """Protocol for a callable that processes messages.
+
+    TODO: Variant for Async Publish Callback.
+    """
 
     def __call__(self, message: QueueMessage, **kwargs: Any) -> None:
         ...
@@ -27,9 +44,21 @@ class BaseMessageQueue(BaseModel, ABC):
         """Subclasses implement publish logic here."""
         ...
 
-    async def publish(self, message: QueueMessage, **kwargs: Any) -> Any:
+    async def publish(
+        self,
+        message: QueueMessage,
+        callback: Optional[PublishCallback] = None,
+        **kwargs: Any
+    ) -> Any:
         """Send message to a consumer."""
+        logger.info("Publishing message: " + str(message))
         await self._publish(message, **kwargs)
+
+        if callback:
+            if inspect.iscoroutinefunction(callback):
+                await callback(message, **kwargs)
+            else:
+                callback(message, **kwargs)
 
     @abstractmethod
     async def register_consumer(
