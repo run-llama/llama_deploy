@@ -24,7 +24,10 @@ class MessageProcessor(Protocol):
 
 
 class PublishCallback(Protocol):
-    """Protocol for a callable that processes messages."""
+    """Protocol for a callable that processes messages.
+
+    TODO: Variant for Async Publish Callback.
+    """
 
     def __call__(self, message: QueueMessage, **kwargs: Any) -> None:
         ...
