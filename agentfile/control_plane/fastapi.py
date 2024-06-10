@@ -174,7 +174,7 @@ class FastAPIControlPlane(BaseControlPlane):
 
         # could also route based on similarity alone.
         # TODO: Figure out user-specified routing
-        agent_def_dicts: List[dict] = agent_retriever.retrieve(task_def.input)
+        agent_def_dicts: List[dict] = await agent_retriever.aretrieve(task_def.input)
         agent_defs = [
             AgentDefinition.parse_obj(agent_def_dict)
             for agent_def_dict in agent_def_dicts
@@ -208,18 +208,60 @@ class FastAPIControlPlane(BaseControlPlane):
         self,
         task_result: TaskResult,
     ) -> None:
-        # TODO: figure out logic for deciding what to do next
-        # by default, assume done (return to user?)
-        # TaskResult has chat history to help with next decision
-        await self.state_store.adelete(
-            task_result.task_id, collection=self.tasks_store_key
-        )
+        agent_retriever = self.object_index.as_retriever(similarity_top_k=5)
 
-        await self.message_queue.publish(
-            QueueMessage(
-                type="human", action=ActionTypes.COMPLETED_TASK, data=task_result.result
+        # could also route based on similarity alone.
+        # TODO: Figure out user-specified routing
+        task = await self.get_task_state(task_result.task_id)
+        agent_def_dicts: List[dict] = await agent_retriever.aretrieve(task.input)
+        agent_defs = [
+            AgentDefinition.parse_obj(agent_def_dict)
+            for agent_def_dict in agent_def_dicts
+        ]
+
+        agent_def_metadata = [
+            ToolMetadata(
+                description=agent_def.description,
+                name=agent_def.agent_id,
+            )
+            for agent_def in agent_defs
+        ]
+        agent_def_metadata.append(
+            ToolMetadata(
+                description="The task is complete, send it to the user for review.",
+                name="human",
             )
         )
+
+        selector = PydanticMultiSelector.from_defaults(
+            llm=self.llm,
+        )
+        select_text = "Please select the next agent to handle the task based on the given history:\n"
+        select_text += "\n".join([str(x) for x in task_result.history])
+        result = await selector.aselect(agent_def_metadata, select_text)
+        selected_result = agent_def_metadata[result.inds[0]]
+        if selected_result.name == "human":
+            await self.state_store.adelete(
+                task_result.task_id, collection=self.tasks_store_key
+            )
+
+            await self.message_queue.publish(
+                QueueMessage(
+                    type="human",
+                    action=ActionTypes.COMPLETED_TASK,
+                    data=task_result.result,
+                )
+            )
+        else:
+            # forward to the next agent
+            # TODO: we should have rewritten the task to include the history
+            await self.message_queue.publish(
+                QueueMessage(
+                    type=selected_result.name,
+                    action=ActionTypes.NEW_TASK,
+                    data=task.dict(),
+                )
+            )
 
     async def get_next_agent(self, task_id: str) -> str:
         return ""
