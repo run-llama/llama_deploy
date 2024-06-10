@@ -26,8 +26,8 @@ async def test_consumer_consumes_messages() -> None:
     # Act
     await consumer_one.start_consuming(message_queue=mq)
     await asyncio.sleep(0.1)
-    await mq.publish(QueueMessage(id_="1"))
-    await mq.publish(QueueMessage(id_="2"))
+    await mq.publish(QueueMessage(source_id="test", id_="1"))
+    await mq.publish(QueueMessage(source_id="test", id_="2"))
 
     # Give some time for last message to get published and sent to consumers
     await asyncio.sleep(0.5)
