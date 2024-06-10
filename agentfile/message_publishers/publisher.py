@@ -1,12 +1,22 @@
-import uuid
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any
+from agentfile.messages.base import QueueMessage
+from agentfile.message_queues.base import BaseMessageQueue
 
 
 class MessageQueuePublisherMixin(ABC):
     """PublisherMixing."""
 
-    def __init__(self, **kwargs: Any):
-        super().__init__(**kwargs)
-        if not hasattr(self, "id_"):
-            self.id_ = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
+    @property
+    @abstractmethod
+    def publisher_id(self) -> str:
+        ...
+
+    @property
+    @abstractmethod
+    def message_queue(self) -> BaseMessageQueue:
+        ...
+
+    async def publish(self, message: QueueMessage, **kwargs: Any) -> Any:
+        """Publish message."""
+        return await self.message_queue.publish(message, **kwargs)
