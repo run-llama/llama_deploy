@@ -9,7 +9,7 @@ from agentfile.types import ActionTypes
 
 class QueueMessage(BaseModel):
     id_: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    publisher_id: str = Field(description="Id of publisher.")
+    publisher_id: str = Field(default="default", description="Id of publisher.")
     data: Optional[Any] = Field(default_factory=None)
     action: Optional[ActionTypes] = None
     type: str = Field(
