@@ -18,7 +18,7 @@ from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.messages.base import QueueMessage
 from agentfile.types import (
     ActionTypes,
-    AgentDefinition,
+    ServiceDefinition,
     FlowDefinition,
     TaskDefinition,
     TaskResult,
@@ -53,7 +53,7 @@ class FastAPIControlPlane(BaseControlPlane):
         llm: Optional[LLM] = None,
         vector_store: Optional[BasePydanticVectorStore] = None,
         state_store: Optional[BaseKVStore] = None,
-        agents_store_key: str = "agents",
+        services_store_key: str = "services",
         flows_store_key: str = "flows",
         active_flows_store_key: str = "active_flows",
         tasks_store_key: str = "tasks",
@@ -72,8 +72,8 @@ class FastAPIControlPlane(BaseControlPlane):
         self.running = running
 
         self.state_store = state_store or SimpleKVStore()
-        # TODO: should we store agents in a tool retriever?
-        self.agents_store_key = agents_store_key
+        # TODO: should we store services in a tool retriever?
+        self.services_store_key = services_store_key
         self.flows_store_key = flows_store_key
         self.active_flows_store_key = active_flows_store_key
         self.tasks_store_key = tasks_store_key
@@ -84,13 +84,16 @@ class FastAPIControlPlane(BaseControlPlane):
         self.app.add_api_route("/", self.home, methods=["GET"], tags=["Control Plane"])
 
         self.app.add_api_route(
-            "/agents/register", self.register_agent, methods=["POST"], tags=["Agents"]
+            "/services/register",
+            self.register_service,
+            methods=["POST"],
+            tags=["Services"],
         )
         self.app.add_api_route(
-            "/agents/deregister",
-            self.deregister_agent,
+            "/services/deregister",
+            self.deregister_service,
             methods=["POST"],
-            tags=["Agents"],
+            tags=["Services"],
         )
 
         self.app.add_api_route(
@@ -107,11 +110,11 @@ class FastAPIControlPlane(BaseControlPlane):
             "/tasks/{task_id}", self.get_task_state, methods=["GET"], tags=["Tasks"]
         )
 
-    def get_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self) -> BaseMessageQueueConsumer:
         return ControlPlaneMessageConsumer(
             message_handler={
                 ActionTypes.NEW_TASK: self.create_task,
-                ActionTypes.COMPLETED_TASK: self.handle_agent_completion,
+                ActionTypes.COMPLETED_TASK: self.handle_service_completion,
             }
         )
 
@@ -122,20 +125,22 @@ class FastAPIControlPlane(BaseControlPlane):
         return {
             "running": str(self.running),
             "step_interval": str(self.step_interval),
-            "agents_store_key": self.agents_store_key,
+            "services_store_key": self.services_store_key,
             "flows_store_key": self.flows_store_key,
             "active_flows_store_key": self.active_flows_store_key,
         }
 
-    async def register_agent(self, agent_def: AgentDefinition) -> None:
+    async def register_service(self, service_def: ServiceDefinition) -> None:
         await self.state_store.aput(
-            agent_def.agent_id, agent_def.dict(), collection=self.agents_store_key
+            service_def.service_name,
+            service_def.dict(),
+            collection=self.services_store_key,
         )
         # TODO: currently blocking, should be async
-        self.object_index.insert_object(agent_def.dict())
+        self.object_index.insert_object(service_def.dict())
 
-    async def deregister_agent(self, agent_id: str) -> None:
-        await self.state_store.adelete(agent_id, collection=self.agents_store_key)
+    async def deregister_service(self, service_name: str) -> None:
+        await self.state_store.adelete(service_name, collection=self.services_store_key)
         # object index does not have delete yet
 
     async def register_flow(self, flow_def: FlowDefinition) -> None:
@@ -151,7 +156,7 @@ class FastAPIControlPlane(BaseControlPlane):
             task_def.task_id, task_def.dict(), collection=self.tasks_store_key
         )
 
-        await self.send_task_to_agent(task_def)
+        await self.send_task_to_service(task_def)
 
     async def get_task_state(self, task_id: str) -> TaskDefinition:
         state_dict = await self.state_store.aget(
@@ -169,101 +174,57 @@ class FastAPIControlPlane(BaseControlPlane):
             for task_id, state_dict in state_dicts.items()
         }
 
-    async def send_task_to_agent(self, task_def: TaskDefinition) -> None:
-        agent_retriever = self.object_index.as_retriever(similarity_top_k=5)
+    async def send_task_to_service(self, task_def: TaskDefinition) -> None:
+        service_retriever = self.object_index.as_retriever(similarity_top_k=5)
 
         # could also route based on similarity alone.
         # TODO: Figure out user-specified routing
-        agent_def_dicts: List[dict] = await agent_retriever.aretrieve(task_def.input)
-        agent_defs = [
-            AgentDefinition.parse_obj(agent_def_dict)
-            for agent_def_dict in agent_def_dicts
+        service_def_dicts: List[dict] = await service_retriever.aretrieve(
+            task_def.input
+        )
+        service_defs = [
+            ServiceDefinition.parse_obj(service_def_dict)
+            for service_def_dict in service_def_dicts
         ]
-        if len(agent_def_dicts) > 1:
+        if len(service_defs) > 1:
             selector = PydanticMultiSelector.from_defaults(
                 llm=self.llm,
             )
-            agent_def_metadata = [
+            service_def_metadata = [
                 ToolMetadata(
-                    description=agent_def.description,
-                    name=agent_def.agent_id,
+                    description=service_def.description,
+                    name=service_def.service_name,
                 )
-                for agent_def in agent_defs
+                for service_def in service_defs
             ]
-            result = await selector.aselect(agent_def_metadata, task_def.input)
+            result = await selector.aselect(service_def_metadata, task_def.input)
 
-            selected_agent_id = agent_defs[result.inds[0]].agent_id
+            selected_service_name = service_defs[result.inds[0]].service_name
         else:
-            selected_agent_id = agent_defs[0].agent_id
+            selected_service_name = service_defs[0].service_name
 
         await self.message_queue.publish(
             QueueMessage(
-                type=selected_agent_id,
+                type=selected_service_name,
                 data=task_def.dict(),
                 action=ActionTypes.NEW_TASK,
             )
         )
 
-    async def handle_agent_completion(
+    async def handle_service_completion(
         self,
         task_result: TaskResult,
     ) -> None:
-        agent_retriever = self.object_index.as_retriever(similarity_top_k=5)
-
-        # could also route based on similarity alone.
-        # TODO: Figure out user-specified routing
-        task = await self.get_task_state(task_result.task_id)
-        agent_def_dicts: List[dict] = await agent_retriever.aretrieve(task.input)
-        agent_defs = [
-            AgentDefinition.parse_obj(agent_def_dict)
-            for agent_def_dict in agent_def_dicts
-        ]
-
-        agent_def_metadata = [
-            ToolMetadata(
-                description=agent_def.description,
-                name=agent_def.agent_id,
-            )
-            for agent_def in agent_defs
-        ]
-        agent_def_metadata.append(
-            ToolMetadata(
-                description="The task is complete, send it to the user for review.",
-                name="human",
+        # TODO: figure out how to route to the next service
+        await self.message_queue.publish(
+            QueueMessage(
+                type="human",
+                action=ActionTypes.COMPLETED_TASK,
+                data=task_result.result,
             )
         )
 
-        selector = PydanticMultiSelector.from_defaults(
-            llm=self.llm,
-        )
-        select_text = "Please select the next agent to handle the task based on the given history:\n"
-        select_text += "\n".join([str(x) for x in task_result.history])
-        result = await selector.aselect(agent_def_metadata, select_text)
-        selected_result = agent_def_metadata[result.inds[0]]
-        if selected_result.name == "human":
-            await self.state_store.adelete(
-                task_result.task_id, collection=self.tasks_store_key
-            )
-
-            await self.message_queue.publish(
-                QueueMessage(
-                    type="human",
-                    action=ActionTypes.COMPLETED_TASK,
-                    data=task_result.result,
-                )
-            )
-        else:
-            # forward to the next agent
-            # TODO: we should have rewritten the task to include the history
-            await self.message_queue.publish(
-                QueueMessage(
-                    type=selected_result.name,
-                    action=ActionTypes.NEW_TASK,
-                    data=task.dict(),
-                )
-            )
-
-    async def get_next_agent(self, task_id: str) -> str:
+    async def get_next_service(self, task_id: str) -> str:
         return ""
 
     async def request_user_input(self, task_id: str, message: str) -> None:

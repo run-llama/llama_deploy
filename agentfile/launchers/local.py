@@ -1,7 +1,7 @@
 import asyncio
 from typing import Any, Callable, Dict, List, Optional
 
-from agentfile.agent_server.base import BaseAgentServer
+from agentfile.services.base import BaseService
 from agentfile.control_plane.base import BaseControlPlane
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_queues.simple import SimpleMessageQueue
@@ -25,11 +25,11 @@ class HumanMessageConsumer(BaseMessageQueueConsumer):
 class LocalLauncher:
     def __init__(
         self,
-        agent_servers: List[BaseAgentServer],
+        services: List[BaseService],
         control_plane: BaseControlPlane,
         message_queue: SimpleMessageQueue,
     ) -> None:
-        self.agent_servers = agent_servers
+        self.services = services
         self.control_plane = control_plane
         self.message_queue = message_queue
 
@@ -40,14 +40,14 @@ class LocalLauncher:
     async def register_consumers(
         self, consumers: Optional[List[BaseMessageQueueConsumer]] = None
     ) -> None:
-        for agent_server in self.agent_servers:
-            await self.message_queue.register_consumer(agent_server.get_consumer())
+        for service in self.services:
+            await self.message_queue.register_consumer(service.as_consumer())
 
         consumers = consumers or []
         for consumer in consumers:
             await self.message_queue.register_consumer(consumer)
 
-        await self.message_queue.register_consumer(self.control_plane.get_consumer())
+        await self.message_queue.register_consumer(self.control_plane.as_consumer())
 
     def launch_single(self, initial_task: str) -> None:
         asyncio.run(self.alaunch_single(initial_task))
@@ -70,13 +70,13 @@ class LocalLauncher:
             )
         )
 
-        # register each agent to the control plane
-        for agent_server in self.agent_servers:
-            await self.control_plane.register_agent(agent_server.agent_definition)
+        # register each service to the control plane
+        for service in self.services:
+            await self.control_plane.register_service(service.service_definition)
 
-        # start agents
-        for agent_server in self.agent_servers:
-            asyncio.create_task(agent_server.start_processing_loop())
+        # start services
+        for service in self.services:
+            asyncio.create_task(service.launch_local())
 
         # runs until the message queue is stopped by the human consumer
         await self.message_queue.start()
