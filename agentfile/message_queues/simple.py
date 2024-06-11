@@ -64,7 +64,9 @@ class SimpleMessageQueue(BaseMessageQueue):
                     message: QueueMessage = queue.popleft()
                     message.stats.process_start_time = message.stats.timestamp_str()
                     await self._publish_to_consumer(message)
-                    message.stats.process_end_time = message.stats.timestamp_str()
+                    message.stats.process_end_time = (
+                        message.stats.timestamp_str()
+                    )  # TODO dedicated ack
             await asyncio.sleep(0.1)
 
     async def register_consumer(
