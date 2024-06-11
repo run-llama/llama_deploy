@@ -1,12 +1,15 @@
 import asyncio
+import uuid
 from typing import Any, Callable, Dict, List, Optional
 
 from agentfile.agent_server.base import BaseAgentServer
 from agentfile.control_plane.base import BaseControlPlane
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_queues.simple import SimpleMessageQueue
+from agentfile.message_queues.base import PublishCallback
 from agentfile.messages.base import QueueMessage
 from agentfile.types import ActionTypes, TaskDefinition
+from agentfile.message_publishers.publisher import MessageQueuePublisherMixin
 
 
 class HumanMessageConsumer(BaseMessageQueueConsumer):
@@ -19,23 +22,41 @@ class HumanMessageConsumer(BaseMessageQueueConsumer):
             raise ValueError(f"Action {action} not supported by control plane")
 
         if action == ActionTypes.COMPLETED_TASK:
-            await self.message_handler[action](result=message.data)
+            await self.message_handler[action](message_data=message.data)
 
 
-class LocalLauncher:
+class LocalLauncher(MessageQueuePublisherMixin):
     def __init__(
         self,
         agent_servers: List[BaseAgentServer],
         control_plane: BaseControlPlane,
         message_queue: SimpleMessageQueue,
+        publish_callback: Optional[PublishCallback] = None,
     ) -> None:
         self.agent_servers = agent_servers
         self.control_plane = control_plane
-        self.message_queue = message_queue
+        self._message_queue = message_queue
+        self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
+        self._publish_callback = publish_callback
+
+    @property
+    def message_queue(self) -> SimpleMessageQueue:
+        return self._message_queue
+
+    @property
+    def publisher_id(self) -> str:
+        return self._publisher_id
+
+    @property
+    def publish_callback(self) -> Optional[PublishCallback]:
+        return self._publish_callback
 
     async def handle_human_message(self, **kwargs: Any) -> None:
-        print("Got response:\n", str(kwargs), flush=True)
-        self.message_queue.running = False
+        message_data = kwargs["message_data"]
+        result = (
+            message_data["result"] if "result" in message_data else str(message_data)
+        )
+        print("Got response:\n", result, flush=True)
 
     async def register_consumers(
         self, consumers: Optional[List[BaseMessageQueueConsumer]] = None
@@ -62,12 +83,14 @@ class LocalLauncher:
         await self.register_consumers([human_consumer])
 
         # publish initial task
-        await self.message_queue.publish(
+        await self.publish(
             QueueMessage(
+                publisher_id=self.publisher_id,
                 type="control_plane",
                 action=ActionTypes.NEW_TASK,
                 data=TaskDefinition(input=initial_task).dict(),
-            )
+            ),
+            callback=self.publish_callback,
         )
 
         # register each agent to the control plane

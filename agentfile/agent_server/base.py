@@ -3,10 +3,11 @@ from typing import Dict, List
 
 from agentfile.agent_server.types import _Task, _TaskSate, _TaskStep, _TaskStepOutput
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
+from agentfile.message_publishers.publisher import MessageQueuePublisherMixin
 from agentfile.types import AgentDefinition, TaskDefinition
 
 
-class BaseAgentServer(ABC):
+class BaseAgentServer(MessageQueuePublisherMixin, ABC):
     @property
     @abstractmethod
     def agent_definition(self) -> AgentDefinition:
