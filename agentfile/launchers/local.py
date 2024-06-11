@@ -85,12 +85,10 @@ class LocalLauncher(MessageQueuePublisherMixin):
         # publish initial task
         await self.publish(
             QueueMessage(
-                publisher_id=self.publisher_id,
                 type="control_plane",
                 action=ActionTypes.NEW_TASK,
                 data=TaskDefinition(input=initial_task).dict(),
             ),
-            callback=self.publish_callback,
         )
 
         # register each service to the control plane

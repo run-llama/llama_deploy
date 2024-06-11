@@ -40,7 +40,10 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
 
     async def publish(self, message: QueueMessage, **kwargs: Any) -> None:
         """Publish a message to another service."""
-        await self.message_queue.publish(message, **kwargs)
+        message.publisher_id = self.publisher_id
+        await self.message_queue.publish(
+            message, callback=self.publish_callback, **kwargs
+        )
 
     @abstractmethod
     async def launch_local(self) -> None:
