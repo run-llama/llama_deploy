@@ -4,16 +4,15 @@ from typing import Any
 from llama_index.core.bridge.pydantic import BaseModel
 
 from agentfile.messages.base import QueueMessage
-from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
+from agentfile.message_publishers.publisher import MessageQueuePublisherMixin
 from agentfile.types import ServiceDefinition
 
 
-class BaseService(ABC, BaseModel):
+class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
     """Base class for a service."""
 
     service_name: str
-    message_queue: BaseMessageQueue
 
     class Config:
         arbitrary_types_allowed = True

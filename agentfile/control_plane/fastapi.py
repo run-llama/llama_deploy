@@ -1,3 +1,4 @@
+import uuid
 import uvicorn
 from fastapi import FastAPI
 from typing import Any, Callable, Dict, List, Optional
@@ -14,7 +15,7 @@ from llama_index.core.vector_stores.types import BasePydanticVectorStore
 
 from agentfile.control_plane.base import BaseControlPlane
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
-from agentfile.message_queues.base import BaseMessageQueue
+from agentfile.message_queues.base import BaseMessageQueue, PublishCallback
 from agentfile.messages.base import QueueMessage
 from agentfile.types import (
     ActionTypes,
@@ -52,6 +53,7 @@ class FastAPIControlPlane(BaseControlPlane):
         message_queue: BaseMessageQueue,
         llm: Optional[LLM] = None,
         vector_store: Optional[BasePydanticVectorStore] = None,
+        publish_callback: Optional[PublishCallback] = None,
         state_store: Optional[BaseKVStore] = None,
         services_store_key: str = "services",
         flows_store_key: str = "flows",
@@ -78,7 +80,9 @@ class FastAPIControlPlane(BaseControlPlane):
         self.active_flows_store_key = active_flows_store_key
         self.tasks_store_key = tasks_store_key
 
-        self.message_queue = message_queue
+        self._message_queue = message_queue
+        self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
+        self._publish_callback = publish_callback
 
         self.app = FastAPI()
         self.app.add_api_route("/", self.home, methods=["GET"], tags=["Control Plane"])
@@ -109,6 +113,18 @@ class FastAPIControlPlane(BaseControlPlane):
         self.app.add_api_route(
             "/tasks/{task_id}", self.get_task_state, methods=["GET"], tags=["Tasks"]
         )
+
+    @property
+    def message_queue(self) -> BaseMessageQueue:
+        return self._message_queue
+
+    @property
+    def publisher_id(self) -> str:
+        return self._publisher_id
+
+    @property
+    def publish_callback(self) -> Optional[PublishCallback]:
+        return self._publish_callback
 
     def as_consumer(self) -> BaseMessageQueueConsumer:
         return ControlPlaneMessageConsumer(
@@ -203,12 +219,12 @@ class FastAPIControlPlane(BaseControlPlane):
         else:
             selected_service_name = service_defs[0].service_name
 
-        await self.message_queue.publish(
+        await self.publish(
             QueueMessage(
                 type=selected_service_name,
                 data=task_def.dict(),
                 action=ActionTypes.NEW_TASK,
-            )
+            ),
         )
 
     async def handle_service_completion(
@@ -216,7 +232,7 @@ class FastAPIControlPlane(BaseControlPlane):
         task_result: TaskResult,
     ) -> None:
         # TODO: figure out how to route to the next service
-        await self.message_queue.publish(
+        await self.publish(
             QueueMessage(
                 type="human",
                 action=ActionTypes.COMPLETED_TASK,

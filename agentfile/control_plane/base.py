@@ -9,6 +9,7 @@ What does the processing loop for the control plane look like?
 from abc import ABC, abstractmethod
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
+from agentfile.message_publishers.publisher import MessageQueuePublisherMixin
 from agentfile.types import (
     ServiceDefinition,
     FlowDefinition,
@@ -17,7 +18,7 @@ from agentfile.types import (
 )
 
 
-class BaseControlPlane(ABC):
+class BaseControlPlane(MessageQueuePublisherMixin, ABC):
     @abstractmethod
     def as_consumer(self) -> BaseMessageQueueConsumer:
         """

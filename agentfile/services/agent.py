@@ -1,4 +1,5 @@
 import asyncio
+import uuid
 import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -10,6 +11,7 @@ from llama_index.core.llms import ChatMessage
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.callable import CallableMessageConsumer
+from agentfile.message_publishers.publisher import PublishCallback
 from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.messages.base import QueueMessage
 from agentfile.services.base import BaseService
@@ -25,14 +27,16 @@ from agentfile.types import (
 
 class AgentService(BaseService):
     service_name: str
-    message_queue: BaseMessageQueue
     agent: AgentRunner
     description: str = "Local Agent Service."
     prompt: Optional[List[ChatMessage]] = None
     running: bool = True
     step_interval: float = 0.1
 
+    _message_queue: BaseMessageQueue = PrivateAttr()
     _app: FastAPI = PrivateAttr()
+    _publisher_id: str = PrivateAttr()
+    _publish_callback: Optional[PublishCallback] = PrivateAttr()
 
     def __init__(
         self,
@@ -42,11 +46,11 @@ class AgentService(BaseService):
         description: str = "Agent Server",
         service_name: str = "default_agent",
         prompt: Optional[List[ChatMessage]] = None,
+        publish_callback: Optional[PublishCallback] = None,
         step_interval: float = 0.1,
     ) -> None:
         super().__init__(
             agent=agent,
-            message_queue=message_queue,
             running=running,
             description=description,
             service_name=service_name,
@@ -54,6 +58,9 @@ class AgentService(BaseService):
             prompt=prompt,
         )
 
+        self._message_queue = message_queue
+        self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
+        self._publish_callback = publish_callback
         self._app = FastAPI(lifespan=self.lifespan)
 
         self._app.add_api_route("/", self.home, methods=["GET"], tags=["Agent State"])
@@ -88,6 +95,18 @@ class AgentService(BaseService):
             description=self.description,
             prompt=self.prompt or [],
         )
+
+    @property
+    def message_queue(self) -> BaseMessageQueue:
+        return self._message_queue
+
+    @property
+    def publisher_id(self) -> str:
+        return self._publisher_id
+
+    @property
+    def publish_callback(self) -> Optional[PublishCallback]:
+        return self._publish_callback
 
     async def processing_loop(self) -> None:
         while True:
