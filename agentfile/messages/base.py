@@ -1,10 +1,21 @@
 """Base Message."""
 
 import uuid
+from datetime import datetime
 from typing import Any, Optional
 from llama_index.core.bridge.pydantic import BaseModel, Field
 
 from agentfile.types import ActionTypes
+
+
+class QueueMessageStats(BaseModel):
+    publish_time: Optional[str] = Field(default=None)
+    process_start_time: Optional[str] = Field(default=None)
+    process_end_time: Optional[str] = Field(default=None)
+
+    @staticmethod
+    def timestamp_str(format: str = "%Y-%m-%d %H:%M:%S") -> str:
+        return datetime.now().strftime(format)
 
 
 class QueueMessage(BaseModel):
@@ -12,6 +23,7 @@ class QueueMessage(BaseModel):
     publisher_id: str = Field(description="Id of publisher.")
     data: Optional[Any] = Field(default_factory=None)
     action: Optional[ActionTypes] = None
+    stats: QueueMessageStats = Field(default_factory=QueueMessageStats)
     type: str = Field(
         default="default", description="Type of the message, used for routing."
     )
