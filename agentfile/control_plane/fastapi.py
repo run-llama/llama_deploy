@@ -168,6 +168,15 @@ class FastAPIControlPlane(BaseControlPlane):
         await self.state_store.adelete(flow_id, collection=self.flows_store_key)
 
     async def create_task(self, task_def: TaskDefinition) -> None:
+        """
+        TODO:
+
+        Ideally, this would
+        - get/create state for the task
+        - call orchestrator.get_next_messages(task_def, state)
+        - publish messages to the next services
+        """
+
         await self.state_store.aput(
             task_def.task_id, task_def.dict(), collection=self.tasks_store_key
         )
@@ -231,7 +240,16 @@ class FastAPIControlPlane(BaseControlPlane):
         self,
         task_result: TaskResult,
     ) -> None:
-        # TODO: figure out how to route to the next service
+        """
+        TODO:
+
+        Ideally, this would
+        - get state for the task
+        - call orchestrator.add_result_to_state(state, task_result)
+        - call orchestrator.get_next_messages(task_def, state)
+        - publish messages to the next services (if any)
+        - if no more, send result to human and remove task from control plane
+        """
         await self.publish(
             QueueMessage(
                 type="human",
