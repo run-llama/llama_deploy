@@ -3,19 +3,24 @@ What does the processing loop for the control plane look like?
 - check message queue
 - handle incoming new tasks
 - handle incoming general chats
-- handle agents returning a completed task
+- handle services returning a completed task
 """
 
 from abc import ABC, abstractmethod
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
-from agentfile.types import AgentDefinition, FlowDefinition, TaskDefinition, TaskResult
 from agentfile.message_publishers.publisher import MessageQueuePublisherMixin
+from agentfile.types import (
+    ServiceDefinition,
+    FlowDefinition,
+    TaskDefinition,
+    TaskResult,
+)
 
 
 class BaseControlPlane(MessageQueuePublisherMixin, ABC):
     @abstractmethod
-    def get_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self) -> BaseMessageQueueConsumer:
         """
         Get the consumer for the message queue.
 
@@ -24,20 +29,20 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         ...
 
     @abstractmethod
-    async def register_agent(self, agent_def: AgentDefinition) -> None:
+    async def register_service(self, service_def: ServiceDefinition) -> None:
         """
-        Register an agent with the control plane.
+        Register an service with the control plane.
 
-        :param agent_def: Definition of the agent.
+        :param service_def: Definition of the service.
         """
         ...
 
     @abstractmethod
-    async def deregister_agent(self, agent_id: str) -> None:
+    async def deregister_service(self, service_name: str) -> None:
         """
-        Deregister an agent from the control plane.
+        Deregister a service from the control plane.
 
-        :param agent_id: Unique identifier of the agent.
+        :param service_name: Unique identifier of the service.
         """
         ...
 
@@ -69,33 +74,33 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         ...
 
     @abstractmethod
-    async def send_task_to_agent(self, task_def: TaskDefinition) -> None:
+    async def send_task_to_service(self, task_def: TaskDefinition) -> None:
         """
-        Send a task to an agent.
+        Send a task to an service.
 
         :param task_def: Definition of the task.
         """
         ...
 
     @abstractmethod
-    async def handle_agent_completion(
+    async def handle_service_completion(
         self,
         task_result: TaskResult,
     ) -> None:
         """
-        Handle the completion of a task by an agent.
+        Handle the completion of a task by an service.
 
         :param task_result: Result of the task.
         """
         ...
 
     @abstractmethod
-    async def get_next_agent(self, task_id: str) -> str:
+    async def get_next_service(self, task_id: str) -> str:
         """
-        Get the next agent for a task.
+        Get the next service for a task.
 
         :param task_id: Unique identifier of the task.
-        :return: Unique identifier of the next agent.
+        :return: Unique identifier of the next service.
         """
         ...
 
