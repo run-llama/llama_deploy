@@ -1,10 +1,17 @@
 import uuid
 import uvicorn
 from fastapi import FastAPI
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, List, Optional
 
+from llama_index.core import StorageContext, VectorStoreIndex
+from llama_index.core.llms import LLM
+from llama_index.core.objects import ObjectIndex, SimpleObjectNodeMapping
 from llama_index.core.storage.kvstore.types import BaseKVStore
 from llama_index.core.storage.kvstore import SimpleKVStore
+from llama_index.core.selectors import PydanticMultiSelector
+from llama_index.core.settings import Settings
+from llama_index.core.tools import ToolMetadata
+from llama_index.core.vector_stores.types import BasePydanticVectorStore
 
 from agentfile.control_plane.base import BaseControlPlane
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
@@ -12,7 +19,7 @@ from agentfile.message_queues.base import BaseMessageQueue, PublishCallback
 from agentfile.messages.base import QueueMessage
 from agentfile.types import (
     ActionTypes,
-    AgentDefinition,
+    ServiceDefinition,
     FlowDefinition,
     TaskDefinition,
     TaskResult,
@@ -44,21 +51,31 @@ class FastAPIControlPlane(BaseControlPlane):
     def __init__(
         self,
         message_queue: BaseMessageQueue,
+        llm: Optional[LLM] = None,
+        vector_store: Optional[BasePydanticVectorStore] = None,
         publish_callback: Optional[PublishCallback] = None,
         state_store: Optional[BaseKVStore] = None,
-        agents_store_key: str = "agents",
+        services_store_key: str = "services",
         flows_store_key: str = "flows",
         active_flows_store_key: str = "active_flows",
         tasks_store_key: str = "tasks",
         step_interval: float = 0.1,
         running: bool = True,
     ) -> None:
+        self.llm = llm or Settings.llm
+        self.object_index = ObjectIndex(
+            VectorStoreIndex(
+                nodes=[],
+                storage_context=StorageContext.from_defaults(vector_store=vector_store),
+            ),
+            SimpleObjectNodeMapping(),
+        )
         self.step_interval = step_interval
         self.running = running
 
         self.state_store = state_store or SimpleKVStore()
-        # TODO: should we store agents in a tool retriever?
-        self.agents_store_key = agents_store_key
+        # TODO: should we store services in a tool retriever?
+        self.services_store_key = services_store_key
         self.flows_store_key = flows_store_key
         self.active_flows_store_key = active_flows_store_key
         self.tasks_store_key = tasks_store_key
@@ -71,13 +88,16 @@ class FastAPIControlPlane(BaseControlPlane):
         self.app.add_api_route("/", self.home, methods=["GET"], tags=["Control Plane"])
 
         self.app.add_api_route(
-            "/agents/register", self.register_agent, methods=["POST"], tags=["Agents"]
+            "/services/register",
+            self.register_service,
+            methods=["POST"],
+            tags=["Services"],
         )
         self.app.add_api_route(
-            "/agents/deregister",
-            self.deregister_agent,
+            "/services/deregister",
+            self.deregister_service,
             methods=["POST"],
-            tags=["Agents"],
+            tags=["Services"],
         )
 
         self.app.add_api_route(
@@ -106,11 +126,11 @@ class FastAPIControlPlane(BaseControlPlane):
     def publish_callback(self) -> Optional[PublishCallback]:
         return self._publish_callback
 
-    def get_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self) -> BaseMessageQueueConsumer:
         return ControlPlaneMessageConsumer(
             message_handler={
                 ActionTypes.NEW_TASK: self.create_task,
-                ActionTypes.COMPLETED_TASK: self.handle_agent_completion,
+                ActionTypes.COMPLETED_TASK: self.handle_service_completion,
             }
         )
 
@@ -121,35 +141,47 @@ class FastAPIControlPlane(BaseControlPlane):
         return {
             "running": str(self.running),
             "step_interval": str(self.step_interval),
-            "agents_store_key": self.agents_store_key,
+            "services_store_key": self.services_store_key,
             "flows_store_key": self.flows_store_key,
             "active_flows_store_key": self.active_flows_store_key,
         }
 
-    async def register_agent(self, agent_def: AgentDefinition) -> None:
+    async def register_service(self, service_def: ServiceDefinition) -> None:
         await self.state_store.aput(
-            agent_def.agent_id, agent_def.model_dump(), collection=self.agents_store_key
+            service_def.service_name,
+            service_def.dict(),
+            collection=self.services_store_key,
         )
+        # TODO: currently blocking, should be async
+        self.object_index.insert_object(service_def.dict())
 
-    async def deregister_agent(self, agent_id: str) -> None:
-        await self.state_store.adelete(agent_id, collection=self.agents_store_key)
+    async def deregister_service(self, service_name: str) -> None:
+        await self.state_store.adelete(service_name, collection=self.services_store_key)
+        # object index does not have delete yet
 
     async def register_flow(self, flow_def: FlowDefinition) -> None:
         await self.state_store.aput(
-            flow_def.flow_id, flow_def.model_dump(), collection=self.flows_store_key
+            flow_def.flow_id, flow_def.dict(), collection=self.flows_store_key
         )
 
     async def deregister_flow(self, flow_id: str) -> None:
         await self.state_store.adelete(flow_id, collection=self.flows_store_key)
 
     async def create_task(self, task_def: TaskDefinition) -> None:
-        # TODO: route task to flows or agent?
-        # Right now assumes task def contains destination agent_id
+        """
+        TODO:
+
+        Ideally, this would
+        - get/create state for the task
+        - call orchestrator.get_next_messages(task_def, state)
+        - publish messages to the next services
+        """
+
         await self.state_store.aput(
-            task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
+            task_def.task_id, task_def.dict(), collection=self.tasks_store_key
         )
 
-        await self.send_task_to_agent(task_def)
+        await self.send_task_to_service(task_def)
 
     async def get_task_state(self, task_id: str) -> TaskDefinition:
         state_dict = await self.state_store.aget(
@@ -158,50 +190,75 @@ class FastAPIControlPlane(BaseControlPlane):
         if state_dict is None:
             raise ValueError(f"Task with id {task_id} not found")
 
-        return TaskDefinition.model_validate(state_dict)
+        return TaskDefinition.parse_obj(state_dict)
 
     async def get_all_tasks(self) -> Dict[str, TaskDefinition]:
         state_dicts = await self.state_store.aget_all(collection=self.tasks_store_key)
         return {
-            task_id: TaskDefinition.model_validate(state_dict)
+            task_id: TaskDefinition.parse_obj(state_dict)
             for task_id, state_dict in state_dicts.items()
         }
 
-    async def send_task_to_agent(self, task_def: TaskDefinition) -> None:
-        all_agents = await self.state_store.aget_all(collection=self.agents_store_key)
-        agent_id = task_def.agent_id or list(all_agents.keys())[0]
+    async def send_task_to_service(self, task_def: TaskDefinition) -> None:
+        service_retriever = self.object_index.as_retriever(similarity_top_k=5)
+
+        # could also route based on similarity alone.
+        # TODO: Figure out user-specified routing
+        service_def_dicts: List[dict] = await service_retriever.aretrieve(
+            task_def.input
+        )
+        service_defs = [
+            ServiceDefinition.parse_obj(service_def_dict)
+            for service_def_dict in service_def_dicts
+        ]
+        if len(service_defs) > 1:
+            selector = PydanticMultiSelector.from_defaults(
+                llm=self.llm,
+            )
+            service_def_metadata = [
+                ToolMetadata(
+                    description=service_def.description,
+                    name=service_def.service_name,
+                )
+                for service_def in service_defs
+            ]
+            result = await selector.aselect(service_def_metadata, task_def.input)
+
+            selected_service_name = service_defs[result.inds[0]].service_name
+        else:
+            selected_service_name = service_defs[0].service_name
 
         await self.publish(
             QueueMessage(
-                publisher_id=self.publisher_id,
-                type=agent_id,
-                data=task_def.model_dump(),
+                type=selected_service_name,
+                data=task_def.dict(),
                 action=ActionTypes.NEW_TASK,
             ),
-            callback=self.publish_callback,
         )
 
-    async def handle_agent_completion(
+    async def handle_service_completion(
         self,
         task_result: TaskResult,
     ) -> None:
-        # TODO: figure out logic for deciding what to do next
-        # by default, assume done (return to user?)
-        await self.state_store.adelete(
-            task_result.task_id, collection=self.tasks_store_key
-        )
+        """
+        TODO:
 
+        Ideally, this would
+        - get state for the task
+        - call orchestrator.add_result_to_state(state, task_result)
+        - call orchestrator.get_next_messages(task_def, state)
+        - publish messages to the next services (if any)
+        - if no more, send result to human and remove task from control plane
+        """
         await self.publish(
             QueueMessage(
-                publisher_id=self.publisher_id,
                 type="human",
                 action=ActionTypes.COMPLETED_TASK,
                 data=task_result.result,
-            ),
-            callback=self.publish_callback,
+            )
         )
 
-    async def get_next_agent(self, task_id: str) -> str:
+    async def get_next_service(self, task_id: str) -> str:
         return ""
 
     async def request_user_input(self, task_id: str, message: str) -> None:

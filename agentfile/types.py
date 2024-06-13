@@ -1,13 +1,16 @@
 import uuid
 from enum import Enum
-from pydantic import BaseModel, Field
 from typing import List, Optional
 
+from llama_index.core.bridge.pydantic import BaseModel, Field
 from llama_index.core.llms import ChatMessage
 
 
 def generate_id() -> str:
     return str(uuid.uuid4())
+
+
+CONTROL_PLANE_NAME = "control_plane"
 
 
 class ActionTypes(str, Enum):
@@ -24,6 +27,7 @@ class TaskDefinition(BaseModel):
 
 class TaskResult(BaseModel):
     task_id: str
+    history: List[ChatMessage]
     result: str
 
 
@@ -31,9 +35,11 @@ class FlowDefinition(BaseModel):
     flow_id: str = Field(default_factory=generate_id)
 
 
-class AgentDefinition(BaseModel):
-    agent_id: str = Field(description="The name of the agent.")
-    description: str = Field(description="A description of the agent and it's purpose.")
+class ServiceDefinition(BaseModel):
+    service_name: str = Field(description="The name of the service.")
+    description: str = Field(
+        description="A description of the service and it's purpose."
+    )
     prompt: List[ChatMessage] = Field(
-        default_factory=list, description="Specific instructions for the agent."
+        default_factory=list, description="Specific instructions for the service."
     )

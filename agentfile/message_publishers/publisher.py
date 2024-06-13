@@ -21,8 +21,9 @@ class MessageQueuePublisherMixin(ABC):
     def publish_callback(self) -> Optional[PublishCallback]:
         return None
 
-    async def publish(
-        self, message: QueueMessage, callback: Optional[PublishCallback], **kwargs: Any
-    ) -> Any:
+    async def publish(self, message: QueueMessage, **kwargs: Any) -> Any:
         """Publish message."""
-        return await self.message_queue.publish(message, callback=callback, **kwargs)
+        message.publisher_id = self.publisher_id
+        return await self.message_queue.publish(
+            message, callback=self.publish_callback, **kwargs
+        )
