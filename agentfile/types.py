@@ -22,6 +22,7 @@ class ActionTypes(str, Enum):
 class TaskDefinition(BaseModel):
     input: str
     task_id: str = Field(default_factory=generate_id)
+    state: dict = Field(default_factory=dict)
     agent_id: Optional[str] = None
 
 
