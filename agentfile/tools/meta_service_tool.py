@@ -180,6 +180,10 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool):
                 is_error=True,
             )
             raise
+        finally:
+            async with self.lock:
+                if tool_call.id_ in self.tool_call_results:
+                    del self.tool_call_results[tool_call.id_]
 
         return ToolOutput(
             content=tool_call_result.result,
