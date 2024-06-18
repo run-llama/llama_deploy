@@ -1,20 +1,17 @@
 import asyncio
 import uuid
+import uvicorn
 from asyncio import Lock
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from llama_index.core.agent.function_calling.step import (
-    build_missing_tool_output,
     get_function_by_name,
 )
 from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.tools import BaseTool, ToolSelection
-from llama_index.core.tools.calling import (
-    acall_tool_with_selection,
-)
+from llama_index.core.tools import BaseTool
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.callable import CallableMessageConsumer
@@ -73,13 +70,11 @@ class ToolService(BaseService):
         self._app.add_api_route("/", self.home, methods=["GET"], tags=["Tool Service"])
 
         self._app.add_api_route(
-            "/tool_call", self.create, methods=["POST"], tags=["Tool"]
+            "/tool_call", self.create_tool_call, methods=["POST"], tags=["Tool Call"]
         )
 
-        self._app.add_api_route("/tool", self.get_tools, methods=["GET"], tags=["Tool"])
-
         self._app.add_api_route(
-            "/tool", self.register_tool, methods=["POST"], tags=["Tool"]
+            "/tool", self.get_tool_by_name, methods=["GET"], tags=["Tool"]
         )
 
     @property
@@ -114,14 +109,11 @@ class ToolService(BaseService):
 
             current_tool_calls = [*self._outstanding_tool_calls]
             for tool_call in current_tool_calls:
-                tool = get_function_by_name(
-                    self.tools, tool_call.tool_selection.tool_name
-                )
+                tool = get_function_by_name(self.tools, tool_call.tool_bundle.tool_name)
 
-                tool_output = await (
-                    acall_tool_with_selection(tool_call.tool_selection, self.tools)
-                    if tool is not None
-                    else build_missing_tool_output(tool_call.tool_selection)
+                tool_output = tool(
+                    *tool_call.tool_bundle.tool_args,
+                    **tool_call.tool_bundle.tool_kwargs,
                 )
 
                 # execute function call
@@ -151,9 +143,9 @@ class ToolService(BaseService):
 
     async def process_message(self, message: QueueMessage, **kwargs: Any) -> None:
         if message.action == ActionTypes.NEW_TOOL_CALL:
-            tool_selection = ToolSelection(**message.data or {})
+            tool_call = ToolCall(**message.data or {})
             async with self.lock:
-                self._outstanding_tool_calls.append(tool_selection)
+                self._outstanding_tool_calls.append(tool_call)
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 
@@ -184,5 +176,15 @@ class ToolService(BaseService):
         }
 
     async def create_tool_call(self, tool_call: ToolCall) -> Dict[str, str]:
-        self._outstanding_tool_calls.append(tool_call)
+        async with self.lock:
+            self._outstanding_tool_calls.append(tool_call)
         return {"tool_call_id": tool_call.id_}
+
+    async def get_tool_by_name(self, name: str) -> Dict[str, Any]:
+        name_to_tool = {tool.metadata.name: tool for tool in self.tools}
+        if name not in name_to_tool:
+            raise ValueError(f"Tool with name {name} not found")
+        return {"tool_metadata": name_to_tool[name].metadata}
+
+    async def launch_server(self) -> None:
+        uvicorn.run(self._app)
