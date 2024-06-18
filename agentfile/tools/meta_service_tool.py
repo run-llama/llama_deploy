@@ -127,9 +127,12 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool):
             handler=self.process_message,
         )
 
-    def call(self, *args: Any, **kwargs: Any) -> ToolOutput:
-        """Call."""
-        return asyncio.run(self.acall(*args, **kwargs))
+    async def purge_old_tool_call_results(self, cutoff_date: str) -> None:
+        """Purge old tool call results.
+
+        TODO: implement this.
+        """
+        pass
 
     async def _poll_for_tool_call_result(self, tool_call_id: str) -> ToolCallResult:
         tool_call_result = None
@@ -143,6 +146,10 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool):
 
             await asyncio.sleep(self.step_interval)
         return tool_call_result
+
+    def call(self, *args: Any, **kwargs: Any) -> ToolOutput:
+        """Call."""
+        return asyncio.run(self.acall(*args, **kwargs))
 
     async def acall(self, *args: Any, **kwargs: Any) -> ToolOutput:
         """Publish a call to the queue.
