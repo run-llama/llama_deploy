@@ -5,9 +5,11 @@ from agentfile.services import ToolService
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.messages.base import QueueMessage
-from agentfile.types import ToolCall, ToolCallBundle
+from agentfile.types import ToolCall, ToolCallBundle, ActionTypes
 from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.tools import FunctionTool, BaseTool
+
+TOOL_CALL_SOURCE = "mock-source"
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
@@ -26,6 +28,19 @@ def tools() -> List[BaseTool]:
         return a * b
 
     return [FunctionTool.from_defaults(fn=multiply)]
+
+
+@pytest.fixture()
+def tool_call() -> ToolCall:
+    tool_bundle = ToolCallBundle(
+        tool_name="multiply", tool_args=[], tool_kwargs={"a": 1, "b": 2}
+    )
+    return ToolCall(tool_call_bundle=tool_bundle, source_id=TOOL_CALL_SOURCE)
+
+
+@pytest.fixture()
+def tool_output_consumer() -> MockMessageConsumer:
+    return MockMessageConsumer(message_type=TOOL_CALL_SOURCE)
 
 
 @pytest.mark.asyncio()
@@ -52,7 +67,7 @@ async def test_init(tools: List[BaseTool]) -> None:
 
 
 @pytest.mark.asyncio()
-async def test_create_tool_call(tools: List[BaseTool]) -> None:
+async def test_create_tool_call(tools: List[BaseTool], tool_call: ToolCall) -> None:
     # arrange
     server = ToolService(
         SimpleMessageQueue(),
@@ -63,10 +78,6 @@ async def test_create_tool_call(tools: List[BaseTool]) -> None:
     )
 
     # act
-    tool_bundle = ToolCallBundle(
-        tool_name="multiply", tool_args=[], tool_kwargs={"a": 1, "b": 2}
-    )
-    tool_call = ToolCall(tool_call_bundle=tool_bundle, source_id="mock-source")
     result = await server.create_tool_call(tool_call)
 
     # assert
@@ -75,7 +86,11 @@ async def test_create_tool_call(tools: List[BaseTool]) -> None:
 
 
 @pytest.mark.asyncio()
-async def test_process_tool_call(tools: List[BaseTool]) -> None:
+async def test_process_tool_call(
+    tools: List[BaseTool],
+    tool_call: ToolCall,
+    tool_output_consumer: MockMessageConsumer,
+) -> None:
     # arrange
     mq = SimpleMessageQueue()
     server = ToolService(
@@ -85,17 +100,12 @@ async def test_process_tool_call(tools: List[BaseTool]) -> None:
         description="Test Tool Server",
         step_interval=0.5,
     )
-    tool_output_consumer = MockMessageConsumer(message_type="mock-source")
     await mq.register_consumer(tool_output_consumer)
 
     mq_task = asyncio.create_task(mq.start())
     server_task = asyncio.create_task(server.processing_loop())
 
     # act
-    tool_bundle = ToolCallBundle(
-        tool_name="multiply", tool_args=[], tool_kwargs={"a": 1, "b": 2}
-    )
-    tool_call = ToolCall(tool_call_bundle=tool_bundle, source_id="mock-source")
     result = await server.create_tool_call(tool_call)
 
     # Give some time for last message to get published and sent to consumers
@@ -106,5 +116,46 @@ async def test_process_tool_call(tools: List[BaseTool]) -> None:
     # assert
     assert server.message_queue == mq
     assert result == {"tool_call_id": tool_call.id_}
+    assert len(tool_output_consumer.processed_messages) == 1
+    assert tool_output_consumer.processed_messages[0].data.get("result") == "2"
+
+
+@pytest.mark.asyncio()
+async def test_process_tool_call_from_queue(
+    tools: List[BaseTool],
+    tool_call: ToolCall,
+    tool_output_consumer: MockMessageConsumer,
+) -> None:
+    # arrange
+    mq = SimpleMessageQueue()
+    server = ToolService(
+        mq,
+        tools=tools,
+        running=True,
+        service_name="test_tool_service",
+        description="Test Tool Server",
+        step_interval=0.5,
+    )
+    await mq.register_consumer(tool_output_consumer)
+    await mq.register_consumer(server.as_consumer())
+
+    mq_task = asyncio.create_task(mq.start())
+    server_task = asyncio.create_task(server.processing_loop())
+
+    # act
+    tool_call_message = QueueMessage(
+        data=tool_call.dict(),
+        action=ActionTypes.NEW_TOOL_CALL,
+        type="test_tool_service",
+    )
+    await mq.publish(tool_call_message)
+
+    # Give some time for last message to get published and sent to consumers
+    await asyncio.sleep(1)
+    mq_task.cancel()
+    server_task.cancel()
+
+    # assert
+    assert server.message_queue == mq
     assert len(tool_output_consumer.processed_messages) == 1
     assert tool_output_consumer.processed_messages[0].data.get("result") == "2"
