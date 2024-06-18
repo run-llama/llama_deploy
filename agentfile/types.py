@@ -1,10 +1,9 @@
 import uuid
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from llama_index.core.bridge.pydantic import BaseModel, Field
 from llama_index.core.llms import ChatMessage
-from llama_index.core.tools import ToolSelection
 
 
 def generate_id() -> str:
@@ -34,9 +33,16 @@ class TaskResult(BaseModel):
     result: str
 
 
+class ToolCallBundle(BaseModel):
+    tool_name: str
+    tool_args: List[Any]
+    tool_kwargs: Dict[str, Any]
+
+
 class ToolCall(BaseModel):
     id_: str = Field(default_factory=generate_id)
-    tool_selection: ToolSelection
+    tool_call_bundle: ToolCallBundle
+    source_id: str
 
 
 class ToolCallResult(BaseModel):

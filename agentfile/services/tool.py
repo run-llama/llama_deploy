@@ -24,7 +24,6 @@ from agentfile.types import (
     ToolCall,
     ToolCallResult,
     ServiceDefinition,
-    CONTROL_PLANE_NAME,
 )
 
 
@@ -35,7 +34,7 @@ class ToolService(BaseService):
     running: bool = True
     step_interval: float = 0.1
 
-    _outstanding_tool_calls: List[ToolCall] = PrivateAttr()
+    _outstanding_tool_calls: Dict[str, ToolCall] = PrivateAttr()
     _message_queue: BaseMessageQueue = PrivateAttr()
     _app: FastAPI = PrivateAttr()
     _publisher_id: str = PrivateAttr()
@@ -60,7 +59,7 @@ class ToolService(BaseService):
             step_interval=step_interval,
         )
 
-        self._outstanding_tool_calls = []
+        self._outstanding_tool_calls = {}
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
@@ -107,13 +106,19 @@ class ToolService(BaseService):
                 await asyncio.sleep(self.step_interval)
                 continue
 
-            current_tool_calls = [*self._outstanding_tool_calls]
+            async with self.lock:
+                current_tool_calls: List[ToolCall] = [
+                    *self._outstanding_tool_calls.values()
+                ]
             for tool_call in current_tool_calls:
-                tool = get_function_by_name(self.tools, tool_call.tool_bundle.tool_name)
+                print(f"processing {tool_call}", flush=True)
+                tool = get_function_by_name(
+                    self.tools, tool_call.tool_call_bundle.tool_name
+                )
 
                 tool_output = tool(
-                    *tool_call.tool_bundle.tool_args,
-                    **tool_call.tool_bundle.tool_kwargs,
+                    *tool_call.tool_call_bundle.tool_args,
+                    **tool_call.tool_call_bundle.tool_kwargs,
                 )
 
                 # execute function call
@@ -121,15 +126,15 @@ class ToolService(BaseService):
                     content=str(tool_output),
                     role=MessageRole.TOOL,
                     additional_kwargs={
-                        "name": tool_call.tool_selection.tool_name,
-                        "tool_call_id": tool_call.tool_selection.tool_id,
+                        "name": tool_call.tool_call_bundle.tool_name,
+                        "tool_call_id": tool_call.id_,
                     },
                 )
 
                 # publish the completed task
                 await self.publish(
                     QueueMessage(
-                        type=CONTROL_PLANE_NAME,
+                        type=tool_call.source_id,
                         action=ActionTypes.COMPLETED_TOOL_CALL,
                         data=ToolCallResult(
                             id_=tool_call.id_,
@@ -139,13 +144,19 @@ class ToolService(BaseService):
                     )
                 )
 
+                # clean up
+                async with self.lock:
+                    del self._outstanding_tool_calls[tool_call.id_]
+
             await asyncio.sleep(self.step_interval)
 
     async def process_message(self, message: QueueMessage, **kwargs: Any) -> None:
         if message.action == ActionTypes.NEW_TOOL_CALL:
-            tool_call = ToolCall(**message.data or {})
+            tool_call_data = {"source_id": message.publisher_id}
+            tool_call_data.update(message.data or {})
+            tool_call = ToolCall(**tool_call_data)
             async with self.lock:
-                self._outstanding_tool_calls.append(tool_call)
+                self._outstanding_tool_calls.update({tool_call.id_: tool_call})
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 
@@ -177,7 +188,7 @@ class ToolService(BaseService):
 
     async def create_tool_call(self, tool_call: ToolCall) -> Dict[str, str]:
         async with self.lock:
-            self._outstanding_tool_calls.append(tool_call)
+            self._outstanding_tool_calls.update({tool_call.id_: tool_call})
         return {"tool_call_id": tool_call.id_}
 
     async def get_tool_by_name(self, name: str) -> Dict[str, Any]:
