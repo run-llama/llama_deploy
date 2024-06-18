@@ -1,5 +1,6 @@
 import asyncio
 import uuid
+from asyncio import Lock
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from typing import Any, AsyncGenerator, Dict, List, Optional
@@ -12,7 +13,7 @@ from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.tools import BaseTool, ToolSelection
 from llama_index.core.tools.calling import (
-    call_tool_with_selection,
+    acall_tool_with_selection,
 )
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
@@ -42,6 +43,7 @@ class ToolService(BaseService):
     _app: FastAPI = PrivateAttr()
     _publisher_id: str = PrivateAttr()
     _publish_callback: Optional[PublishCallback] = PrivateAttr()
+    _lock: Lock = PrivateAttr()
 
     def __init__(
         self,
@@ -65,6 +67,7 @@ class ToolService(BaseService):
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
+        self._lock = asyncio.Lock()
         self._app = FastAPI(lifespan=self.lifespan)
 
         self._app.add_api_route("/", self.home, methods=["GET"], tags=["Tool Service"])
@@ -99,20 +102,24 @@ class ToolService(BaseService):
     def publish_callback(self) -> Optional[PublishCallback]:
         return self._publish_callback
 
+    @property
+    def lock(self) -> Lock:
+        return self._lock
+
     async def processing_loop(self) -> None:
         while True:
             if not self.running:
                 await asyncio.sleep(self.step_interval)
                 continue
 
-            current_tool_calls = self._outstanding_tool_calls
+            current_tool_calls = [*self._outstanding_tool_calls]
             for tool_call in current_tool_calls:
                 tool = get_function_by_name(
                     self.tools, tool_call.tool_selection.tool_name
                 )
 
-                tool_output = (
-                    call_tool_with_selection(tool_call.tool_selection, self.tools)
+                tool_output = await (
+                    acall_tool_with_selection(tool_call.tool_selection, self.tools)
                     if tool is not None
                     else build_missing_tool_output(tool_call.tool_selection)
                 )
@@ -145,7 +152,8 @@ class ToolService(BaseService):
     async def process_message(self, message: QueueMessage, **kwargs: Any) -> None:
         if message.action == ActionTypes.NEW_TOOL_CALL:
             tool_selection = ToolSelection(**message.data or {})
-            self._outstanding_tool_calls.append(tool_selection)  # is this async safe?
+            async with self.lock:
+                self._outstanding_tool_calls.append(tool_selection)
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 
