@@ -67,7 +67,7 @@ async def test_init(
 
 @pytest.mark.asyncio()
 async def test_create_from_tool_service_direct(
-    message_queue: SimpleMessageQueue, tools: List[BaseTool], tool_service: ToolService
+    message_queue: SimpleMessageQueue, tool_service: ToolService
 ) -> None:
     # arrange
 
@@ -127,3 +127,30 @@ async def test_create_from_tool_service_raise_error(
     # act/assert
     with pytest.raises(ValueError):
         await MetaServiceTool.from_tool_service(**from_tool_service_kwargs)
+
+
+@pytest.mark.asyncio()
+async def test_tool_call_output(
+    message_queue: SimpleMessageQueue, tool_service: ToolService
+) -> None:
+    # arrange
+    meta_service_tool: MetaServiceTool = await MetaServiceTool.from_tool_service(
+        tool_service=tool_service, message_queue=message_queue, name="multiply"
+    )
+    await message_queue.register_consumer(meta_service_tool.as_consumer())
+    await message_queue.register_consumer(tool_service.as_consumer())
+    mq_task = asyncio.create_task(message_queue.start())
+    ts_task = asyncio.create_task(tool_service.processing_loop())
+
+    # act
+    tool_output = await meta_service_tool.acall(a=1, b=9)
+
+    # clean-up/shutdown
+    await asyncio.sleep(0.5)
+    mq_task.cancel()
+    ts_task.cancel()
+
+    # assert
+    assert tool_output.content == "9"
+    assert tool_output.tool_name == "multiply"
+    assert tool_output.raw_input == {"args": (), "kwargs": {"a": 1, "b": 9}}

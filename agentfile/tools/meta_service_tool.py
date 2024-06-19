@@ -177,7 +177,7 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         )
         await self.publish(
             QueueMessage(
-                type=self._tool_service_name,
+                type=self.tool_service_name,
                 action=ActionTypes.NEW_TOOL_CALL,
                 data=tool_call.dict(),
             )
