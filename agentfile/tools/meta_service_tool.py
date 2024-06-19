@@ -70,6 +70,8 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         tool_service_api_key: Optional[str] = None,
         tool_service_name: Optional[str] = None,
         publish_callback: Optional[PublishCallback] = None,
+        timeout: float = 10.0,
+        step_interval: float = 0.1,
     ) -> "MetaServiceTool":
         if tool_service is not None:
             res = await tool_service.get_tool_by_name(name)
@@ -82,6 +84,8 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
                 message_queue=message_queue,
                 tool_service_name=tool_service.service_name,
                 publish_callback=publish_callback,
+                timeout=timeout,
+                step_interval=step_interval,
             )
         # TODO by requests
         # make a http request, try to parse into BaseTool

@@ -154,3 +154,28 @@ async def test_tool_call_output(
     assert tool_output.content == "9"
     assert tool_output.tool_name == "multiply"
     assert tool_output.raw_input == {"args": (), "kwargs": {"a": 1, "b": 9}}
+    assert len(meta_service_tool.tool_call_results) == 0
+
+
+@pytest.mark.asyncio()
+async def test_tool_call_timeout(
+    message_queue: SimpleMessageQueue, tool_service: ToolService
+) -> None:
+    # arrange
+    meta_service_tool: MetaServiceTool = await MetaServiceTool.from_tool_service(
+        tool_service=tool_service,
+        message_queue=message_queue,
+        name="multiply",
+        timeout=1e-4,
+    )
+    await message_queue.register_consumer(meta_service_tool.as_consumer())
+    await message_queue.register_consumer(tool_service.as_consumer())
+    mq_task = asyncio.create_task(message_queue.start())
+    ts_task = asyncio.create_task(tool_service.processing_loop())
+
+    # act/assert
+    with pytest.raises(asyncio.exceptions.TimeoutError):
+        await meta_service_tool.acall(a=1, b=9)
+
+    mq_task.cancel()
+    ts_task.cancel()
