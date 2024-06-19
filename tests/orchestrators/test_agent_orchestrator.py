@@ -128,7 +128,7 @@ async def test_add_result_to_state() -> None:
     assert len(new_state["chat_history"]) == 3
 
     # check if the summary prompt was used
-    assert "summary" in new_state["chat_history"][1]["content"]
+    assert "condense the messages" in new_state["chat_history"][1]["content"]
 
     # check if the followup prompt was used
     assert "Pick the next action" in new_state["chat_history"][2]["content"]
