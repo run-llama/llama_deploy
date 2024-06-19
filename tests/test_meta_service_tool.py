@@ -1,6 +1,6 @@
 import asyncio
 import pytest
-from typing import Any, List
+from typing import Any, Dict, List
 from agentfile.services import ToolService
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
@@ -48,22 +48,82 @@ def tool_service(
 
 
 @pytest.mark.asyncio()
-async def test_create_from_tool_service_direct(
+async def test_init(
     message_queue: SimpleMessageQueue, tools: List[BaseTool], tool_service: ToolService
 ) -> None:
     # arrange
     result = await tool_service.get_tool_by_name("multiply")
+
+    # act
     meta_service_tool = MetaServiceTool(
         tool_metadata=result["tool_metadata"],
         message_queue=message_queue,
         tool_service_name=tool_service.service_name,
     )
-    # meta_service_tool: MetaServiceTool = await MetaServiceTool.from_tool_service(
-    #     tool_service=tool_service, message_queue=message_queue, name="multiply"
-    # )
-    await message_queue.register_consumer(meta_service_tool.as_consumer())
-
-    # act
 
     # assert
     assert meta_service_tool.metadata.name == "multiply"
+
+
+@pytest.mark.asyncio()
+async def test_create_from_tool_service_direct(
+    message_queue: SimpleMessageQueue, tools: List[BaseTool], tool_service: ToolService
+) -> None:
+    # arrange
+
+    # act
+    meta_service_tool: MetaServiceTool = await MetaServiceTool.from_tool_service(
+        tool_service=tool_service, message_queue=message_queue, name="multiply"
+    )
+
+    # assert
+    assert meta_service_tool.metadata.name == "multiply"
+
+
+@pytest.mark.asyncio()
+@pytest.mark.parametrize(
+    ("from_tool_service_kwargs"),
+    [
+        {"message_queue": SimpleMessageQueue(), "name": "multiply"},
+        {
+            "message_queue": SimpleMessageQueue(),
+            "name": "multiply",
+            "tool_service_name": "fake-name",
+        },
+        {
+            "message_queue": SimpleMessageQueue(),
+            "name": "multiply",
+            "tool_service_api_key": "fake-key",
+        },
+        {
+            "message_queue": SimpleMessageQueue(),
+            "name": "multiply",
+            "tool_service_url": "fake-url",
+        },
+        {
+            "message_queue": SimpleMessageQueue(),
+            "name": "multiply",
+            "tool_service_name": "fake-name",
+            "tool_service_api_key": "fake-key",
+        },
+        {
+            "message_queue": SimpleMessageQueue(),
+            "name": "multiply",
+            "tool_service_name": "fake-name",
+            "tool_service_url": "fake-url",
+        },
+        {
+            "message_queue": SimpleMessageQueue(),
+            "name": "multiply",
+            "tool_service_api_key": "fake-key",
+            "tool_service_url": "fake-url",
+        },
+    ],
+)
+async def test_create_from_tool_service_raise_error(
+    from_tool_service_kwargs: Dict[str, Any],
+) -> None:
+    # arrange
+    # act/assert
+    with pytest.raises(ValueError):
+        await MetaServiceTool.from_tool_service(**from_tool_service_kwargs)

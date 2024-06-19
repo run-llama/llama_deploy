@@ -72,14 +72,17 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         publish_callback: Optional[PublishCallback] = None,
     ) -> "MetaServiceTool":
         if tool_service is not None:
-            self = cls(
-                tool_metadata=ToolMetadata(description="placeholder"),
+            res = await tool_service.get_tool_by_name(name)
+            try:
+                tool_metadata = res["tool_metadata"]
+            except KeyError:
+                raise ValueError("tool_metadata not found.")
+            return cls(
+                tool_metadata=tool_metadata,
                 message_queue=message_queue,
                 tool_service_name=tool_service.service_name,
                 publish_callback=publish_callback,
             )
-            self.metadata = await tool_service.get_tool_by_name(name)
-            return self
         # TODO by requests
         # make a http request, try to parse into BaseTool
         elif (
