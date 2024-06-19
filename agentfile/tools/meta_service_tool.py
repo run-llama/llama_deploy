@@ -26,11 +26,18 @@ logger.setLevel(logging.DEBUG)
 logging.basicConfig(level=logging.DEBUG)
 
 
+class TimeoutException(Exception):
+    """Raise when polling for results from message queue exceed timeout."""
+
+    pass
+
+
 class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
     tool_call_results: Dict[str, ToolCallResult] = Field(default_factory=dict)
     timeout: float = Field(default=10.0, description="timeout interval in seconds.")
     tool_service_name: str = Field(default_factory=str)
     step_interval: float = 0.1
+    raise_timeout: bool = False
 
     _message_queue: BaseMessageQueue = PrivateAttr()
     _publisher_id: str = PrivateAttr()
@@ -47,12 +54,14 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         tool_call_results: Dict[str, ToolCallResult] = {},
         timeout: float = 10.0,
         step_interval: float = 0.1,
+        raise_timeout: bool = False,
     ) -> None:
         super().__init__(
             tool_call_results=tool_call_results,
             timeout=timeout,
             step_interval=step_interval,
             tool_service_name=tool_service_name,
+            raise_timeout=raise_timeout,
         )
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
@@ -72,6 +81,7 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         publish_callback: Optional[PublishCallback] = None,
         timeout: float = 10.0,
         step_interval: float = 0.1,
+        raise_timeout: bool = False,
     ) -> "MetaServiceTool":
         if tool_service is not None:
             res = await tool_service.get_tool_by_name(name)
@@ -86,6 +96,7 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
                 publish_callback=publish_callback,
                 timeout=timeout,
                 step_interval=step_interval,
+                raise_timeout=raise_timeout,
             )
         # TODO by requests
         # make a http request, try to parse into BaseTool
@@ -193,8 +204,14 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
                 self._poll_for_tool_call_result(tool_call_id=tool_call.id_),
                 timeout=self.timeout,
             )
-        except TimeoutError as e:
+        except (
+            asyncio.exceptions.TimeoutError,
+            asyncio.TimeoutError,
+            TimeoutError,
+        ) as e:
             logger.debug(f"Timeout reached for tool_call with id {tool_call.id_}")
+            if self.raise_timeout:
+                raise
             return ToolOutput(
                 content="Encountered error: " + str(e),
                 tool_name=self.metadata.name,
@@ -202,7 +219,6 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
                 raw_output=str(e),
                 is_error=True,
             )
-            raise
         finally:
             async with self.lock:
                 if tool_call.id_ in self.tool_call_results:

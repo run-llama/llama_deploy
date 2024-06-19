@@ -158,7 +158,7 @@ async def test_tool_call_output(
 
 
 @pytest.mark.asyncio()
-async def test_tool_call_timeout(
+async def test_tool_call_raise_timeout(
     message_queue: SimpleMessageQueue, tool_service: ToolService
 ) -> None:
     # arrange
@@ -167,6 +167,7 @@ async def test_tool_call_timeout(
         message_queue=message_queue,
         name="multiply",
         timeout=1e-9,
+        raise_timeout=True,
     )
     await message_queue.register_consumer(meta_service_tool.as_consumer())
     await message_queue.register_consumer(tool_service.as_consumer())
@@ -174,8 +175,40 @@ async def test_tool_call_timeout(
     ts_task = asyncio.create_task(tool_service.processing_loop())
 
     # act/assert
-    with pytest.raises(asyncio.exceptions.TimeoutError):
+    with pytest.raises(
+        (TimeoutError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError)
+    ):
         await meta_service_tool.acall(a=1, b=9)
 
     mq_task.cancel()
     ts_task.cancel()
+
+
+@pytest.mark.asyncio()
+async def test_tool_call_reach_timeout(
+    message_queue: SimpleMessageQueue, tool_service: ToolService
+) -> None:
+    # arrange
+    meta_service_tool: MetaServiceTool = await MetaServiceTool.from_tool_service(
+        tool_service=tool_service,
+        message_queue=message_queue,
+        name="multiply",
+        timeout=1e-9,
+        raise_timeout=False,
+    )
+    await message_queue.register_consumer(meta_service_tool.as_consumer())
+    await message_queue.register_consumer(tool_service.as_consumer())
+    mq_task = asyncio.create_task(message_queue.start())
+    ts_task = asyncio.create_task(tool_service.processing_loop())
+
+    # act/assert
+    tool_output = await meta_service_tool.acall(a=1, b=9)
+
+    mq_task.cancel()
+    ts_task.cancel()
+
+    assert "Encountered error" in tool_output.content
+    assert tool_output.tool_name == "multiply"
+    assert tool_output.is_error
+    assert tool_output.raw_input == {"args": (), "kwargs": {"a": 1, "b": 9}}
+    assert len(meta_service_tool.tool_call_results) == 0

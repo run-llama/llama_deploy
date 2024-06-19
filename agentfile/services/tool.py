@@ -111,7 +111,6 @@ class ToolService(BaseService):
                     *self._outstanding_tool_calls.values()
                 ]
             for tool_call in current_tool_calls:
-                print(f"processing {tool_call}", flush=True)
                 tool = get_function_by_name(
                     self.tools, tool_call.tool_call_bundle.tool_name
                 )
