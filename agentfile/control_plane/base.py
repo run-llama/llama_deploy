@@ -74,7 +74,7 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         ...
 
     @abstractmethod
-    async def send_task_to_service(self, task_def: TaskDefinition) -> None:
+    async def send_task_to_service(self, task_def: TaskDefinition) -> TaskDefinition:
         """
         Send a task to an service.
 
@@ -91,16 +91,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Handle the completion of a task by an service.
 
         :param task_result: Result of the task.
-        """
-        ...
-
-    @abstractmethod
-    async def get_next_service(self, task_id: str) -> str:
-        """
-        Get the next service for a task.
-
-        :param task_id: Unique identifier of the task.
-        :return: Unique identifier of the next service.
         """
         ...
 
