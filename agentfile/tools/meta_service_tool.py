@@ -3,10 +3,12 @@ import logging
 import uuid
 from typing import Any, Dict, Optional
 from pydantic.v1 import Field, PrivateAttr
+from llama_index.core.bridge.pydantic import BaseModel
 from llama_index.core.tools import AsyncBaseTool, ToolMetadata, ToolOutput
 from agentfile.messages.base import QueueMessage
+from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.callable import CallableMessageConsumer
-from agentfile.message_queues.base import BaseMessageQueue, BaseMessageQueueConsumer
+from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.message_publishers.publisher import (
     MessageQueuePublisherMixin,
     PublishCallback,
@@ -24,15 +26,17 @@ logger.setLevel(logging.DEBUG)
 logging.basicConfig(level=logging.DEBUG)
 
 
-class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool):
+class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
     tool_call_results: Dict[str, ToolCallResult] = Field(default_factory=dict)
     timeout: float = Field(default=10.0, description="timeout interval in seconds.")
+    tool_service_name: str = Field(default_factory=str)
     step_interval: float = 0.1
 
     _message_queue: BaseMessageQueue = PrivateAttr()
     _publisher_id: str = PrivateAttr()
     _publish_callback: Optional[PublishCallback] = PrivateAttr()
     _lock: asyncio.Lock = PrivateAttr()
+    _metadata: ToolMetadata = PrivateAttr()
 
     def __init__(
         self,
@@ -48,33 +52,34 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool):
             tool_call_results=tool_call_results,
             timeout=timeout,
             step_interval=step_interval,
+            tool_service_name=tool_service_name,
         )
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
         self._metadata = tool_metadata
-        self._tool_service_name = tool_service_name
         self._lock = asyncio.Lock()
 
     @classmethod
     async def from_tool_service(
         cls,
         name: str,
-        tool_service: Optional[ToolService],
-        tool_service_url: Optional[str],
-        tool_service_api_key: Optional[str],
-        tool_service_name: Optional[str],
         message_queue: BaseMessageQueue,
+        tool_service: Optional[ToolService] = None,
+        tool_service_url: Optional[str] = None,
+        tool_service_api_key: Optional[str] = None,
+        tool_service_name: Optional[str] = None,
         publish_callback: Optional[PublishCallback] = None,
     ) -> "MetaServiceTool":
         if tool_service is not None:
-            tool_metadata = await tool_service.get_tool_by_name(name)
-            return cls(
-                tool_service_name=tool_service.service_name,
-                tool_metadata=tool_metadata,
+            self = cls(
+                tool_metadata=ToolMetadata(description="placeholder"),
                 message_queue=message_queue,
+                tool_service_name=tool_service.service_name,
                 publish_callback=publish_callback,
             )
+            self.metadata = await tool_service.get_tool_by_name(name)
+            return self
         # TODO by requests
         # make a http request, try to parse into BaseTool
         elif (
@@ -108,6 +113,10 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool):
     @property
     def metadata(self) -> ToolMetadata:
         return self._metadata
+
+    @metadata.setter
+    def metadata(self, value: ToolMetadata) -> None:
+        self._metadata = value
 
     @property
     def lock(self) -> asyncio.Lock:
