@@ -8,7 +8,7 @@ from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.message_queues.base import PublishCallback
 from agentfile.messages.base import QueueMessage
-from agentfile.types import ActionTypes, TaskDefinition
+from agentfile.types import ActionTypes, TaskDefinition, TaskResult
 from agentfile.message_publishers.publisher import MessageQueuePublisherMixin
 
 
@@ -52,11 +52,8 @@ class LocalLauncher(MessageQueuePublisherMixin):
         return self._publish_callback
 
     async def handle_human_message(self, **kwargs: Any) -> None:
-        message_data = kwargs["message_data"]
-        result = (
-            message_data["result"] if "result" in message_data else str(message_data)
-        )
-        print("Got response:\n", result, flush=True)
+        result = TaskResult(**kwargs["message_data"])
+        print("Got response:\n", result.result, flush=True)
 
     async def register_consumers(
         self, consumers: Optional[List[BaseMessageQueueConsumer]] = None

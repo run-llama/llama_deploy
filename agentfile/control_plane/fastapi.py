@@ -4,19 +4,17 @@ from fastapi import FastAPI
 from typing import Any, Callable, Dict, List, Optional
 
 from llama_index.core import StorageContext, VectorStoreIndex
-from llama_index.core.llms import LLM
 from llama_index.core.objects import ObjectIndex, SimpleObjectNodeMapping
 from llama_index.core.storage.kvstore.types import BaseKVStore
 from llama_index.core.storage.kvstore import SimpleKVStore
-from llama_index.core.selectors import PydanticMultiSelector
-from llama_index.core.settings import Settings
-from llama_index.core.tools import ToolMetadata
 from llama_index.core.vector_stores.types import BasePydanticVectorStore
 
 from agentfile.control_plane.base import BaseControlPlane
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_queues.base import BaseMessageQueue, PublishCallback
 from agentfile.messages.base import QueueMessage
+from agentfile.orchestrators.base import BaseOrchestrator
+from agentfile.orchestrators.service_tool import ServiceTool
 from agentfile.types import (
     ActionTypes,
     ServiceDefinition,
@@ -51,7 +49,7 @@ class FastAPIControlPlane(BaseControlPlane):
     def __init__(
         self,
         message_queue: BaseMessageQueue,
-        llm: Optional[LLM] = None,
+        orchestrator: BaseOrchestrator,
         vector_store: Optional[BasePydanticVectorStore] = None,
         publish_callback: Optional[PublishCallback] = None,
         state_store: Optional[BaseKVStore] = None,
@@ -62,7 +60,7 @@ class FastAPIControlPlane(BaseControlPlane):
         step_interval: float = 0.1,
         running: bool = True,
     ) -> None:
-        self.llm = llm or Settings.llm
+        self.orchestrator = orchestrator
         self.object_index = ObjectIndex(
             VectorStoreIndex(
                 nodes=[],
@@ -168,20 +166,57 @@ class FastAPIControlPlane(BaseControlPlane):
         await self.state_store.adelete(flow_id, collection=self.flows_store_key)
 
     async def create_task(self, task_def: TaskDefinition) -> None:
-        """
-        TODO:
-
-        Ideally, this would
-        - get/create state for the task
-        - call orchestrator.get_next_messages(task_def, state)
-        - publish messages to the next services
-        """
-
         await self.state_store.aput(
             task_def.task_id, task_def.dict(), collection=self.tasks_store_key
         )
 
-        await self.send_task_to_service(task_def)
+        task_def = await self.send_task_to_service(task_def)
+        await self.state_store.aput(
+            task_def.task_id, task_def.dict(), collection=self.tasks_store_key
+        )
+
+    async def send_task_to_service(self, task_def: TaskDefinition) -> TaskDefinition:
+        service_retriever = self.object_index.as_retriever(similarity_top_k=5)
+
+        # could also route based on similarity alone.
+        # TODO: Figure out user-specified routing
+        service_def_dicts: List[dict] = await service_retriever.aretrieve(
+            task_def.input
+        )
+        service_defs = [
+            ServiceDefinition.parse_obj(service_def_dict)
+            for service_def_dict in service_def_dicts
+        ]
+
+        service_tools = [
+            ServiceTool.from_service_definition(service_def)
+            for service_def in service_defs
+        ]
+        next_messages, task_state = await self.orchestrator.get_next_messages(
+            task_def, service_tools, task_def.state
+        )
+
+        for message in next_messages:
+            await self.publish(message)
+
+        task_def.state.update(task_state)
+        return task_def
+
+    async def handle_service_completion(
+        self,
+        task_result: TaskResult,
+    ) -> None:
+        # add result to task state
+        task_def = await self.get_task_state(task_result.task_id)
+        state = await self.orchestrator.add_result_to_state(task_result, task_def.state)
+        task_def.state.update(state)
+
+        # generate and send new tasks (if any)
+        task_def = await self.send_task_to_service(task_def)
+
+        await self.state_store.aput(
+            task_def.task_id, task_def.dict(), collection=self.tasks_store_key
+        )
 
     async def get_task_state(self, task_id: str) -> TaskDefinition:
         state_dict = await self.state_store.aget(
@@ -198,68 +233,6 @@ class FastAPIControlPlane(BaseControlPlane):
             task_id: TaskDefinition.parse_obj(state_dict)
             for task_id, state_dict in state_dicts.items()
         }
-
-    async def send_task_to_service(self, task_def: TaskDefinition) -> None:
-        service_retriever = self.object_index.as_retriever(similarity_top_k=5)
-
-        # could also route based on similarity alone.
-        # TODO: Figure out user-specified routing
-        service_def_dicts: List[dict] = await service_retriever.aretrieve(
-            task_def.input
-        )
-        service_defs = [
-            ServiceDefinition.parse_obj(service_def_dict)
-            for service_def_dict in service_def_dicts
-        ]
-        if len(service_defs) > 1:
-            selector = PydanticMultiSelector.from_defaults(
-                llm=self.llm,
-            )
-            service_def_metadata = [
-                ToolMetadata(
-                    description=service_def.description,
-                    name=service_def.service_name,
-                )
-                for service_def in service_defs
-            ]
-            result = await selector.aselect(service_def_metadata, task_def.input)
-
-            selected_service_name = service_defs[result.inds[0]].service_name
-        else:
-            selected_service_name = service_defs[0].service_name
-
-        await self.publish(
-            QueueMessage(
-                type=selected_service_name,
-                data=task_def.dict(),
-                action=ActionTypes.NEW_TASK,
-            ),
-        )
-
-    async def handle_service_completion(
-        self,
-        task_result: TaskResult,
-    ) -> None:
-        """
-        TODO:
-
-        Ideally, this would
-        - get state for the task
-        - call orchestrator.add_result_to_state(state, task_result)
-        - call orchestrator.get_next_messages(task_def, state)
-        - publish messages to the next services (if any)
-        - if no more, send result to human and remove task from control plane
-        """
-        await self.publish(
-            QueueMessage(
-                type="human",
-                action=ActionTypes.COMPLETED_TASK,
-                data=task_result.result,
-            )
-        )
-
-    async def get_next_service(self, task_id: str) -> str:
-        return ""
 
     async def request_user_input(self, task_id: str, message: str) -> None:
         pass
