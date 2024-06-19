@@ -166,7 +166,7 @@ async def test_tool_call_timeout(
         tool_service=tool_service,
         message_queue=message_queue,
         name="multiply",
-        timeout=1e-4,
+        timeout=1e-9,
     )
     await message_queue.register_consumer(meta_service_tool.as_consumer())
     await message_queue.register_consumer(tool_service.as_consumer())
