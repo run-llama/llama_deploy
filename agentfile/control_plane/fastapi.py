@@ -4,11 +4,9 @@ from fastapi import FastAPI
 from typing import Any, Callable, Dict, List, Optional
 
 from llama_index.core import StorageContext, VectorStoreIndex
-from llama_index.core.llms import LLM
 from llama_index.core.objects import ObjectIndex, SimpleObjectNodeMapping
 from llama_index.core.storage.kvstore.types import BaseKVStore
 from llama_index.core.storage.kvstore import SimpleKVStore
-from llama_index.core.settings import Settings
 from llama_index.core.vector_stores.types import BasePydanticVectorStore
 
 from agentfile.control_plane.base import BaseControlPlane
@@ -52,7 +50,6 @@ class FastAPIControlPlane(BaseControlPlane):
         self,
         message_queue: BaseMessageQueue,
         orchestrator: BaseOrchestrator,
-        llm: Optional[LLM] = None,
         vector_store: Optional[BasePydanticVectorStore] = None,
         publish_callback: Optional[PublishCallback] = None,
         state_store: Optional[BaseKVStore] = None,
@@ -64,7 +61,6 @@ class FastAPIControlPlane(BaseControlPlane):
         running: bool = True,
     ) -> None:
         self.orchestrator = orchestrator
-        self.llm = llm or Settings.llm
         self.object_index = ObjectIndex(
             VectorStoreIndex(
                 nodes=[],
