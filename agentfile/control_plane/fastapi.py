@@ -18,7 +18,6 @@ from agentfile.orchestrators.service_tool import ServiceTool
 from agentfile.types import (
     ActionTypes,
     ServiceDefinition,
-    FlowDefinition,
     TaskDefinition,
     TaskResult,
 )
@@ -54,10 +53,9 @@ class FastAPIControlPlane(BaseControlPlane):
         publish_callback: Optional[PublishCallback] = None,
         state_store: Optional[BaseKVStore] = None,
         services_store_key: str = "services",
-        flows_store_key: str = "flows",
-        active_flows_store_key: str = "active_flows",
         tasks_store_key: str = "tasks",
         step_interval: float = 0.1,
+        services_retrieval_threshold: int = 5,
         running: bool = True,
     ) -> None:
         self.orchestrator = orchestrator
@@ -72,15 +70,18 @@ class FastAPIControlPlane(BaseControlPlane):
         self.running = running
 
         self.state_store = state_store or SimpleKVStore()
+
         # TODO: should we store services in a tool retriever?
         self.services_store_key = services_store_key
-        self.flows_store_key = flows_store_key
-        self.active_flows_store_key = active_flows_store_key
         self.tasks_store_key = tasks_store_key
 
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
+
+        self._services_cache: Dict[str, ServiceDefinition] = {}
+        self._total_services = 0
+        self._services_retrieval_threshold = services_retrieval_threshold
 
         self.app = FastAPI()
         self.app.add_api_route("/", self.home, methods=["GET"], tags=["Control Plane"])
@@ -96,13 +97,6 @@ class FastAPIControlPlane(BaseControlPlane):
             self.deregister_service,
             methods=["POST"],
             tags=["Services"],
-        )
-
-        self.app.add_api_route(
-            "/flows/register", self.register_flow, methods=["POST"], tags=["Flows"]
-        )
-        self.app.add_api_route(
-            "/flows/deregister", self.deregister_flow, methods=["POST"], tags=["Flows"]
         )
 
         self.app.add_api_route(
@@ -140,8 +134,8 @@ class FastAPIControlPlane(BaseControlPlane):
             "running": str(self.running),
             "step_interval": str(self.step_interval),
             "services_store_key": self.services_store_key,
-            "flows_store_key": self.flows_store_key,
-            "active_flows_store_key": self.active_flows_store_key,
+            "total_services": str(self._total_services),
+            "services_retrieval_threshold": str(self._services_retrieval_threshold),
         }
 
     async def register_service(self, service_def: ServiceDefinition) -> None:
@@ -150,20 +144,28 @@ class FastAPIControlPlane(BaseControlPlane):
             service_def.dict(),
             collection=self.services_store_key,
         )
-        # TODO: currently blocking, should be async
-        self.object_index.insert_object(service_def.dict())
+
+        # decide to use cache vs. retrieval
+        self._total_services += 1
+        if self._total_services > self._services_retrieval_threshold:
+            # TODO: currently blocking, should be async
+            self.object_index.insert_object(service_def.dict())
+            for service in self._services_cache.values():
+                self.object_index.insert_object(service.dict())
+            self._services_cache = {}
+        else:
+            self._services_cache[service_def.service_name] = service_def
 
     async def deregister_service(self, service_name: str) -> None:
-        await self.state_store.adelete(service_name, collection=self.services_store_key)
-        # object index does not have delete yet
-
-    async def register_flow(self, flow_def: FlowDefinition) -> None:
-        await self.state_store.aput(
-            flow_def.flow_id, flow_def.dict(), collection=self.flows_store_key
+        deleted = await self.state_store.adelete(
+            service_name, collection=self.services_store_key
         )
+        if service_name in self._services_cache:
+            del self._services_cache[service_name]
 
-    async def deregister_flow(self, flow_id: str) -> None:
-        await self.state_store.adelete(flow_id, collection=self.flows_store_key)
+        if deleted:
+            self._total_services -= 1
+        # TODO: object index does not have delete yet
 
     async def create_task(self, task_def: TaskDefinition) -> None:
         await self.state_store.aput(
@@ -176,17 +178,20 @@ class FastAPIControlPlane(BaseControlPlane):
         )
 
     async def send_task_to_service(self, task_def: TaskDefinition) -> TaskDefinition:
-        service_retriever = self.object_index.as_retriever(similarity_top_k=5)
+        if self._total_services > self._services_retrieval_threshold:
+            service_retriever = self.object_index.as_retriever(similarity_top_k=5)
 
-        # could also route based on similarity alone.
-        # TODO: Figure out user-specified routing
-        service_def_dicts: List[dict] = await service_retriever.aretrieve(
-            task_def.input
-        )
-        service_defs = [
-            ServiceDefinition.parse_obj(service_def_dict)
-            for service_def_dict in service_def_dicts
-        ]
+            # could also route based on similarity alone.
+            # TODO: Figure out user-specified routing
+            service_def_dicts: List[dict] = await service_retriever.aretrieve(
+                task_def.input
+            )
+            service_defs = [
+                ServiceDefinition.parse_obj(service_def_dict)
+                for service_def_dict in service_def_dicts
+            ]
+        else:
+            service_defs = list(self._services_cache.values())
 
         service_tools = [
             ServiceTool.from_service_definition(service_def)
@@ -233,9 +238,3 @@ class FastAPIControlPlane(BaseControlPlane):
             task_id: TaskDefinition.parse_obj(state_dict)
             for task_id, state_dict in state_dicts.items()
         }
-
-    async def request_user_input(self, task_id: str, message: str) -> None:
-        pass
-
-    async def handle_user_input(self, task_id: str, user_input: str) -> None:
-        pass
