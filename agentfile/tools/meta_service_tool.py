@@ -26,18 +26,13 @@ logger.setLevel(logging.DEBUG)
 logging.basicConfig(level=logging.DEBUG)
 
 
-class TimeoutException(Exception):
-    """Raise when polling for results from message queue exceed timeout."""
-
-    pass
-
-
 class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
     tool_call_results: Dict[str, ToolCallResult] = Field(default_factory=dict)
     timeout: float = Field(default=10.0, description="timeout interval in seconds.")
     tool_service_name: str = Field(default_factory=str)
     step_interval: float = 0.1
     raise_timeout: bool = False
+    registered: bool = False
 
     _message_queue: BaseMessageQueue = PrivateAttr()
     _publisher_id: str = PrivateAttr()
@@ -68,12 +63,6 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         self._publish_callback = publish_callback
         self._metadata = tool_metadata
         self._lock = asyncio.Lock()
-
-        # register tool to the message queue
-        asyncio.run(self.message_queue.register_consumer(self.as_consumer()))
-        logger.info(
-            f"Ready to consume messages of type: {self.as_consumer().message_type}."
-        )
 
     @classmethod
     async def from_tool_service(
@@ -138,10 +127,6 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
     def metadata(self) -> ToolMetadata:
         return self._metadata
 
-    @metadata.setter
-    def metadata(self, value: ToolMetadata) -> None:
-        self._metadata = value
-
     @property
     def lock(self) -> asyncio.Lock:
         return self._lock
@@ -190,6 +175,11 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         In order to get a ToolOutput result, this will poll the queue until
         the result is written.
         """
+        if not self.registered:
+            # register tool to message queue
+            await self.message_queue.register_consumer(self.as_consumer())
+            self.registered = True
+
         tool_call = ToolCall(
             tool_call_bundle=ToolCallBundle(
                 tool_name=self.metadata.name, tool_args=args, tool_kwargs=kwargs

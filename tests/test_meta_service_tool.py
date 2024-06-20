@@ -63,6 +63,7 @@ async def test_init(
 
     # assert
     assert meta_service_tool.metadata.name == "multiply"
+    assert not meta_service_tool.registered
 
 
 @pytest.mark.asyncio()
@@ -78,6 +79,7 @@ async def test_create_from_tool_service_direct(
 
     # assert
     assert meta_service_tool.metadata.name == "multiply"
+    assert not meta_service_tool.registered
 
 
 @pytest.mark.asyncio()
@@ -137,7 +139,6 @@ async def test_tool_call_output(
     meta_service_tool: MetaServiceTool = await MetaServiceTool.from_tool_service(
         tool_service=tool_service, message_queue=message_queue, name="multiply"
     )
-    await message_queue.register_consumer(meta_service_tool.as_consumer())
     await message_queue.register_consumer(tool_service.as_consumer())
     mq_task = asyncio.create_task(message_queue.start())
     ts_task = asyncio.create_task(tool_service.processing_loop())
@@ -155,6 +156,7 @@ async def test_tool_call_output(
     assert tool_output.tool_name == "multiply"
     assert tool_output.raw_input == {"args": (), "kwargs": {"a": 1, "b": 9}}
     assert len(meta_service_tool.tool_call_results) == 0
+    assert meta_service_tool.registered
 
 
 @pytest.mark.asyncio()
@@ -169,7 +171,6 @@ async def test_tool_call_raise_timeout(
         timeout=1e-9,
         raise_timeout=True,
     )
-    await message_queue.register_consumer(meta_service_tool.as_consumer())
     await message_queue.register_consumer(tool_service.as_consumer())
     mq_task = asyncio.create_task(message_queue.start())
     ts_task = asyncio.create_task(tool_service.processing_loop())
@@ -196,7 +197,6 @@ async def test_tool_call_reach_timeout(
         timeout=1e-9,
         raise_timeout=False,
     )
-    await message_queue.register_consumer(meta_service_tool.as_consumer())
     await message_queue.register_consumer(tool_service.as_consumer())
     mq_task = asyncio.create_task(message_queue.start())
     ts_task = asyncio.create_task(tool_service.processing_loop())
@@ -212,3 +212,4 @@ async def test_tool_call_reach_timeout(
     assert tool_output.is_error
     assert tool_output.raw_input == {"args": (), "kwargs": {"a": 1, "b": 9}}
     assert len(meta_service_tool.tool_call_results) == 0
+    assert meta_service_tool.registered

@@ -10,16 +10,6 @@ from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
 
 
-LOGGING = False
-
-if LOGGING:
-    import logging
-    import sys
-
-    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-    logging.getLogger().addHandler(logging.StreamHandler(stream=sys.stdout))
-
-
 # create an agent
 def get_the_secret_fact() -> str:
     """Returns the secret fact."""
@@ -60,20 +50,10 @@ agent_server_1 = AgentService(
     service_name="secret_fact_agent",
 )
 
-worker2 = FunctionCallingAgentWorker.from_tools([], llm=OpenAI())
-agent2 = worker2.as_agent()
-agent_server_2 = AgentService(
-    agent=agent2,
-    message_queue=message_queue,
-    description="Useful for getting random dumb facts.",
-    service_name="dumb_fact_agent",
-)
-
 # launch it
 launcher = LocalLauncher(
-    [agent_server_1, agent_server_2, tool_service],
+    [agent_server_1, tool_service],
     control_plane,
     message_queue,
-    additional_consumers=[meta_tool.as_consumer()],
 )
 launcher.launch_single("What is the secret fact?")
