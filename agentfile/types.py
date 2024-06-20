@@ -1,6 +1,6 @@
 import uuid
 from enum import Enum
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from llama_index.core.bridge.pydantic import BaseModel, Field
 from llama_index.core.llms import ChatMessage
@@ -17,6 +17,8 @@ class ActionTypes(str, Enum):
     NEW_TASK = "new_task"
     COMPLETED_TASK = "completed_task"
     REQUEST_FOR_HELP = "request_for_help"
+    NEW_TOOL_CALL = "new_tool_call"
+    COMPLETED_TOOL_CALL = "completed_tool_call"
 
 
 class TaskDefinition(BaseModel):
@@ -29,6 +31,24 @@ class TaskDefinition(BaseModel):
 class TaskResult(BaseModel):
     task_id: str
     history: List[ChatMessage]
+    result: str
+
+
+class ToolCallBundle(BaseModel):
+    tool_name: str
+    tool_args: List[Any]
+    tool_kwargs: Dict[str, Any]
+
+
+class ToolCall(BaseModel):
+    id_: str = Field(default_factory=generate_id)
+    tool_call_bundle: ToolCallBundle
+    source_id: str
+
+
+class ToolCallResult(BaseModel):
+    id_: str
+    tool_message: ChatMessage
     result: str
 
 

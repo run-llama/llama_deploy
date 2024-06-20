@@ -2,6 +2,7 @@
 
 import asyncio
 import random
+import logging
 
 from collections import deque
 from typing import Any, Dict, List
@@ -9,6 +10,10 @@ from llama_index.core.bridge.pydantic import Field
 from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.messages.base import QueueMessage
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 
 class SimpleMessageQueue(BaseMessageQueue):
@@ -41,7 +46,12 @@ class SimpleMessageQueue(BaseMessageQueue):
         message_type_str = message.type
 
         if message_type_str not in self.consumers:
-            raise ValueError(f"No consumer for {message_type_str} has been registered.")
+            logger.debug(
+                f"Failed to publish message. No registered consumer '{message_type_str}'."
+            )
+            raise ValueError(
+                f"No consumer for '{message_type_str}' has been registered."
+            )
 
         if message_type_str not in self.queues:
             self.queues[message_type_str] = deque()
