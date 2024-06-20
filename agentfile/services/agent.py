@@ -24,6 +24,12 @@ from agentfile.types import (
     CONTROL_PLANE_NAME,
 )
 
+import logging
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
+
 
 class AgentService(BaseService):
     service_name: str
@@ -164,6 +170,7 @@ class AgentService(BaseService):
         )
 
     async def launch_local(self) -> None:
+        logger.info(f"{self.service_name} launch_local")
         asyncio.create_task(self.processing_loop())
 
     # ---- Server based methods ----
