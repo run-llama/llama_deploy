@@ -17,6 +17,7 @@ class ActionTypes(str, Enum):
     NEW_TASK = "new_task"
     COMPLETED_TASK = "completed_task"
     REQUEST_FOR_HELP = "request_for_help"
+    COMPLETED_REQUEST_FOR_HELP = "completed_request_for_help"
     NEW_TOOL_CALL = "new_tool_call"
     COMPLETED_TOOL_CALL = "completed_tool_call"
 
@@ -49,6 +50,17 @@ class ToolCall(BaseModel):
 class ToolCallResult(BaseModel):
     id_: str
     tool_message: ChatMessage
+    result: str
+
+
+class HumanRequest(BaseModel):
+    id_: str
+    input: str
+    source_id: str
+
+
+class HumanResult(BaseModel):
+    id_: str
     result: str
 
 
