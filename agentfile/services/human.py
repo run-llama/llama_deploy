@@ -170,7 +170,7 @@ class HumanService(BaseService):
     async def create_human_request(self, req: HumanRequest) -> Dict[str, str]:
         async with self.lock:
             self._outstanding_human_requests.update({req.id_: req})
-        return {"tool_call_id": req.id_}
+        return {"human_request_id": req.id_}
 
     async def launch_server(self) -> None:
         uvicorn.run(self._app)
