@@ -63,7 +63,10 @@ class SimpleMessageQueue(BaseMessageQueue):
         consumer = self._select_consumer(message)
         try:
             await consumer.process_message(message, **kwargs)
-        except Exception:
+        except Exception as e:
+            logger.debug(
+                f"Failed to publish message of type '{message.type}' to consumer. Message: {str(e)}"
+            )
             raise
 
     async def start(self) -> None:
@@ -87,11 +90,13 @@ class SimpleMessageQueue(BaseMessageQueue):
 
         if message_type_str not in self.consumers:
             self.consumers[message_type_str] = {consumer.id_: consumer}
+            logger.info(f"Consumer {consumer.id_} has been registered.")
         else:
             if consumer.id_ in self.consumers[message_type_str]:
                 raise ValueError("Consumer has already been added.")
 
             self.consumers[message_type_str][consumer.id_] = consumer
+            logger.info(f"Consumer {consumer.id_} has been registered.")
 
         if message_type_str not in self.queues:
             self.queues[message_type_str] = deque()

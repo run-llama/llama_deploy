@@ -44,14 +44,12 @@ class AgentOrchestrator(BaseOrchestrator):
             response = await self.llm.apredict_and_call(
                 tools,
                 user_msg=task_def.input,
-                error_on_no_tool_call=False,
             )
         else:
             messages = memory.get()
             response = await self.llm.apredict_and_call(
                 tools_plus_human,
                 chat_history=messages,
-                error_on_no_tool_call=False,
             )
 
         # check if there was a tool call

@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 import uvicorn
 from asyncio import Lock
@@ -25,6 +26,10 @@ from agentfile.types import (
     ToolCallResult,
     ServiceDefinition,
 )
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 
 class ToolService(BaseService):
@@ -117,6 +122,9 @@ class ToolService(BaseService):
                     self.tools, tool_call.tool_call_bundle.tool_name
                 )
 
+                logger.info(
+                    f"Processing tool call id {tool_call.id_} with {tool.metadata.name}"
+                )
                 tool_output = await tool.acall(
                     *tool_call.tool_call_bundle.tool_args,
                     **tool_call.tool_call_bundle.tool_kwargs,

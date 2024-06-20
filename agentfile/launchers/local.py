@@ -3,6 +3,7 @@ import uuid
 from typing import Any, Callable, Dict, List, Optional
 
 from agentfile.services.base import BaseService
+from agentfile.services.tool import ToolService
 from agentfile.control_plane.base import BaseControlPlane
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_queues.simple import SimpleMessageQueue
@@ -31,10 +32,12 @@ class LocalLauncher(MessageQueuePublisherMixin):
         services: List[BaseService],
         control_plane: BaseControlPlane,
         message_queue: SimpleMessageQueue,
+        additional_consumers: List[BaseMessageQueueConsumer] = [],
         publish_callback: Optional[PublishCallback] = None,
     ) -> None:
         self.services = services
         self.control_plane = control_plane
+        self.additional_consumers = additional_consumers
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
@@ -61,7 +64,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
         for service in self.services:
             await self.message_queue.register_consumer(service.as_consumer())
 
-        consumers = consumers or []
+        consumers = (consumers or []) + self.additional_consumers
         for consumer in consumers:
             await self.message_queue.register_consumer(consumer)
 
@@ -79,6 +82,17 @@ class LocalLauncher(MessageQueuePublisherMixin):
         )
         await self.register_consumers([human_consumer])
 
+        # register each service to the control plane
+        for service in self.services:
+            if isinstance(service, ToolService):
+                continue
+            await self.control_plane.register_service(service.service_definition)
+
+        # start services
+        bg_tasks = []
+        for service in self.services:
+            bg_tasks.append(asyncio.create_task(service.launch_local()))
+
         # publish initial task
         await self.publish(
             QueueMessage(
@@ -87,14 +101,11 @@ class LocalLauncher(MessageQueuePublisherMixin):
                 data=TaskDefinition(input=initial_task).dict(),
             ),
         )
-
-        # register each service to the control plane
-        for service in self.services:
-            await self.control_plane.register_service(service.service_definition)
-
-        # start services
-        for service in self.services:
-            asyncio.create_task(service.launch_local())
-
         # runs until the message queue is stopped by the human consumer
-        await self.message_queue.start()
+        mq_task = asyncio.create_task(self.message_queue.start())
+        await asyncio.sleep(10)
+
+        # shutdown
+        for task in bg_tasks:
+            task.cancel()
+        mq_task.cancel()
