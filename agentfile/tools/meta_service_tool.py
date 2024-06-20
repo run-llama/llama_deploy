@@ -69,6 +69,12 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         self._metadata = tool_metadata
         self._lock = asyncio.Lock()
 
+        # register tool to the message queue
+        asyncio.run(self.message_queue.register_consumer(self.as_consumer()))
+        logger.info(
+            f"Ready to consume messages of type: {self.as_consumer().message_type}."
+        )
+
     @classmethod
     async def from_tool_service(
         cls,
