@@ -107,7 +107,11 @@ class HumanService(BaseService):
                 logger.info(f"Processing tool call id {req.id_}")
 
                 # process req
-                result = ""
+                result = input(
+                    "Your assistance is needed. Please respond to the request "
+                    "provided below:\n===\n\n"
+                    f"{req.input}\n\n===\n"
+                )
 
                 # publish the completed task
                 await self.publish(
