@@ -165,6 +165,11 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
             await asyncio.sleep(self.step_interval)
         return tool_call_result
 
+    async def deregister(self) -> None:
+        """Deregister from message queue."""
+        await self.message_queue.deregister_consumer(self.as_consumer())
+        self.registered = False
+
     def call(self, *args: Any, **kwargs: Any) -> ToolOutput:
         """Call."""
         return asyncio.run(self.acall(*args, **kwargs))
