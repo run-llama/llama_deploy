@@ -11,7 +11,7 @@ from llama_index.core.agent.function_calling.step import (
 )
 from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core.tools import BaseTool
+from llama_index.core.tools import BaseTool, adapt_to_async_tool
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.callable import CallableMessageConsumer
@@ -114,8 +114,9 @@ class ToolService(BaseService):
                 tool = get_function_by_name(
                     self.tools, tool_call.tool_call_bundle.tool_name
                 )
+                tool = adapt_to_async_tool(tool)
 
-                tool_output = tool(
+                tool_output = await tool.acall(
                     *tool_call.tool_call_bundle.tool_args,
                     **tool_call.tool_call_bundle.tool_kwargs,
                 )
