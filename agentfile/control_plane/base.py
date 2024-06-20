@@ -12,7 +12,6 @@ from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_publishers.publisher import MessageQueuePublisherMixin
 from agentfile.types import (
     ServiceDefinition,
-    FlowDefinition,
     TaskDefinition,
     TaskResult,
 )
@@ -43,24 +42,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Deregister a service from the control plane.
 
         :param service_name: Unique identifier of the service.
-        """
-        ...
-
-    @abstractmethod
-    async def register_flow(self, flow_def: FlowDefinition) -> None:
-        """
-        Register a flow with the control plane.
-
-        :param flow_def: Definition of the flow.
-        """
-        ...
-
-    @abstractmethod
-    async def deregister_flow(self, flow_id: str) -> None:
-        """
-        Deregister a flow from the control plane.
-
-        :param flow_id: Unique identifier of the flow.
         """
         ...
 
@@ -110,25 +91,5 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Get all tasks.
 
         :return: All tasks.
-        """
-        ...
-
-    @abstractmethod
-    async def request_user_input(self, task_id: str, message: str) -> None:
-        """
-        Request input from the user for a task.
-
-        :param task_id: Unique identifier of the task.
-        :param message: Message to send to the user.
-        """
-        ...
-
-    @abstractmethod
-    async def handle_user_input(self, task_id: str, user_input: str) -> None:
-        """
-        Handle the user input for a task.
-
-        :param task_id: Unique identifier of the task.
-        :param user_input: Input provided by the user.
         """
         ...

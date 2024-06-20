@@ -52,10 +52,6 @@ class ToolCallResult(BaseModel):
     result: str
 
 
-class FlowDefinition(BaseModel):
-    flow_id: str = Field(default_factory=generate_id)
-
-
 class ServiceDefinition(BaseModel):
     service_name: str = Field(description="The name of the service.")
     description: str = Field(
