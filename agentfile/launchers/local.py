@@ -1,8 +1,5 @@
 import asyncio
 import uuid
-import signal
-import sys
-
 from typing import Any, Callable, Dict, List, Optional
 
 from agentfile.services.base import BaseService
@@ -73,15 +70,6 @@ class LocalLauncher(MessageQueuePublisherMixin):
     def launch_single(self, initial_task: str) -> None:
         asyncio.run(self.alaunch_single(initial_task))
 
-    def get_shutdown_handler(self, tasks: List[asyncio.Task]) -> Callable:
-        def signal_handler(sig: Any, frame: Any) -> None:
-            print("\nShutting down.")
-            for task in tasks:
-                task.cancel()
-            sys.exit(0)
-
-        return signal_handler
-
     async def alaunch_single(self, initial_task: str) -> None:
         # register human consumer
         human_consumer = HumanMessageConsumer(
@@ -91,27 +79,22 @@ class LocalLauncher(MessageQueuePublisherMixin):
         )
         await self.register_consumers([human_consumer])
 
-        # register each service to the control plane
-        for service in self.services:
-            await self.control_plane.register_service(service.service_definition)
-
-        # start services
-        bg_tasks = []
-        for service in self.services:
-            bg_tasks.append(asyncio.create_task(service.launch_local()))
-
         # publish initial task
         await self.publish(
             QueueMessage(
                 type="control_plane",
                 action=ActionTypes.NEW_TASK,
-                data=TaskDefinition(input=initial_task).dict(),
+                data=TaskDefinition(input=initial_task).model_dump(),
             ),
         )
+
+        # register each service to the control plane
+        for service in self.services:
+            await self.control_plane.register_service(service.service_definition)
+
+        # start services
+        for service in self.services:
+            asyncio.create_task(service.launch_local())
+
         # runs until the message queue is stopped by the human consumer
-        mq_task = asyncio.create_task(self.message_queue.start())
-        shutdown_handler = self.get_shutdown_handler([mq_task] + bg_tasks)
-        loop = asyncio.get_event_loop()
-        while loop.is_running():
-            await asyncio.sleep(0.1)
-            signal.signal(signal.SIGINT, shutdown_handler)
+        await self.message_queue.launch_local()

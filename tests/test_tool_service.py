@@ -1,13 +1,16 @@
 import asyncio
+from pydantic import PrivateAttr
 import pytest
 from typing import Any, List
+
+
+from llama_index.core.tools import FunctionTool, BaseTool
+
 from agentfile.services import ToolService
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.messages.base import QueueMessage
 from agentfile.types import ToolCall, ToolCallBundle, ActionTypes
-from llama_index.core.bridge.pydantic import PrivateAttr
-from llama_index.core.tools import FunctionTool, BaseTool
 
 TOOL_CALL_SOURCE = "mock-source"
 
@@ -102,7 +105,7 @@ async def test_process_tool_call(
     )
     await mq.register_consumer(tool_output_consumer)
 
-    mq_task = asyncio.create_task(mq.start())
+    mq_task = asyncio.create_task(mq.launch_local())
     server_task = asyncio.create_task(server.processing_loop())
 
     # act
@@ -139,12 +142,12 @@ async def test_process_tool_call_from_queue(
     await mq.register_consumer(tool_output_consumer)
     await mq.register_consumer(server.as_consumer())
 
-    mq_task = asyncio.create_task(mq.start())
+    mq_task = asyncio.create_task(mq.launch_local())
     server_task = asyncio.create_task(server.processing_loop())
 
     # act
     tool_call_message = QueueMessage(
-        data=tool_call.dict(),
+        data=tool_call.model_dump(),
         action=ActionTypes.NEW_TOOL_CALL,
         type="test_tool_service",
     )

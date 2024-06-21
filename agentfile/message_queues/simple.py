@@ -3,13 +3,21 @@
 import asyncio
 import random
 import logging
+import uvicorn
 
 from collections import deque
-from typing import Any, Dict, List
-from llama_index.core.bridge.pydantic import Field
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from pydantic import Field, PrivateAttr
+from typing import Any, AsyncGenerator, Dict, List
+
 from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.messages.base import QueueMessage
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
+from agentfile.message_consumers.remote import (
+    RemoteMessageConsumer,
+    RemoteMessageConsumerDef,
+)
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -27,13 +35,42 @@ class SimpleMessageQueue(BaseMessageQueue):
     )
     queues: Dict[str, deque] = Field(default_factory=dict)
     running: bool = True
+    port: int = 8003
+    host: str = "127.0.0.1"
+
+    _app: FastAPI = PrivateAttr()
 
     def __init__(
         self,
         consumers: Dict[str, Dict[str, BaseMessageQueueConsumer]] = {},
         queues: Dict[str, deque] = {},
+        host: str = "127.0.0.1",
+        port: int = 8003,
     ):
-        super().__init__(consumers=consumers, queues=queues)
+        super().__init__(consumers=consumers, queues=queues, host=host, port=port)
+
+        self._app = FastAPI(lifespan=self.lifespan)
+
+        self._app.add_api_route(
+            "/register_consumer",
+            self.register_remote_consumer,
+            methods=["POST"],
+            tags=["Consumers"],
+        )
+
+        self._app.add_api_route(
+            "/deregister_consumer",
+            self.deregister_remote_consumer,
+            methods=["POST"],
+            tags=["Consumers"],
+        )
+
+        self._app.add_api_route(
+            "/get_consumers",
+            self.get_consumer_defs,
+            methods=["GET"],
+            tags=["Consumers"],
+        )
 
     def _select_consumer(self, message: QueueMessage) -> BaseMessageQueueConsumer:
         """Select a single consumer to publish a message to."""
@@ -69,19 +106,6 @@ class SimpleMessageQueue(BaseMessageQueue):
             )
             raise
 
-    async def start(self) -> None:
-        """A loop for getting messages from queues and sending to consumer."""
-        while self.running:
-            for queue in self.queues.values():
-                if queue:
-                    message: QueueMessage = queue.popleft()
-                    message.stats.process_start_time = message.stats.timestamp_str()
-                    await self._publish_to_consumer(message)
-                    message.stats.process_end_time = (
-                        message.stats.timestamp_str()
-                    )  # TODO dedicated ack
-            await asyncio.sleep(0.1)
-
     async def register_consumer(
         self, consumer: BaseMessageQueueConsumer, **kwargs: Any
     ) -> None:
@@ -101,6 +125,12 @@ class SimpleMessageQueue(BaseMessageQueue):
         if message_type_str not in self.queues:
             self.queues[message_type_str] = deque()
 
+    async def register_remote_consumer(
+        self, consumer_def: RemoteMessageConsumerDef
+    ) -> None:
+        consumer = RemoteMessageConsumer(**consumer_def.model_dump())
+        await self.register_consumer(consumer)
+
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> None:
         message_type_str = consumer.message_type
         if consumer.id_ not in self.consumers.get(message_type_str, {}):
@@ -110,8 +140,53 @@ class SimpleMessageQueue(BaseMessageQueue):
         if len(self.consumers[message_type_str]) == 0:
             del self.consumers[message_type_str]
 
+    async def deregister_remote_consumer(
+        self, consumer_def: RemoteMessageConsumerDef
+    ) -> None:
+        consumer = RemoteMessageConsumer(**consumer_def.model_dump())
+        await self.deregister_consumer(consumer)
+
     async def get_consumers(self, message_type: str) -> List[BaseMessageQueueConsumer]:
         if message_type not in self.consumers:
             return []
 
         return list(self.consumers[message_type].values())
+
+    async def get_consumer_defs(
+        self, message_type: str
+    ) -> List[RemoteMessageConsumerDef]:
+        if message_type not in self.consumers:
+            return []
+
+        return [
+            RemoteMessageConsumerDef(**c.model_dump())
+            for c in self.consumers[message_type].values()
+        ]
+
+    async def processing_loop(self) -> None:
+        """A loop for getting messages from queues and sending to consumer."""
+        while self.running:
+            for queue in self.queues.values():
+                if queue:
+                    message: QueueMessage = queue.popleft()
+                    message.stats.process_start_time = message.stats.timestamp_str()
+                    await self._publish_to_consumer(message)
+                    message.stats.process_end_time = (
+                        message.stats.timestamp_str()
+                    )  # TODO dedicated ack
+            await asyncio.sleep(0.1)
+
+    @asynccontextmanager
+    async def lifespan(self, app: FastAPI) -> AsyncGenerator[None, None]:
+        """Starts the processing loop when the fastapi app starts."""
+        asyncio.create_task(self.processing_loop())
+        yield
+        self.running = False
+
+    async def launch_local(self) -> None:
+        logger.info("Launching message queue locally")
+        await self.processing_loop()
+
+    def launch_server(self) -> None:
+        logger.info("Launching message queue server")
+        uvicorn.run(self._app, host=self.host, port=self.port)

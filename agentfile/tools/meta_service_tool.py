@@ -1,10 +1,11 @@
 import asyncio
 import logging
 import uuid
+from pydantic import BaseModel, Field, PrivateAttr
 from typing import Any, Dict, Optional
-from pydantic.v1 import Field, PrivateAttr
-from llama_index.core.bridge.pydantic import BaseModel
+
 from llama_index.core.tools import AsyncBaseTool, ToolMetadata, ToolOutput
+
 from agentfile.messages.base import QueueMessage
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.callable import CallableMessageConsumer
@@ -195,7 +196,7 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
             QueueMessage(
                 type=self.tool_service_name,
                 action=ActionTypes.NEW_TOOL_CALL,
-                data=tool_call.dict(),
+                data=tool_call.model_dump(),
             )
         )
 

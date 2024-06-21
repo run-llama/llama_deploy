@@ -3,14 +3,15 @@ import uuid
 import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from typing import Any, AsyncGenerator, Dict, List, Literal, Optional
+from pydantic import PrivateAttr
+from typing import AsyncGenerator, Dict, List, Literal, Optional
 
 from llama_index.core.agent import AgentRunner
-from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.llms import ChatMessage
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.callable import CallableMessageConsumer
+from agentfile.message_consumers.remote import RemoteMessageConsumer
 from agentfile.message_publishers.publisher import PublishCallback
 from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.messages.base import QueueMessage
@@ -38,6 +39,8 @@ class AgentService(BaseService):
     prompt: Optional[List[ChatMessage]] = None
     running: bool = True
     step_interval: float = 0.1
+    host: Optional[str] = None
+    port: Optional[int] = None
 
     _message_queue: BaseMessageQueue = PrivateAttr()
     _app: FastAPI = PrivateAttr()
@@ -54,6 +57,8 @@ class AgentService(BaseService):
         prompt: Optional[List[ChatMessage]] = None,
         publish_callback: Optional[PublishCallback] = None,
         step_interval: float = 0.1,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
     ) -> None:
         super().__init__(
             agent=agent,
@@ -62,6 +67,8 @@ class AgentService(BaseService):
             service_name=service_name,
             step_interval=step_interval,
             prompt=prompt,
+            host=host,
+            port=port,
         )
 
         self._message_queue = message_queue
@@ -70,6 +77,13 @@ class AgentService(BaseService):
         self._app = FastAPI(lifespan=self.lifespan)
 
         self._app.add_api_route("/", self.home, methods=["GET"], tags=["Agent State"])
+
+        self._app.add_api_route(
+            "/process_message",
+            self.process_message,
+            methods=["POST"],
+            tags=["Message Processing"],
+        )
 
         self._app.add_api_route(
             "/task", self.create_task, methods=["POST"], tags=["Tasks"]
@@ -116,54 +130,65 @@ class AgentService(BaseService):
 
     async def processing_loop(self) -> None:
         while True:
-            if not self.running:
-                await asyncio.sleep(self.step_interval)
-                continue
-
-            current_tasks = self.agent.list_tasks()
-            current_task_ids = [task.task_id for task in current_tasks]
-
-            completed_tasks = self.agent.get_completed_tasks()
-            completed_task_ids = [task.task_id for task in completed_tasks]
-
-            for task_id in current_task_ids:
-                if task_id in completed_task_ids:
+            try:
+                if not self.running:
+                    await asyncio.sleep(self.step_interval)
                     continue
 
-                step_output = await self.agent.arun_step(task_id)
+                current_tasks = self.agent.list_tasks()
+                current_task_ids = [task.task_id for task in current_tasks]
 
-                if step_output.is_last:
-                    # finalize the response
-                    response = self.agent.finalize_response(
-                        task_id, step_output=step_output
-                    )
+                completed_tasks = self.agent.get_completed_tasks()
+                completed_task_ids = [task.task_id for task in completed_tasks]
 
-                    # get the latest history
-                    history = self.agent.memory.get()
+                for task_id in current_task_ids:
+                    if task_id in completed_task_ids:
+                        continue
 
-                    # publish the completed task
-                    await self.publish(
-                        QueueMessage(
-                            type=CONTROL_PLANE_NAME,
-                            action=ActionTypes.COMPLETED_TASK,
-                            data=TaskResult(
-                                task_id=task_id,
-                                history=history,
-                                result=response.response,
-                            ).dict(),
+                    step_output = await self.agent.arun_step(task_id)
+
+                    if step_output.is_last:
+                        # finalize the response
+                        response = self.agent.finalize_response(
+                            task_id, step_output=step_output
                         )
-                    )
+
+                        # get the latest history
+                        history = self.agent.memory.get()
+
+                        # publish the completed task
+                        await self.publish(
+                            QueueMessage(
+                                type=CONTROL_PLANE_NAME,
+                                action=ActionTypes.COMPLETED_TASK,
+                                data=TaskResult(
+                                    task_id=task_id,
+                                    history=history,
+                                    result=response.response,
+                                ).model_dump(),
+                            )
+                        )
+            except Exception as e:
+                logger.error(f"Error in {self.service_name} processing_loop: {e}")
+                continue
 
             await asyncio.sleep(self.step_interval)
 
-    async def process_message(self, message: QueueMessage, **kwargs: Any) -> None:
+    async def process_message(self, message: QueueMessage) -> None:
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
             self.agent.create_task(task_def.input, task_id=task_def.task_id)
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 
-    def as_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
+        if remote:
+            url = f"{self.host}:{self.port}/{self._app.url_path_for('process_message')}"
+            return RemoteMessageConsumer(
+                url=url,
+                message_type=self.service_name,
+            )
+
         return CallableMessageConsumer(
             message_type=self.service_name,
             handler=self.process_message,
@@ -171,12 +196,12 @@ class AgentService(BaseService):
 
     async def launch_local(self) -> None:
         logger.info(f"{self.service_name} launch_local")
-        asyncio.create_task(self.processing_loop())
+        await self.processing_loop()
 
     # ---- Server based methods ----
 
     @asynccontextmanager
-    async def lifespan(self) -> AsyncGenerator[None, None]:
+    async def lifespan(self, app: FastAPI) -> AsyncGenerator[None, None]:
         """Starts the processing loop when the fastapi app starts."""
         asyncio.create_task(self.processing_loop())
         yield
@@ -214,5 +239,5 @@ class AgentService(BaseService):
 
         return {"message": "Agent reset"}
 
-    async def launch_server(self) -> None:
-        uvicorn.run(self._app)
+    def launch_server(self) -> None:
+        uvicorn.run(self._app, host=self.host, port=self.port)
