@@ -196,7 +196,7 @@ class ToolService(BaseService):
         )
 
     async def launch_local(self) -> None:
-        await self.processing_loop()
+        asyncio.create_task(self.processing_loop())
 
     # ---- Server based methods ----
 

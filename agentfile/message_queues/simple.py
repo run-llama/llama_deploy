@@ -185,7 +185,7 @@ class SimpleMessageQueue(BaseMessageQueue):
 
     async def launch_local(self) -> None:
         logger.info("Launching message queue locally")
-        await self.processing_loop()
+        asyncio.create_task(self.processing_loop())
 
     def launch_server(self) -> None:
         logger.info("Launching message queue server")
