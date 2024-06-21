@@ -7,7 +7,7 @@ from agentfile.services.human import HELP_REQUEST_TEMPLATE_STR
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.messages.base import QueueMessage
-from agentfile.types import HumanRequest
+from agentfile.types import HumanRequest, ActionTypes
 from llama_index.core.bridge.pydantic import PrivateAttr
 
 
@@ -104,4 +104,44 @@ async def test_process_human_req(
     )
     assert human_output_consumer.processed_messages[0].data.get("id_") == "1"
     assert result == {"human_request_id": req.id_}
+    assert len(human_service._outstanding_human_requests) == 0
+
+
+@pytest.mark.asyncio()
+@patch("builtins.input")
+async def test_process_human_req_from_queue(
+    mock_input: MagicMock, human_output_consumer: MockMessageConsumer
+) -> None:
+    # arrange
+    mq = SimpleMessageQueue()
+    human_service = HumanService(message_queue=mq, service_name="test_human_service")
+    await mq.register_consumer(human_output_consumer)
+    await mq.register_consumer(human_service.as_consumer())
+
+    mq_task = asyncio.create_task(mq.start())
+    server_task = asyncio.create_task(human_service.processing_loop())
+    mock_input.return_value = "Test human input."
+
+    # act
+    req = HumanRequest(id_="1", input="Mock human req.", source_id=HUMAN_REQ_SOURCE)
+    human_req_message = QueueMessage(
+        data=req.dict(),
+        action=ActionTypes.REQUEST_FOR_HELP,
+        type="test_human_service",
+    )
+    await mq.publish(human_req_message)
+
+    # Give some time for last message to get published and sent to consumers
+    await asyncio.sleep(1)
+    mq_task.cancel()
+    server_task.cancel()
+
+    # assert
+    assert human_service.message_queue == mq
+    assert len(human_output_consumer.processed_messages) == 1
+    assert (
+        human_output_consumer.processed_messages[0].data.get("result")
+        == "Test human input."
+    )
+    assert human_output_consumer.processed_messages[0].data.get("id_") == "1"
     assert len(human_service._outstanding_human_requests) == 0
