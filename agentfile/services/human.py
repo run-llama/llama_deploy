@@ -27,6 +27,13 @@ logger.setLevel(logging.DEBUG)
 logging.basicConfig(level=logging.DEBUG)
 
 
+HELP_REQUEST_TEMPLATE_STR = (
+    "Your assistance is needed. Please respond to the request "
+    "provided below:\n===\n\n"
+    "{input_str}\n\n===\n"
+)
+
+
 class HumanService(BaseService):
     service_name: str
     description: str = "Local Human Service."
@@ -101,17 +108,13 @@ class HumanService(BaseService):
 
             async with self.lock:
                 current_requests: List[HumanRequest] = [
-                    *self._outstanding_tool_calls.values()
+                    *self._outstanding_human_requests.values()
                 ]
             for req in current_requests:
                 logger.info(f"Processing tool call id {req.id_}")
 
                 # process req
-                result = input(
-                    "Your assistance is needed. Please respond to the request "
-                    "provided below:\n===\n\n"
-                    f"{req.input}\n\n===\n"
-                )
+                result = input(HELP_REQUEST_TEMPLATE_STR.format(input_str=req.input))
 
                 # publish the completed task
                 await self.publish(
