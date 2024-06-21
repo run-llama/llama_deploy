@@ -49,7 +49,7 @@ class PipelineOrchestrator(BaseOrchestrator):
                             data=TaskDefinition(
                                 input=module_input,
                                 task_id=task_def.task_id,
-                            ).dict(),
+                            ).model_dump(),
                         )
                     )
                     continue
@@ -68,7 +68,7 @@ class PipelineOrchestrator(BaseOrchestrator):
                             data=TaskDefinition(
                                 input=service_dict["input"],
                                 task_id=task_def.task_id,
-                            ).dict(),
+                            ).model_dump(),
                         )
                     )
                     continue
@@ -112,7 +112,7 @@ class PipelineOrchestrator(BaseOrchestrator):
                         task_id=task_def.task_id,
                         result=result,
                         history=[],
-                    ).dict(),
+                    ).model_dump(),
                 )
             )
 

@@ -45,4 +45,6 @@ agent_server_2 = AgentService(
 
 # launch it
 launcher = LocalLauncher([agent_server_1, agent_server_2], control_plane, message_queue)
-launcher.launch_single("What is the secret fact?")
+result = launcher.launch_single("What is the secret fact?")
+
+print(f"Result: {result}")

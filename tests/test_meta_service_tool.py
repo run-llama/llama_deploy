@@ -1,13 +1,15 @@
 import asyncio
 import pytest
+from pydantic import PrivateAttr
 from typing import Any, Dict, List
+
+from llama_index.core.tools import FunctionTool, BaseTool
+
 from agentfile.services import ToolService
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.messages.base import QueueMessage
 from agentfile.tools import MetaServiceTool
-from llama_index.core.bridge.pydantic import PrivateAttr
-from llama_index.core.tools import FunctionTool, BaseTool
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
@@ -140,7 +142,7 @@ async def test_tool_call_output(
         tool_service=tool_service, message_queue=message_queue, name="multiply"
     )
     await message_queue.register_consumer(tool_service.as_consumer())
-    mq_task = asyncio.create_task(message_queue.start())
+    mq_task = asyncio.create_task(message_queue.launch_local())
     ts_task = asyncio.create_task(tool_service.processing_loop())
 
     # act
@@ -172,7 +174,7 @@ async def test_tool_call_raise_timeout(
         raise_timeout=True,
     )
     await message_queue.register_consumer(tool_service.as_consumer())
-    mq_task = asyncio.create_task(message_queue.start())
+    mq_task = asyncio.create_task(message_queue.launch_local())
     ts_task = asyncio.create_task(tool_service.processing_loop())
 
     # act/assert
@@ -198,7 +200,7 @@ async def test_tool_call_reach_timeout(
         raise_timeout=False,
     )
     await message_queue.register_consumer(tool_service.as_consumer())
-    mq_task = asyncio.create_task(message_queue.start())
+    mq_task = asyncio.create_task(message_queue.launch_local())
     ts_task = asyncio.create_task(tool_service.processing_loop())
 
     # act/assert

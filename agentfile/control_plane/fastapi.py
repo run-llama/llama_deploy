@@ -141,7 +141,7 @@ class FastAPIControlPlane(BaseControlPlane):
     async def register_service(self, service_def: ServiceDefinition) -> None:
         await self.state_store.aput(
             service_def.service_name,
-            service_def.dict(),
+            service_def.model_dump(),
             collection=self.services_store_key,
         )
 
@@ -149,9 +149,9 @@ class FastAPIControlPlane(BaseControlPlane):
         self._total_services += 1
         if self._total_services > self._services_retrieval_threshold:
             # TODO: currently blocking, should be async
-            self.object_index.insert_object(service_def.dict())
+            self.object_index.insert_object(service_def.model_dump())
             for service in self._services_cache.values():
-                self.object_index.insert_object(service.dict())
+                self.object_index.insert_object(service.model_dump())
             self._services_cache = {}
         else:
             self._services_cache[service_def.service_name] = service_def
@@ -169,12 +169,12 @@ class FastAPIControlPlane(BaseControlPlane):
 
     async def create_task(self, task_def: TaskDefinition) -> None:
         await self.state_store.aput(
-            task_def.task_id, task_def.dict(), collection=self.tasks_store_key
+            task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
         )
 
         task_def = await self.send_task_to_service(task_def)
         await self.state_store.aput(
-            task_def.task_id, task_def.dict(), collection=self.tasks_store_key
+            task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
         )
 
     async def send_task_to_service(self, task_def: TaskDefinition) -> TaskDefinition:
@@ -187,7 +187,7 @@ class FastAPIControlPlane(BaseControlPlane):
                 task_def.input
             )
             service_defs = [
-                ServiceDefinition.parse_obj(service_def_dict)
+                ServiceDefinition.model_validate(service_def_dict)
                 for service_def_dict in service_def_dicts
             ]
         else:
@@ -220,7 +220,7 @@ class FastAPIControlPlane(BaseControlPlane):
         task_def = await self.send_task_to_service(task_def)
 
         await self.state_store.aput(
-            task_def.task_id, task_def.dict(), collection=self.tasks_store_key
+            task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
         )
 
     async def get_task_state(self, task_id: str) -> TaskDefinition:
@@ -230,11 +230,11 @@ class FastAPIControlPlane(BaseControlPlane):
         if state_dict is None:
             raise ValueError(f"Task with id {task_id} not found")
 
-        return TaskDefinition.parse_obj(state_dict)
+        return TaskDefinition.model_validate(state_dict)
 
     async def get_all_tasks(self) -> Dict[str, TaskDefinition]:
         state_dicts = await self.state_store.aget_all(collection=self.tasks_store_key)
         return {
-            task_id: TaskDefinition.parse_obj(state_dict)
+            task_id: TaskDefinition.model_validate(state_dict)
             for task_id, state_dict in state_dicts.items()
         }

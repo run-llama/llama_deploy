@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
+from pydantic import BaseModel
 from typing import Any
-
-from llama_index.core.bridge.pydantic import BaseModel
 
 from agentfile.messages.base import QueueMessage
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
@@ -24,7 +23,7 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
         ...
 
     @abstractmethod
-    def as_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         """Get the consumer for the message queue."""
         ...
 
@@ -34,7 +33,7 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
         ...
 
     @abstractmethod
-    async def process_message(self, message: QueueMessage, **kwargs: Any) -> Any:
+    async def process_message(self, message: QueueMessage) -> Any:
         """Process a message."""
         ...
 
@@ -51,6 +50,6 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
         ...
 
     @abstractmethod
-    async def launch_server(self) -> None:
+    def launch_server(self) -> None:
         """Launch the service as a server."""
         ...

@@ -1,8 +1,7 @@
 import asyncio
-import uuid
 import signal
 import sys
-
+import uuid
 from typing import Any, Callable, Dict, List, Optional
 
 from agentfile.services.base import BaseService
@@ -41,6 +40,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
+        self.result: Optional[str] = None
 
     @property
     def message_queue(self) -> SimpleMessageQueue:
@@ -56,7 +56,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
 
     async def handle_human_message(self, **kwargs: Any) -> None:
         result = TaskResult(**kwargs["message_data"])
-        print("Got response:\n", result.result, flush=True)
+        self.result = result.result
 
     async def register_consumers(
         self, consumers: Optional[List[BaseMessageQueueConsumer]] = None
@@ -70,8 +70,8 @@ class LocalLauncher(MessageQueuePublisherMixin):
 
         await self.message_queue.register_consumer(self.control_plane.as_consumer())
 
-    def launch_single(self, initial_task: str) -> None:
-        asyncio.run(self.alaunch_single(initial_task))
+    def launch_single(self, initial_task: str) -> str:
+        return asyncio.run(self.alaunch_single(initial_task))
 
     def get_shutdown_handler(self, tasks: List[asyncio.Task]) -> Callable:
         def signal_handler(sig: Any, frame: Any) -> None:
@@ -82,7 +82,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
 
         return signal_handler
 
-    async def alaunch_single(self, initial_task: str) -> None:
+    async def alaunch_single(self, initial_task: str) -> str:
         # register human consumer
         human_consumer = HumanMessageConsumer(
             message_handler={
@@ -96,7 +96,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
             await self.control_plane.register_service(service.service_definition)
 
         # start services
-        bg_tasks = []
+        bg_tasks: List[asyncio.Task] = []
         for service in self.services:
             bg_tasks.append(asyncio.create_task(service.launch_local()))
 
@@ -105,13 +105,23 @@ class LocalLauncher(MessageQueuePublisherMixin):
             QueueMessage(
                 type="control_plane",
                 action=ActionTypes.NEW_TASK,
-                data=TaskDefinition(input=initial_task).dict(),
+                data=TaskDefinition(input=initial_task).model_dump(),
             ),
         )
         # runs until the message queue is stopped by the human consumer
-        mq_task = asyncio.create_task(self.message_queue.start())
+        mq_task = asyncio.create_task(self.message_queue.launch_local())
         shutdown_handler = self.get_shutdown_handler([mq_task] + bg_tasks)
         loop = asyncio.get_event_loop()
         while loop.is_running():
             await asyncio.sleep(0.1)
             signal.signal(signal.SIGINT, shutdown_handler)
+
+            if self.result:
+                break
+
+        # shutdown
+        for task in bg_tasks:
+            task.cancel()
+        mq_task.cancel()
+
+        return self.result or "No result found."

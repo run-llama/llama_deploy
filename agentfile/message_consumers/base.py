@@ -1,10 +1,11 @@
 """Message consumers."""
 
-import uuid
 from abc import ABC, abstractmethod
+from pydantic import BaseModel, Field
 from typing import Any, TYPE_CHECKING
-from llama_index.core.bridge.pydantic import BaseModel, Field
+
 from agentfile.messages.base import QueueMessage
+from agentfile.types import generate_id
 
 if TYPE_CHECKING:
     from agentfile.message_queues.base import BaseMessageQueue
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 class BaseMessageQueueConsumer(BaseModel, ABC):
     """Consumer of a MessageQueue."""
 
-    id_: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id_: str = Field(default_factory=generate_id)
     message_type: str = Field(
         default="default", description="Type of the message to consume."
     )
