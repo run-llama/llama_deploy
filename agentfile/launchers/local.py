@@ -96,7 +96,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
             await self.control_plane.register_service(service.service_definition)
 
         # start services
-        bg_tasks = []
+        bg_tasks: List[asyncio.Task] = []
         for service in self.services:
             bg_tasks.append(asyncio.create_task(service.launch_local()))
 
