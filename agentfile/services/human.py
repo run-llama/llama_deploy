@@ -111,7 +111,7 @@ class HumanService(BaseService):
                     *self._outstanding_human_requests.values()
                 ]
             for req in current_requests:
-                logger.info(f"Processing tool call id {req.id_}")
+                logger.info(f"Processing human req with id {req.id_}")
 
                 # process req
                 result = input(HELP_REQUEST_TEMPLATE_STR.format(input_str=req.input))
