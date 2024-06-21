@@ -33,7 +33,7 @@ class AgentOrchestrator(BaseOrchestrator):
         tools_plus_human = [self.human_tool, *tools]
 
         chat_dicts = state.get(HISTORY_KEY, [])
-        chat_history = [ChatMessage.parse_obj(x) for x in chat_dicts]
+        chat_history = [ChatMessage(**x) for x in chat_dicts]
 
         # TODO: how to make memory configurable?
         memory = ChatMemoryBuffer.from_defaults(chat_history=chat_history, llm=self.llm)
@@ -64,7 +64,7 @@ class AgentOrchestrator(BaseOrchestrator):
                         task_id=task_def.task_id,
                         history=memory.get_all(),
                         result=response.response,
-                    ).dict(),
+                    ).model_dump(),
                     action=ActionTypes.COMPLETED_TASK,
                 )
             )
@@ -78,7 +78,7 @@ class AgentOrchestrator(BaseOrchestrator):
                         type=name,
                         data=TaskDefinition(
                             task_id=task_def.task_id, input=input_str
-                        ).dict(),
+                        ).model_dump(),
                         action=ActionTypes.NEW_TASK,
                     )
                 )
@@ -103,7 +103,7 @@ class AgentOrchestrator(BaseOrchestrator):
 
         # get the current chat history, add the summary to it
         chat_dicts = state.get(HISTORY_KEY, [])
-        chat_history = [ChatMessage.parse_obj(x) for x in chat_dicts]
+        chat_history = [ChatMessage(**x) for x in chat_dicts]
 
         chat_history.append(ChatMessage(role="assistant", content=str(summary)))
 

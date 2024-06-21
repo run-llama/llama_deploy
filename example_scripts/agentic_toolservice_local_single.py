@@ -56,4 +56,6 @@ launcher = LocalLauncher(
     control_plane,
     message_queue,
 )
-launcher.launch_single("What is the secret fact?")
+result = launcher.launch_single("What is the secret fact?")
+
+print(f"Result: {result}")

@@ -1,7 +1,8 @@
 import asyncio
 import pytest
+from pydantic import PrivateAttr
 from typing import Any, List
-from llama_index.core.bridge.pydantic import PrivateAttr
+
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.messages.base import QueueMessage
@@ -21,7 +22,7 @@ async def test_consumer_consumes_messages() -> None:
     # Arrange
     consumer_one = MockMessageConsumer()
     mq = SimpleMessageQueue()
-    task = asyncio.create_task(mq.start())
+    task = asyncio.create_task(mq.launch_local())
 
     # Act
     await consumer_one.start_consuming(message_queue=mq)

@@ -31,7 +31,7 @@ TOOLS = [
 
 INITIAL_QUEUE_MESSAGE = QueueMessage(
     type="secret_fact_agent",
-    data=TaskDefinition(input="What is the secret fact?").dict(),
+    data=TaskDefinition(input="What is the secret fact?").model_dump(),
     action=ActionTypes.NEW_TASK,
 )
 
