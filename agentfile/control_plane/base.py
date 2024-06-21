@@ -93,3 +93,10 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         :return: All tasks.
         """
         ...
+
+    @abstractmethod
+    async def launch_server(self) -> None:
+        """
+        Launch the control plane server.
+        """
+        ...

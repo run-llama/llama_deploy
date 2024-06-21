@@ -3,7 +3,8 @@ from typing import Dict, List, Optional
 
 from llama_index.core.agent.types import TaskStep, TaskStepOutput, Task
 from llama_index.core.agent.runner.base import AgentState, TaskState
-from llama_index.core.llms import ChatMessage
+
+from agentfile.types import ChatMessage
 
 # ------ FastAPI types ------
 

@@ -92,6 +92,6 @@ class BaseMessageQueue(BaseModel, ABC):
         ...
 
     @abstractmethod
-    def launch_server(self) -> None:
+    async def launch_server(self) -> None:
         """Launch the service as a server."""
         ...

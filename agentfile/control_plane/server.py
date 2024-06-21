@@ -44,7 +44,7 @@ class ControlPlaneMessageConsumer(BaseMessageQueueConsumer):
             await self.message_handler[action](TaskResult(**message.data))
 
 
-class FastAPIControlPlane(BaseControlPlane):
+class ControlPlaneServer(BaseControlPlane):
     def __init__(
         self,
         message_queue: BaseMessageQueue,
@@ -56,6 +56,8 @@ class FastAPIControlPlane(BaseControlPlane):
         tasks_store_key: str = "tasks",
         step_interval: float = 0.1,
         services_retrieval_threshold: int = 5,
+        host: str = "127.0.0.1",
+        port: int = 8000,
         running: bool = True,
     ) -> None:
         self.orchestrator = orchestrator
@@ -68,6 +70,8 @@ class FastAPIControlPlane(BaseControlPlane):
         )
         self.step_interval = step_interval
         self.running = running
+        self.host = host
+        self.port = port
 
         self.state_store = state_store or SimpleKVStore()
 
@@ -126,8 +130,17 @@ class FastAPIControlPlane(BaseControlPlane):
             }
         )
 
-    def launch(self) -> None:
-        uvicorn.run(self.app)
+    async def launch_server(self) -> None:
+        logger.info(f"Launching control plane server at {self.host}:{self.port}")
+        # uvicorn.run(self.app, host=self.host, port=self.port)
+
+        class CustomServer(uvicorn.Server):
+            def install_signal_handlers(self) -> None:
+                pass
+
+        cfg = uvicorn.Config(self.app, host=self.host, port=self.port)
+        server = CustomServer(cfg)
+        await server.serve()
 
     async def home(self) -> Dict[str, str]:
         return {

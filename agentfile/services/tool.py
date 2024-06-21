@@ -11,7 +11,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 from llama_index.core.agent.function_calling.step import (
     get_function_by_name,
 )
-from llama_index.core.llms import ChatMessage, MessageRole
+from llama_index.core.llms import MessageRole
 from llama_index.core.tools import BaseTool, AsyncBaseTool, adapt_to_async_tool
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
@@ -23,6 +23,7 @@ from agentfile.messages.base import QueueMessage
 from agentfile.services.base import BaseService
 from agentfile.types import (
     ActionTypes,
+    ChatMessage,
     ToolCall,
     ToolCallResult,
     ServiceDefinition,
@@ -226,5 +227,14 @@ class ToolService(BaseService):
             raise ValueError(f"Tool with name {name} not found")
         return {"tool_metadata": name_to_tool[name].metadata}
 
-    def launch_server(self) -> None:
-        uvicorn.run(self._app, host=self.host, port=self.port)
+    async def launch_server(self) -> None:
+        logger.info(f"Launching tool service server at {self.host}:{self.port}")
+        # uvicorn.run(self._app, host=self.host, port=self.port)
+
+        class CustomServer(uvicorn.Server):
+            def install_signal_handlers(self) -> None:
+                pass
+
+        cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
+        server = CustomServer(cfg)
+        await server.serve()

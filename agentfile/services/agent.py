@@ -7,7 +7,6 @@ from pydantic import PrivateAttr
 from typing import AsyncGenerator, Dict, List, Literal, Optional
 
 from llama_index.core.agent import AgentRunner
-from llama_index.core.llms import ChatMessage
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.callable import CallableMessageConsumer
@@ -19,6 +18,7 @@ from agentfile.services.base import BaseService
 from agentfile.services.types import _ChatMessage
 from agentfile.types import (
     ActionTypes,
+    ChatMessage,
     TaskResult,
     TaskDefinition,
     ServiceDefinition,
@@ -239,5 +239,14 @@ class AgentService(BaseService):
 
         return {"message": "Agent reset"}
 
-    def launch_server(self) -> None:
-        uvicorn.run(self._app, host=self.host, port=self.port)
+    async def launch_server(self) -> None:
+        logger.info(f"Launching {self.service_name} server at {self.host}:{self.port}")
+        # uvicorn.run(self._app, host=self.host, port=self.port)
+
+        class CustomServer(uvicorn.Server):
+            def install_signal_handlers(self) -> None:
+                pass
+
+        cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
+        server = CustomServer(cfg)
+        await server.serve()

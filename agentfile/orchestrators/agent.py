@@ -1,13 +1,13 @@
 from typing import Any, Dict, List, Tuple
 
-from llama_index.core.llms import LLM, ChatMessage
+from llama_index.core.llms import LLM
 from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.tools import BaseTool
 
 from agentfile.messages.base import QueueMessage
 from agentfile.orchestrators.base import BaseOrchestrator
 from agentfile.orchestrators.service_tool import ServiceTool
-from agentfile.types import ActionTypes, TaskDefinition, TaskResult
+from agentfile.types import ActionTypes, ChatMessage, TaskDefinition, TaskResult
 
 HISTORY_KEY = "chat_history"
 DEFAULT_SUMMARIZE_TMPL = "{history}\n\nThe above represents the progress so far, please condense the messages into a single message."
