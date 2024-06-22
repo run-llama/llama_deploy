@@ -22,6 +22,7 @@ from agentfile.types import (
     ServiceDefinition,
     CONTROL_PLANE_NAME,
 )
+from llama_index.core.llms import ChatMessage, MessageRole
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -126,7 +127,17 @@ class HumanService(BaseService):
                 result = input(
                     HELP_REQUEST_TEMPLATE_STR.format(input_str=task_def.input)
                 )
-                logger.info(f"{result}")
+
+                # create history
+                history = [
+                    ChatMessage(
+                        role=MessageRole.ASSISTANT,
+                        content=HELP_REQUEST_TEMPLATE_STR.format(
+                            input_str=task_def.input
+                        ),
+                    ),
+                    ChatMessage(role=MessageRole.USER, content=result),
+                ]
 
                 # publish the completed task
                 await self.publish(
@@ -135,7 +146,7 @@ class HumanService(BaseService):
                         action=ActionTypes.COMPLETED_TASK,
                         data=TaskResult(
                             task_id=task_def.task_id,
-                            history=[],
+                            history=history,
                             result=result,
                         ).model_dump(),
                     )
