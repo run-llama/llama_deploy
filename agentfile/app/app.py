@@ -1,103 +1,15 @@
 import httpx
 import pprint
-from enum import Enum
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 from textual.app import App, ComposeResult
-from textual.containers import VerticalScroll
 from textual.reactive import reactive
 from textual.widgets import Button, Header, Footer, Static, Input
 
+from agentfile.app.components.service_list import ServicesList
+from agentfile.app.components.task_list import TasksList
+from agentfile.app.components.types import ButtonType
 from agentfile.types import TaskDefinition
-
-
-class ButtonType(str, Enum):
-    SERVICE = "Service"
-    TASK = "Task"
-
-
-class ServiceButton(Button):
-    type: ButtonType = ButtonType.SERVICE
-
-
-class TaskButton(Button):
-    type: ButtonType = ButtonType.TASK
-
-
-class ServicesList(Static):
-    services = reactive([])
-
-    def __init__(self, control_plane_url: str, **kwargs: Any):
-        self.control_plane_url = control_plane_url
-        super().__init__(**kwargs)
-
-        self.refresh_services()
-
-    def compose(self) -> ComposeResult:
-        with VerticalScroll(id="services-scroll"):
-            for service in self.services:
-                yield ServiceButton(service)
-
-    def on_mount(self) -> None:
-        self.set_interval(5, self.refresh_services)
-
-    def refresh_services(self) -> None:
-        with httpx.Client() as client:
-            response = client.get(f"{self.control_plane_url}/services")
-            services_dict = response.json()
-
-        new_services = []
-        for service_name in services_dict:
-            new_services.append(service_name)
-
-        self.services = [*new_services]
-
-    def watch_services(self, new_services: List[str]) -> None:
-        try:
-            services_scroll = self.query_one("#services-scroll")
-            services_scroll.remove_children()
-            for service in new_services:
-                services_scroll.mount(ServiceButton(service))
-        except Exception:
-            pass
-
-
-class TasksList(Static):
-    tasks = reactive([])
-
-    def __init__(self, control_plane_url: str, **kwargs: Any):
-        self.control_plane_url = control_plane_url
-        super().__init__(**kwargs)
-
-        self.refresh_tasks()
-
-    def compose(self) -> ComposeResult:
-        with VerticalScroll(id="tasks-scroll"):
-            for task in self.tasks:
-                yield TaskButton(task)
-
-    def on_mount(self) -> None:
-        self.set_interval(5, self.refresh_tasks)
-
-    def refresh_tasks(self) -> None:
-        with httpx.Client() as client:
-            response = client.get(f"{self.control_plane_url}/tasks")
-            tasks_dict = response.json()
-
-        new_tasks = []
-        for task_id in tasks_dict:
-            new_tasks.append(task_id)
-
-        self.tasks = [*new_tasks]
-
-    def watch_tasks(self, new_tasks: List[str]) -> None:
-        try:
-            tasks_scroll = self.query_one("#tasks-scroll")
-            tasks_scroll.remove_children()
-            for task in new_tasks:
-                tasks_scroll.mount(TaskButton(task))
-        except Exception:
-            pass
 
 
 class SimpleServerApp(App):
