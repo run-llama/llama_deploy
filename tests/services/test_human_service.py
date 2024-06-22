@@ -45,7 +45,8 @@ async def test_init() -> None:
 
 
 @pytest.mark.asyncio()
-async def test_create_human_req() -> None:
+@patch("agentfile.types.uuid")
+async def test_create_human_req(mock_uuid: MagicMock) -> None:
     # arrange
     human_service = HumanService(
         message_queue=SimpleMessageQueue(),
@@ -54,14 +55,16 @@ async def test_create_human_req() -> None:
         service_name="Test Human Service",
         step_interval=0.5,
     )
-    req = TaskDefinition(task_id="1", input="Mock human req.")
+    mock_uuid.uuid4.return_value = "mock_id"
+    task = TaskDefinition(task_id="1", input="Mock human req.")
 
     # act
-    result = await human_service.create_human_request(req)
+    result = await human_service.create_task(task)
+    print(human_service._outstanding_human_tasks)
 
     # assert
-    assert result == {"human_request_id": req.task_id}
-    assert human_service._outstanding_human_requests[req.task_id] == req
+    assert result == {"task_id": task.task_id}
+    assert human_service._outstanding_human_tasks["mock_id"].task_definition == task
 
 
 @pytest.mark.asyncio()
@@ -82,7 +85,7 @@ async def test_process_human_req(
 
     # act
     req = TaskDefinition(task_id="1", input="Mock human req.")
-    result = await human_service.create_human_request(req)
+    result = await human_service.create_task(req)
 
     # give time to process and shutdown afterwards
     await asyncio.sleep(1)
@@ -100,8 +103,8 @@ async def test_process_human_req(
         == "Test human input."
     )
     assert human_output_consumer.processed_messages[0].data.get("task_id") == "1"
-    assert result == {"human_request_id": req.task_id}
-    assert len(human_service._outstanding_human_requests) == 0
+    assert result == {"task_id": req.task_id}
+    assert len(human_service._outstanding_human_tasks) == 0
 
 
 @pytest.mark.asyncio()
@@ -141,4 +144,4 @@ async def test_process_human_req_from_queue(
         == "Test human input."
     )
     assert human_output_consumer.processed_messages[0].data.get("task_id") == "1"
-    assert len(human_service._outstanding_human_requests) == 0
+    assert len(human_service._outstanding_human_tasks) == 0

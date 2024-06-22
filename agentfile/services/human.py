@@ -6,7 +6,7 @@ from asyncio import Lock
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from typing import Any, AsyncGenerator, Dict, List, Optional
-from pydantic import PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.callable import CallableMessageConsumer
@@ -21,6 +21,7 @@ from agentfile.types import (
     TaskResult,
     ServiceDefinition,
     CONTROL_PLANE_NAME,
+    generate_id,
 )
 from llama_index.core.llms import ChatMessage, MessageRole
 
@@ -44,7 +45,7 @@ class HumanService(BaseService):
     host: Optional[str] = None
     port: Optional[int] = None
 
-    _outstanding_human_requests: Dict[str, TaskDefinition] = PrivateAttr()
+    _outstanding_human_tasks: Dict[str, "HumanTask"] = PrivateAttr()
     _message_queue: BaseMessageQueue = PrivateAttr()
     _app: FastAPI = PrivateAttr()
     _publisher_id: str = PrivateAttr()
@@ -71,7 +72,7 @@ class HumanService(BaseService):
             port=port,
         )
 
-        self._outstanding_human_requests = {}
+        self._outstanding_human_tasks = {}
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
@@ -81,7 +82,7 @@ class HumanService(BaseService):
         self._app.add_api_route("/", self.home, methods=["GET"], tags=["Human Service"])
 
         self._app.add_api_route(
-            "/help", self.create_human_request, methods=["POST"], tags=["Help Requests"]
+            "/help", self.create_task, methods=["POST"], tags=["Help Requests"]
         )
 
     @property
@@ -107,6 +108,21 @@ class HumanService(BaseService):
     @property
     def lock(self) -> Lock:
         return self._lock
+
+    class HumanTask(BaseModel):
+        """Lightweight container object over TaskDefinitions.
+
+        This is needed since orchestrators may send multiple `TaskDefinition`
+        with the same task_id. In such a case, this human service is expected
+        to address these multiple (sub)tasks for the overall task. In other words,
+        these sub tasks are all legitimate and should be processed.
+        """
+
+        id_: str = Field(default_factory=generate_id)
+        task_definition: TaskDefinition
+
+        class Config:
+            arbitrary_types_allowed = True
 
     async def processing_loop(self) -> None:
         while True:
@@ -161,8 +177,9 @@ class HumanService(BaseService):
     async def process_message(self, message: QueueMessage, **kwargs: Any) -> None:
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
+            human_task = self.HumanTask(task_definition=task_def)
             async with self.lock:
-                self._outstanding_human_requests.update({task_def.task_id: task_def})
+                self._outstanding_human_tasks.update({human_task.id_: human_task})
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 
@@ -200,10 +217,14 @@ class HumanService(BaseService):
             "step_interval": str(self.step_interval),
         }
 
-    async def create_human_request(self, req: TaskDefinition) -> Dict[str, str]:
+    async def create_task(self, task: TaskDefinition) -> Dict[str, str]:
+        human_task = self.HumanTask(task_definition=task)
         async with self.lock:
-            self._outstanding_human_requests.update({req.task_id: req})
-        return {"human_request_id": req.task_id}
+            self._outstanding_human_tasks.update({human_task.id_: human_task})
+        return {"task_id": task.task_id}
 
     def launch_server(self) -> None:
         uvicorn.run(self._app, host=self.host, port=self.port)
+
+
+HumanService.model_rebuild()
