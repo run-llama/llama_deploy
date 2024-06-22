@@ -72,6 +72,13 @@ class SimpleMessageQueue(BaseMessageQueue):
             tags=["Consumers"],
         )
 
+        self._app.add_api_route(
+            "/publish",
+            self.publish,
+            methods=["POST"],
+            tags=["QueueMessages"],
+        )
+
     def _select_consumer(self, message: QueueMessage) -> BaseMessageQueueConsumer:
         """Select a single consumer to publish a message to."""
         message_type_str = message.type
