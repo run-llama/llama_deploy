@@ -17,7 +17,6 @@ class ActionTypes(str, Enum):
     NEW_TASK = "new_task"
     COMPLETED_TASK = "completed_task"
     REQUEST_FOR_HELP = "request_for_help"
-    COMPLETED_REQUEST_FOR_HELP = "completed_request_for_help"
     NEW_TOOL_CALL = "new_tool_call"
     COMPLETED_TOOL_CALL = "completed_tool_call"
 
