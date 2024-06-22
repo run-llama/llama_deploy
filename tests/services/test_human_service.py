@@ -123,7 +123,7 @@ async def test_process_human_req_from_queue(
     req = TaskDefinition(task_id="1", input="Mock human req.")
     human_req_message = QueueMessage(
         data=req.model_dump(),
-        action=ActionTypes.REQUEST_FOR_HELP,
+        action=ActionTypes.NEW_TASK,
         type="test_human_service",
     )
     await mq.publish(human_req_message)

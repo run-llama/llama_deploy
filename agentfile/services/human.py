@@ -159,7 +159,7 @@ class HumanService(BaseService):
             await asyncio.sleep(self.step_interval)
 
     async def process_message(self, message: QueueMessage, **kwargs: Any) -> None:
-        if message.action == ActionTypes.REQUEST_FOR_HELP:
+        if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
             async with self.lock:
                 self._outstanding_human_requests.update({task_def.task_id: task_def})

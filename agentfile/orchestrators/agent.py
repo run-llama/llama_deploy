@@ -76,17 +76,13 @@ class AgentOrchestrator(BaseOrchestrator):
                 name = source.tool_name
                 input_data = source.raw_input
                 input_str = next(iter(input_data.values()))
-                if name == "default_human_service":
-                    action = ActionTypes.REQUEST_FOR_HELP
-                else:
-                    action = ActionTypes.NEW_TASK
                 queue_messages.append(
                     QueueMessage(
                         type=name,
                         data=TaskDefinition(
                             task_id=task_def.task_id, input=input_str
                         ).model_dump(),
-                        action=action,
+                        action=ActionTypes.NEW_TASK,
                     )
                 )
 
