@@ -100,6 +100,7 @@ class SimpleMessageQueue(BaseMessageQueue):
         consumer = self._select_consumer(message)
         try:
             await consumer.process_message(message, **kwargs)
+            logger.info(f"Successfully published message '{message.type}' to consumer.")
         except Exception as e:
             logger.debug(
                 f"Failed to publish message of type '{message.type}' to consumer. Message: {str(e)}"

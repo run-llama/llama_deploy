@@ -8,11 +8,12 @@ from agentfile.orchestrators import (
     ServiceTool,
 )
 from agentfile.tools import MetaServiceTool
-from agentfile.services import AgentService, ToolService
+from agentfile.services import AgentService, ToolService, HumanService
 
 __all__ = [
     # services
     "AgentService",
+    "HumanService",
     "ToolService",
     # message queues
     "SimpleMessageQueue",
