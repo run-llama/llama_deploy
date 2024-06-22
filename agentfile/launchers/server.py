@@ -104,6 +104,9 @@ class ServerLauncher(MessageQueuePublisherMixin):
         service_tasks = []
         for service in self.services:
             service_tasks.append(asyncio.create_task(service.launch_server()))
+            import pdb
+
+            pdb.set_trace()
             await service.register_to_control_plane(control_plane_url)
 
         shutdown_handler = self.get_shutdown_handler(

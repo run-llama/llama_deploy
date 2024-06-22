@@ -104,6 +104,8 @@ class ToolService(BaseService):
             service_name=self.service_name,
             description=self.description,
             prompt=[],
+            host=self.host,
+            port=self.port,
         )
 
     @property
@@ -214,6 +216,8 @@ class ToolService(BaseService):
             "description": self.description,
             "running": str(self.running),
             "step_interval": str(self.step_interval),
+            "num_tools": str(len(self.tools)),
+            "num_outstanding_tool_calls": str(len(self._outstanding_tool_calls)),
         }
 
     async def create_tool_call(self, tool_call: ToolCall) -> Dict[str, str]:

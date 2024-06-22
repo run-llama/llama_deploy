@@ -102,9 +102,24 @@ class ControlPlaneServer(BaseControlPlane):
             methods=["POST"],
             tags=["Services"],
         )
+        self.app.add_api_route(
+            "/services/{service_name}",
+            self.get_service,
+            methods=["GET"],
+            tags=["Services"],
+        )
+        self.app.add_api_route(
+            "/services",
+            self.get_all_services,
+            methods=["GET"],
+            tags=["Services"],
+        )
 
         self.app.add_api_route(
             "/tasks", self.create_task, methods=["POST"], tags=["Tasks"]
+        )
+        self.app.add_api_route(
+            "/tasks", self.get_all_tasks, methods=["GET"], tags=["Tasks"]
         )
         self.app.add_api_route(
             "/tasks/{task_id}", self.get_task_state, methods=["GET"], tags=["Tasks"]
@@ -180,6 +195,24 @@ class ControlPlaneServer(BaseControlPlane):
             self._total_services -= 1
         # TODO: object index does not have delete yet
 
+    async def get_service(self, service_name: str) -> ServiceDefinition:
+        service_dict = await self.state_store.aget(
+            service_name, collection=self.services_store_key
+        )
+        if service_dict is None:
+            raise ValueError(f"Service with name {service_name} not found")
+
+        return ServiceDefinition.model_validate(service_dict)
+
+    async def get_all_services(self) -> Dict[str, ServiceDefinition]:
+        service_dicts = await self.state_store.aget_all(
+            collection=self.services_store_key
+        )
+        return {
+            service_name: ServiceDefinition.model_validate(service_dict)
+            for service_name, service_dict in service_dicts.items()
+        }
+
     async def create_task(self, task_def: TaskDefinition) -> None:
         await self.state_store.aput(
             task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
@@ -251,3 +284,15 @@ class ControlPlaneServer(BaseControlPlane):
             task_id: TaskDefinition.model_validate(state_dict)
             for task_id, state_dict in state_dicts.items()
         }
+
+
+if __name__ == "__main__":
+    from agentfile import SimpleMessageQueue, AgentOrchestrator
+    from llama_index.llms.openai import OpenAI
+
+    control_plane = ControlPlaneServer(
+        SimpleMessageQueue(), AgentOrchestrator(llm=OpenAI())
+    )
+    import asyncio
+
+    asyncio.run(control_plane.launch_server())

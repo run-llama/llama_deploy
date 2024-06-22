@@ -1,6 +1,6 @@
 import uuid
 from enum import Enum
-from pydantic import BaseModel, Field, SkipValidation
+from pydantic import BaseModel, Field
 from pydantic.v1 import BaseModel as V1BaseModel
 from typing import Any, Dict, List, Optional, Union
 
@@ -82,7 +82,7 @@ class TaskDefinition(BaseModel):
 
 class TaskResult(BaseModel):
     task_id: str
-    history: SkipValidation[List[ChatMessage]]
+    history: List[ChatMessage]
     result: str
 
 
@@ -100,7 +100,7 @@ class ToolCall(BaseModel):
 
 class ToolCallResult(BaseModel):
     id_: str
-    tool_message: SkipValidation[ChatMessage]
+    tool_message: ChatMessage
     result: str
 
 
@@ -109,6 +109,8 @@ class ServiceDefinition(BaseModel):
     description: str = Field(
         description="A description of the service and it's purpose."
     )
-    prompt: SkipValidation[List[ChatMessage]] = Field(
+    prompt: List[ChatMessage] = Field(
         default_factory=list, description="Specific instructions for the service."
     )
+    host: Optional[str] = None
+    port: Optional[int] = None

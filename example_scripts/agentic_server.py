@@ -2,7 +2,7 @@ from agentfile import (
     AgentService,
     AgentOrchestrator,
     ControlPlaneServer,
-    LocalLauncher,
+    ServerLauncher,
     SimpleMessageQueue,
 )
 
@@ -35,16 +35,21 @@ agent_server_1 = AgentService(
     message_queue=message_queue,
     description="Useful for getting the secret fact.",
     service_name="secret_fact_agent",
+    host="127.0.0.1",
+    port=8002,
 )
 agent_server_2 = AgentService(
     agent=agent2,
     message_queue=message_queue,
     description="Useful for getting random dumb facts.",
     service_name="dumb_fact_agent",
+    host="127.0.0.1",
+    port=8003,
 )
 
 # launch it
-launcher = LocalLauncher([agent_server_1, agent_server_2], control_plane, message_queue)
-result = launcher.launch_single("What is the secret fact?")
+launcher = ServerLauncher(
+    [agent_server_1, agent_server_2], control_plane, message_queue
+)
 
-print(f"Result: {result}")
+launcher.launch_servers()

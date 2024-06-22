@@ -1,7 +1,7 @@
 from agentfile.launchers.local import LocalLauncher
 from agentfile.services import AgentService, ToolService
 from agentfile.tools import MetaServiceTool
-from agentfile.control_plane.fastapi import FastAPIControlPlane
+from agentfile.control_plane.fastapi import ControlPlaneServer
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.orchestrators.agent import AgentOrchestrator
 
@@ -28,7 +28,7 @@ tool_service = ToolService(
     step_interval=0.5,
 )
 
-control_plane = FastAPIControlPlane(
+control_plane = ControlPlaneServer(
     message_queue=message_queue,
     orchestrator=AgentOrchestrator(llm=OpenAI()),
 )

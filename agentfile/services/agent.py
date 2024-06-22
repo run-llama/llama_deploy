@@ -114,6 +114,8 @@ class AgentService(BaseService):
             service_name=self.service_name,
             description=self.description,
             prompt=self.prompt or [],
+            host=self.host,
+            port=self.port,
         )
 
     @property
@@ -208,11 +210,28 @@ class AgentService(BaseService):
         self.running = False
 
     async def home(self) -> Dict[str, str]:
+        tasks = self.agent.list_tasks()
+
+        task_strings = []
+        for task in tasks:
+            task_output = self.agent.get_task_output(task.task_id)
+            status = "COMPLETE" if task_output.is_last else "IN PROGRESS"
+            memory_str = "\n".join(
+                [f"{x.role}: {x.content}" for x in task.memory.get_all()]
+            )
+            task_strings.append(f"Agent Task {task.task_id}: {status}\n{memory_str}")
+
+        complete_task_string = "\n".join(task_strings)
+
         return {
             "service_name": self.service_name,
             "description": self.description,
             "running": str(self.running),
             "step_interval": str(self.step_interval),
+            "num_tasks": str(len(tasks)),
+            "num_completed_tasks": str(len(self.agent.get_completed_tasks())),
+            "prompt": "\n".join([str(x) for x in self.prompt]) if self.prompt else "",
+            "tasks": complete_task_string,
         }
 
     async def create_task(self, task: TaskDefinition) -> Dict[str, str]:
