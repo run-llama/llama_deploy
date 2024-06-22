@@ -6,20 +6,21 @@ from asyncio import Lock
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from typing import Any, AsyncGenerator, Dict, List, Optional
-
-from llama_index.core.bridge.pydantic import PrivateAttr
+from pydantic import PrivateAttr
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.callable import CallableMessageConsumer
+from agentfile.message_consumers.remote import RemoteMessageConsumer
 from agentfile.message_publishers.publisher import PublishCallback
 from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.messages.base import QueueMessage
 from agentfile.services.base import BaseService
 from agentfile.types import (
     ActionTypes,
-    HumanRequest,
-    HumanResult,
+    TaskDefinition,
+    TaskResult,
     ServiceDefinition,
+    CONTROL_PLANE_NAME,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,8 +40,10 @@ class HumanService(BaseService):
     description: str = "Local Human Service."
     running: bool = True
     step_interval: float = 0.1
+    host: Optional[str] = None
+    port: Optional[int] = None
 
-    _outstanding_human_requests: Dict[str, HumanRequest] = PrivateAttr()
+    _outstanding_human_requests: Dict[str, TaskDefinition] = PrivateAttr()
     _message_queue: BaseMessageQueue = PrivateAttr()
     _app: FastAPI = PrivateAttr()
     _publisher_id: str = PrivateAttr()
@@ -55,12 +58,16 @@ class HumanService(BaseService):
         service_name: str = "default_human_service",
         publish_callback: Optional[PublishCallback] = None,
         step_interval: float = 0.1,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
     ) -> None:
         super().__init__(
             running=running,
             description=description,
             service_name=service_name,
             step_interval=step_interval,
+            host=host,
+            port=port,
         )
 
         self._outstanding_human_requests = {}
@@ -107,50 +114,62 @@ class HumanService(BaseService):
                 continue
 
             async with self.lock:
-                current_requests: List[HumanRequest] = [
+                current_requests: List[TaskDefinition] = [
                     *self._outstanding_human_requests.values()
                 ]
-            for req in current_requests:
-                logger.info(f"Processing human req with id {req.id_}")
+            for task_def in current_requests:
+                logger.info(
+                    f"Processing request for human help for task: {task_def.task_id}"
+                )
 
                 # process req
-                result = input(HELP_REQUEST_TEMPLATE_STR.format(input_str=req.input))
+                result = input(
+                    HELP_REQUEST_TEMPLATE_STR.format(input_str=task_def.input)
+                )
+                logger.info(f"{result}")
 
                 # publish the completed task
                 await self.publish(
                     QueueMessage(
-                        type=req.source_id,
-                        action=ActionTypes.COMPLETED_REQUEST_FOR_HELP,
-                        data=HumanResult(
-                            id_=req.id_,
+                        type=CONTROL_PLANE_NAME,
+                        action=ActionTypes.COMPLETED_TASK,
+                        data=TaskResult(
+                            task_id=task_def.task_id,
+                            history=[],
                             result=result,
-                        ).dict(),
+                        ).model_dump(),
                     )
                 )
 
                 # clean up
                 async with self.lock:
-                    del self._outstanding_human_requests[req.id_]
+                    del self._outstanding_human_requests[task_def.task_id]
 
             await asyncio.sleep(self.step_interval)
 
     async def process_message(self, message: QueueMessage, **kwargs: Any) -> None:
         if message.action == ActionTypes.REQUEST_FOR_HELP:
-            req_data = {"source_id": message.publisher_id}
-            req_data.update(message.data or {})
-            req = HumanRequest(**req_data)
+            task_def = TaskDefinition(**message.data or {})
             async with self.lock:
-                self._outstanding_human_requests.update({req.id_: req})
+                self._outstanding_human_requests.update({task_def.task_id: task_def})
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 
-    def as_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
+        if remote:
+            url = f"{self.host}:{self.port}/{self._app.url_path_for('process_message')}"
+            return RemoteMessageConsumer(
+                url=url,
+                message_type=self.service_name,
+            )
+
         return CallableMessageConsumer(
             message_type=self.service_name,
             handler=self.process_message,
         )
 
     async def launch_local(self) -> None:
+        logger.info(f"{self.service_name} launch_local")
         asyncio.create_task(self.processing_loop())
 
     # ---- Server based methods ----
@@ -170,10 +189,10 @@ class HumanService(BaseService):
             "step_interval": str(self.step_interval),
         }
 
-    async def create_human_request(self, req: HumanRequest) -> Dict[str, str]:
+    async def create_human_request(self, req: TaskDefinition) -> Dict[str, str]:
         async with self.lock:
-            self._outstanding_human_requests.update({req.id_: req})
-        return {"human_request_id": req.id_}
+            self._outstanding_human_requests.update({req.task_id: req})
+        return {"human_request_id": req.task_id}
 
-    async def launch_server(self) -> None:
-        uvicorn.run(self._app)
+    def launch_server(self) -> None:
+        uvicorn.run(self._app, host=self.host, port=self.port)

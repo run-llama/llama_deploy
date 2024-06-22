@@ -11,7 +11,10 @@ from agentfile.types import ActionTypes, TaskDefinition, TaskResult
 
 HISTORY_KEY = "chat_history"
 DEFAULT_SUMMARIZE_TMPL = "{history}\n\nThe above represents the progress so far, please condense the messages into a single message."
-DEFAULT_FOLLOWUP_TMPL = "Pick the next action to take, or return a final response if my original input is satisfied. As a reminder, the original input was: {original_input}"
+DEFAULT_FOLLOWUP_TMPL = (
+    "Pick the next action to take, or return a final response if my original "
+    "input is satisfied. As a reminder, the original input was: {original_input}"
+)
 
 
 class AgentOrchestrator(BaseOrchestrator):
@@ -73,13 +76,17 @@ class AgentOrchestrator(BaseOrchestrator):
                 name = source.tool_name
                 input_data = source.raw_input
                 input_str = next(iter(input_data.values()))
+                if name == "default_human_service":
+                    action = ActionTypes.REQUEST_FOR_HELP
+                else:
+                    action = ActionTypes.NEW_TASK
                 queue_messages.append(
                     QueueMessage(
                         type=name,
                         data=TaskDefinition(
                             task_id=task_def.task_id, input=input_str
                         ).model_dump(),
-                        action=ActionTypes.NEW_TASK,
+                        action=action,
                     )
                 )
 

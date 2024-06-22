@@ -1,5 +1,6 @@
 import asyncio
 import pytest
+from pydantic import PrivateAttr
 from typing import Any, List
 from unittest.mock import MagicMock, patch
 from agentfile.services import HumanService
@@ -7,11 +8,7 @@ from agentfile.services.human import HELP_REQUEST_TEMPLATE_STR
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.messages.base import QueueMessage
-from agentfile.types import HumanRequest, ActionTypes
-from llama_index.core.bridge.pydantic import PrivateAttr
-
-
-HUMAN_REQ_SOURCE = "mock-source"
+from agentfile.types import TaskDefinition, ActionTypes, CONTROL_PLANE_NAME
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
@@ -25,7 +22,7 @@ class MockMessageConsumer(BaseMessageQueueConsumer):
 
 @pytest.fixture()
 def human_output_consumer() -> MockMessageConsumer:
-    return MockMessageConsumer(message_type=HUMAN_REQ_SOURCE)
+    return MockMessageConsumer(message_type=CONTROL_PLANE_NAME)
 
 
 @pytest.mark.asyncio()
@@ -57,14 +54,14 @@ async def test_create_human_req() -> None:
         service_name="Test Human Service",
         step_interval=0.5,
     )
-    req = HumanRequest(id_="1", input="Mock human req.", source_id="another_human")
+    req = TaskDefinition(task_id="1", input="Mock human req.")
 
     # act
     result = await human_service.create_human_request(req)
 
     # assert
-    assert result == {"human_request_id": req.id_}
-    assert human_service._outstanding_human_requests[req.id_] == req
+    assert result == {"human_request_id": req.task_id}
+    assert human_service._outstanding_human_requests[req.task_id] == req
 
 
 @pytest.mark.asyncio()
@@ -79,12 +76,12 @@ async def test_process_human_req(
     )
     await mq.register_consumer(human_output_consumer)
 
-    mq_task = asyncio.create_task(mq.start())
+    mq_task = asyncio.create_task(mq.processing_loop())
     server_task = asyncio.create_task(human_service.processing_loop())
     mock_input.return_value = "Test human input."
 
     # act
-    req = HumanRequest(id_="1", input="Mock human req.", source_id=HUMAN_REQ_SOURCE)
+    req = TaskDefinition(task_id="1", input="Mock human req.")
     result = await human_service.create_human_request(req)
 
     # give time to process and shutdown afterwards
@@ -102,8 +99,8 @@ async def test_process_human_req(
         human_output_consumer.processed_messages[0].data.get("result")
         == "Test human input."
     )
-    assert human_output_consumer.processed_messages[0].data.get("id_") == "1"
-    assert result == {"human_request_id": req.id_}
+    assert human_output_consumer.processed_messages[0].data.get("task_id") == "1"
+    assert result == {"human_request_id": req.task_id}
     assert len(human_service._outstanding_human_requests) == 0
 
 
@@ -118,14 +115,14 @@ async def test_process_human_req_from_queue(
     await mq.register_consumer(human_output_consumer)
     await mq.register_consumer(human_service.as_consumer())
 
-    mq_task = asyncio.create_task(mq.start())
+    mq_task = asyncio.create_task(mq.processing_loop())
     server_task = asyncio.create_task(human_service.processing_loop())
     mock_input.return_value = "Test human input."
 
     # act
-    req = HumanRequest(id_="1", input="Mock human req.", source_id=HUMAN_REQ_SOURCE)
+    req = TaskDefinition(task_id="1", input="Mock human req.")
     human_req_message = QueueMessage(
-        data=req.dict(),
+        data=req.model_dump(),
         action=ActionTypes.REQUEST_FOR_HELP,
         type="test_human_service",
     )
@@ -143,5 +140,5 @@ async def test_process_human_req_from_queue(
         human_output_consumer.processed_messages[0].data.get("result")
         == "Test human input."
     )
-    assert human_output_consumer.processed_messages[0].data.get("id_") == "1"
+    assert human_output_consumer.processed_messages[0].data.get("task_id") == "1"
     assert len(human_service._outstanding_human_requests) == 0
