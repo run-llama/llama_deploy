@@ -2,8 +2,9 @@
 
 import inspect
 from abc import ABC, abstractmethod
+from pydantic import BaseModel
 from typing import Any, List, Optional, Protocol, TYPE_CHECKING
-from llama_index.core.bridge.pydantic import BaseModel
+
 from agentfile.messages.base import QueueMessage
 
 if TYPE_CHECKING:
@@ -79,3 +80,18 @@ class BaseMessageQueue(BaseModel, ABC):
         raise NotImplementedError(
             "`get_consumers()` is not implemented for this class."
         )
+
+    @abstractmethod
+    async def processing_loop(self) -> None:
+        """The processing loop for the service."""
+        ...
+
+    @abstractmethod
+    async def launch_local(self) -> None:
+        """Launch the service in-process."""
+        ...
+
+    @abstractmethod
+    def launch_server(self) -> None:
+        """Launch the service as a server."""
+        ...

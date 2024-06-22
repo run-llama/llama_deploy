@@ -1,8 +1,8 @@
 import uuid
 from enum import Enum
+from pydantic import BaseModel, Field, SkipValidation
 from typing import Any, Dict, List, Optional
 
-from llama_index.core.bridge.pydantic import BaseModel, Field
 from llama_index.core.llms import ChatMessage
 
 
@@ -31,7 +31,7 @@ class TaskDefinition(BaseModel):
 
 class TaskResult(BaseModel):
     task_id: str
-    history: List[ChatMessage]
+    history: SkipValidation[List[ChatMessage]]
     result: str
 
 
@@ -49,7 +49,7 @@ class ToolCall(BaseModel):
 
 class ToolCallResult(BaseModel):
     id_: str
-    tool_message: ChatMessage
+    tool_message: SkipValidation[ChatMessage]
     result: str
 
 
@@ -69,6 +69,6 @@ class ServiceDefinition(BaseModel):
     description: str = Field(
         description="A description of the service and it's purpose."
     )
-    prompt: List[ChatMessage] = Field(
+    prompt: List[SkipValidation[ChatMessage]] = Field(
         default_factory=list, description="Specific instructions for the service."
     )

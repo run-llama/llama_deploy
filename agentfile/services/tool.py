@@ -5,17 +5,18 @@ import uvicorn
 from asyncio import Lock
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from pydantic import PrivateAttr
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from llama_index.core.agent.function_calling.step import (
     get_function_by_name,
 )
-from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.llms import ChatMessage, MessageRole
 from llama_index.core.tools import BaseTool, AsyncBaseTool, adapt_to_async_tool
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.callable import CallableMessageConsumer
+from agentfile.message_consumers.remote import RemoteMessageConsumer
 from agentfile.message_publishers.publisher import PublishCallback
 from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.messages.base import QueueMessage
@@ -38,6 +39,8 @@ class ToolService(BaseService):
     description: str = "Local Tool Service."
     running: bool = True
     step_interval: float = 0.1
+    host: Optional[str] = None
+    port: Optional[int] = None
 
     _outstanding_tool_calls: Dict[str, ToolCall] = PrivateAttr()
     _message_queue: BaseMessageQueue = PrivateAttr()
@@ -55,6 +58,8 @@ class ToolService(BaseService):
         service_name: str = "default_tool_service",
         publish_callback: Optional[PublishCallback] = None,
         step_interval: float = 0.1,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
     ) -> None:
         tools = tools or []
         tools = [adapt_to_async_tool(t) for t in tools]
@@ -64,6 +69,8 @@ class ToolService(BaseService):
             description=description,
             service_name=service_name,
             step_interval=step_interval,
+            host=host,
+            port=port,
         )
 
         self._outstanding_tool_calls = {}
@@ -81,6 +88,13 @@ class ToolService(BaseService):
 
         self._app.add_api_route(
             "/tool", self.get_tool_by_name, methods=["GET"], tags=["Tool"]
+        )
+
+        self._app.add_api_route(
+            "/process_message",
+            self.process_message,
+            methods=["POST"],
+            tags=["Message Processing"],
         )
 
     @property
@@ -149,7 +163,7 @@ class ToolService(BaseService):
                             id_=tool_call.id_,
                             tool_message=tool_message,
                             result=str(tool_output),
-                        ).dict(),
+                        ).model_dump(),
                     )
                 )
 
@@ -159,7 +173,7 @@ class ToolService(BaseService):
 
             await asyncio.sleep(self.step_interval)
 
-    async def process_message(self, message: QueueMessage, **kwargs: Any) -> None:
+    async def process_message(self, message: QueueMessage) -> None:
         if message.action == ActionTypes.NEW_TOOL_CALL:
             tool_call_data = {"source_id": message.publisher_id}
             tool_call_data.update(message.data or {})
@@ -169,7 +183,13 @@ class ToolService(BaseService):
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 
-    def as_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
+        if remote:
+            url = f"{self.host}:{self.port}/{self._app.url_path_for('process_message')}"
+            return RemoteMessageConsumer(
+                url=url,
+                message_type=self.service_name,
+            )
         return CallableMessageConsumer(
             message_type=self.service_name,
             handler=self.process_message,
@@ -181,7 +201,7 @@ class ToolService(BaseService):
     # ---- Server based methods ----
 
     @asynccontextmanager
-    async def lifespan(self) -> AsyncGenerator[None, None]:
+    async def lifespan(self, app: FastAPI) -> AsyncGenerator[None, None]:
         """Starts the processing loop when the fastapi app starts."""
         asyncio.create_task(self.processing_loop())
         yield
@@ -206,5 +226,5 @@ class ToolService(BaseService):
             raise ValueError(f"Tool with name {name} not found")
         return {"tool_metadata": name_to_tool[name].metadata}
 
-    async def launch_server(self) -> None:
-        uvicorn.run(self._app)
+    def launch_server(self) -> None:
+        uvicorn.run(self._app, host=self.host, port=self.port)

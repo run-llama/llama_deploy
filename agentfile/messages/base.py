@@ -2,8 +2,8 @@
 
 import uuid
 from datetime import datetime
+from pydantic import BaseModel, Field
 from typing import Any, Dict, Optional
-from llama_index.core.bridge.pydantic import BaseModel, Field
 
 from agentfile.types import ActionTypes
 
