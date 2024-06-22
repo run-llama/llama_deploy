@@ -11,7 +11,10 @@ from agentfile.types import ActionTypes, ChatMessage, TaskDefinition, TaskResult
 
 HISTORY_KEY = "chat_history"
 DEFAULT_SUMMARIZE_TMPL = "{history}\n\nThe above represents the progress so far, please condense the messages into a single message."
-DEFAULT_FOLLOWUP_TMPL = "Pick the next action to take, or return a final response if my original input is satisfied. As a reminder, the original input was: {original_input}"
+DEFAULT_FOLLOWUP_TMPL = (
+    "Pick the next action to take, or return a final response if my original "
+    "input is satisfied. As a reminder, the original input was: {original_input}"
+)
 
 
 class AgentOrchestrator(BaseOrchestrator):
@@ -25,12 +28,12 @@ class AgentOrchestrator(BaseOrchestrator):
         self.llm = llm
         self.summarize_prompt = summarize_prompt
         self.followup_prompt = followup_prompt
-        self.human_tool = ServiceTool(name="human", description=human_description)
+        self.finalize_tool = ServiceTool(name="finalize", description=human_description)
 
     async def get_next_messages(
         self, task_def: TaskDefinition, tools: List[BaseTool], state: Dict[str, Any]
     ) -> Tuple[List[QueueMessage], Dict[str, Any]]:
-        tools_plus_human = [self.human_tool, *tools]
+        tools_plus_human = [self.finalize_tool, *tools]
 
         chat_dicts = state.get(HISTORY_KEY, [])
         chat_history = [ChatMessage(**x) for x in chat_dicts]
@@ -56,7 +59,7 @@ class AgentOrchestrator(BaseOrchestrator):
 
         # check if there was a tool call
         queue_messages = []
-        if len(response.sources) == 0 or response.sources[0].tool_name == "human":
+        if len(response.sources) == 0 or response.sources[0].tool_name == "finalize":
             queue_messages.append(
                 QueueMessage(
                     type="human",

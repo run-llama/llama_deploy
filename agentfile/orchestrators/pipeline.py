@@ -34,10 +34,15 @@ class PipelineOrchestrator(BaseOrchestrator):
         next_service_keys = []
         found_service_component = False
         module_key = None
+
         while len(next_module_keys) > 0:
             for module_key in next_module_keys:
                 module = run_state.module_dict[module_key]
                 module_input = run_state.all_module_inputs[module_key]
+
+                # input to an agent is a dict, so we need to extract the actual input
+                if isinstance(module_input, dict):
+                    module_input = next(iter(module_input.values()))
 
                 if isinstance(module, ServiceComponent):
                     found_service_component = True
