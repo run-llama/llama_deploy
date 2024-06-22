@@ -52,17 +52,6 @@ class ToolCallResult(BaseModel):
     result: str
 
 
-class HumanRequest(BaseModel):
-    id_: str
-    input: str
-    source_id: str
-
-
-class HumanResult(BaseModel):
-    id_: str
-    result: str
-
-
 class ServiceDefinition(BaseModel):
     service_name: str = Field(description="The name of the service.")
     description: str = Field(
