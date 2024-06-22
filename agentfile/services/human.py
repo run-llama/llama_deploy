@@ -5,7 +5,7 @@ import uvicorn
 from asyncio import Lock
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, Optional
 from pydantic import BaseModel, Field, PrivateAttr
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
@@ -131,10 +131,9 @@ class HumanService(BaseService):
                 continue
 
             async with self.lock:
-                current_requests: List[TaskDefinition] = [
-                    *self._outstanding_human_requests.values()
-                ]
-            for task_def in current_requests:
+                current_human_tasks = [*self._outstanding_human_tasks.values()]
+            for human_task in current_human_tasks:
+                task_def = human_task.task_definition
                 logger.info(
                     f"Processing request for human help for task: {task_def.task_id}"
                 )
@@ -170,7 +169,7 @@ class HumanService(BaseService):
 
                 # clean up
                 async with self.lock:
-                    del self._outstanding_human_requests[task_def.task_id]
+                    del self._outstanding_human_tasks[human_task.id_]
 
             await asyncio.sleep(self.step_interval)
 

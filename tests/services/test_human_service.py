@@ -46,7 +46,7 @@ async def test_init() -> None:
 
 @pytest.mark.asyncio()
 @patch("agentfile.types.uuid")
-async def test_create_human_req(mock_uuid: MagicMock) -> None:
+async def test_create_task(mock_uuid: MagicMock) -> None:
     # arrange
     human_service = HumanService(
         message_queue=SimpleMessageQueue(),
@@ -69,7 +69,7 @@ async def test_create_human_req(mock_uuid: MagicMock) -> None:
 
 @pytest.mark.asyncio()
 @patch("builtins.input")
-async def test_process_human_req(
+async def test_process_task(
     mock_input: MagicMock, human_output_consumer: MockMessageConsumer
 ) -> None:
     # arrange
