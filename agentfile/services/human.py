@@ -138,10 +138,11 @@ class HumanService(BaseService):
                 continue
 
             async with self.lock:
-                current_human_tasks = [*self._outstanding_human_tasks]
-
-            while len(current_human_tasks) > 0:
-                task_def = current_human_tasks.pop(0)
+                try:
+                    task_def = self._outstanding_human_tasks.pop(0)
+                except IndexError:
+                    await asyncio.sleep(self.step_interval)
+                    continue
 
                 logger.info(
                     f"Processing request for human help for task: {task_def.task_id}"
