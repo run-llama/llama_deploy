@@ -53,8 +53,8 @@ class BaseMessageQueue(BaseModel, ABC):
     ) -> Any:
         """Send message to a consumer."""
         logger.info("Publishing message: " + str(message))
-        await self._publish(message)
         message.stats.publish_time = message.stats.timestamp_str()
+        await self._publish(message)
 
         if callback:
             if inspect.iscoroutinefunction(callback):
