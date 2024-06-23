@@ -5,15 +5,15 @@ from pydantic import PrivateAttr
 from typing import Any, Callable, Dict, List, TYPE_CHECKING
 from urllib.parse import urlsplit
 from unittest.mock import patch, MagicMock
-from agentfile.messages.base import QueueMessage
-from agentfile.message_consumers.base import BaseMessageQueueConsumer
-from agentfile.message_consumers.remote import (
+from llama_agents.messages.base import QueueMessage
+from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_consumers.remote import (
     RemoteMessageConsumer,
     RemoteMessageConsumerDef,
 )
-from agentfile.message_queues.simple import SimpleMessageQueue
-from agentfile.message_queues.remote_client import RemoteClientMessageQueue
-from agentfile.types import ActionTypes
+from llama_agents.message_queues.simple import SimpleMessageQueue
+from llama_agents.message_queues.remote_client import RemoteClientMessageQueue
+from llama_agents.types import ActionTypes
 
 if TYPE_CHECKING:
     from urllib.parse import SplitResult
@@ -58,7 +58,7 @@ class MockMessageConsumer(BaseMessageQueueConsumer):
 
 
 @pytest.mark.asyncio
-@patch("agentfile.message_queues.remote_client.httpx.AsyncClient.post")
+@patch("llama_agents.message_queues.remote_client.httpx.AsyncClient.post")
 async def test_remote_client_register_consumer(
     mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
@@ -82,7 +82,7 @@ async def test_remote_client_register_consumer(
 
 
 @pytest.mark.asyncio
-@patch("agentfile.message_queues.remote_client.httpx.AsyncClient.post")
+@patch("llama_agents.message_queues.remote_client.httpx.AsyncClient.post")
 async def test_remote_client_deregister_consumer(
     mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
@@ -107,7 +107,7 @@ async def test_remote_client_deregister_consumer(
 
 
 @pytest.mark.asyncio
-@patch("agentfile.message_queues.remote_client.httpx.AsyncClient.get")
+@patch("llama_agents.message_queues.remote_client.httpx.AsyncClient.get")
 async def test_remote_client_get_consumers(
     mock_get: MagicMock, message_queue: SimpleMessageQueue, get_side_effect: Callable
 ) -> None:
@@ -129,7 +129,7 @@ async def test_remote_client_get_consumers(
 
 
 @pytest.mark.asyncio
-@patch("agentfile.message_queues.remote_client.httpx.AsyncClient.post")
+@patch("llama_agents.message_queues.remote_client.httpx.AsyncClient.post")
 async def test_remote_client_publish(
     mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
