@@ -12,7 +12,7 @@ class RemoteMessageConsumerDef(BaseModel):
     message_type: str = Field(
         default="default", description="Type of the message to consume."
     )
-    url: Optional[str] = Field(default=None, description="URL to send messages to.")
+    url: str = Field(description="URL to send messages to.")
     client_kwargs: Optional[dict] = None
 
 

@@ -74,7 +74,7 @@ class SimpleMessageQueue(BaseMessageQueue):
 
         self._app.add_api_route(
             "/publish",
-            self.publish,
+            self._publish,
             methods=["POST"],
             tags=["QueueMessages"],
         )
@@ -135,9 +135,10 @@ class SimpleMessageQueue(BaseMessageQueue):
 
     async def register_remote_consumer(
         self, consumer_def: RemoteMessageConsumerDef
-    ) -> None:
+    ) -> Dict[str, str]:
         consumer = RemoteMessageConsumer(**consumer_def.model_dump())
         await self.register_consumer(consumer)
+        return {"consumer": consumer.id_}
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> None:
         message_type_str = consumer.message_type
