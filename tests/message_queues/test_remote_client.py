@@ -2,7 +2,7 @@ import asyncio
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import PrivateAttr
-from typing import Any, Dict, List, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, TYPE_CHECKING
 from urllib.parse import urlsplit
 from unittest.mock import patch, MagicMock
 from agentfile.messages.base import QueueMessage
@@ -23,6 +23,20 @@ def message_queue() -> SimpleMessageQueue:
     return SimpleMessageQueue(host="mock-url.io", port=8001)
 
 
+@pytest.fixture()
+def side_effect(message_queue: SimpleMessageQueue) -> Callable:
+    test_client = TestClient(message_queue._app)
+
+    def side_effect(url: str, json: Dict) -> Dict[str, str]:
+        split_result: SplitResult = urlsplit(url)
+        return test_client.post(
+            split_result.path,
+            json=json,
+        )
+
+    return side_effect
+
+
 class MockMessageConsumer(BaseMessageQueueConsumer):
     processed_messages: List[QueueMessage] = []
     _lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
@@ -35,7 +49,7 @@ class MockMessageConsumer(BaseMessageQueueConsumer):
 @pytest.mark.asyncio
 @patch("agentfile.message_queues.remote_client.httpx.AsyncClient.post")
 async def test_remote_client_register_consumer(
-    mock_post: MagicMock, message_queue: SimpleMessageQueue
+    mock_post: MagicMock, message_queue: SimpleMessageQueue, side_effect: Callable
 ) -> None:
     # Arrange
     _test_client = TestClient(message_queue._app)
@@ -44,14 +58,6 @@ async def test_remote_client_register_consumer(
         message_type="mock_type", url="remote-consumer.io"
     )
     remote_consumer_def = RemoteMessageConsumerDef(**remote_consumer.model_dump())
-
-    def side_effect(url: str, json: Dict) -> Dict[str, str]:
-        split_result: SplitResult = urlsplit(url)
-        return _test_client.post(
-            split_result.path,
-            json=json,
-        )
-
     mock_post.side_effect = side_effect
 
     # act
@@ -68,24 +74,15 @@ async def test_remote_client_register_consumer(
 @pytest.mark.asyncio
 @patch("agentfile.message_queues.remote_client.httpx.AsyncClient.post")
 async def test_remote_client_deregister_consumer(
-    mock_post: MagicMock, message_queue: SimpleMessageQueue
+    mock_post: MagicMock, message_queue: SimpleMessageQueue, side_effect: Callable
 ) -> None:
     # Arrange
-    _test_client = TestClient(message_queue._app)
     remote_mq = RemoteClientMessageQueue(base_url="https://mock-url.io")
     remote_consumer = RemoteMessageConsumer(
         message_type="mock_type", url="remote-consumer.io"
     )
     remote_consumer_def = RemoteMessageConsumerDef(**remote_consumer.model_dump())
     await message_queue.register_consumer(remote_consumer)
-
-    def side_effect(url: str, json: Dict) -> Dict[str, str]:
-        split_result: SplitResult = urlsplit(url)
-        return _test_client.post(
-            split_result.path,
-            json=json,
-        )
-
     mock_post.side_effect = side_effect
 
     # act
