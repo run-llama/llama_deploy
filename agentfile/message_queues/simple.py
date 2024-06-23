@@ -86,7 +86,6 @@ class SimpleMessageQueue(BaseMessageQueue):
         base_url = f"http://{self.host}:{self.port}"
         return RemoteClientMessageQueue(base_url=base_url)
 
-
     def _select_consumer(self, message: QueueMessage) -> BaseMessageQueueConsumer:
         """Select a single consumer to publish a message to."""
         message_type_str = message.type
