@@ -41,7 +41,7 @@ class BaseMessageQueue(BaseModel, ABC):
         arbitrary_types_allowed = True
 
     @abstractmethod
-    async def _publish(self, message: QueueMessage, **kwargs: Any) -> Any:
+    async def _publish(self, message: QueueMessage) -> Any:
         """Subclasses implement publish logic here."""
         ...
 
@@ -53,7 +53,7 @@ class BaseMessageQueue(BaseModel, ABC):
     ) -> Any:
         """Send message to a consumer."""
         logger.info("Publishing message: " + str(message))
-        await self._publish(message, **kwargs)
+        await self._publish(message)
         message.stats.publish_time = message.stats.timestamp_str()
 
         if callback:
