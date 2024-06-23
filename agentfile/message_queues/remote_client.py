@@ -15,7 +15,7 @@ logger.setLevel(logging.DEBUG)
 logging.basicConfig(level=logging.DEBUG)
 
 
-class RemoteMessageQueueClient(BaseMessageQueue):
+class RemoteClientMessageQueue(BaseMessageQueue):
     base_url: str
     client_kwargs: Optional[Dict] = None
     client: Optional[httpx.AsyncClient] = None
