@@ -217,7 +217,7 @@ class AgentService(BaseService):
                 )
                 task_as_tool_call = ToolCall(
                     id_=task_def.task_id,
-                    source_id=message.reply_to,
+                    source_id=message.publisher_id,
                     tool_call_bundle=tool_call_bundle,
                 )
                 self._tasks_as_tool_calls[task_def.task_id] = task_as_tool_call
