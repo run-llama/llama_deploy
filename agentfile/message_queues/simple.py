@@ -35,7 +35,7 @@ class SimpleMessageQueue(BaseMessageQueue):
     )
     queues: Dict[str, deque] = Field(default_factory=dict)
     running: bool = True
-    port: int = 8003
+    port: int = 8001
     host: str = "127.0.0.1"
 
     _app: FastAPI = PrivateAttr()
@@ -45,7 +45,7 @@ class SimpleMessageQueue(BaseMessageQueue):
         consumers: Dict[str, Dict[str, BaseMessageQueueConsumer]] = {},
         queues: Dict[str, deque] = {},
         host: str = "127.0.0.1",
-        port: int = 8003,
+        port: int = 8001,
     ):
         super().__init__(consumers=consumers, queues=queues, host=host, port=port)
 
@@ -78,6 +78,13 @@ class SimpleMessageQueue(BaseMessageQueue):
             methods=["POST"],
             tags=["QueueMessages"],
         )
+
+    @property
+    def client(self) -> BaseMessageQueue:
+        from agentfile.message_queues.remote_client import RemoteClientMessageQueue
+
+        base_url = f"http://{self.host}:{self.port}"
+        return RemoteClientMessageQueue(base_url=base_url)
 
     def _select_consumer(self, message: QueueMessage) -> BaseMessageQueueConsumer:
         """Select a single consumer to publish a message to."""
@@ -196,6 +203,14 @@ class SimpleMessageQueue(BaseMessageQueue):
         logger.info("Launching message queue locally")
         asyncio.create_task(self.processing_loop())
 
-    def launch_server(self) -> None:
-        logger.info("Launching message queue server")
-        uvicorn.run(self._app, host=self.host, port=self.port)
+    async def launch_server(self) -> None:
+        logger.info(f"Launching message queue server at {self.host}:{self.port}")
+
+        # uvicorn.run(self._app, host=self.host, port=self.port)
+        class CustomServer(uvicorn.Server):
+            def install_signal_handlers(self) -> None:
+                pass
+
+        cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
+        server = CustomServer(cfg)
+        await server.serve()

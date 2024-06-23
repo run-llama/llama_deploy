@@ -70,7 +70,7 @@ class RemoteClientMessageQueue(BaseMessageQueue):
     async def launch_local(self) -> None:
         raise NotImplementedError("`launch_local()` is not implemented for this class.")
 
-    def launch_server(self) -> None:
+    async def launch_server(self) -> None:
         raise NotImplementedError(
             "`launch_server()` is not implemented for this class."
         )

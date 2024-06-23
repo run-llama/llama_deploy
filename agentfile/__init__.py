@@ -1,5 +1,5 @@
-from agentfile.control_plane import FastAPIControlPlane
-from agentfile.launchers import LocalLauncher
+from agentfile.control_plane import ControlPlaneServer
+from agentfile.launchers import LocalLauncher, ServerLauncher
 from agentfile.message_queues import SimpleMessageQueue
 from agentfile.orchestrators import (
     AgentOrchestrator,
@@ -19,8 +19,9 @@ __all__ = [
     "SimpleMessageQueue",
     # launchers
     "LocalLauncher",
+    "ServerLauncher",
     # control planes
-    "FastAPIControlPlane",
+    "ControlPlaneServer",
     # orchestrators
     "AgentOrchestrator",
     "PipelineOrchestrator",

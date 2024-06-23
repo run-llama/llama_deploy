@@ -64,7 +64,8 @@ class BaseMessageQueue(BaseModel, ABC):
 
     @abstractmethod
     async def register_consumer(
-        self, consumer: "BaseMessageQueueConsumer", **kwargs: Any
+        self,
+        consumer: "BaseMessageQueueConsumer",
     ) -> Any:
         """Register consumer to start consuming messages."""
 
@@ -92,6 +93,6 @@ class BaseMessageQueue(BaseModel, ABC):
         ...
 
     @abstractmethod
-    def launch_server(self) -> None:
+    async def launch_server(self) -> None:
         """Launch the service as a server."""
         ...

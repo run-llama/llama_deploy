@@ -1,6 +1,6 @@
 from agentfile.launchers.local import LocalLauncher
 from agentfile.services import HumanService, AgentService
-from agentfile.control_plane.fastapi import FastAPIControlPlane
+from agentfile.control_plane.server import ControlPlaneServer
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.orchestrators.agent import AgentOrchestrator
 
@@ -33,7 +33,7 @@ human_service = HumanService(
     message_queue=message_queue, description="Answers queries about math."
 )
 
-control_plane = FastAPIControlPlane(
+control_plane = ControlPlaneServer(
     message_queue=message_queue,
     orchestrator=AgentOrchestrator(llm=OpenAI()),
 )
