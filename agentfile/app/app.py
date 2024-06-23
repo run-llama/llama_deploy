@@ -4,6 +4,7 @@ import pprint
 from typing import Any, Optional
 
 from textual.app import App, ComposeResult
+from textual.containers import VerticalScroll
 from textual.reactive import reactive
 from textual.widgets import Button, Header, Footer, Static, Input
 
@@ -91,15 +92,15 @@ class LlamaAgentsMonitor(App):
         with Static(id="left-panel"):
             yield ServicesList(id="services", control_plane_url=self.control_plane_url)
             yield TasksList(id="tasks", control_plane_url=self.control_plane_url)
-        with Static(id="right-panel"):
+        with VerticalScroll(id="right-panel"):
             yield Static("Task or service details", id="details")
         yield Input(placeholder="Enter: New task", id="new-task")
         yield Footer()
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
         self.set_interval(5, self.refresh_details)
 
-    def watch_details(self, new_details: str) -> None:
+    async def watch_details(self, new_details: str) -> None:
         if not new_details:
             return
 
@@ -110,22 +111,22 @@ class LlamaAgentsMonitor(App):
         elif selected_type == ButtonType.TASK:
             self.query_one("#details").update(new_details)
 
-    def watch_selected_service_type(self, new_service_type: str) -> None:
+    async def watch_selected_service_type(self, new_service_type: str) -> None:
         if not new_service_type:
             return
 
         if new_service_type == "human_service":
-            self.query_one("#right-panel").mount(
+            await self.query_one("#right-panel").mount(
                 HumanTaskList(self.selected_service_url), after=0
             )
         else:
             try:
-                self.query_one(HumanTaskList).remove()
+                await self.query_one(HumanTaskList).remove()
             except Exception:
                 # not mounted yet
                 pass
 
-    def refresh_details(
+    async def refresh_details(
         self,
         button_type: Optional[ButtonType] = None,
         selected_label: Optional[str] = None,
@@ -139,8 +140,8 @@ class LlamaAgentsMonitor(App):
         )
 
         if selected_type == ButtonType.SERVICE:
-            with httpx.Client() as client:
-                response = client.get(
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
                     f"{self.control_plane_url}/services/{selected_label}"
                 )
                 service_def = response.json()
@@ -149,7 +150,7 @@ class LlamaAgentsMonitor(App):
                 service_url = ""
                 if service_def.get("host") and service_def.get("port"):
                     service_url = f"http://{service_def['host']}:{service_def['port']}"
-                    response = client.get(f"{service_url}/")
+                    response = await client.get(f"{service_url}/")
                     service_dict = response.json()
 
             # format the service details nicely
@@ -162,11 +163,15 @@ class LlamaAgentsMonitor(App):
             self.selected_service_url = service_url
             self.selected_service_type = service_dict.get("type")
         elif selected_type == ButtonType.TASK:
-            with httpx.Client() as client:
-                response = client.get(
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
                     f"{self.control_plane_url}/tasks/{selected_label}"
                 )
                 task_dict = response.json()
+
+            # flatten the TaskResult object
+            if task_dict["state"].get("result"):
+                task_dict["state"]["result"] = task_dict["state"]["result"]["result"]
 
             # format the task details nicely
             task_string = pprint.pformat(task_dict)
@@ -175,16 +180,16 @@ class LlamaAgentsMonitor(App):
             self.selected_service_type = ""
             self.selected_service_url = ""
 
-    def on_button_pressed(self, event: Button.Pressed) -> None:
+    async def on_button_pressed(self, event: Button.Pressed) -> None:
         # Update the details panel with the selected item
-        self.refresh_details(
+        await self.refresh_details(
             button_type=event.button.type, selected_label=event.button.label
         )
 
-    def on_input_submitted(self, event: Input.Submitted) -> None:
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
         new_task = TaskDefinition(input=event.value).model_dump()
-        with httpx.Client() as client:
-            client.post(f"{self.control_plane_url}/tasks", json=new_task)
+        async with httpx.AsyncClient() as client:
+            await client.post(f"{self.control_plane_url}/tasks", json=new_task)
 
         # clear the input
         self.query_one("#new-task").value = ""

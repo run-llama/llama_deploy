@@ -10,6 +10,7 @@ from agentfile.orchestrators.service_tool import ServiceTool
 from agentfile.types import ActionTypes, ChatMessage, TaskDefinition, TaskResult
 
 HISTORY_KEY = "chat_history"
+RESULT_KEY = "result"
 DEFAULT_SUMMARIZE_TMPL = "{history}\n\nThe above represents the progress so far, please condense the messages into a single message."
 DEFAULT_FOLLOWUP_TMPL = (
     "Pick the next action to take, or return a final response if my original "
@@ -59,19 +60,20 @@ class AgentOrchestrator(BaseOrchestrator):
 
         # check if there was a tool call
         queue_messages = []
+        result = None
         if len(response.sources) == 0 or response.sources[0].tool_name == "finalize":
             # convert memory chat messages
             llama_messages = memory.get_all()
             history = [ChatMessage(**x.dict()) for x in llama_messages]
 
+            result = TaskResult(
+                task_id=task_def.task_id, history=history, result=response.response
+            )
+
             queue_messages.append(
                 QueueMessage(
                     type="human",
-                    data=TaskResult(
-                        task_id=task_def.task_id,
-                        history=history,
-                        result=response.response,
-                    ).model_dump(),
+                    data=result.model_dump(),
                     action=ActionTypes.COMPLETED_TASK,
                 )
             )
@@ -90,7 +92,10 @@ class AgentOrchestrator(BaseOrchestrator):
                     )
                 )
 
-        new_state = {HISTORY_KEY: [x.dict() for x in memory.get_all()]}
+        new_state = {
+            HISTORY_KEY: [x.dict() for x in memory.get_all()],
+            RESULT_KEY: result.model_dump() if result is not None else None,
+        }
         return queue_messages, new_state
 
     async def add_result_to_state(

@@ -20,19 +20,17 @@ class TasksList(Static):
         self.control_plane_url = control_plane_url
         super().__init__(**kwargs)
 
-        self.refresh_tasks()
-
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="tasks-scroll"):
             for task in self.tasks:
                 yield TaskButton(task)
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
         self.set_interval(5, self.refresh_tasks)
 
-    def refresh_tasks(self) -> None:
-        with httpx.Client() as client:
-            response = client.get(f"{self.control_plane_url}/tasks")
+    async def refresh_tasks(self) -> None:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.control_plane_url}/tasks")
             tasks_dict = response.json()
 
         new_tasks = []
@@ -41,11 +39,11 @@ class TasksList(Static):
 
         self.tasks = [*new_tasks]
 
-    def watch_tasks(self, new_tasks: List[str]) -> None:
+    async def watch_tasks(self, new_tasks: List[str]) -> None:
         try:
             tasks_scroll = self.query_one("#tasks-scroll")
-            tasks_scroll.remove_children()
+            await tasks_scroll.remove_children()
             for task in new_tasks:
-                tasks_scroll.mount(TaskButton(task))
+                await tasks_scroll.mount(TaskButton(task))
         except Exception:
             pass
