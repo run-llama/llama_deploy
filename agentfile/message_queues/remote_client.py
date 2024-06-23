@@ -60,8 +60,15 @@ class RemoteClientMessageQueue(BaseMessageQueue):
         client_kwargs = self.client_kwargs or {}
         client = self.client or httpx.AsyncClient(**client_kwargs)
         url = urljoin(self.base_url, deregister_consumer_url)
+        try:
+            remote_consumer_def = RemoteMessageConsumerDef(**consumer.model_dump())
+        except Exception as e:
+            raise ValueError(
+                "Unable to convert consumer to RemoteMessageConsumer"
+            ) from e
         async with httpx.AsyncClient() as client:
-            await client.post(url, json=consumer.model_dump())
+            result = await client.post(url, json=remote_consumer_def.model_dump())
+        return result
 
     async def get_consumers(
         self, message_type: str, get_consumers_url: str = "get_consumers"

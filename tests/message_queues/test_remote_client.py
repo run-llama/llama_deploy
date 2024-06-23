@@ -63,3 +63,37 @@ async def test_remote_client_register_consumer(
     )
     assert len(message_queue.consumers) == 1
     assert result.status_code == 200
+
+
+@pytest.mark.asyncio
+@patch("agentfile.message_queues.remote_client.httpx.AsyncClient.post")
+async def test_remote_client_deregister_consumer(
+    mock_post: MagicMock, message_queue: SimpleMessageQueue
+) -> None:
+    # Arrange
+    _test_client = TestClient(message_queue._app)
+    remote_mq = RemoteClientMessageQueue(base_url="https://mock-url.io")
+    remote_consumer = RemoteMessageConsumer(
+        message_type="mock_type", url="remote-consumer.io"
+    )
+    remote_consumer_def = RemoteMessageConsumerDef(**remote_consumer.model_dump())
+    await message_queue.register_consumer(remote_consumer)
+
+    def side_effect(url: str, json: Dict) -> Dict[str, str]:
+        split_result: SplitResult = urlsplit(url)
+        return _test_client.post(
+            split_result.path,
+            json=json,
+        )
+
+    mock_post.side_effect = side_effect
+
+    # act
+    result = await remote_mq.deregister_consumer(consumer=remote_consumer)
+
+    # assert
+    mock_post.assert_called_once_with(
+        "https://mock-url.io/deregister_consumer", json=remote_consumer_def.model_dump()
+    )
+    assert len(message_queue.consumers) == 0
+    assert result.status_code == 200
