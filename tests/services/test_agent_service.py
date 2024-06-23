@@ -1,8 +1,8 @@
 from llama_index.core.llms import MockLLM
 from llama_index.core.agent import ReActAgent
 
-from agentfile.services import AgentService
-from agentfile.message_queues.simple import SimpleMessageQueue
+from llama_agents.services import AgentService
+from llama_agents.message_queues.simple import SimpleMessageQueue
 
 
 def test_init() -> None:

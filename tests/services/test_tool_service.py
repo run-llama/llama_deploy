@@ -6,11 +6,11 @@ from typing import Any, List
 
 from llama_index.core.tools import FunctionTool, BaseTool
 
-from agentfile.services import ToolService
-from agentfile.message_queues.simple import SimpleMessageQueue
-from agentfile.message_consumers.base import BaseMessageQueueConsumer
-from agentfile.messages.base import QueueMessage
-from agentfile.types import ToolCall, ToolCallBundle, ActionTypes
+from llama_agents.services import ToolService
+from llama_agents.message_queues.simple import SimpleMessageQueue
+from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.messages.base import QueueMessage
+from llama_agents.types import ToolCall, ToolCallBundle, ActionTypes
 
 TOOL_CALL_SOURCE = "mock-source"
 
