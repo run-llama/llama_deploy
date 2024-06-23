@@ -27,6 +27,10 @@ class QueueMessage(BaseModel):
     type: str = Field(
         default="default", description="Type of the message, used for routing."
     )
+    reply_to: Optional[str] = Field(
+        default=None,
+        description="To specify where a reply message should be published to.",
+    )
 
     class Config:
         arbitrary_types_allowed = True

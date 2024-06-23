@@ -276,6 +276,3 @@ class HumanService(BaseService):
         cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
         server = CustomServer(cfg)
         await server.serve()
-
-
-HumanService.model_rebuild()

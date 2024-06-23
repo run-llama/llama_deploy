@@ -21,6 +21,9 @@ from llama_agents.types import (
     ChatMessage,
     TaskResult,
     TaskDefinition,
+    ToolCall,
+    ToolCallBundle,
+    ToolCallResult,
     ServiceDefinition,
     CONTROL_PLANE_NAME,
 )
@@ -46,6 +49,8 @@ class AgentService(BaseService):
     _app: FastAPI = PrivateAttr()
     _publisher_id: str = PrivateAttr()
     _publish_callback: Optional[PublishCallback] = PrivateAttr()
+    _lock: asyncio.Lock = PrivateAttr()
+    _tasks_as_tool_calls: Dict[str, ToolCall] = PrivateAttr()
 
     def __init__(
         self,
@@ -71,6 +76,8 @@ class AgentService(BaseService):
             port=port,
         )
 
+        self._lock = asyncio.Lock()
+        self._tasks_as_tool_calls = {}
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
@@ -130,6 +137,10 @@ class AgentService(BaseService):
     def publish_callback(self) -> Optional[PublishCallback]:
         return self._publish_callback
 
+    @property
+    def lock(self) -> asyncio.Lock:
+        return self._lock
+
     async def processing_loop(self) -> None:
         while True:
             try:
@@ -160,17 +171,32 @@ class AgentService(BaseService):
                         history = [ChatMessage(**x.dict()) for x in llama_messages]
 
                         # publish the completed task
-                        await self.publish(
-                            QueueMessage(
-                                type=CONTROL_PLANE_NAME,
-                                action=ActionTypes.COMPLETED_TASK,
-                                data=TaskResult(
-                                    task_id=task_id,
-                                    history=history,
-                                    result=response.response,
-                                ).model_dump(),
-                            )
-                        )
+                        async with self.lock:
+                            if task_id in self._tasks_as_tool_calls:
+                                tool_call = self._tasks_as_tool_calls[task_id]
+                                await self.publish(
+                                    QueueMessage(
+                                        type=tool_call.source_id,
+                                        action=ActionTypes.COMPLETED_TOOL_CALL,
+                                        data=ToolCallResult(
+                                            id_=tool_call.id_,
+                                            tool_message=ChatMessage(),
+                                            result=response.response,
+                                        ).model_dump(),
+                                    )
+                                )
+                            else:
+                                await self.publish(
+                                    QueueMessage(
+                                        type=CONTROL_PLANE_NAME,
+                                        action=ActionTypes.COMPLETED_TASK,
+                                        data=TaskResult(
+                                            task_id=task_id,
+                                            history=history,
+                                            result=response.response,
+                                        ).model_dump(),
+                                    )
+                                )
             except Exception as e:
                 logger.error(f"Error in {self.service_name} processing_loop: {e}")
                 continue
@@ -180,6 +206,21 @@ class AgentService(BaseService):
     async def process_message(self, message: QueueMessage) -> None:
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
+            self.agent.create_task(task_def.input, task_id=task_def.task_id)
+        elif message.action == ActionTypes.NEW_TOOL_CALL:
+            task_def = TaskDefinition(**message.data or {})
+            async with self.lock:
+                if message.reply_to is None:
+                    logger.warn("Reply for Tool Call not set.")
+                tool_call_bundle = ToolCallBundle(
+                    tool_name=self.service_name, tool_args=(), tool_kwargs={}
+                )
+                task_as_tool_call = ToolCall(
+                    id_=task_def.task_id,
+                    source_id=message.reply_to,
+                    tool_call_bundle=tool_call_bundle,
+                )
+                self._tasks_as_tool_calls[task_def.task_id] = task_as_tool_call
             self.agent.create_task(task_def.input, task_id=task_def.task_id)
         else:
             raise ValueError(f"Unhandled action: {message.action}")
