@@ -85,8 +85,11 @@ class SimpleMessageQueue(BaseMessageQueue):
         consumer_id = random.choice(list(self.consumers[message_type_str].keys()))
         return self.consumers[message_type_str][consumer_id]
 
-    async def _publish(self, message: QueueMessage, **kwargs: Any) -> Any:
-        """Publish message to a queue."""
+    async def _publish(self, message: QueueMessage) -> Any:
+        """Publish message to a queue.
+
+        NOTE: removing **kwargs as it leads to 422 error with fastapi.
+        """
         message_type_str = message.type
 
         if message_type_str not in self.consumers:
