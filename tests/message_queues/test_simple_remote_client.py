@@ -11,8 +11,10 @@ from llama_agents.message_consumers.remote import (
     RemoteMessageConsumer,
     RemoteMessageConsumerDef,
 )
-from llama_agents.message_queues.simple import SimpleMessageQueue
-from llama_agents.message_queues.remote_client import RemoteClientMessageQueue
+from llama_agents.message_queues.simple import (
+    SimpleMessageQueue,
+    SimpleRemoteClientMessageQueue,
+)
 from llama_agents.types import ActionTypes
 
 if TYPE_CHECKING:
@@ -58,12 +60,12 @@ class MockMessageConsumer(BaseMessageQueueConsumer):
 
 
 @pytest.mark.asyncio
-@patch("llama_agents.message_queues.remote_client.httpx.AsyncClient.post")
+@patch("llama_agents.message_queues.simple.httpx.AsyncClient.post")
 async def test_remote_client_register_consumer(
     mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
     # Arrange
-    remote_mq = RemoteClientMessageQueue(base_url="https://mock-url.io")
+    remote_mq = SimpleRemoteClientMessageQueue(base_url="https://mock-url.io")
     remote_consumer = RemoteMessageConsumer(
         message_type="mock_type", url="remote-consumer.io"
     )
@@ -82,12 +84,12 @@ async def test_remote_client_register_consumer(
 
 
 @pytest.mark.asyncio
-@patch("llama_agents.message_queues.remote_client.httpx.AsyncClient.post")
+@patch("llama_agents.message_queues.simple.httpx.AsyncClient.post")
 async def test_remote_client_deregister_consumer(
     mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
     # Arrange
-    remote_mq = RemoteClientMessageQueue(base_url="https://mock-url.io")
+    remote_mq = SimpleRemoteClientMessageQueue(base_url="https://mock-url.io")
     remote_consumer = RemoteMessageConsumer(
         message_type="mock_type", url="remote-consumer.io"
     )
@@ -107,12 +109,12 @@ async def test_remote_client_deregister_consumer(
 
 
 @pytest.mark.asyncio
-@patch("llama_agents.message_queues.remote_client.httpx.AsyncClient.get")
+@patch("llama_agents.message_queues.simple.httpx.AsyncClient.get")
 async def test_remote_client_get_consumers(
     mock_get: MagicMock, message_queue: SimpleMessageQueue, get_side_effect: Callable
 ) -> None:
     # Arrange
-    remote_mq = RemoteClientMessageQueue(base_url="https://mock-url.io")
+    remote_mq = SimpleRemoteClientMessageQueue(base_url="https://mock-url.io")
     remote_consumer = RemoteMessageConsumer(
         message_type="mock_type", url="remote-consumer.io"
     )
@@ -129,14 +131,14 @@ async def test_remote_client_get_consumers(
 
 
 @pytest.mark.asyncio
-@patch("llama_agents.message_queues.remote_client.httpx.AsyncClient.post")
+@patch("llama_agents.message_queues.simple.httpx.AsyncClient.post")
 async def test_remote_client_publish(
     mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
     # Arrange
     consumer = MockMessageConsumer(message_type="mock_type")
     await message_queue.register_consumer(consumer)
-    remote_mq = RemoteClientMessageQueue(base_url=message_queue.host)
+    remote_mq = SimpleRemoteClientMessageQueue(base_url=message_queue.host)
     mock_post.side_effect = post_side_effect
 
     # act
