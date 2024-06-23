@@ -27,13 +27,15 @@ agent2 = worker2.as_agent()
 
 # create our multi-agent framework components
 message_queue = SimpleMessageQueue()
+queue_client = message_queue.client
+
 control_plane = ControlPlaneServer(
-    message_queue=message_queue,
+    message_queue=queue_client,
     orchestrator=AgentOrchestrator(llm=OpenAI()),
 )
 agent_server_1 = AgentService(
     agent=agent1,
-    message_queue=message_queue,
+    message_queue=queue_client,
     description="Useful for getting the secret fact.",
     service_name="secret_fact_agent",
     host="127.0.0.1",
@@ -41,14 +43,14 @@ agent_server_1 = AgentService(
 )
 agent_server_2 = AgentService(
     agent=agent2,
-    message_queue=message_queue,
+    message_queue=queue_client,
     description="Useful for getting random dumb facts.",
     service_name="dumb_fact_agent",
     host="127.0.0.1",
     port=8003,
 )
 human_service = HumanService(
-    message_queue=message_queue,
+    message_queue=queue_client,
     description="Answers queries about math.",
     host="127.0.0.1",
     port=8004,

@@ -19,7 +19,7 @@ from agentfile.types import (
 
 class BaseControlPlane(MessageQueuePublisherMixin, ABC):
     @abstractmethod
-    def as_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         """
         Get the consumer for the message queue.
 

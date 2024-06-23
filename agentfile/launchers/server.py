@@ -10,7 +10,7 @@ from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.message_queues.base import PublishCallback
 from agentfile.messages.base import QueueMessage
-from agentfile.types import ActionTypes, TaskResult
+from agentfile.types import ActionTypes
 from agentfile.message_publishers.publisher import MessageQueuePublisherMixin
 
 
@@ -54,22 +54,6 @@ class ServerLauncher(MessageQueuePublisherMixin):
     def publish_callback(self) -> Optional[PublishCallback]:
         return self._publish_callback
 
-    async def handle_human_message(self, **kwargs: Any) -> None:
-        result = TaskResult(**kwargs["message_data"])
-        self.result = result.result
-
-    async def register_consumers(
-        self, consumers: Optional[List[BaseMessageQueueConsumer]] = None
-    ) -> None:
-        for service in self.services:
-            await self.message_queue.register_consumer(service.as_consumer())
-
-        consumers = consumers or []
-        for consumer in consumers:
-            await self.message_queue.register_consumer(consumer)
-
-        await self.message_queue.register_consumer(self.control_plane.as_consumer())
-
     def get_shutdown_handler(self, tasks: List[asyncio.Task]) -> Callable:
         def signal_handler(sig: Any, frame: Any) -> None:
             print("\nShutting down.")
@@ -83,27 +67,29 @@ class ServerLauncher(MessageQueuePublisherMixin):
         return asyncio.run(self.alaunch_servers())
 
     async def alaunch_servers(self) -> None:
-        # register human consumer
-        # human_consumer = HumanMessageConsumer(
-        #     message_handler={
-        #         ActionTypes.COMPLETED_TASK: self.handle_human_message,
-        #     }
-        # )
-        # await self.register_consumers([human_consumer])
-
         # launch the message queue
         queue_task = asyncio.create_task(self.message_queue.launch_server())
+
+        # wait for the message queue to be ready
+        await asyncio.sleep(1)
 
         # launch the control plane
         control_plane_task = asyncio.create_task(self.control_plane.launch_server())
 
         # wait for the control plane to be ready
-        await asyncio.sleep(2)
+        await asyncio.sleep(1)
 
+        # register the control plane as a consumer
+        await self.message_queue.client.register_consumer(
+            self.control_plane.as_consumer(remote=True)
+        )
+
+        # register the services
         control_plane_url = f"http://{self.control_plane.host}:{self.control_plane.port}"  # type: ignore
         service_tasks = []
         for service in self.services:
             service_tasks.append(asyncio.create_task(service.launch_server()))
+            await service.register_to_message_queue()
             await service.register_to_control_plane(control_plane_url)
 
         shutdown_handler = self.get_shutdown_handler(

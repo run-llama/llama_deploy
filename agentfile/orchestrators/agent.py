@@ -60,12 +60,16 @@ class AgentOrchestrator(BaseOrchestrator):
         # check if there was a tool call
         queue_messages = []
         if len(response.sources) == 0 or response.sources[0].tool_name == "finalize":
+            # convert memory chat messages
+            llama_messages = memory.get_all()
+            history = [ChatMessage(**x.dict()) for x in llama_messages]
+
             queue_messages.append(
                 QueueMessage(
                     type="human",
                     data=TaskResult(
                         task_id=task_def.task_id,
-                        history=memory.get_all(),
+                        history=history,
                         result=response.response,
                     ).model_dump(),
                     action=ActionTypes.COMPLETED_TASK,

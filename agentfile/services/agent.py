@@ -155,8 +155,9 @@ class AgentService(BaseService):
                             task_id, step_output=step_output
                         )
 
-                        # get the latest history
-                        history = self.agent.memory.get()
+                        # convert memory chat messages
+                        llama_messages = self.agent.memory.get()
+                        history = [ChatMessage(**x.dict()) for x in llama_messages]
 
                         # publish the completed task
                         await self.publish(
@@ -185,7 +186,7 @@ class AgentService(BaseService):
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         if remote:
-            url = f"{self.host}:{self.port}/{self._app.url_path_for('process_message')}"
+            url = f"http://{self.host}:{self.port}{self._app.url_path_for('process_message')}"
             return RemoteMessageConsumer(
                 url=url,
                 message_type=self.service_name,

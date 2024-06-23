@@ -79,13 +79,20 @@ class SimpleMessageQueue(BaseMessageQueue):
             tags=["QueueMessages"],
         )
 
+    @property
+    def client(self) -> BaseMessageQueue:
+        from agentfile.message_queues.remote_client import RemoteClientMessageQueue
+
+        base_url = f"http://{self.host}:{self.port}"
+        return RemoteClientMessageQueue(base_url=base_url)
+
     def _select_consumer(self, message: QueueMessage) -> BaseMessageQueueConsumer:
         """Select a single consumer to publish a message to."""
         message_type_str = message.type
         consumer_id = random.choice(list(self.consumers[message_type_str].keys()))
         return self.consumers[message_type_str][consumer_id]
 
-    async def _publish(self, message: QueueMessage, **kwargs: Any) -> Any:
+    async def _publish(self, message: QueueMessage) -> Any:
         """Publish message to a queue."""
         message_type_str = message.type
 

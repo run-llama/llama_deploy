@@ -5,7 +5,7 @@ import uvicorn
 from asyncio import Lock
 from fastapi import FastAPI
 from pydantic import PrivateAttr
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from llama_index.core.llms import MessageRole
 
@@ -82,6 +82,12 @@ class HumanService(BaseService):
         self._app = FastAPI()
 
         self._app.add_api_route("/", self.home, methods=["GET"], tags=["Human Service"])
+        self._app.add_api_route(
+            "/process_message",
+            self.process_message,
+            methods=["POST"],
+            tags=["Human Service"],
+        )
 
         self._app.add_api_route(
             "/tasks", self.create_task, methods=["POST"], tags=["Tasks"]
@@ -172,7 +178,7 @@ class HumanService(BaseService):
 
             await asyncio.sleep(self.step_interval)
 
-    async def process_message(self, message: QueueMessage, **kwargs: Any) -> None:
+    async def process_message(self, message: QueueMessage) -> None:
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
             async with self.lock:
@@ -182,7 +188,7 @@ class HumanService(BaseService):
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         if remote:
-            url = f"{self.host}:{self.port}/{self._app.url_path_for('process_message')}"
+            url = f"http://{self.host}:{self.port}{self._app.url_path_for('process_message')}"
             return RemoteMessageConsumer(
                 url=url,
                 message_type=self.service_name,

@@ -188,7 +188,7 @@ class ToolService(BaseService):
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         if remote:
-            url = f"{self.host}:{self.port}/{self._app.url_path_for('process_message')}"
+            url = f"http://{self.host}:{self.port}{self._app.url_path_for('process_message')}"
             return RemoteMessageConsumer(
                 url=url,
                 message_type=self.service_name,

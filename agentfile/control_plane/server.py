@@ -1,7 +1,7 @@
 import uuid
 import uvicorn
 from fastapi import FastAPI
-from typing import Any, Callable, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from llama_index.core import StorageContext, VectorStoreIndex
 from llama_index.core.objects import ObjectIndex, SimpleObjectNodeMapping
@@ -11,6 +11,8 @@ from llama_index.core.vector_stores.types import BasePydanticVectorStore
 
 from agentfile.control_plane.base import BaseControlPlane
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
+from agentfile.message_consumers.callable import CallableMessageConsumer
+from agentfile.message_consumers.remote import RemoteMessageConsumer
 from agentfile.message_queues.base import BaseMessageQueue, PublishCallback
 from agentfile.messages.base import QueueMessage
 from agentfile.orchestrators.base import BaseOrchestrator
@@ -27,21 +29,6 @@ import logging
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logging.basicConfig(level=logging.INFO)
-
-
-class ControlPlaneMessageConsumer(BaseMessageQueueConsumer):
-    message_handler: Dict[str, Callable]
-    message_type: str = "control_plane"
-
-    async def _process_message(self, message: QueueMessage, **kwargs: Any) -> None:
-        action = message.action
-        if action not in self.message_handler:
-            raise ValueError(f"Action {action} not supported by control plane")
-
-        if action == ActionTypes.NEW_TASK and message.data is not None:
-            await self.message_handler[action](TaskDefinition(**message.data))
-        elif action == ActionTypes.COMPLETED_TASK and message.data is not None:
-            await self.message_handler[action](TaskResult(**message.data))
 
 
 class ControlPlaneServer(BaseControlPlane):
@@ -89,6 +76,12 @@ class ControlPlaneServer(BaseControlPlane):
 
         self.app = FastAPI()
         self.app.add_api_route("/", self.home, methods=["GET"], tags=["Control Plane"])
+        self.app.add_api_route(
+            "/process_message",
+            self.process_message,
+            methods=["POST"],
+            tags=["Control Plane"],
+        )
 
         self.app.add_api_route(
             "/services/register",
@@ -137,12 +130,26 @@ class ControlPlaneServer(BaseControlPlane):
     def publish_callback(self) -> Optional[PublishCallback]:
         return self._publish_callback
 
-    def as_consumer(self) -> BaseMessageQueueConsumer:
-        return ControlPlaneMessageConsumer(
-            message_handler={
-                ActionTypes.NEW_TASK: self.create_task,
-                ActionTypes.COMPLETED_TASK: self.handle_service_completion,
-            }
+    async def process_message(self, message: QueueMessage) -> None:
+        action = message.action
+
+        if action == ActionTypes.NEW_TASK and message.data is not None:
+            await self.create_task(TaskDefinition(**message.data))
+        elif action == ActionTypes.COMPLETED_TASK and message.data is not None:
+            await self.handle_service_completion(TaskResult(**message.data))
+        else:
+            raise ValueError(f"Action {action} not supported by control plane")
+
+    def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
+        if remote:
+            return RemoteMessageConsumer(
+                url=f"http://{self.host}:{self.port}/process_message",
+                message_type="control_plane",
+            )
+
+        return CallableMessageConsumer(
+            message_type="control_plane",
+            handler=self.process_message,
         )
 
     async def launch_server(self) -> None:
