@@ -1,9 +1,8 @@
-from llama_index.core.base.llms.types import ChatMessage
-from llama_index.core.chat_engine.types import AgentChatResponse
-from llama_index.core.tools.types import BaseTool, ToolOutput
 import pytest
 from typing import Any, List, Optional, Union
 
+from llama_index.core.chat_engine.types import AgentChatResponse
+from llama_index.core.tools.types import BaseTool, ToolOutput
 from llama_index.core.llms import (
     CustomLLM,
     CompletionResponse,
@@ -11,10 +10,10 @@ from llama_index.core.llms import (
     LLMMetadata,
 )
 
-from agentfile.orchestrators.agent import AgentOrchestrator
-from agentfile.messages.base import QueueMessage
-from agentfile.orchestrators.service_tool import ServiceTool
-from agentfile.types import ActionTypes, TaskDefinition, TaskResult
+from llama_agents.orchestrators.agent import AgentOrchestrator
+from llama_agents.messages.base import QueueMessage
+from llama_agents.orchestrators.service_tool import ServiceTool
+from llama_agents.types import ActionTypes, ChatMessage, TaskDefinition, TaskResult
 
 TASK_DEF = TaskDefinition(
     input="Tell me a secret fact.",
@@ -31,7 +30,7 @@ TOOLS = [
 
 INITIAL_QUEUE_MESSAGE = QueueMessage(
     type="secret_fact_agent",
-    data=TaskDefinition(input="What is the secret fact?").dict(),
+    data=TaskDefinition(input="What is the secret fact?").model_dump(),
     action=ActionTypes.NEW_TASK,
 )
 

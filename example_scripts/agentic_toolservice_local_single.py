@@ -1,9 +1,9 @@
-from agentfile.launchers.local import LocalLauncher
-from agentfile.services import AgentService, ToolService
-from agentfile.tools import MetaServiceTool
-from agentfile.control_plane.fastapi import FastAPIControlPlane
-from agentfile.message_queues.simple import SimpleMessageQueue
-from agentfile.orchestrators.agent import AgentOrchestrator
+from llama_agents.launchers.local import LocalLauncher
+from llama_agents.services import AgentService, ToolService
+from llama_agents.tools import MetaServiceTool
+from llama_agents.control_plane.fastapi import ControlPlaneServer
+from llama_agents.message_queues.simple import SimpleMessageQueue
+from llama_agents.orchestrators.agent import AgentOrchestrator
 
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
@@ -28,7 +28,7 @@ tool_service = ToolService(
     step_interval=0.5,
 )
 
-control_plane = FastAPIControlPlane(
+control_plane = ControlPlaneServer(
     message_queue=message_queue,
     orchestrator=AgentOrchestrator(llm=OpenAI()),
 )
@@ -56,4 +56,6 @@ launcher = LocalLauncher(
     control_plane,
     message_queue,
 )
-launcher.launch_single("What is the secret fact?")
+result = launcher.launch_single("What is the secret fact?")
+
+print(f"Result: {result}")

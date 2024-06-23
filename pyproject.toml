@@ -3,7 +3,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "agentfile"
+name = "llama-agents"
 version = "0.1.0"
 description = ""
 authors = ["Logan Markewich <logan.markewich@live.com>"]
@@ -13,11 +13,13 @@ readme = "README.md"
 python = ">=3.8.1,<4.0"
 fastapi = "^0.111.0"
 llama-index-core = "^0.10.47"
-llama-index-agent-openai = "^0.2.5"
-llama-index-embeddings-openai = "^0.1.10"
 pytest-asyncio = "^0.23.7"
+textual = "^0.70.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
 ruff = "^0.4.7"
 mypy = "^1.10.0"
+
+[tool.poetry.scripts]
+llama-agents = 'llama_agents.cli.command_line:main'
