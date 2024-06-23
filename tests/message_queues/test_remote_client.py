@@ -13,6 +13,7 @@ from agentfile.message_consumers.remote import (
 )
 from agentfile.message_queues.simple import SimpleMessageQueue
 from agentfile.message_queues.remote_client import RemoteClientMessageQueue
+from agentfile.types import ActionTypes
 
 if TYPE_CHECKING:
     from urllib.parse import SplitResult
@@ -20,7 +21,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture()
 def message_queue() -> SimpleMessageQueue:
-    return SimpleMessageQueue(host="mock-url.io", port=8001)
+    return SimpleMessageQueue(host="https://mock-url.io", port=8001)
 
 
 @pytest.fixture()
@@ -62,7 +63,6 @@ async def test_remote_client_register_consumer(
     mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
     # Arrange
-    _test_client = TestClient(message_queue._app)
     remote_mq = RemoteClientMessageQueue(base_url="https://mock-url.io")
     remote_consumer = RemoteMessageConsumer(
         message_type="mock_type", url="remote-consumer.io"
@@ -126,3 +126,27 @@ async def test_remote_client_get_consumers(
     mock_get.assert_called_once_with("https://mock-url.io/get_consumers/mock_type")
     assert len(message_queue.consumers) == 1
     assert result[0] == remote_consumer
+
+
+@pytest.mark.asyncio
+@patch("agentfile.message_queues.remote_client.httpx.AsyncClient.post")
+async def test_remote_client_publish(
+    mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
+) -> None:
+    # Arrange
+    consumer = MockMessageConsumer(message_type="mock_type")
+    await message_queue.register_consumer(consumer)
+    remote_mq = RemoteClientMessageQueue(base_url=message_queue.host)
+    mock_post.side_effect = post_side_effect
+
+    # act
+    message = QueueMessage(
+        type="mock_type", data={"payload": "mock payload"}, action=ActionTypes.NEW_TASK
+    )
+    await remote_mq.publish(message=message)
+
+    # assert
+    mock_post.assert_called_once_with(
+        "https://mock-url.io/publish", json=message.model_dump()
+    )
+    assert message_queue.queues["mock_type"][0] == message

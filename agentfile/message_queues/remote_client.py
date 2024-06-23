@@ -32,7 +32,8 @@ class RemoteClientMessageQueue(BaseMessageQueue):
         client = self.client or httpx.AsyncClient(**client_kwargs)
         url = urljoin(self.base_url, publish_url)
         async with httpx.AsyncClient() as client:
-            await client.post(url, json=message.model_dump())
+            result = await client.post(url, json=message.model_dump())
+        return result
 
     async def register_consumer(
         self,
