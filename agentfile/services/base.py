@@ -1,3 +1,4 @@
+import httpx
 from abc import ABC, abstractmethod
 from pydantic import BaseModel
 from typing import Any
@@ -50,6 +51,20 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
         ...
 
     @abstractmethod
-    def launch_server(self) -> None:
+    async def launch_server(self) -> None:
         """Launch the service as a server."""
         ...
+
+    async def register_to_control_plane(self, control_plane_url: str) -> None:
+        """Register the service to the control plane."""
+        service_def = self.service_definition
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{control_plane_url}/services/register",
+                json=service_def.model_dump(),
+            )
+            response.raise_for_status()
+
+    async def register_to_message_queue(self) -> None:
+        """Register the service to the message queue."""
+        await self.message_queue.register_consumer(self.as_consumer(remote=True))

@@ -1,4 +1,4 @@
 from agentfile.control_plane.base import BaseControlPlane
-from agentfile.control_plane.fastapi import FastAPIControlPlane
+from agentfile.control_plane.server import ControlPlaneServer
 
-__all__ = ["BaseControlPlane", "FastAPIControlPlane"]
+__all__ = ["BaseControlPlane", "ControlPlaneServer"]

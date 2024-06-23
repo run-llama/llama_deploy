@@ -1,9 +1,10 @@
 import uuid
 from enum import Enum
-from pydantic import BaseModel, Field, SkipValidation
-from typing import Any, Dict, List, Optional
+from pydantic import BaseModel, Field
+from pydantic.v1 import BaseModel as V1BaseModel
+from typing import Any, Dict, List, Optional, Union
 
-from llama_index.core.llms import ChatMessage
+from llama_index.core.llms import MessageRole
 
 
 def generate_id() -> str:
@@ -11,6 +12,57 @@ def generate_id() -> str:
 
 
 CONTROL_PLANE_NAME = "control_plane"
+
+
+class ChatMessage(BaseModel):
+    """Chat message.
+
+    TODO: Temp copy of class from llama-index, to avoid pydantic v1/v2 issues.
+    """
+
+    role: MessageRole = MessageRole.USER
+    content: Optional[Any] = ""
+    additional_kwargs: dict = Field(default_factory=dict)
+
+    def __str__(self) -> str:
+        return f"{self.role.value}: {self.content}"
+
+    @classmethod
+    def from_str(
+        cls,
+        content: str,
+        role: Union[MessageRole, str] = MessageRole.USER,
+        **kwargs: Any,
+    ) -> "ChatMessage":
+        if isinstance(role, str):
+            role = MessageRole(role)
+        return cls(role=role, content=content, **kwargs)
+
+    def _recursive_serialization(self, value: Any) -> Any:
+        if isinstance(value, (V1BaseModel, BaseModel)):
+            return value.dict()
+        if isinstance(value, dict):
+            return {
+                key: self._recursive_serialization(value)
+                for key, value in value.items()
+            }
+        if isinstance(value, list):
+            return [self._recursive_serialization(item) for item in value]
+        return value
+
+    def dict(self, **kwargs: Any) -> dict:
+        # ensure all additional_kwargs are serializable
+        msg = super().dict(**kwargs)
+
+        for key, value in msg.get("additional_kwargs", {}).items():
+            value = self._recursive_serialization(value)
+            if not isinstance(value, (str, int, float, bool, dict, list, type(None))):
+                raise ValueError(
+                    f"Failed to serialize additional_kwargs value: {value}"
+                )
+            msg["additional_kwargs"][key] = value
+
+        return msg
 
 
 class ActionTypes(str, Enum):
@@ -30,7 +82,7 @@ class TaskDefinition(BaseModel):
 
 class TaskResult(BaseModel):
     task_id: str
-    history: SkipValidation[List[ChatMessage]]
+    history: List[ChatMessage]
     result: str
 
 
@@ -48,7 +100,7 @@ class ToolCall(BaseModel):
 
 class ToolCallResult(BaseModel):
     id_: str
-    tool_message: SkipValidation[ChatMessage]
+    tool_message: ChatMessage
     result: str
 
 
@@ -57,6 +109,12 @@ class ServiceDefinition(BaseModel):
     description: str = Field(
         description="A description of the service and it's purpose."
     )
-    prompt: List[SkipValidation[ChatMessage]] = Field(
+    prompt: List[ChatMessage] = Field(
         default_factory=list, description="Specific instructions for the service."
     )
+    host: Optional[str] = None
+    port: Optional[int] = None
+
+
+class HumanResponse(BaseModel):
+    result: str

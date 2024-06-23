@@ -19,7 +19,7 @@ from agentfile.types import (
 
 class BaseControlPlane(MessageQueuePublisherMixin, ABC):
     @abstractmethod
-    def as_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         """
         Get the consumer for the message queue.
 
@@ -91,5 +91,12 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Get all tasks.
 
         :return: All tasks.
+        """
+        ...
+
+    @abstractmethod
+    async def launch_server(self) -> None:
+        """
+        Launch the control plane server.
         """
         ...

@@ -11,7 +11,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 from llama_index.core.agent.function_calling.step import (
     get_function_by_name,
 )
-from llama_index.core.llms import ChatMessage, MessageRole
+from llama_index.core.llms import MessageRole
 from llama_index.core.tools import BaseTool, AsyncBaseTool, adapt_to_async_tool
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
@@ -23,6 +23,7 @@ from agentfile.messages.base import QueueMessage
 from agentfile.services.base import BaseService
 from agentfile.types import (
     ActionTypes,
+    ChatMessage,
     ToolCall,
     ToolCallResult,
     ServiceDefinition,
@@ -103,6 +104,8 @@ class ToolService(BaseService):
             service_name=self.service_name,
             description=self.description,
             prompt=[],
+            host=self.host,
+            port=self.port,
         )
 
     @property
@@ -185,7 +188,7 @@ class ToolService(BaseService):
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         if remote:
-            url = f"{self.host}:{self.port}/{self._app.url_path_for('process_message')}"
+            url = f"http://{self.host}:{self.port}{self._app.url_path_for('process_message')}"
             return RemoteMessageConsumer(
                 url=url,
                 message_type=self.service_name,
@@ -213,6 +216,12 @@ class ToolService(BaseService):
             "description": self.description,
             "running": str(self.running),
             "step_interval": str(self.step_interval),
+            "num_tools": str(len(self.tools)),
+            "num_outstanding_tool_calls": str(len(self._outstanding_tool_calls)),
+            "tool_calls": "\n".join(
+                [str(tool_call) for tool_call in self._outstanding_tool_calls.values()]
+            ),
+            "type": "tool_service",
         }
 
     async def create_tool_call(self, tool_call: ToolCall) -> Dict[str, str]:
@@ -226,5 +235,14 @@ class ToolService(BaseService):
             raise ValueError(f"Tool with name {name} not found")
         return {"tool_metadata": name_to_tool[name].metadata}
 
-    def launch_server(self) -> None:
-        uvicorn.run(self._app, host=self.host, port=self.port)
+    async def launch_server(self) -> None:
+        logger.info(f"Launching tool service server at {self.host}:{self.port}")
+        # uvicorn.run(self._app, host=self.host, port=self.port)
+
+        class CustomServer(uvicorn.Server):
+            def install_signal_handlers(self) -> None:
+                pass
+
+        cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
+        server = CustomServer(cfg)
+        await server.serve()
