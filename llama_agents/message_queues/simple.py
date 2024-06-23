@@ -87,7 +87,6 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
         client_kwargs = self.client_kwargs or {}
         client = self.client or httpx.AsyncClient(**client_kwargs)
         url = urljoin(self.base_url, f"{get_consumers_url}/{message_type}")
-        logger.info(f"url: {url}")
         async with httpx.AsyncClient() as client:
             res = await client.get(url)
         if res.status_code == 200:
