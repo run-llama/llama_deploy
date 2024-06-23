@@ -10,10 +10,10 @@ from llama_index.core.llms import (
     LLMMetadata,
 )
 
-from agentfile.orchestrators.agent import AgentOrchestrator
-from agentfile.messages.base import QueueMessage
-from agentfile.orchestrators.service_tool import ServiceTool
-from agentfile.types import ActionTypes, ChatMessage, TaskDefinition, TaskResult
+from llama_agents.orchestrators.agent import AgentOrchestrator
+from llama_agents.messages.base import QueueMessage
+from llama_agents.orchestrators.service_tool import ServiceTool
+from llama_agents.types import ActionTypes, ChatMessage, TaskDefinition, TaskResult
 
 TASK_DEF = TaskDefinition(
     input="Tell me a secret fact.",

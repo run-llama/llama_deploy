@@ -3,12 +3,12 @@ import pytest
 from pydantic import PrivateAttr
 from typing import Any, List
 from unittest.mock import MagicMock, patch
-from agentfile.services import HumanService
-from agentfile.services.human import HELP_REQUEST_TEMPLATE_STR
-from agentfile.message_queues.simple import SimpleMessageQueue
-from agentfile.message_consumers.base import BaseMessageQueueConsumer
-from agentfile.messages.base import QueueMessage
-from agentfile.types import TaskDefinition, ActionTypes, CONTROL_PLANE_NAME
+from llama_agents.services import HumanService
+from llama_agents.services.human import HELP_REQUEST_TEMPLATE_STR
+from llama_agents.message_queues.simple import SimpleMessageQueue
+from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.messages.base import QueueMessage
+from llama_agents.types import TaskDefinition, ActionTypes, CONTROL_PLANE_NAME
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
@@ -45,7 +45,7 @@ async def test_init() -> None:
 
 
 @pytest.mark.asyncio()
-@patch("agentfile.types.uuid")
+@patch("llama_agents.types.uuid")
 async def test_create_task(mock_uuid: MagicMock) -> None:
     # arrange
     human_service = HumanService(
