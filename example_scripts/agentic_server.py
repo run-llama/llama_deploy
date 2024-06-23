@@ -1,5 +1,6 @@
 from agentfile import (
     AgentService,
+    HumanService,
     AgentOrchestrator,
     ControlPlaneServer,
     ServerLauncher,
@@ -46,10 +47,16 @@ agent_server_2 = AgentService(
     host="127.0.0.1",
     port=8003,
 )
+human_service = HumanService(
+    message_queue=message_queue,
+    description="Answers queries about math.",
+    host="127.0.0.1",
+    port=8004,
+)
 
 # launch it
 launcher = ServerLauncher(
-    [agent_server_1, agent_server_2], control_plane, message_queue
+    [agent_server_1, agent_server_2, human_service], control_plane, message_queue
 )
 
 launcher.launch_servers()

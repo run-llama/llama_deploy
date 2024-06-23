@@ -114,3 +114,7 @@ class ServiceDefinition(BaseModel):
     )
     host: Optional[str] = None
     port: Optional[int] = None
+
+
+class HumanResponse(BaseModel):
+    result: str

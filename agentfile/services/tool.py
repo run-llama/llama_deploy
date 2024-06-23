@@ -218,6 +218,10 @@ class ToolService(BaseService):
             "step_interval": str(self.step_interval),
             "num_tools": str(len(self.tools)),
             "num_outstanding_tool_calls": str(len(self._outstanding_tool_calls)),
+            "tool_calls": "\n".join(
+                [str(tool_call) for tool_call in self._outstanding_tool_calls.values()]
+            ),
+            "type": "tool_service",
         }
 
     async def create_tool_call(self, tool_call: ToolCall) -> Dict[str, str]:

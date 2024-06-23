@@ -3,10 +3,11 @@ import logging
 import uuid
 import uvicorn
 from asyncio import Lock
-from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from typing import Any, AsyncGenerator, Dict, Optional
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import PrivateAttr
+from typing import Any, Dict, List, Optional
+
+from llama_index.core.llms import MessageRole
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.callable import CallableMessageConsumer
@@ -17,13 +18,14 @@ from agentfile.messages.base import QueueMessage
 from agentfile.services.base import BaseService
 from agentfile.types import (
     ActionTypes,
+    ChatMessage,
+    HumanResponse,
     TaskDefinition,
     TaskResult,
     ServiceDefinition,
     CONTROL_PLANE_NAME,
-    generate_id,
 )
-from llama_index.core.llms import ChatMessage, MessageRole
+
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -45,7 +47,7 @@ class HumanService(BaseService):
     host: Optional[str] = None
     port: Optional[int] = None
 
-    _outstanding_human_tasks: Dict[str, "HumanTask"] = PrivateAttr()
+    _outstanding_human_tasks: List[TaskDefinition] = PrivateAttr()
     _message_queue: BaseMessageQueue = PrivateAttr()
     _app: FastAPI = PrivateAttr()
     _publisher_id: str = PrivateAttr()
@@ -72,17 +74,29 @@ class HumanService(BaseService):
             port=port,
         )
 
-        self._outstanding_human_tasks = {}
+        self._outstanding_human_tasks = []
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
         self._lock = asyncio.Lock()
-        self._app = FastAPI(lifespan=self.lifespan)
+        self._app = FastAPI()
 
         self._app.add_api_route("/", self.home, methods=["GET"], tags=["Human Service"])
 
         self._app.add_api_route(
-            "/help", self.create_task, methods=["POST"], tags=["Help Requests"]
+            "/tasks", self.create_task, methods=["POST"], tags=["Tasks"]
+        )
+        self._app.add_api_route(
+            "/tasks", self.get_tasks, methods=["GET"], tags=["Tasks"]
+        )
+        self._app.add_api_route(
+            "/tasks/{task_id}", self.get_task, methods=["GET"], tags=["Tasks"]
+        )
+        self._app.add_api_route(
+            "/tasks/{task_id}/handle",
+            self.handle_task,
+            methods=["POST"],
+            tags=["Tasks"],
         )
 
     @property
@@ -91,6 +105,8 @@ class HumanService(BaseService):
             service_name=self.service_name,
             description=self.description,
             prompt=[],
+            host=self.host,
+            port=self.port,
         )
 
     @property
@@ -109,21 +125,6 @@ class HumanService(BaseService):
     def lock(self) -> Lock:
         return self._lock
 
-    class HumanTask(BaseModel):
-        """Lightweight container object over TaskDefinitions.
-
-        This is needed since orchestrators may send multiple `TaskDefinition`
-        with the same task_id. In such a case, this human service is expected
-        to address these multiple (sub)tasks for the overall task. In other words,
-        these sub tasks are all legitimate and should be processed.
-        """
-
-        id_: str = Field(default_factory=generate_id)
-        task_definition: TaskDefinition
-
-        class Config:
-            arbitrary_types_allowed = True
-
     async def processing_loop(self) -> None:
         while True:
             if not self.running:
@@ -131,9 +132,11 @@ class HumanService(BaseService):
                 continue
 
             async with self.lock:
-                current_human_tasks = [*self._outstanding_human_tasks.values()]
-            for human_task in current_human_tasks:
-                task_def = human_task.task_definition
+                current_human_tasks = [*self._outstanding_human_tasks]
+
+            while len(current_human_tasks) > 0:
+                task_def = current_human_tasks.pop(0)
+
                 logger.info(
                     f"Processing request for human help for task: {task_def.task_id}"
                 )
@@ -167,18 +170,13 @@ class HumanService(BaseService):
                     )
                 )
 
-                # clean up
-                async with self.lock:
-                    del self._outstanding_human_tasks[human_task.id_]
-
             await asyncio.sleep(self.step_interval)
 
     async def process_message(self, message: QueueMessage, **kwargs: Any) -> None:
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
-            human_task = self.HumanTask(task_definition=task_def)
             async with self.lock:
-                self._outstanding_human_tasks.update({human_task.id_: human_task})
+                self._outstanding_human_tasks.append(task_def)
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 
@@ -201,29 +199,76 @@ class HumanService(BaseService):
 
     # ---- Server based methods ----
 
-    @asynccontextmanager
-    async def lifespan(self) -> AsyncGenerator[None, None]:
-        """Starts the processing loop when the fastapi app starts."""
-        asyncio.create_task(self.processing_loop())
-        yield
-        self.running = False
-
     async def home(self) -> Dict[str, str]:
         return {
             "service_name": self.service_name,
             "description": self.description,
             "running": str(self.running),
             "step_interval": str(self.step_interval),
+            "num_tasks": str(len(self._outstanding_human_tasks)),
+            "tasks": "\n".join([str(task) for task in self._outstanding_human_tasks]),
+            "type": "human_service",
         }
 
     async def create_task(self, task: TaskDefinition) -> Dict[str, str]:
-        human_task = self.HumanTask(task_definition=task)
         async with self.lock:
-            self._outstanding_human_tasks.update({human_task.id_: human_task})
+            self._outstanding_human_tasks.append(task)
         return {"task_id": task.task_id}
 
-    def launch_server(self) -> None:
-        uvicorn.run(self._app, host=self.host, port=self.port)
+    async def get_tasks(self) -> List[TaskDefinition]:
+        async with self.lock:
+            return [*self._outstanding_human_tasks]
+
+    async def get_task(self, task_id: str) -> Optional[TaskDefinition]:
+        async with self.lock:
+            for task in self._outstanding_human_tasks:
+                if task.task_id == task_id:
+                    return task
+        return None
+
+    async def handle_task(self, task_id: str, result: HumanResponse) -> None:
+        async with self.lock:
+            for task_def in self._outstanding_human_tasks:
+                if task_def.task_id == task_id:
+                    self._outstanding_human_tasks.remove(task_def)
+                    break
+
+        logger.info(f"Processing request for human help for task: {task_def.task_id}")
+
+        # create history
+        history = [
+            ChatMessage(
+                role=MessageRole.ASSISTANT,
+                content=HELP_REQUEST_TEMPLATE_STR.format(input_str=task_def.input),
+            ),
+            ChatMessage(role=MessageRole.USER, content=result.result),
+        ]
+
+        # publish the completed task
+        await self.publish(
+            QueueMessage(
+                type=CONTROL_PLANE_NAME,
+                action=ActionTypes.COMPLETED_TASK,
+                data=TaskResult(
+                    task_id=task_def.task_id,
+                    history=history,
+                    result=result.result,
+                ).model_dump(),
+            )
+        )
+
+    async def launch_server(self) -> None:
+        logger.info(
+            f"Lanching server for {self.service_name} at {self.host}:{self.port}"
+        )
+
+        class CustomServer(uvicorn.Server):
+            def install_signal_handlers(self) -> None:
+                pass
+
+        cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
+        server = CustomServer(cfg)
+        await server.serve()
 
 
 HumanService.model_rebuild()

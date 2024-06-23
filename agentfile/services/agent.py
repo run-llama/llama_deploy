@@ -231,6 +231,7 @@ class AgentService(BaseService):
             "num_tasks": str(len(tasks)),
             "num_completed_tasks": str(len(self.agent.get_completed_tasks())),
             "prompt": "\n".join([str(x) for x in self.prompt]) if self.prompt else "",
+            "type": "agent_service",
             "tasks": complete_task_string,
         }
 
