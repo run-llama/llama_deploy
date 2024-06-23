@@ -17,7 +17,7 @@ class HumanTaskButton(Button):
 
 class HumanTaskList(Static):
     tasks: List[TaskDefinition] = reactive([])
-    selected_task = reactive("")
+    selected_task: str = reactive("")
 
     def __init__(self, human_service_url: str, **kwargs: Any):
         self.human_service_url = human_service_url

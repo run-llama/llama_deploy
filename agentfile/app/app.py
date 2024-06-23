@@ -1,4 +1,5 @@
 import httpx
+import logging
 import pprint
 from typing import Any, Optional
 
@@ -13,7 +14,7 @@ from agentfile.app.components.types import ButtonType
 from agentfile.types import TaskDefinition
 
 
-class SimpleServerApp(App):
+class LlamaAgentsMonitor(App):
     CSS = """
     Screen {
         layout: grid;
@@ -189,11 +190,13 @@ class SimpleServerApp(App):
         self.query_one("#new-task").value = ""
 
 
-if __name__ == "__main__":
-    import logging
-
+def run(control_plane_url: str = "http://127.0.0.1:8000") -> None:
     # remove info logging for httpx
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    app = SimpleServerApp("http://127.0.0.1:8000")
+    app = LlamaAgentsMonitor(control_plane_url=control_plane_url)
     app.run()
+
+
+if __name__ == "__main__":
+    run()

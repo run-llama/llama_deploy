@@ -20,3 +20,6 @@ textual = "^0.70.0"
 pytest = "^8.2.2"
 ruff = "^0.4.7"
 mypy = "^1.10.0"
+
+[tool.poetry.scripts]
+llama-agents = 'agentfile.cli.command_line:main'

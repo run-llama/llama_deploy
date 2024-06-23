@@ -14,7 +14,7 @@ class TaskButton(Button):
 
 
 class TasksList(Static):
-    tasks = reactive([])
+    tasks: List[str] = reactive([])
 
     def __init__(self, control_plane_url: str, **kwargs: Any):
         self.control_plane_url = control_plane_url
