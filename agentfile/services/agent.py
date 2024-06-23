@@ -7,7 +7,6 @@ from pydantic import PrivateAttr
 from typing import AsyncGenerator, Dict, List, Literal, Optional
 
 from llama_index.core.agent import AgentRunner
-from llama_index.core.llms import ChatMessage
 
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.callable import CallableMessageConsumer
@@ -19,6 +18,7 @@ from agentfile.services.base import BaseService
 from agentfile.services.types import _ChatMessage
 from agentfile.types import (
     ActionTypes,
+    ChatMessage,
     TaskResult,
     TaskDefinition,
     ServiceDefinition,
@@ -114,6 +114,8 @@ class AgentService(BaseService):
             service_name=self.service_name,
             description=self.description,
             prompt=self.prompt or [],
+            host=self.host,
+            port=self.port,
         )
 
     @property
@@ -153,8 +155,9 @@ class AgentService(BaseService):
                             task_id, step_output=step_output
                         )
 
-                        # get the latest history
-                        history = self.agent.memory.get()
+                        # convert memory chat messages
+                        llama_messages = self.agent.memory.get()
+                        history = [ChatMessage(**x.dict()) for x in llama_messages]
 
                         # publish the completed task
                         await self.publish(
@@ -183,7 +186,7 @@ class AgentService(BaseService):
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         if remote:
-            url = f"{self.host}:{self.port}/{self._app.url_path_for('process_message')}"
+            url = f"http://{self.host}:{self.port}{self._app.url_path_for('process_message')}"
             return RemoteMessageConsumer(
                 url=url,
                 message_type=self.service_name,
@@ -208,11 +211,29 @@ class AgentService(BaseService):
         self.running = False
 
     async def home(self) -> Dict[str, str]:
+        tasks = self.agent.list_tasks()
+
+        task_strings = []
+        for task in tasks:
+            task_output = self.agent.get_task_output(task.task_id)
+            status = "COMPLETE" if task_output.is_last else "IN PROGRESS"
+            memory_str = "\n".join(
+                [f"{x.role}: {x.content}" for x in task.memory.get_all()]
+            )
+            task_strings.append(f"Agent Task {task.task_id}: {status}\n{memory_str}")
+
+        complete_task_string = "\n".join(task_strings)
+
         return {
             "service_name": self.service_name,
             "description": self.description,
             "running": str(self.running),
             "step_interval": str(self.step_interval),
+            "num_tasks": str(len(tasks)),
+            "num_completed_tasks": str(len(self.agent.get_completed_tasks())),
+            "prompt": "\n".join([str(x) for x in self.prompt]) if self.prompt else "",
+            "type": "agent_service",
+            "tasks": complete_task_string,
         }
 
     async def create_task(self, task: TaskDefinition) -> Dict[str, str]:
@@ -239,5 +260,14 @@ class AgentService(BaseService):
 
         return {"message": "Agent reset"}
 
-    def launch_server(self) -> None:
-        uvicorn.run(self._app, host=self.host, port=self.port)
+    async def launch_server(self) -> None:
+        logger.info(f"Launching {self.service_name} server at {self.host}:{self.port}")
+        # uvicorn.run(self._app, host=self.host, port=self.port)
+
+        class CustomServer(uvicorn.Server):
+            def install_signal_handlers(self) -> None:
+                pass
+
+        cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
+        server = CustomServer(cfg)
+        await server.serve()

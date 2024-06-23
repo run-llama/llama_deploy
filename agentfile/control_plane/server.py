@@ -1,7 +1,7 @@
 import uuid
 import uvicorn
 from fastapi import FastAPI
-from typing import Any, Callable, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from llama_index.core import StorageContext, VectorStoreIndex
 from llama_index.core.objects import ObjectIndex, SimpleObjectNodeMapping
@@ -11,6 +11,8 @@ from llama_index.core.vector_stores.types import BasePydanticVectorStore
 
 from agentfile.control_plane.base import BaseControlPlane
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
+from agentfile.message_consumers.callable import CallableMessageConsumer
+from agentfile.message_consumers.remote import RemoteMessageConsumer
 from agentfile.message_queues.base import BaseMessageQueue, PublishCallback
 from agentfile.messages.base import QueueMessage
 from agentfile.orchestrators.base import BaseOrchestrator
@@ -29,22 +31,7 @@ logger.setLevel(logging.INFO)
 logging.basicConfig(level=logging.INFO)
 
 
-class ControlPlaneMessageConsumer(BaseMessageQueueConsumer):
-    message_handler: Dict[str, Callable]
-    message_type: str = "control_plane"
-
-    async def _process_message(self, message: QueueMessage, **kwargs: Any) -> None:
-        action = message.action
-        if action not in self.message_handler:
-            raise ValueError(f"Action {action} not supported by control plane")
-
-        if action == ActionTypes.NEW_TASK and message.data is not None:
-            await self.message_handler[action](TaskDefinition(**message.data))
-        elif action == ActionTypes.COMPLETED_TASK and message.data is not None:
-            await self.message_handler[action](TaskResult(**message.data))
-
-
-class FastAPIControlPlane(BaseControlPlane):
+class ControlPlaneServer(BaseControlPlane):
     def __init__(
         self,
         message_queue: BaseMessageQueue,
@@ -56,6 +43,8 @@ class FastAPIControlPlane(BaseControlPlane):
         tasks_store_key: str = "tasks",
         step_interval: float = 0.1,
         services_retrieval_threshold: int = 5,
+        host: str = "127.0.0.1",
+        port: int = 8000,
         running: bool = True,
     ) -> None:
         self.orchestrator = orchestrator
@@ -68,6 +57,8 @@ class FastAPIControlPlane(BaseControlPlane):
         )
         self.step_interval = step_interval
         self.running = running
+        self.host = host
+        self.port = port
 
         self.state_store = state_store or SimpleKVStore()
 
@@ -85,6 +76,12 @@ class FastAPIControlPlane(BaseControlPlane):
 
         self.app = FastAPI()
         self.app.add_api_route("/", self.home, methods=["GET"], tags=["Control Plane"])
+        self.app.add_api_route(
+            "/process_message",
+            self.process_message,
+            methods=["POST"],
+            tags=["Control Plane"],
+        )
 
         self.app.add_api_route(
             "/services/register",
@@ -98,9 +95,24 @@ class FastAPIControlPlane(BaseControlPlane):
             methods=["POST"],
             tags=["Services"],
         )
+        self.app.add_api_route(
+            "/services/{service_name}",
+            self.get_service,
+            methods=["GET"],
+            tags=["Services"],
+        )
+        self.app.add_api_route(
+            "/services",
+            self.get_all_services,
+            methods=["GET"],
+            tags=["Services"],
+        )
 
         self.app.add_api_route(
             "/tasks", self.create_task, methods=["POST"], tags=["Tasks"]
+        )
+        self.app.add_api_route(
+            "/tasks", self.get_all_tasks, methods=["GET"], tags=["Tasks"]
         )
         self.app.add_api_route(
             "/tasks/{task_id}", self.get_task_state, methods=["GET"], tags=["Tasks"]
@@ -118,16 +130,39 @@ class FastAPIControlPlane(BaseControlPlane):
     def publish_callback(self) -> Optional[PublishCallback]:
         return self._publish_callback
 
-    def as_consumer(self) -> BaseMessageQueueConsumer:
-        return ControlPlaneMessageConsumer(
-            message_handler={
-                ActionTypes.NEW_TASK: self.create_task,
-                ActionTypes.COMPLETED_TASK: self.handle_service_completion,
-            }
+    async def process_message(self, message: QueueMessage) -> None:
+        action = message.action
+
+        if action == ActionTypes.NEW_TASK and message.data is not None:
+            await self.create_task(TaskDefinition(**message.data))
+        elif action == ActionTypes.COMPLETED_TASK and message.data is not None:
+            await self.handle_service_completion(TaskResult(**message.data))
+        else:
+            raise ValueError(f"Action {action} not supported by control plane")
+
+    def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
+        if remote:
+            return RemoteMessageConsumer(
+                url=f"http://{self.host}:{self.port}/process_message",
+                message_type="control_plane",
+            )
+
+        return CallableMessageConsumer(
+            message_type="control_plane",
+            handler=self.process_message,
         )
 
-    def launch(self) -> None:
-        uvicorn.run(self.app)
+    async def launch_server(self) -> None:
+        logger.info(f"Launching control plane server at {self.host}:{self.port}")
+        # uvicorn.run(self.app, host=self.host, port=self.port)
+
+        class CustomServer(uvicorn.Server):
+            def install_signal_handlers(self) -> None:
+                pass
+
+        cfg = uvicorn.Config(self.app, host=self.host, port=self.port)
+        server = CustomServer(cfg)
+        await server.serve()
 
     async def home(self) -> Dict[str, str]:
         return {
@@ -166,6 +201,24 @@ class FastAPIControlPlane(BaseControlPlane):
         if deleted:
             self._total_services -= 1
         # TODO: object index does not have delete yet
+
+    async def get_service(self, service_name: str) -> ServiceDefinition:
+        service_dict = await self.state_store.aget(
+            service_name, collection=self.services_store_key
+        )
+        if service_dict is None:
+            raise ValueError(f"Service with name {service_name} not found")
+
+        return ServiceDefinition.model_validate(service_dict)
+
+    async def get_all_services(self) -> Dict[str, ServiceDefinition]:
+        service_dicts = await self.state_store.aget_all(
+            collection=self.services_store_key
+        )
+        return {
+            service_name: ServiceDefinition.model_validate(service_dict)
+            for service_name, service_dict in service_dicts.items()
+        }
 
     async def create_task(self, task_def: TaskDefinition) -> None:
         await self.state_store.aput(
@@ -238,3 +291,15 @@ class FastAPIControlPlane(BaseControlPlane):
             task_id: TaskDefinition.model_validate(state_dict)
             for task_id, state_dict in state_dicts.items()
         }
+
+
+if __name__ == "__main__":
+    from agentfile import SimpleMessageQueue, AgentOrchestrator
+    from llama_index.llms.openai import OpenAI
+
+    control_plane = ControlPlaneServer(
+        SimpleMessageQueue(), AgentOrchestrator(llm=OpenAI())
+    )
+    import asyncio
+
+    asyncio.run(control_plane.launch_server())

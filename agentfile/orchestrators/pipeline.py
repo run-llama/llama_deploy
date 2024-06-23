@@ -10,6 +10,11 @@ from agentfile.orchestrators.base import BaseOrchestrator
 from agentfile.orchestrators.service_component import ServiceComponent
 from agentfile.types import ActionTypes, TaskDefinition, TaskResult
 
+RUN_STATE_KEY = "run_state"
+NEXT_SERVICE_KEYS = "next_service_keys"
+LAST_MODULES_RUN = "last_modules_run"
+RESULT_KEY = "result"
+
 
 class PipelineOrchestrator(BaseOrchestrator):
     def __init__(
@@ -22,10 +27,10 @@ class PipelineOrchestrator(BaseOrchestrator):
         self, task_def: TaskDefinition, tools: List[BaseTool], state: Dict[str, Any]
     ) -> Tuple[List[QueueMessage], Dict[str, Any]]:
         # check if we need to init the state
-        if "run_state" not in state:
+        if RUN_STATE_KEY not in state:
             run_state = self.pipeline.get_run_state(input=task_def.input)
         else:
-            run_state = pickle.loads(state["run_state"])
+            run_state = pickle.loads(state[RUN_STATE_KEY])
 
         # run the next step in the pipeline, until we hit a service component
         next_module_keys = self.pipeline.get_next_module_keys(run_state)
@@ -62,6 +67,7 @@ class PipelineOrchestrator(BaseOrchestrator):
                 # run the module if it is not a service component
                 output_dict = await module.arun_component(**module_input)
 
+                # check if the output is a service component
                 if "service_output" in output_dict:
                     found_service_component = True
                     next_service_keys.append(module_key)
@@ -78,7 +84,7 @@ class PipelineOrchestrator(BaseOrchestrator):
                     )
                     continue
 
-                # process the output
+                # process the output if it is not a service component
                 self.pipeline.process_component_output(
                     output_dict,
                     module_key,
@@ -99,9 +105,10 @@ class PipelineOrchestrator(BaseOrchestrator):
                 break
 
         # did we find a service component?
+        task_result = None
         if len(next_service_keys) == 0 and len(next_messages) == 0:
             # no service component found, return the final result
-            last_modules_run = state.get("last_modules_run", [])
+            last_modules_run = state.get(LAST_MODULES_RUN, [])
 
             result_dict = run_state.result_outputs[module_key or last_modules_run[-1]]
             if len(result_dict) == 1:
@@ -109,23 +116,27 @@ class PipelineOrchestrator(BaseOrchestrator):
             else:
                 result = str(result_dict)
 
+            task_result = TaskResult(
+                task_id=task_def.task_id,
+                result=result,
+                history=[],
+            )
+
             next_messages.append(
                 QueueMessage(
                     type="human",
                     action=ActionTypes.COMPLETED_TASK,
-                    data=TaskResult(
-                        task_id=task_def.task_id,
-                        result=result,
-                        history=[],
-                    ).model_dump(),
+                    data=task_result.model_dump(),
                 )
             )
 
-        new_state = {
-            "run_state": pickle.dumps(run_state),
-            "next_service_keys": next_service_keys,
-        }
-        return next_messages, new_state
+        state[RUN_STATE_KEY] = pickle.dumps(run_state)
+        state[NEXT_SERVICE_KEYS] = next_service_keys
+        state[RESULT_KEY] = (
+            task_result.model_dump() if task_result is not None else None
+        )
+
+        return next_messages, state
 
     async def add_result_to_state(
         self,
@@ -134,8 +145,8 @@ class PipelineOrchestrator(BaseOrchestrator):
     ) -> Dict[str, Any]:
         """Add the result of processing a message to the state. Returns the new state."""
 
-        run_state = pickle.loads(state["run_state"])
-        next_service_keys = state["next_service_keys"]
+        run_state = pickle.loads(state[RUN_STATE_KEY])
+        next_service_keys = state[NEXT_SERVICE_KEYS]
 
         # process the output of the service component(s)
         for module_key in next_service_keys:
@@ -145,7 +156,6 @@ class PipelineOrchestrator(BaseOrchestrator):
                 run_state,
             )
 
-        return {
-            "run_state": pickle.dumps(run_state),
-            "last_modules_run": next_service_keys,
-        }
+        state[RUN_STATE_KEY] = pickle.dumps(run_state)
+        state[LAST_MODULES_RUN] = next_service_keys
+        return state

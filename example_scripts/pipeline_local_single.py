@@ -1,6 +1,6 @@
 from agentfile import (
     AgentService,
-    FastAPIControlPlane,
+    ControlPlaneServer,
     SimpleMessageQueue,
     PipelineOrchestrator,
     ServiceComponent,
@@ -58,7 +58,7 @@ pipeline = QueryPipeline(
 
 pipeline_orchestrator = PipelineOrchestrator(pipeline)
 
-control_plane = FastAPIControlPlane(message_queue, pipeline_orchestrator)
+control_plane = ControlPlaneServer(message_queue, pipeline_orchestrator)
 
 # launch it
 launcher = LocalLauncher([agent_server_1, agent_server_2], control_plane, message_queue)

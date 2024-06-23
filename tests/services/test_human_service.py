@@ -64,7 +64,7 @@ async def test_create_task(mock_uuid: MagicMock) -> None:
 
     # assert
     assert result == {"task_id": task.task_id}
-    assert human_service._outstanding_human_tasks["mock_id"].task_definition == task
+    assert human_service._outstanding_human_tasks[0] == task
 
 
 @pytest.mark.asyncio()
