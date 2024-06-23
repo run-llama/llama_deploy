@@ -3,9 +3,9 @@ import pytest
 from pydantic import PrivateAttr
 from typing import Any, List
 
-from agentfile.message_consumers.base import BaseMessageQueueConsumer
-from agentfile.message_queues.simple import SimpleMessageQueue
-from agentfile.messages.base import QueueMessage
+from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_queues.simple import SimpleMessageQueue
+from llama_agents.messages.base import QueueMessage
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):

@@ -1,8 +1,8 @@
-from agentfile.launchers.local import LocalLauncher
-from agentfile.services import HumanService, AgentService
-from agentfile.control_plane.server import ControlPlaneServer
-from agentfile.message_queues.simple import SimpleMessageQueue
-from agentfile.orchestrators.agent import AgentOrchestrator
+from llama_agents.launchers.local import LocalLauncher
+from llama_agents.services import HumanService, AgentService
+from llama_agents.control_plane.server import ControlPlaneServer
+from llama_agents.message_queues.simple import SimpleMessageQueue
+from llama_agents.orchestrators.agent import AgentOrchestrator
 
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool

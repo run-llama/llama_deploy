@@ -3,13 +3,13 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import PrivateAttr
 from typing import Any, List
-from agentfile.message_queues.simple import SimpleMessageQueue
-from agentfile.messages.base import QueueMessage
-from agentfile.message_consumers.remote import (
+from llama_agents.message_queues.simple import SimpleMessageQueue
+from llama_agents.messages.base import QueueMessage
+from llama_agents.message_consumers.remote import (
     RemoteMessageConsumerDef,
     BaseMessageQueueConsumer,
 )
-from agentfile.types import ActionTypes
+from llama_agents.types import ActionTypes
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
