@@ -1,8 +1,9 @@
 import uuid
 from enum import Enum
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, BeforeValidator, HttpUrl, TypeAdapter
 from pydantic.v1 import BaseModel as V1BaseModel
 from typing import Any, Dict, List, Optional, Union
+from typing_extensions import Annotated
 
 from llama_index.core.llms import MessageRole
 
@@ -118,3 +119,9 @@ class ServiceDefinition(BaseModel):
 
 class HumanResponse(BaseModel):
     result: str
+
+
+http_url_adapter = TypeAdapter(HttpUrl)
+PydanticValidatedUrl = Annotated[
+    str, BeforeValidator(lambda value: str(http_url_adapter.validate_python(value)))
+]

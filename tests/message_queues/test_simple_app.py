@@ -69,7 +69,7 @@ def test_get_consumers() -> None:
 
     # act
     _ = test_client.post("/register_consumer", json=remote_consumer_def.model_dump())
-    response = test_client.get("/get_consumers/?message_type=mock_type")
+    response = test_client.get("/get_consumers/mock_type")
 
     # assert
     assert response.status_code == 200
@@ -89,10 +89,8 @@ async def test_publish() -> None:
     message = QueueMessage(
         type="mock_type", data={"payload": "mock payload"}, action=ActionTypes.NEW_TASK
     )
-    print(message.model_dump())
     response = test_client.post("/publish", json=message.model_dump())
 
     # assert
-    print(response.content)
     assert response.status_code == 200
     assert mq.queues["mock_type"][0] == message
