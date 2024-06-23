@@ -10,6 +10,7 @@ from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
 from agentfile.message_consumers.remote import (
     RemoteMessageConsumerDef,
+    RemoteMessageConsumer,
 )
 from agentfile.messages import QueueMessage
 from agentfile.types import PydanticValidatedUrl
@@ -75,10 +76,16 @@ class RemoteClientMessageQueue(BaseMessageQueue):
     ) -> List[BaseMessageQueueConsumer]:
         client_kwargs = self.client_kwargs or {}
         client = self.client or httpx.AsyncClient(**client_kwargs)
-        url = urljoin(self.base_url, get_consumers_url)
+        url = urljoin(self.base_url, f"{get_consumers_url}/{message_type}")
+        logger.info(f"url: {url}")
         async with httpx.AsyncClient() as client:
-            res = await client.post(url, json={"message_type": message_type})
-        return res
+            res = await client.get(url)
+        if res.status_code == 200:
+            remote_consumer_defs = res.json()
+            consumers = [RemoteMessageConsumer(**el) for el in remote_consumer_defs]
+        else:
+            consumers = []
+        return consumers
 
     async def processing_loop(self) -> None:
         raise NotImplementedError(

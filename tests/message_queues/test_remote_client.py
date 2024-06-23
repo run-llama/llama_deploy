@@ -24,7 +24,7 @@ def message_queue() -> SimpleMessageQueue:
 
 
 @pytest.fixture()
-def side_effect(message_queue: SimpleMessageQueue) -> Callable:
+def post_side_effect(message_queue: SimpleMessageQueue) -> Callable:
     test_client = TestClient(message_queue._app)
 
     def side_effect(url: str, json: Dict) -> Dict[str, str]:
@@ -33,6 +33,16 @@ def side_effect(message_queue: SimpleMessageQueue) -> Callable:
             split_result.path,
             json=json,
         )
+
+    return side_effect
+
+
+@pytest.fixture()
+def get_side_effect(message_queue: SimpleMessageQueue) -> Callable:
+    test_client = TestClient(message_queue._app)
+
+    def side_effect(url: str) -> Any:
+        return test_client.get(url)
 
     return side_effect
 
@@ -49,7 +59,7 @@ class MockMessageConsumer(BaseMessageQueueConsumer):
 @pytest.mark.asyncio
 @patch("agentfile.message_queues.remote_client.httpx.AsyncClient.post")
 async def test_remote_client_register_consumer(
-    mock_post: MagicMock, message_queue: SimpleMessageQueue, side_effect: Callable
+    mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
     # Arrange
     _test_client = TestClient(message_queue._app)
@@ -58,7 +68,7 @@ async def test_remote_client_register_consumer(
         message_type="mock_type", url="remote-consumer.io"
     )
     remote_consumer_def = RemoteMessageConsumerDef(**remote_consumer.model_dump())
-    mock_post.side_effect = side_effect
+    mock_post.side_effect = post_side_effect
 
     # act
     result = await remote_mq.register_consumer(consumer=remote_consumer)
@@ -74,7 +84,7 @@ async def test_remote_client_register_consumer(
 @pytest.mark.asyncio
 @patch("agentfile.message_queues.remote_client.httpx.AsyncClient.post")
 async def test_remote_client_deregister_consumer(
-    mock_post: MagicMock, message_queue: SimpleMessageQueue, side_effect: Callable
+    mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
     # Arrange
     remote_mq = RemoteClientMessageQueue(base_url="https://mock-url.io")
@@ -83,7 +93,7 @@ async def test_remote_client_deregister_consumer(
     )
     remote_consumer_def = RemoteMessageConsumerDef(**remote_consumer.model_dump())
     await message_queue.register_consumer(remote_consumer)
-    mock_post.side_effect = side_effect
+    mock_post.side_effect = post_side_effect
 
     # act
     result = await remote_mq.deregister_consumer(consumer=remote_consumer)
@@ -94,3 +104,25 @@ async def test_remote_client_deregister_consumer(
     )
     assert len(message_queue.consumers) == 0
     assert result.status_code == 200
+
+
+@pytest.mark.asyncio
+@patch("agentfile.message_queues.remote_client.httpx.AsyncClient.get")
+async def test_remote_client_get_consumers(
+    mock_get: MagicMock, message_queue: SimpleMessageQueue, get_side_effect: Callable
+) -> None:
+    # Arrange
+    remote_mq = RemoteClientMessageQueue(base_url="https://mock-url.io")
+    remote_consumer = RemoteMessageConsumer(
+        message_type="mock_type", url="remote-consumer.io"
+    )
+    await message_queue.register_consumer(remote_consumer)
+    mock_get.side_effect = get_side_effect
+
+    # act
+    result = await remote_mq.get_consumers(message_type="mock_type")
+
+    # assert
+    mock_get.assert_called_once_with("https://mock-url.io/get_consumers/mock_type")
+    assert len(message_queue.consumers) == 1
+    assert result[0] == remote_consumer

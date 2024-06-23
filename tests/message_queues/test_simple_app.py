@@ -69,7 +69,7 @@ def test_get_consumers() -> None:
 
     # act
     _ = test_client.post("/register_consumer", json=remote_consumer_def.model_dump())
-    response = test_client.get("/get_consumers/?message_type=mock_type")
+    response = test_client.get("/get_consumers/mock_type")
 
     # assert
     assert response.status_code == 200

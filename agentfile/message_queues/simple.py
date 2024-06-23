@@ -66,7 +66,7 @@ class SimpleMessageQueue(BaseMessageQueue):
         )
 
         self._app.add_api_route(
-            "/get_consumers",
+            "/get_consumers/{message_type}",
             self.get_consumer_defs,
             methods=["GET"],
             tags=["Consumers"],
