@@ -8,7 +8,11 @@ from urllib.parse import urljoin
 
 from agentfile.message_queues.base import BaseMessageQueue
 from agentfile.message_consumers.base import BaseMessageQueueConsumer
+from agentfile.message_consumers.remote import (
+    RemoteMessageConsumerDef,
+)
 from agentfile.messages import QueueMessage
+from agentfile.types import PydanticValidatedUrl
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -16,7 +20,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 class RemoteClientMessageQueue(BaseMessageQueue):
-    base_url: str
+    base_url: PydanticValidatedUrl
     client_kwargs: Optional[Dict] = None
     client: Optional[httpx.AsyncClient] = None
 
@@ -34,12 +38,19 @@ class RemoteClientMessageQueue(BaseMessageQueue):
         consumer: BaseMessageQueueConsumer,
         register_consumer_url: str = "register_consumer",
         **kwargs: Any,
-    ) -> Any:
+    ) -> httpx.Response:
         client_kwargs = self.client_kwargs or {}
         client = self.client or httpx.AsyncClient(**client_kwargs)
         url = urljoin(self.base_url, register_consumer_url)
+        try:
+            remote_consumer_def = RemoteMessageConsumerDef(**consumer.model_dump())
+        except Exception as e:
+            raise ValueError(
+                "Unable to convert consumer to RemoteMessageConsumer"
+            ) from e
         async with httpx.AsyncClient() as client:
-            await client.post(url, json=consumer.model_dump())
+            result = await client.post(url, json=remote_consumer_def.model_dump())
+        return result
 
     async def deregister_consumer(
         self,

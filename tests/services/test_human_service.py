@@ -60,7 +60,6 @@ async def test_create_task(mock_uuid: MagicMock) -> None:
 
     # act
     result = await human_service.create_task(task)
-    print(human_service._outstanding_human_tasks)
 
     # assert
     assert result == {"task_id": task.task_id}
