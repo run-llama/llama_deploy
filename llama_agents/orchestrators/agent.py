@@ -6,7 +6,7 @@ from llama_index.core.tools import BaseTool
 
 from llama_agents.messages.base import QueueMessage
 from llama_agents.orchestrators.base import BaseOrchestrator
-from llama_agents.orchestrators.service_tool import ServiceTool
+from llama_agents.tools.service_tool import ServiceTool
 from llama_agents.types import ActionTypes, ChatMessage, TaskDefinition, TaskResult
 
 HISTORY_KEY = "chat_history"

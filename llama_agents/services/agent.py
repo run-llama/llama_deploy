@@ -3,6 +3,7 @@ import uuid
 import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from logging import getLogger
 from pydantic import PrivateAttr
 from typing import AsyncGenerator, Dict, List, Literal, Optional
 
@@ -28,11 +29,7 @@ from llama_agents.types import (
     CONTROL_PLANE_NAME,
 )
 
-import logging
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logging.basicConfig(level=logging.DEBUG)
+logger = getLogger(__name__)
 
 
 class AgentService(BaseService):
@@ -44,6 +41,7 @@ class AgentService(BaseService):
     step_interval: float = 0.1
     host: Optional[str] = None
     port: Optional[int] = None
+    raise_exceptions: bool = False
 
     _message_queue: BaseMessageQueue = PrivateAttr()
     _app: FastAPI = PrivateAttr()
@@ -64,6 +62,7 @@ class AgentService(BaseService):
         step_interval: float = 0.1,
         host: Optional[str] = None,
         port: Optional[int] = None,
+        raise_exceptions: bool = False,
     ) -> None:
         super().__init__(
             agent=agent,
@@ -74,6 +73,7 @@ class AgentService(BaseService):
             prompt=prompt,
             host=host,
             port=port,
+            raise_exceptions=raise_exceptions,
         )
 
         self._lock = asyncio.Lock()
@@ -200,6 +200,13 @@ class AgentService(BaseService):
                                 )
             except Exception as e:
                 logger.error(f"Error in {self.service_name} processing_loop: {e}")
+                if self.raise_exceptions:
+                    # Kill everything
+                    # TODO: is there a better way to do this?
+                    import signal
+
+                    signal.raise_signal(signal.SIGINT)
+
                 continue
 
             await asyncio.sleep(self.step_interval)
@@ -239,9 +246,9 @@ class AgentService(BaseService):
             handler=self.process_message,
         )
 
-    async def launch_local(self) -> None:
+    async def launch_local(self) -> asyncio.Task:
         logger.info(f"{self.service_name} launch_local")
-        asyncio.create_task(self.processing_loop())
+        return asyncio.create_task(self.processing_loop())
 
     # ---- Server based methods ----
 

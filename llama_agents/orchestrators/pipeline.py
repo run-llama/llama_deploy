@@ -7,7 +7,7 @@ from llama_index.core.tools import BaseTool
 
 from llama_agents.messages.base import QueueMessage
 from llama_agents.orchestrators.base import BaseOrchestrator
-from llama_agents.orchestrators.service_component import ServiceComponent
+from llama_agents.tools.service_component import ServiceComponent
 from llama_agents.types import ActionTypes, TaskDefinition, TaskResult
 
 RUN_STATE_KEY = "run_state"
