@@ -37,6 +37,25 @@ def agent_service(message_queue: SimpleMessageQueue) -> AgentService:
     )
 
 
+@pytest.fixture()
+def task_step_output() -> TaskStepOutput:
+    return TaskStepOutput(
+        output=AgentChatResponse(response="A baby llama is called a 'Cria'."),
+        task_step=TaskStep(task_id="", step_id=""),
+        next_steps=[],
+        is_last=True,
+    )
+
+
+@pytest.fixture()
+def completed_task() -> Task:
+    return Task(
+        task_id="",
+        input="What is the secret fact?",
+        memory=ChatMemoryBuffer.from_defaults(),
+    )
+
+
 def test_init(message_queue: SimpleMessageQueue, agent_service: AgentService) -> None:
     # arrange
     tool_metadata = ToolMetadata(
@@ -95,20 +114,10 @@ async def test_tool_call_output(
     mock_arun_step: AsyncMock,
     message_queue: SimpleMessageQueue,
     agent_service: AgentService,
+    task_step_output: TaskStepOutput,
+    completed_task: Task,
 ) -> None:
     # arrange
-    task_step_output = TaskStepOutput(
-        output=AgentChatResponse(response="A baby llama is called a 'Cria'."),
-        task_step=TaskStep(task_id="", step_id=""),
-        next_steps=[],
-        is_last=True,
-    )
-    completed_task = Task(
-        task_id="",
-        input="What is the secret fact?",
-        memory=ChatMemoryBuffer.from_defaults(),
-    )
-
     def arun_side_effect(task_id: str) -> TaskStepOutput:
         completed_task.task_id = task_id
         task_step_output.task_step.task_id = task_id
@@ -160,20 +169,10 @@ async def test_tool_call_raise_timeout(
     mock_arun_step: AsyncMock,
     message_queue: SimpleMessageQueue,
     agent_service: AgentService,
+    task_step_output: TaskStepOutput,
+    completed_task: Task,
 ) -> None:
     # arrange
-    task_step_output = TaskStepOutput(
-        output=AgentChatResponse(response="A baby llama is called a 'Cria'."),
-        task_step=TaskStep(task_id="", step_id=""),
-        next_steps=[],
-        is_last=True,
-    )
-    completed_task = Task(
-        task_id="",
-        input="What is the secret fact?",
-        memory=ChatMemoryBuffer.from_defaults(),
-    )
-
     def arun_side_effect(task_id: str) -> TaskStepOutput:
         completed_task.task_id = task_id
         task_step_output.task_step.task_id = task_id
