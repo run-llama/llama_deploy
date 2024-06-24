@@ -1,7 +1,7 @@
 from llama_agents.launchers.local import LocalLauncher
 from llama_agents.services import AgentService, ToolService
 from llama_agents.tools import MetaServiceTool
-from llama_agents.control_plane.fastapi import ControlPlaneServer
+from llama_agents.control_plane.server import ControlPlaneServer
 from llama_agents.message_queues.simple import SimpleMessageQueue
 from llama_agents.orchestrators.agent import AgentOrchestrator
 
