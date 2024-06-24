@@ -20,6 +20,7 @@ from llama_agents.services.types import _ChatMessage
 from llama_agents.types import (
     ActionTypes,
     ChatMessage,
+    MessageRole,
     TaskResult,
     TaskDefinition,
     ToolCall,
@@ -194,7 +195,14 @@ class AgentService(BaseService):
                                     action=ActionTypes.COMPLETED_TOOL_CALL,
                                     data=ToolCallResult(
                                         id_=tool_call.id_,
-                                        tool_message=ChatMessage(),
+                                        tool_message=ChatMessage(
+                                            content=str(response.response),
+                                            role=MessageRole.TOOL,
+                                            additional_kwargs={
+                                                "name": tool_call.tool_call_bundle.tool_name,
+                                                "tool_call_id": tool_call.id_,
+                                            },
+                                        ),
                                         result=response.response,
                                     ).model_dump(),
                                 )
