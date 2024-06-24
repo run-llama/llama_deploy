@@ -54,7 +54,7 @@ class BaseMessageQueue(BaseModel, ABC):
             f"Publishing message to '{message.type}' with action '{message.action}'"
         )
         logger.debug(f"Message: {message.model_dump()}")
-        await self._publish(message)
+
         message.stats.publish_time = message.stats.timestamp_str()
         await self._publish(message)
 
