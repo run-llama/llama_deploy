@@ -22,7 +22,7 @@ async def test_consumer_consumes_messages() -> None:
     # Arrange
     consumer_one = MockMessageConsumer()
     mq = SimpleMessageQueue()
-    task = asyncio.create_task(mq.launch_local())
+    task = await mq.launch_local()
 
     # Act
     await consumer_one.start_consuming(message_queue=mq)

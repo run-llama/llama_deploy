@@ -1,7 +1,9 @@
 """Message queue module."""
-
+import asyncio
 import inspect
+
 from abc import ABC, abstractmethod
+from logging import getLogger
 from pydantic import BaseModel
 from typing import Any, List, Optional, Protocol, TYPE_CHECKING
 
@@ -10,11 +12,7 @@ from llama_agents.messages.base import QueueMessage
 if TYPE_CHECKING:
     from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 
-import logging
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logging.basicConfig(level=logging.INFO)
+logger = getLogger(__name__)
 
 
 class MessageProcessor(Protocol):
@@ -49,10 +47,14 @@ class BaseMessageQueue(BaseModel, ABC):
         self,
         message: QueueMessage,
         callback: Optional[PublishCallback] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Any:
         """Send message to a consumer."""
-        logger.info("Publishing message: " + str(message))
+        logger.info(
+            f"Publishing message to '{message.type}' with action '{message.action}'"
+        )
+        logger.debug(f"Message: {message.model_dump()}")
+
         message.stats.publish_time = message.stats.timestamp_str()
         await self._publish(message)
 
@@ -88,7 +90,7 @@ class BaseMessageQueue(BaseModel, ABC):
         ...
 
     @abstractmethod
-    async def launch_local(self) -> None:
+    async def launch_local(self) -> asyncio.Task:
         """Launch the service in-process."""
         ...
 

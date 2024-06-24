@@ -3,12 +3,12 @@
 import asyncio
 import httpx
 import random
-import logging
 import uvicorn
 
 from collections import deque
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from logging import getLogger
 from pydantic import Field, PrivateAttr
 from typing import Any, AsyncGenerator, Dict, List, Optional
 from urllib.parse import urljoin
@@ -22,9 +22,7 @@ from llama_agents.message_consumers.remote import (
 )
 from llama_agents.types import PydanticValidatedUrl
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logging.basicConfig(level=logging.DEBUG)
+logger = getLogger(__name__)
 
 
 class SimpleRemoteClientMessageQueue(BaseMessageQueue):
@@ -101,7 +99,7 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
             "`procesing_loop()` is not implemented for this class."
         )
 
-    async def launch_local(self) -> None:
+    async def launch_local(self) -> asyncio.Task:
         raise NotImplementedError("`launch_local()` is not implemented for this class.")
 
     async def launch_server(self) -> None:
@@ -283,9 +281,9 @@ class SimpleMessageQueue(BaseMessageQueue):
         yield
         self.running = False
 
-    async def launch_local(self) -> None:
+    async def launch_local(self) -> asyncio.Task:
         logger.info("Launching message queue locally")
-        asyncio.create_task(self.processing_loop())
+        return asyncio.create_task(self.processing_loop())
 
     async def launch_server(self) -> None:
         logger.info(f"Launching message queue server at {self.host}:{self.port}")

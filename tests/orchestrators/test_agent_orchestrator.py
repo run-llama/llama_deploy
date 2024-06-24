@@ -12,7 +12,7 @@ from llama_index.core.llms import (
 
 from llama_agents.orchestrators.agent import AgentOrchestrator
 from llama_agents.messages.base import QueueMessage
-from llama_agents.orchestrators.service_tool import ServiceTool
+from llama_agents.tools.service_tool import ServiceTool
 from llama_agents.types import ActionTypes, ChatMessage, TaskDefinition, TaskResult
 
 TASK_DEF = TaskDefinition(

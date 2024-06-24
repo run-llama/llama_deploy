@@ -1,6 +1,6 @@
 import asyncio
-import logging
 import uuid
+from logging import getLogger
 from pydantic import BaseModel, Field, PrivateAttr
 from typing import Any, Dict, Optional
 
@@ -22,9 +22,7 @@ from llama_agents.types import (
     ToolCallResult,
 )
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logging.basicConfig(level=logging.DEBUG)
+logger = getLogger(__name__)
 
 
 class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):

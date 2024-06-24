@@ -142,7 +142,7 @@ async def test_tool_call_output(
         tool_service=tool_service, message_queue=message_queue, name="multiply"
     )
     await message_queue.register_consumer(tool_service.as_consumer())
-    mq_task = asyncio.create_task(message_queue.launch_local())
+    mq_task = await message_queue.launch_local()
     ts_task = asyncio.create_task(tool_service.processing_loop())
 
     # act
@@ -174,7 +174,7 @@ async def test_tool_call_raise_timeout(
         raise_timeout=True,
     )
     await message_queue.register_consumer(tool_service.as_consumer())
-    mq_task = asyncio.create_task(message_queue.launch_local())
+    mq_task = await message_queue.launch_local()
     ts_task = asyncio.create_task(tool_service.processing_loop())
 
     # act/assert
@@ -200,7 +200,7 @@ async def test_tool_call_reach_timeout(
         raise_timeout=False,
     )
     await message_queue.register_consumer(tool_service.as_consumer())
-    mq_task = asyncio.create_task(message_queue.launch_local())
+    mq_task = await message_queue.launch_local()
     ts_task = asyncio.create_task(tool_service.processing_loop())
 
     # act/assert
