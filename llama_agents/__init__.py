@@ -1,6 +1,8 @@
 from llama_agents.control_plane import ControlPlaneServer
 from llama_agents.launchers import LocalLauncher, ServerLauncher
+from llama_agents.message_consumers import CallableMessageConsumer
 from llama_agents.message_queues import SimpleMessageQueue
+from llama_agents.messages import QueueMessage
 from llama_agents.orchestrators import (
     AgentOrchestrator,
     PipelineOrchestrator,
@@ -27,6 +29,10 @@ __all__ = [
     "AgentService",
     "HumanService",
     "ToolService",
+    # messages
+    "QueueMessage",
+    # message consumers
+    "CallableMessageConsumer",
     # message queues
     "SimpleMessageQueue",
     # launchers
