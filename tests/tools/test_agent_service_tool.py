@@ -1,8 +1,9 @@
 import asyncio
 import pytest
+from unittest.mock import patch, MagicMock
 
 from llama_index.core.llms import MockLLM
-from llama_index.core.agent import ReActAgent
+from llama_index.core.agent import ReActAgent, AgentRunner
 from llama_index.core.tools import FunctionTool, ToolMetadata
 
 from llama_agents.message_queues.simple import SimpleMessageQueue
@@ -23,9 +24,7 @@ def agent_service() -> AgentService:
     return AgentService(
         agent,
         SimpleMessageQueue(),
-        running=False,
         description="Test Agent Server",
-        step_interval=0.5,
         host="https://mock-agent-service.io",
         port=8000,
     )
@@ -87,13 +86,18 @@ def test_from_service_definition(
 
 
 @pytest.mark.asyncio()
+@patch.object(AgentRunner, "arun_step")
 async def test_tool_call_output(
-    message_queue: SimpleMessageQueue, agent_service: AgentService
+    mock_arun_step: MagicMock,
+    message_queue: SimpleMessageQueue,
+    agent_service: AgentService,
 ) -> None:
     # arrange
+    mock_arun_step.return_value = "A baby llama is called a 'Cria'."
     agent_service_tool = AgentServiceTool.from_service_definition(
         message_queue=message_queue,
         service_definition=agent_service.service_definition,
+        timeout=3,
     )
     await message_queue.register_consumer(agent_service.as_consumer())
     mq_task = asyncio.create_task(message_queue.launch_local())
@@ -108,9 +112,12 @@ async def test_tool_call_output(
     as_task.cancel()
 
     # assert
-    assert tool_output.content == "9"
-    assert tool_output.tool_name == "multiply"
-    assert tool_output.raw_input == {"args": (), "kwargs": {"a": 1, "b": 9}}
+    assert tool_output.content == "A baby llama is called a 'Cria'."
+    assert tool_output.tool_name == agent_service_tool.metadata.name
+    assert tool_output.raw_input == {
+        "args": (),
+        "kwargs": {"input": "What is the secret fact?"},
+    }
     assert len(agent_service_tool.tool_call_results) == 0
     assert agent_service_tool.registered is True
 
