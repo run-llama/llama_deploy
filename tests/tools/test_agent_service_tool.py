@@ -1,3 +1,4 @@
+import asyncio
 import pytest
 
 from llama_index.core.llms import MockLLM
@@ -56,6 +57,7 @@ def test_init(message_queue: SimpleMessageQueue, agent_service: AgentService) ->
     assert agent_service_tool.metadata == tool_metadata
     assert agent_service_tool.timeout == 5.5
     assert agent_service_tool.service_name == agent_service.service_name
+    assert agent_service_tool.registered is False
 
 
 def test_from_service_definition(
@@ -81,13 +83,36 @@ def test_from_service_definition(
     assert agent_service_tool.timeout == 5.5
     assert agent_service_tool.service_name == agent_service.service_name
     assert agent_service_tool.raise_timeout is True
+    assert agent_service_tool.registered is False
 
 
 @pytest.mark.asyncio()
 async def test_tool_call_output(
     message_queue: SimpleMessageQueue, agent_service: AgentService
 ) -> None:
-    pass
+    # arrange
+    agent_service_tool = AgentServiceTool.from_service_definition(
+        message_queue=message_queue,
+        service_definition=agent_service.service_definition,
+    )
+    await message_queue.register_consumer(agent_service.as_consumer())
+    mq_task = asyncio.create_task(message_queue.launch_local())
+    as_task = asyncio.create_task(agent_service.processing_loop())
+
+    # act
+    tool_output = await agent_service_tool.acall(...)
+
+    # clean-up/shutdown
+    await asyncio.sleep(0.5)
+    mq_task.cancel()
+    as_task.cancel()
+
+    # assert
+    assert tool_output.content == "9"
+    assert tool_output.tool_name == "multiply"
+    assert tool_output.raw_input == {"args": (), "kwargs": {"a": 1, "b": 9}}
+    assert len(agent_service_tool.tool_call_results) == 0
+    assert agent_service_tool.registered is True
 
 
 @pytest.mark.asyncio()
