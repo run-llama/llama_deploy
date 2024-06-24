@@ -83,7 +83,7 @@ from llama_agents import LocalLauncher
 launcher = LocalLauncher(
     [agent_server_1, agent_server_2], control_plane, message_queue
 )
-result = launcher.launch_single("What is the se     cret fact?")
+result = launcher.launch_single("What is the secret fact?")
 
 print(f"Result: {result}")
 ```
@@ -130,6 +130,7 @@ You can find a host of examples in our examples folder:
 - [Agentic Orchestrator w/ Tool Service](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_toolservice_local_single.py)
 - [Pipeline Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/example_scripts/pipeline_local_single.py)
 - [Pipeline Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/example_scripts/pipeline_human_local_single.py)
+- [Pipeline Orchestrator w/ Agent Server As Tool](https://github.com/run-llama/llama-agents/blob/main/example_scripts/pipeline_agent_service_tool_loca_single.py)
 
 ## Components of a `llama-agents` System
 
