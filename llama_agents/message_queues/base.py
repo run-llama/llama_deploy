@@ -56,6 +56,7 @@ class BaseMessageQueue(BaseModel, ABC):
         logger.debug(f"Message: {message.model_dump()}")
         await self._publish(message)
         message.stats.publish_time = message.stats.timestamp_str()
+        await self._publish(message)
 
         if callback:
             if inspect.iscoroutinefunction(callback):
