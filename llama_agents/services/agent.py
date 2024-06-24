@@ -141,6 +141,16 @@ class AgentService(BaseService):
     def lock(self) -> asyncio.Lock:
         return self._lock
 
+    @property
+    def tool_name(self) -> str:
+        """The name reserved when this service is used as a tool."""
+        return AgentService.get_tool_name_from_service_name(self.service_name)
+
+    @staticmethod
+    def get_tool_name_from_service_name(service_name: str) -> str:
+        """Utility function for getting the reserved name of a tool derived by a service."""
+        return f"{service_name}-as-tool"
+
     async def processing_loop(self) -> None:
         while True:
             try:
@@ -150,7 +160,6 @@ class AgentService(BaseService):
 
                 current_tasks = self.agent.list_tasks()
                 current_task_ids = [task.task_id for task in current_tasks]
-                logger.info(f"current tasks: {current_task_ids}")
 
                 completed_tasks = self.agent.get_completed_tasks()
                 completed_task_ids = [task.task_id for task in completed_tasks]
@@ -219,7 +228,7 @@ class AgentService(BaseService):
             task_def = TaskDefinition(**message.data or {})
             async with self.lock:
                 tool_call_bundle = ToolCallBundle(
-                    tool_name=f"{self.service_name}-as-tool",
+                    tool_name=self.tool_name,
                     tool_args=(),
                     tool_kwargs={"input": task_def.input},
                 )

@@ -14,6 +14,7 @@ from llama_agents.message_publishers.publisher import (
     MessageQueuePublisherMixin,
     PublishCallback,
 )
+from llama_agents.services.agent import AgentService
 from llama_agents.types import (
     ActionTypes,
     ServiceDefinition,
@@ -55,6 +56,12 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         if "input" not in tool_metadata.get_parameters_dict()["properties"]:
             raise ValueError("Invalid FnSchema - 'input' field is required.")
 
+        # validate tool name
+        if tool_metadata.name != AgentService.get_tool_name_from_service_name(
+            service_name
+        ):
+            raise ValueError("Tool name must be in the form '{{service_name}}-as-tool'")
+
         super().__init__(
             tool_call_results=tool_call_results,
             timeout=timeout,
@@ -80,7 +87,9 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
     ) -> "AgentServiceTool":
         tool_metadata = ToolMetadata(
             description=service_definition.description,
-            name=f"{service_definition.service_name}-as-tool",
+            name=AgentService.get_tool_name_from_service_name(
+                service_definition.service_name
+            ),
         )
         return cls(
             tool_metadata=tool_metadata,

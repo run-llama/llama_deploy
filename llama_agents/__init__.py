@@ -7,7 +7,12 @@ from llama_agents.orchestrators import (
     AgentOrchestrator,
     PipelineOrchestrator,
 )
-from llama_agents.tools import MetaServiceTool, ServiceComponent, ServiceTool
+from llama_agents.tools import (
+    AgentServiceTool,
+    MetaServiceTool,
+    ServiceComponent,
+    ServiceTool,
+)
 from llama_agents.services import AgentService, ToolService, HumanService
 
 # configure logger
@@ -44,6 +49,7 @@ __all__ = [
     "AgentOrchestrator",
     "PipelineOrchestrator",
     # various utils
+    "AgentServiceTool",
     "ServiceComponent",
     "ServiceTool",
     "MetaServiceTool",
