@@ -123,13 +123,13 @@ llama-agents monitor --control-plane-url http://127.0.0.1:8000
 
 You can find a host of examples in our examples folder:
 
-- [Agentic RAG + Tool Service]()
-- [Agentic Orchestrator w/ Local Launcher]()
-- [Agentic Orchestrator w/ Server Launcher]()
-- [Agentic Orchestrator w/ Human in the Loop]()
-- [Agentic Orchestrator w/ Tool Service]()
-- [Pipeline Orchestrator w/ Local Launcher]()
-- [Pipeline Orchestrator w/ Human in the Loop]()
+- [Agentic RAG + Tool Service](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_rag_toolservice.ipynb)
+- [Agentic Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_local_single.py)
+- [Agentic Orchestrator w/ Server Launcher](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_server.py)
+- [Agentic Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_human_local_single.py)
+- [Agentic Orchestrator w/ Tool Service](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_toolservice_local_single.py)
+- [Pipeline Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/example_scripts/pipeline_local_single.py)
+- [Pipeline Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/example_scripts/pipeline_human_local_single.py)
 
 ## Components of a `llama-agents` System
 
