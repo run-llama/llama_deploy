@@ -182,31 +182,35 @@ class AgentService(BaseService):
 
                         # publish the completed task
                         async with self.lock:
-                            if task_id in self._tasks_as_tool_calls:
-                                tool_call = self._tasks_as_tool_calls[task_id]
-                                await self.publish(
-                                    QueueMessage(
-                                        type=tool_call.source_id,
-                                        action=ActionTypes.COMPLETED_TOOL_CALL,
-                                        data=ToolCallResult(
-                                            id_=tool_call.id_,
-                                            tool_message=ChatMessage(),
-                                            result=response.response,
-                                        ).model_dump(),
-                                    )
+                            try:
+                                tool_call = self._tasks_as_tool_calls.pop(task_id)
+                            except KeyError:
+                                tool_call = None
+
+                        if tool_call:
+                            await self.publish(
+                                QueueMessage(
+                                    type=tool_call.source_id,
+                                    action=ActionTypes.COMPLETED_TOOL_CALL,
+                                    data=ToolCallResult(
+                                        id_=tool_call.id_,
+                                        tool_message=ChatMessage(),
+                                        result=response.response,
+                                    ).model_dump(),
                                 )
-                            else:
-                                await self.publish(
-                                    QueueMessage(
-                                        type=CONTROL_PLANE_NAME,
-                                        action=ActionTypes.COMPLETED_TASK,
-                                        data=TaskResult(
-                                            task_id=task_id,
-                                            history=history,
-                                            result=response.response,
-                                        ).model_dump(),
-                                    )
+                            )
+                        else:
+                            await self.publish(
+                                QueueMessage(
+                                    type=CONTROL_PLANE_NAME,
+                                    action=ActionTypes.COMPLETED_TASK,
+                                    data=TaskResult(
+                                        task_id=task_id,
+                                        history=history,
+                                        result=response.response,
+                                    ).model_dump(),
                                 )
+                            )
             except Exception as e:
                 logger.error(f"Error in {self.service_name} processing_loop: {e}")
                 if self.raise_exceptions:
