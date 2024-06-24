@@ -100,7 +100,7 @@ async def test_tool_call_output(
     as_task = asyncio.create_task(agent_service.processing_loop())
 
     # act
-    tool_output = await agent_service_tool.acall(...)
+    tool_output = await agent_service_tool.acall(input="What is the secret fact?")
 
     # clean-up/shutdown
     await asyncio.sleep(0.5)

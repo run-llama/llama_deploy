@@ -51,6 +51,10 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         step_interval: float = 0.1,
         raise_timeout: bool = False,
     ) -> None:
+        # validate fn_schema
+        if "input" not in tool_metadata.get_parameters_dict()["properties"]:
+            raise ValueError("Invalid FnSchema - 'input' field is required.")
+
         super().__init__(
             tool_call_results=tool_call_results,
             timeout=timeout,
@@ -77,7 +81,6 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         tool_metadata = ToolMetadata(
             description=service_definition.description,
             name=f"{service_definition.service_name}-as-tool",
-            # fn_schema
         )
         return cls(
             tool_metadata=tool_metadata,
@@ -152,6 +155,9 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         """Call."""
         return asyncio.run(self.acall(*args, **kwargs))
 
+    def _parse_args(self, *args: Any, **kwargs: Any) -> str:
+        return kwargs.pop("input")
+
     async def acall(self, *args: Any, **kwargs: Any) -> ToolOutput:
         """Publish a call to the queue.
 
@@ -163,7 +169,8 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
             await self.message_queue.register_consumer(self.as_consumer())
             self.registered = True
 
-        task_def = TaskDefinition(input="")
+        input = self._parse_args(*args, **kwargs)
+        task_def = TaskDefinition(input=input)
         await self.publish(
             QueueMessage(
                 type=self.service_name,
