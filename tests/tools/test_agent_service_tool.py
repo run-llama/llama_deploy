@@ -153,10 +153,62 @@ async def test_tool_call_output(
 
 
 @pytest.mark.asyncio()
+@patch.object(ReActAgent, "arun_step")
+@patch.object(ReActAgent, "get_completed_tasks")
 async def test_tool_call_raise_timeout(
-    message_queue: SimpleMessageQueue, agent_service: AgentService
+    mock_get_completed_tasks: MagicMock,
+    mock_arun_step: AsyncMock,
+    message_queue: SimpleMessageQueue,
+    agent_service: AgentService,
 ) -> None:
-    ...
+    # arrange
+    task_step_output = TaskStepOutput(
+        output=AgentChatResponse(response="A baby llama is called a 'Cria'."),
+        task_step=TaskStep(task_id="", step_id=""),
+        next_steps=[],
+        is_last=True,
+    )
+    completed_task = Task(
+        task_id="",
+        input="What is the secret fact?",
+        memory=ChatMemoryBuffer.from_defaults(),
+    )
+
+    def arun_side_effect(task_id: str) -> TaskStepOutput:
+        completed_task.task_id = task_id
+        task_step_output.task_step.task_id = task_id
+        return task_step_output
+
+    mock_arun_step.side_effect = arun_side_effect
+    mock_get_completed_tasks.side_effect = [
+        [],
+        [],
+        [completed_task],
+        [completed_task],
+        [completed_task],
+    ]
+
+    agent_service_tool = AgentServiceTool.from_service_definition(
+        message_queue=message_queue,
+        service_definition=agent_service.service_definition,
+        timeout=1e-12,
+        raise_timeout=True,
+    )
+
+    # startup
+    await message_queue.register_consumer(agent_service.as_consumer())
+    mq_task = asyncio.create_task(message_queue.processing_loop())
+    as_task = asyncio.create_task(agent_service.processing_loop())
+
+    # act/assert
+    with pytest.raises(
+        (TimeoutError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError)
+    ):
+        await agent_service_tool.acall(input="What is the secret fact?")
+
+    # clean-up/shutdown
+    mq_task.cancel()
+    as_task.cancel()
 
 
 @pytest.mark.asyncio()
