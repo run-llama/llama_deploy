@@ -174,7 +174,6 @@ class AgentService(BaseService):
                         # publish the completed task
                         async with self.lock:
                             if task_id in self._tasks_as_tool_calls:
-                                logger.info("A ToolCall")
                                 tool_call = self._tasks_as_tool_calls[task_id]
                                 await self.publish(
                                     QueueMessage(
@@ -210,7 +209,6 @@ class AgentService(BaseService):
             task_def = TaskDefinition(**message.data or {})
             self.agent.create_task(task_def.input, task_id=task_def.task_id)
         elif message.action == ActionTypes.NEW_TOOL_CALL:
-            logger.info(f"processing message: {message}")
             task_def = TaskDefinition(**message.data or {})
             async with self.lock:
                 tool_call_bundle = ToolCallBundle(

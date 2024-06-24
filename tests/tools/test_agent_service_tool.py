@@ -1,10 +1,12 @@
 import asyncio
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from llama_index.core.llms import MockLLM
-from llama_index.core.agent import ReActAgent, AgentRunner
+from llama_index.core.agent import ReActAgent, AgentChatResponse
+from llama_index.core.agent.types import TaskStepOutput, TaskStep, Task
 from llama_index.core.tools import FunctionTool, ToolMetadata
+from llama_index.core.memory import ChatMemoryBuffer
 
 from llama_agents.message_queues.simple import SimpleMessageQueue
 from llama_agents.services.agent import AgentService
@@ -12,7 +14,12 @@ from llama_agents.tools.agent_service_tool import AgentServiceTool
 
 
 @pytest.fixture()
-def agent_service() -> AgentService:
+def message_queue() -> SimpleMessageQueue:
+    return SimpleMessageQueue()
+
+
+@pytest.fixture()
+def agent_service(message_queue: SimpleMessageQueue) -> AgentService:
     # create an agent
     def get_the_secret_fact() -> str:
         """Returns the secret fact."""
@@ -20,19 +27,14 @@ def agent_service() -> AgentService:
 
     tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
 
-    agent = ReActAgent.from_tools([tool], llm=MockLLM(max_tokens=2))
+    agent = ReActAgent.from_tools([tool], llm=MockLLM())
     return AgentService(
         agent,
-        SimpleMessageQueue(),
+        message_queue=message_queue,
         description="Test Agent Server",
         host="https://mock-agent-service.io",
         port=8000,
     )
-
-
-@pytest.fixture()
-def message_queue() -> SimpleMessageQueue:
-    return SimpleMessageQueue()
 
 
 def test_init(message_queue: SimpleMessageQueue, agent_service: AgentService) -> None:
@@ -86,28 +88,56 @@ def test_from_service_definition(
 
 
 @pytest.mark.asyncio()
-@patch.object(AgentRunner, "arun_step")
+@patch.object(ReActAgent, "arun_step")
+@patch.object(ReActAgent, "get_completed_tasks")
 async def test_tool_call_output(
-    mock_arun_step: MagicMock,
+    mock_get_completed_tasks: MagicMock,
+    mock_arun_step: AsyncMock,
     message_queue: SimpleMessageQueue,
     agent_service: AgentService,
 ) -> None:
     # arrange
-    mock_arun_step.return_value = "A baby llama is called a 'Cria'."
+    task_step_output = TaskStepOutput(
+        output=AgentChatResponse(response="A baby llama is called a 'Cria'."),
+        task_step=TaskStep(task_id="", step_id=""),
+        next_steps=[],
+        is_last=True,
+    )
+    completed_task = Task(
+        task_id="",
+        input="What is the secret fact?",
+        memory=ChatMemoryBuffer.from_defaults(),
+    )
+
+    def arun_side_effect(task_id: str) -> TaskStepOutput:
+        completed_task.task_id = task_id
+        task_step_output.task_step.task_id = task_id
+        return task_step_output
+
+    mock_arun_step.side_effect = arun_side_effect
+    mock_get_completed_tasks.side_effect = [
+        [],
+        [],
+        [completed_task],
+        [completed_task],
+        [completed_task],
+    ]
+
     agent_service_tool = AgentServiceTool.from_service_definition(
         message_queue=message_queue,
         service_definition=agent_service.service_definition,
-        timeout=3,
     )
+
+    # startup
     await message_queue.register_consumer(agent_service.as_consumer())
-    mq_task = asyncio.create_task(message_queue.launch_local())
+    mq_task = asyncio.create_task(message_queue.processing_loop())
     as_task = asyncio.create_task(agent_service.processing_loop())
 
     # act
     tool_output = await agent_service_tool.acall(input="What is the secret fact?")
 
     # clean-up/shutdown
-    await asyncio.sleep(0.5)
+    await asyncio.sleep(0.1)
     mq_task.cancel()
     as_task.cancel()
 
