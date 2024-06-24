@@ -20,8 +20,12 @@ from llama_agents.services.types import _ChatMessage
 from llama_agents.types import (
     ActionTypes,
     ChatMessage,
+    MessageRole,
     TaskResult,
     TaskDefinition,
+    ToolCall,
+    ToolCallBundle,
+    ToolCallResult,
     ServiceDefinition,
     CONTROL_PLANE_NAME,
 )
@@ -44,6 +48,8 @@ class AgentService(BaseService):
     _app: FastAPI = PrivateAttr()
     _publisher_id: str = PrivateAttr()
     _publish_callback: Optional[PublishCallback] = PrivateAttr()
+    _lock: asyncio.Lock = PrivateAttr()
+    _tasks_as_tool_calls: Dict[str, ToolCall] = PrivateAttr()
 
     def __init__(
         self,
@@ -71,6 +77,8 @@ class AgentService(BaseService):
             raise_exceptions=raise_exceptions,
         )
 
+        self._lock = asyncio.Lock()
+        self._tasks_as_tool_calls = {}
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
@@ -130,6 +138,20 @@ class AgentService(BaseService):
     def publish_callback(self) -> Optional[PublishCallback]:
         return self._publish_callback
 
+    @property
+    def lock(self) -> asyncio.Lock:
+        return self._lock
+
+    @property
+    def tool_name(self) -> str:
+        """The name reserved when this service is used as a tool."""
+        return AgentService.get_tool_name_from_service_name(self.service_name)
+
+    @staticmethod
+    def get_tool_name_from_service_name(service_name: str) -> str:
+        """Utility function for getting the reserved name of a tool derived by a service."""
+        return f"{service_name}-as-tool"
+
     async def processing_loop(self) -> None:
         while True:
             try:
@@ -160,17 +182,43 @@ class AgentService(BaseService):
                         history = [ChatMessage(**x.dict()) for x in llama_messages]
 
                         # publish the completed task
-                        await self.publish(
-                            QueueMessage(
-                                type=CONTROL_PLANE_NAME,
-                                action=ActionTypes.COMPLETED_TASK,
-                                data=TaskResult(
-                                    task_id=task_id,
-                                    history=history,
-                                    result=response.response,
-                                ).model_dump(),
+                        async with self.lock:
+                            try:
+                                tool_call = self._tasks_as_tool_calls.pop(task_id)
+                            except KeyError:
+                                tool_call = None
+
+                        if tool_call:
+                            await self.publish(
+                                QueueMessage(
+                                    type=tool_call.source_id,
+                                    action=ActionTypes.COMPLETED_TOOL_CALL,
+                                    data=ToolCallResult(
+                                        id_=tool_call.id_,
+                                        tool_message=ChatMessage(
+                                            content=str(response.response),
+                                            role=MessageRole.TOOL,
+                                            additional_kwargs={
+                                                "name": tool_call.tool_call_bundle.tool_name,
+                                                "tool_call_id": tool_call.id_,
+                                            },
+                                        ),
+                                        result=response.response,
+                                    ).model_dump(),
+                                )
                             )
-                        )
+                        else:
+                            await self.publish(
+                                QueueMessage(
+                                    type=CONTROL_PLANE_NAME,
+                                    action=ActionTypes.COMPLETED_TASK,
+                                    data=TaskResult(
+                                        task_id=task_id,
+                                        history=history,
+                                        result=response.response,
+                                    ).model_dump(),
+                                )
+                            )
             except Exception as e:
                 logger.error(f"Error in {self.service_name} processing_loop: {e}")
                 if self.raise_exceptions:
@@ -187,6 +235,21 @@ class AgentService(BaseService):
     async def process_message(self, message: QueueMessage) -> None:
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
+            self.agent.create_task(task_def.input, task_id=task_def.task_id)
+        elif message.action == ActionTypes.NEW_TOOL_CALL:
+            task_def = TaskDefinition(**message.data or {})
+            async with self.lock:
+                tool_call_bundle = ToolCallBundle(
+                    tool_name=self.tool_name,
+                    tool_args=(),
+                    tool_kwargs={"input": task_def.input},
+                )
+                task_as_tool_call = ToolCall(
+                    id_=task_def.task_id,
+                    source_id=message.publisher_id,
+                    tool_call_bundle=tool_call_bundle,
+                )
+                self._tasks_as_tool_calls[task_def.task_id] = task_as_tool_call
             self.agent.create_task(task_def.input, task_id=task_def.task_id)
         else:
             raise ValueError(f"Unhandled action: {message.action}")
