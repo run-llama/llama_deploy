@@ -65,7 +65,7 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         self._lock = asyncio.Lock()
 
     @classmethod
-    async def from_service_definition(
+    def from_service_definition(
         cls,
         message_queue: BaseMessageQueue,
         service_definition: ServiceDefinition,
@@ -76,7 +76,7 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
     ) -> "AgentServiceTool":
         tool_metadata = ToolMetadata(
             description=service_definition.description,
-            name=f"{service_definition.service_name}-as-a-tool",
+            name=f"{service_definition.service_name}-as-tool",
             # fn_schema
         )
         return cls(
