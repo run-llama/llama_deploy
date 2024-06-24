@@ -83,6 +83,9 @@ class LocalLauncher(MessageQueuePublisherMixin):
         return signal_handler
 
     async def alaunch_single(self, initial_task: str) -> str:
+        # clear any result
+        self.result = None
+
         # register human consumer
         human_consumer = HumanMessageConsumer(
             message_handler={
@@ -98,7 +101,9 @@ class LocalLauncher(MessageQueuePublisherMixin):
         # start services
         bg_tasks: List[asyncio.Task] = []
         for service in self.services:
-            bg_tasks.append(asyncio.create_task(service.launch_local()))
+            if hasattr(service, "raise_exceptions"):
+                service.raise_exceptions = True  # ensure exceptions are raised
+            bg_tasks.append(await service.launch_local())
 
         # publish initial task
         await self.publish(
@@ -109,7 +114,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
             ),
         )
         # runs until the message queue is stopped by the human consumer
-        mq_task = asyncio.create_task(self.message_queue.launch_local())
+        mq_task = await self.message_queue.launch_local()
         shutdown_handler = self.get_shutdown_handler([mq_task] + bg_tasks)
         loop = asyncio.get_event_loop()
         while loop.is_running():

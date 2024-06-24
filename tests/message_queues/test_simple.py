@@ -68,7 +68,7 @@ async def test_simple_publish_consumer() -> None:
     consumer_one = MockMessageConsumer()
     consumer_two = MockMessageConsumer(message_type="two")
     mq = SimpleMessageQueue()
-    task = asyncio.create_task(mq.launch_local())
+    task = await mq.launch_local()
 
     await mq.register_consumer(consumer_one)
     await mq.register_consumer(consumer_two)
