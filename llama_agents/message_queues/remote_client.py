@@ -1,8 +1,8 @@
 """Remote message queue."""
-
+import asyncio
 import httpx
-import logging
 
+from logging import getLogger
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
@@ -10,9 +10,7 @@ from llama_agents.message_queues.base import BaseMessageQueue
 from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 from llama_agents.messages import QueueMessage
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logging.basicConfig(level=logging.DEBUG)
+logger = getLogger(__name__)
 
 
 class RemoteClientMessageQueue(BaseMessageQueue):
@@ -67,7 +65,7 @@ class RemoteClientMessageQueue(BaseMessageQueue):
             "`procesing_loop()` is not implemented for this class."
         )
 
-    async def launch_local(self) -> None:
+    async def launch_local(self) -> asyncio.Task:
         raise NotImplementedError("`launch_local()` is not implemented for this class.")
 
     async def launch_server(self) -> None:

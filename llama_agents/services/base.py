@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 from abc import ABC, abstractmethod
 from pydantic import BaseModel
@@ -46,7 +47,7 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
         )
 
     @abstractmethod
-    async def launch_local(self) -> None:
+    async def launch_local(self) -> asyncio.Task:
         """Launch the service in-process."""
         ...
 

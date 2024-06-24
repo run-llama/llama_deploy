@@ -1,6 +1,7 @@
 import uuid
 import uvicorn
 from fastapi import FastAPI
+from logging import getLogger
 from typing import Dict, List, Optional
 
 from llama_index.core import StorageContext, VectorStoreIndex
@@ -16,7 +17,7 @@ from llama_agents.message_consumers.remote import RemoteMessageConsumer
 from llama_agents.message_queues.base import BaseMessageQueue, PublishCallback
 from llama_agents.messages.base import QueueMessage
 from llama_agents.orchestrators.base import BaseOrchestrator
-from llama_agents.orchestrators.service_tool import ServiceTool
+from llama_agents.tools import ServiceTool
 from llama_agents.types import (
     ActionTypes,
     ServiceDefinition,
@@ -24,11 +25,7 @@ from llama_agents.types import (
     TaskResult,
 )
 
-import logging
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-logging.basicConfig(level=logging.INFO)
+logger = getLogger(__name__)
 
 
 class ControlPlaneServer(BaseControlPlane):

@@ -4,11 +4,23 @@ from llama_agents.message_queues import SimpleMessageQueue
 from llama_agents.orchestrators import (
     AgentOrchestrator,
     PipelineOrchestrator,
-    ServiceComponent,
-    ServiceTool,
 )
-from llama_agents.tools import MetaServiceTool
+from llama_agents.tools import MetaServiceTool, ServiceComponent, ServiceTool
 from llama_agents.services import AgentService, ToolService, HumanService
+
+# configure logger
+import logging
+
+root_logger = logging.getLogger("llama_agents")
+
+formatter = logging.Formatter("%(levelname)s:%(name)s - %(message)s")
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(formatter)
+root_logger.addHandler(console_handler)
+
+root_logger.setLevel(logging.WARNING)
+root_logger.propagate = False
+
 
 __all__ = [
     # services

@@ -2,12 +2,12 @@
 
 import asyncio
 import random
-import logging
 import uvicorn
 
 from collections import deque
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from logging import getLogger
 from pydantic import Field, PrivateAttr
 from typing import Any, AsyncGenerator, Dict, List
 
@@ -19,9 +19,7 @@ from llama_agents.message_consumers.remote import (
     RemoteMessageConsumerDef,
 )
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logging.basicConfig(level=logging.DEBUG)
+logger = getLogger(__name__)
 
 
 class SimpleMessageQueue(BaseMessageQueue):
@@ -199,9 +197,9 @@ class SimpleMessageQueue(BaseMessageQueue):
         yield
         self.running = False
 
-    async def launch_local(self) -> None:
+    async def launch_local(self) -> asyncio.Task:
         logger.info("Launching message queue locally")
-        asyncio.create_task(self.processing_loop())
+        return asyncio.create_task(self.processing_loop())
 
     async def launch_server(self) -> None:
         logger.info(f"Launching message queue server at {self.host}:{self.port}")
