@@ -51,7 +51,7 @@ class BaseMessageQueue(BaseModel, ABC):
     ) -> Any:
         """Send message to a consumer."""
         logger.info(
-            f"Publishing message '{message.type}' with action '{message.action}'"
+            f"Publishing message to '{message.type}' with action '{message.action}'"
         )
         logger.debug(f"Message: {message.model_dump()}")
         await self._publish(message)

@@ -174,7 +174,11 @@ class AgentService(BaseService):
             except Exception as e:
                 logger.error(f"Error in {self.service_name} processing_loop: {e}")
                 if self.raise_exceptions:
-                    raise
+                    # Kill everything
+                    # TODO: is there a better way to do this?
+                    import signal
+
+                    signal.raise_signal(signal.SIGINT)
 
                 continue
 
