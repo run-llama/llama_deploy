@@ -139,6 +139,7 @@ In `llama-agents`, there are several key components that make up the overall sys
 - `control plane` -- the control plane is a the central gateway to the `llama-agents` system. It keeps track of current tasks, as well as the services that are registered to the system. It also holds the `orchestrator`.
 - `orchestrator` -- The module handles incoming tasks and decides what service to send it to, as well as how to handle results from services. An orchestrator can be agentic (with an LLM making decisions), explicit (with a query pipeline defining a flow), a mix of both, or something completely custom.
 - `services` -- Services are where the actual work happens. A services accepts some incoming task and context, processes it, and publishes a result
+  - A `tool service` is a special service used to off-load the compution of agent tools. Agents can instead be equipped with a meta-tool that calls the tool service.
 
 ## Low-Level API in `llama-agents`
 
