@@ -1,6 +1,6 @@
 # 🦙 `llama-agents` 🤖
 
-`llama-agents` is a framework for building, iterating, and productionizing multi-agent systems.
+`llama-agents` is a framework for building, iterating, and productionizing multi-agent systems, including multi-agent communication, distributed tool execution, human-in-the-loop, and more!
 
 In `llama-agents`, each agent is seen as a `service`, endlessly processing incoming tasks. Each agent pulls and publishes messages from a `message queue`.
 
