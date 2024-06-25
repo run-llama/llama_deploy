@@ -81,7 +81,9 @@ from llama_agents import LocalLauncher
 
 # launch it
 launcher = LocalLauncher(
-    [agent_server_1, agent_server_2], control_plane, message_queue
+    [agent_server_1, agent_server_2],
+    control_plane,
+    message_queue,
 )
 result = launcher.launch_single("What is the secret fact?")
 
@@ -97,7 +99,29 @@ Once you are happy with your system, we can launch all our services as independe
 To test this, you can use the server launcher in a script:
 
 ```python
-from llama_agents import ServerLaucher
+from llama_agents import ServerLaucher, CallableMessageConsumer
+
+
+# Additional human consumer
+def handle_result(message) -> None:
+    print(f"Got result:", message.data)
+
+
+human_consumer = CallableMessageConsumer(
+    handler=handle_result, message_type="human"
+)
+
+from llama_agents.launchers import ServerLauncher
+
+## Define Launcher
+launcher = ServerLauncher(
+    [agent_server_1, agent_server_2],
+    control_plane,
+    message_queue,
+    additional_consumers=[human_consumer],
+)
+
+launcher.launch_servers()
 
 # launch it
 launcher = ServerLauncher(

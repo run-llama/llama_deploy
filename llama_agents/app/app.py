@@ -140,7 +140,7 @@ class LlamaAgentsMonitor(App):
         )
 
         if selected_type == ButtonType.SERVICE:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.get(
                     f"{self.control_plane_url}/services/{selected_label}"
                 )
@@ -163,7 +163,7 @@ class LlamaAgentsMonitor(App):
             self.selected_service_url = service_url
             self.selected_service_type = service_dict.get("type")
         elif selected_type == ButtonType.TASK:
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(timeout=120.0) as client:
                 response = await client.get(
                     f"{self.control_plane_url}/tasks/{selected_label}"
                 )
@@ -188,7 +188,7 @@ class LlamaAgentsMonitor(App):
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         new_task = TaskDefinition(input=event.value).model_dump()
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             await client.post(f"{self.control_plane_url}/tasks", json=new_task)
 
         # clear the input
