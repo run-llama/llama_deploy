@@ -23,7 +23,6 @@ class RemoteMessageConsumer(BaseMessageQueueConsumer):
 
     async def _process_message(self, message: QueueMessage, **kwargs: Any) -> None:
         client_kwargs = self.client_kwargs or {}
-        client = self.client or httpx.AsyncClient(**client_kwargs)
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(**client_kwargs) as client:
             await client.post(self.url, json=message.model_dump())

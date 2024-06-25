@@ -34,7 +34,7 @@ class HumanTaskList(Static):
         self.set_interval(2, self.refresh_tasks)
 
     async def refresh_tasks(self) -> None:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.get(f"{self.human_service_url}/tasks")
             tasks = response.json()
 
@@ -82,7 +82,7 @@ class HumanTaskList(Static):
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         response = HumanResponse(result=event.value).model_dump()
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             await client.post(
                 f"{self.human_service_url}/tasks/{self.selected_task}/handle",
                 json=response,

@@ -68,7 +68,7 @@ repos:
     hooks:
       - id: codespell
         additional_dependencies: [tomli]
-        exclude: ^(poetry.lock|examples)
+        exclude: ^(poetry.lock|examples|example_scripts)
         args:
           [
             "--ignore-words-list",

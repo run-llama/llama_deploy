@@ -2,9 +2,11 @@ from llama_agents import (
     AgentService,
     HumanService,
     AgentOrchestrator,
+    CallableMessageConsumer,
     ControlPlaneServer,
     ServerLauncher,
     SimpleMessageQueue,
+    QueueMessage,
 )
 
 from llama_index.core.agent import FunctionCallingAgentWorker
@@ -56,9 +58,20 @@ human_service = HumanService(
     port=8004,
 )
 
+
+# additional human consumer
+def handle_result(message: QueueMessage) -> None:
+    print("Got result:", message.data)
+
+
+human_consumer = CallableMessageConsumer(handler=handle_result, message_type="human")
+
 # launch it
 launcher = ServerLauncher(
-    [agent_server_1, agent_server_2, human_service], control_plane, message_queue
+    [agent_server_1, agent_server_2, human_service],
+    control_plane,
+    message_queue,
+    additional_consumers=[human_consumer],
 )
 
 launcher.launch_servers()

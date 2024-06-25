@@ -2,29 +2,14 @@ import asyncio
 import signal
 import sys
 import uuid
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, List, Optional
 
 from llama_agents.services.base import BaseService
 from llama_agents.control_plane.base import BaseControlPlane
 from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 from llama_agents.message_queues.simple import SimpleMessageQueue
 from llama_agents.message_queues.base import PublishCallback
-from llama_agents.messages.base import QueueMessage
-from llama_agents.types import ActionTypes
 from llama_agents.message_publishers.publisher import MessageQueuePublisherMixin
-
-
-class HumanMessageConsumer(BaseMessageQueueConsumer):
-    message_handler: Dict[str, Callable]
-    message_type: str = "human"
-
-    async def _process_message(self, message: QueueMessage, **kwargs: Any) -> None:
-        action = message.action
-        if action not in self.message_handler:
-            raise ValueError(f"Action {action} not supported by control plane")
-
-        if action == ActionTypes.COMPLETED_TASK:
-            await self.message_handler[action](message_data=message.data)
 
 
 class ServerLauncher(MessageQueuePublisherMixin):
@@ -34,13 +19,14 @@ class ServerLauncher(MessageQueuePublisherMixin):
         control_plane: BaseControlPlane,
         message_queue: SimpleMessageQueue,
         publish_callback: Optional[PublishCallback] = None,
+        additional_consumers: Optional[List[BaseMessageQueueConsumer]] = None,
     ) -> None:
         self.services = services
         self.control_plane = control_plane
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
-        self.result: Optional[str] = None
+        self._additional_consumers = additional_consumers or []
 
     @property
     def message_queue(self) -> SimpleMessageQueue:
@@ -91,6 +77,10 @@ class ServerLauncher(MessageQueuePublisherMixin):
             service_tasks.append(asyncio.create_task(service.launch_server()))
             await service.register_to_message_queue()
             await service.register_to_control_plane(control_plane_url)
+
+        # register additional consumers
+        for consumer in self._additional_consumers:
+            await self.message_queue.register_consumer(consumer)
 
         shutdown_handler = self.get_shutdown_handler(
             [*service_tasks, queue_task, control_plane_task]
