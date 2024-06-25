@@ -147,14 +147,15 @@ llama-agents monitor --control-plane-url http://127.0.0.1:8000
 
 You can find a host of examples in our examples folder:
 
-- [Agentic RAG + Tool Service](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_rag_toolservice.ipynb)
-- [Agentic Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_local_single.py)
-- [Agentic Orchestrator w/ Server Launcher](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_server.py)
-- [Agentic Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_human_local_single.py)
-- [Agentic Orchestrator w/ Tool Service](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_toolservice_local_single.py)
-- [Pipeline Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/example_scripts/pipeline_local_single.py)
-- [Pipeline Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/example_scripts/pipeline_human_local_single.py)
-- [Pipeline Orchestrator w/ Agent Server As Tool](https://github.com/run-llama/llama-agents/blob/main/example_scripts/pipeline_agent_service_tool_local_single.py)
+- [Agentic RAG + Tool Service](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_rag_toolservice.ipynb)
+- [Agentic Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_local_single.py)
+- [Agentic Orchestrator w/ Server Launcher](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_server.py)
+- [Agentic Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_human_local_single.py)
+- [Agentic Orchestrator w/ Tool Service](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_toolservice_local_single.py)
+- [Pipeline Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/examples/pipeline_local_single.py)
+- [Pipeline Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/examples/pipeline_human_local_single.py)
+- [Pipeline Orchestrator w/ Agent Server As Tool](https://github.com/run-llama/llama-agents/blob/main/examples/pipeline_agent_service_tool_local_single.py)
+- [Pipeline Orchestrator w/ Query Rewrite RAG](https://github.com/run-llama/llama-agents/blob/main/examples/query_rewrite_rag.ipynb)
 
 ## Components of a `llama-agents` System
 
