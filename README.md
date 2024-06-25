@@ -1,6 +1,6 @@
 # 🦙 `llama-agents` 🤖
 
-`llama-agents` is a framework for building, iterating, and productionizing multi-agent systems, including multi-agent communication, distributed tool execution, human-in-the-loop, and more!
+`llama-agents` is an async-first framework for building, iterating, and productionizing multi-agent systems, including multi-agent communication, distributed tool execution, human-in-the-loop, and more!
 
 In `llama-agents`, each agent is seen as a `service`, endlessly processing incoming tasks. Each agent pulls and publishes messages from a `message queue`.
 
@@ -53,22 +53,25 @@ agent1 = worker1.as_agent()
 agent2 = worker2.as_agent()
 
 # create our multi-agent framework components
-message_queue = SimpleMessageQueue()
+message_queue = SimpleMessageQueue(port=8000)
 control_plane = ControlPlaneServer(
     message_queue=message_queue,
     orchestrator=AgentOrchestrator(llm=OpenAI()),
+    port=8001,
 )
 agent_server_1 = AgentService(
     agent=agent1,
     message_queue=message_queue,
     description="Useful for getting the secret fact.",
     service_name="secret_fact_agent",
+    port=8002,
 )
 agent_server_2 = AgentService(
     agent=agent2,
     message_queue=message_queue,
     description="Useful for getting random dumb facts.",
     service_name="dumb_fact_agent",
+    port=8003,
 )
 ```
 
@@ -133,7 +136,19 @@ launcher = ServerLauncher(
 launcher.launch_servers()
 ```
 
-Now, since everything is a server, you need API requests to interact with it. Rather than using raw `curl` requests or `postman`, you can use a built-in CLI tool to monitor and interact with your services.
+Now, since everything is a server, you need API requests to interact with it. The easiest way is to use our client:
+
+```python
+from llama_agents import LlamaAgentsClient, AsyncLlamaAgentsClient
+
+client = LlamaAgentsClient("<control plane URL>")  # i.e. http://127.0.0.1:8001
+task_id = client.create_task("What is the secret fact?")
+# <Wait a few seconds>
+# returns TaskResult or None if not finished
+result = client.get_task_result(task_id)
+```
+
+Rather than using a client or raw `curl` requests, you can also use a built-in CLI tool to monitor and interact with your services.
 
 In another terminal, you can run:
 
