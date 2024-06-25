@@ -1,4 +1,7 @@
 from llama_agents.message_queues.base import BaseMessageQueue
-from llama_agents.message_queues.simple import SimpleMessageQueue
+from llama_agents.message_queues.simple import (
+    SimpleMessageQueue,
+    SimpleRemoteClientMessageQueue,
+)
 
-__all__ = ["BaseMessageQueue", "SimpleMessageQueue"]
+__all__ = ["BaseMessageQueue", "SimpleMessageQueue", "SimpleRemoteClientMessageQueue"]

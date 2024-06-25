@@ -1,6 +1,6 @@
 import asyncio
+import logging
 import uuid
-from logging import getLogger
 from pydantic import BaseModel, Field, PrivateAttr
 from typing import Any, Dict, Optional
 
@@ -14,21 +14,23 @@ from llama_agents.message_publishers.publisher import (
     MessageQueuePublisherMixin,
     PublishCallback,
 )
-from llama_agents.services.tool import ToolService
+from llama_agents.services.agent import AgentService
 from llama_agents.types import (
     ActionTypes,
-    ToolCallBundle,
-    ToolCall,
+    ServiceDefinition,
+    TaskDefinition,
     ToolCallResult,
 )
 
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG)
 
 
-class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
+class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
     tool_call_results: Dict[str, ToolCallResult] = Field(default_factory=dict)
     timeout: float = Field(default=10.0, description="timeout interval in seconds.")
-    tool_service_name: str = Field(default_factory=str)
+    service_name: str = Field(default_factory=str)
     step_interval: float = 0.1
     raise_timeout: bool = False
     registered: bool = False
@@ -43,18 +45,28 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         self,
         tool_metadata: ToolMetadata,
         message_queue: BaseMessageQueue,
-        tool_service_name: str,
+        service_name: str,
         publish_callback: Optional[PublishCallback] = None,
         tool_call_results: Dict[str, ToolCallResult] = {},
         timeout: float = 10.0,
         step_interval: float = 0.1,
         raise_timeout: bool = False,
     ) -> None:
+        # validate fn_schema
+        if "input" not in tool_metadata.get_parameters_dict()["properties"]:
+            raise ValueError("Invalid FnSchema - 'input' field is required.")
+
+        # validate tool name
+        if tool_metadata.name != AgentService.get_tool_name_from_service_name(
+            service_name
+        ):
+            raise ValueError("Tool name must be in the form '{{service_name}}-as-tool'")
+
         super().__init__(
             tool_call_results=tool_call_results,
             timeout=timeout,
             step_interval=step_interval,
-            tool_service_name=tool_service_name,
+            service_name=service_name,
             raise_timeout=raise_timeout,
         )
         self._message_queue = message_queue
@@ -64,51 +76,30 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         self._lock = asyncio.Lock()
 
     @classmethod
-    async def from_tool_service(
+    def from_service_definition(
         cls,
-        name: str,
         message_queue: BaseMessageQueue,
-        tool_service: Optional[ToolService] = None,
-        tool_service_url: Optional[str] = None,
-        tool_service_api_key: Optional[str] = None,
-        tool_service_name: Optional[str] = None,
+        service_definition: ServiceDefinition,
         publish_callback: Optional[PublishCallback] = None,
         timeout: float = 10.0,
         step_interval: float = 0.1,
         raise_timeout: bool = False,
-    ) -> "MetaServiceTool":
-        if tool_service is not None:
-            res = await tool_service.get_tool_by_name(name)
-            try:
-                tool_metadata = res["tool_metadata"]
-            except KeyError:
-                raise ValueError("tool_metadata not found.")
-            return cls(
-                tool_metadata=tool_metadata,
-                message_queue=message_queue,
-                tool_service_name=tool_service.service_name,
-                publish_callback=publish_callback,
-                timeout=timeout,
-                step_interval=step_interval,
-                raise_timeout=raise_timeout,
-            )
-        # TODO by requests
-        # make a http request, try to parse into BaseTool
-        elif (
-            tool_service_url is not None
-            and tool_service_api_key is not None
-            and tool_service_name is not None
-        ):
-            return cls(
-                tool_service_name=tool_service_name,
-                tool_metadata=ToolMetadata("TODO"),
-                message_queue=message_queue,
-                publish_callback=publish_callback,
-            )
-        else:
-            raise ValueError(
-                "Please supply either a ToolService or a triplet of {tool_service_url, tool_service_api_key, tool_service_name}."
-            )
+    ) -> "AgentServiceTool":
+        tool_metadata = ToolMetadata(
+            description=service_definition.description,
+            name=AgentService.get_tool_name_from_service_name(
+                service_definition.service_name
+            ),
+        )
+        return cls(
+            tool_metadata=tool_metadata,
+            message_queue=message_queue,
+            service_name=service_definition.service_name,
+            publish_callback=publish_callback,
+            timeout=timeout,
+            step_interval=step_interval,
+            raise_timeout=raise_timeout,
+        )
 
     @property
     def message_queue(self) -> BaseMessageQueue:
@@ -173,6 +164,9 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         """Call."""
         return asyncio.run(self.acall(*args, **kwargs))
 
+    def _parse_args(self, *args: Any, **kwargs: Any) -> str:
+        return kwargs.pop("input")
+
     async def acall(self, *args: Any, **kwargs: Any) -> ToolOutput:
         """Publish a call to the queue.
 
@@ -184,24 +178,20 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
             await self.message_queue.register_consumer(self.as_consumer())
             self.registered = True
 
-        tool_call = ToolCall(
-            tool_call_bundle=ToolCallBundle(
-                tool_name=self.metadata.name, tool_args=args, tool_kwargs=kwargs
-            ),
-            source_id=self.publisher_id,
-        )
+        input = self._parse_args(*args, **kwargs)
+        task_def = TaskDefinition(input=input)
         await self.publish(
             QueueMessage(
-                type=self.tool_service_name,
+                type=self.service_name,
                 action=ActionTypes.NEW_TOOL_CALL,
-                data=tool_call.model_dump(),
+                data=task_def.model_dump(),
             )
         )
 
         # poll for tool_call_result with max timeout
         try:
             tool_call_result = await asyncio.wait_for(
-                self._poll_for_tool_call_result(tool_call_id=tool_call.id_),
+                self._poll_for_tool_call_result(tool_call_id=task_def.task_id),
                 timeout=self.timeout,
             )
         except (
@@ -209,7 +199,7 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
             asyncio.TimeoutError,
             TimeoutError,
         ) as e:
-            logger.debug(f"Timeout reached for tool_call with id {tool_call.id_}")
+            logger.debug(f"Timeout reached for tool_call with id {task_def.task_id}")
             if self.raise_timeout:
                 raise
             return ToolOutput(
@@ -221,8 +211,8 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
             )
         finally:
             async with self.lock:
-                if tool_call.id_ in self.tool_call_results:
-                    del self.tool_call_results[tool_call.id_]
+                if task_def.task_id in self.tool_call_results:
+                    del self.tool_call_results[task_def.task_id]
 
         return ToolOutput(
             content=tool_call_result.result,

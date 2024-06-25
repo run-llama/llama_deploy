@@ -105,8 +105,8 @@ async def test_process_tool_call(
     )
     await mq.register_consumer(tool_output_consumer)
 
-    mq_task = asyncio.create_task(mq.launch_local())
-    server_task = asyncio.create_task(server.processing_loop())
+    mq_task = await mq.launch_local()
+    server_task = await server.launch_local()
 
     # act
     result = await server.create_tool_call(tool_call)
@@ -142,8 +142,8 @@ async def test_process_tool_call_from_queue(
     await mq.register_consumer(tool_output_consumer)
     await mq.register_consumer(server.as_consumer())
 
-    mq_task = asyncio.create_task(mq.launch_local())
-    server_task = asyncio.create_task(server.processing_loop())
+    mq_task = await mq.launch_local()
+    server_task = await server.launch_local()
 
     # act
     tool_call_message = QueueMessage(

@@ -1,11 +1,11 @@
 import asyncio
-import logging
 import uuid
 import uvicorn
 from asyncio import Lock
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from pydantic import PrivateAttr
+from logging import getLogger
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from llama_index.core.agent.function_calling.step import (
@@ -29,9 +29,7 @@ from llama_agents.types import (
     ServiceDefinition,
 )
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logging.basicConfig(level=logging.DEBUG)
+logger = getLogger(__name__)
 
 
 class ToolService(BaseService):
@@ -198,8 +196,8 @@ class ToolService(BaseService):
             handler=self.process_message,
         )
 
-    async def launch_local(self) -> None:
-        asyncio.create_task(self.processing_loop())
+    async def launch_local(self) -> asyncio.Task:
+        return asyncio.create_task(self.processing_loop())
 
     # ---- Server based methods ----
 

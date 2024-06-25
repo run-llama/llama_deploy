@@ -1,9 +1,9 @@
 import asyncio
-import logging
 import uuid
 import uvicorn
 from asyncio import Lock
 from fastapi import FastAPI
+from logging import getLogger
 from pydantic import PrivateAttr
 from typing import Dict, List, Optional
 
@@ -27,9 +27,7 @@ from llama_agents.types import (
 )
 
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logging.basicConfig(level=logging.DEBUG)
+logger = getLogger(__name__)
 
 
 HELP_REQUEST_TEMPLATE_STR = (
@@ -200,9 +198,9 @@ class HumanService(BaseService):
             handler=self.process_message,
         )
 
-    async def launch_local(self) -> None:
+    async def launch_local(self) -> asyncio.Task:
         logger.info(f"{self.service_name} launch_local")
-        asyncio.create_task(self.processing_loop())
+        return asyncio.create_task(self.processing_loop())
 
     # ---- Server based methods ----
 
@@ -276,6 +274,3 @@ class HumanService(BaseService):
         cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
         server = CustomServer(cfg)
         await server.serve()
-
-
-HumanService.model_rebuild()
