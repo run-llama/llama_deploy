@@ -221,7 +221,7 @@ class ControlPlaneServer(BaseControlPlane):
             for service_name, service_dict in service_dicts.items()
         }
 
-    async def create_task(self, task_def: TaskDefinition) -> None:
+    async def create_task(self, task_def: TaskDefinition) -> Dict[str, str]:
         await self.state_store.aput(
             task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
         )
@@ -230,6 +230,7 @@ class ControlPlaneServer(BaseControlPlane):
         await self.state_store.aput(
             task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
         )
+        return {"task_id": task_def.task_id}
 
     async def send_task_to_service(self, task_def: TaskDefinition) -> TaskDefinition:
         if self._total_services > self._services_retrieval_threshold:
