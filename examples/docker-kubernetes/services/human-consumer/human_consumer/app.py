@@ -4,7 +4,7 @@ from llama_agents import (
     SimpleMessageQueue,
 )
 
-from .task_result_service import TaskResultService
+from human_consumer.task_result_service import TaskResultService
 
 
 try:

@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from typing import Dict
 from llama_agents import (
     CallableMessageConsumer,
@@ -56,7 +57,8 @@ class TaskResultService:
         )
 
     async def process_message(self, message: QueueMessage) -> None:
-        with open("task_results.jsonl", "+a") as f:
+        Path("task_results").mkdir(exist_ok=True)
+        with open("./task_results/task_results.jsonl", "+a") as f:
             json.dump(message.model_dump(), f)
             f.write("\n")
 
