@@ -26,7 +26,7 @@ class AgentOrchestrator(BaseOrchestrator):
     def __init__(
         self,
         llm: LLM,
-        human_description: str = "Useful for finalizing a response. Should contain a complete answer to the original input.",
+        human_description: str = "Useful for finalizing a response. Should contain a complete answer that satisfies the original input.",
         summarize_prompt: str = DEFAULT_SUMMARIZE_TMPL,
         followup_prompt: str = DEFAULT_FOLLOWUP_TMPL,
     ):
