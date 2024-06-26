@@ -1,14 +1,20 @@
 import asyncio
-import nest_asyncio
 from llama_agents import AgentService, SimpleMessageQueue
 
 from llama_index.core.agent import FunctionCallingAgentWorker
+from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
 
-nest_asyncio.apply()
-
 # create an agent
-worker = FunctionCallingAgentWorker.from_tools([], llm=OpenAI())
+
+
+def get_a_funny_joke() -> str:
+    """Returns the secret fact."""
+    return "I went to the aquarium this weekend, but I didn’t stay long. There’s something fishy about that place."
+
+
+tool = FunctionTool.from_defaults(fn=get_a_funny_joke)
+worker = FunctionCallingAgentWorker.from_tools([tool], llm=OpenAI())
 agent = worker.as_agent()
 
 # create agent server
@@ -24,12 +30,18 @@ agent_server = AgentService(
     port=8003,
 )
 
-# registration doesn't work
-tasks = [
-    agent_server.register_to_message_queue(),
-    agent_server.register_to_control_plane(control_plane_url="http://0.0.0.0:8001"),
-]
-asyncio.run(tasks[0])
-asyncio.run(tasks[1])
-
 app = agent_server._app
+
+
+# registration
+async def register() -> None:
+    # register to message queue
+    await agent_server.register_to_message_queue()
+    # register to control plane
+    await agent_server.register_to_control_plane(
+        control_plane_url="http://0.0.0.0:8001"
+    )
+
+
+if __name__ == "__main__":
+    asyncio.run(register())

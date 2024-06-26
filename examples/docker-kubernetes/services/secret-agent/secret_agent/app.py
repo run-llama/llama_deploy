@@ -1,13 +1,10 @@
 import asyncio
-import nest_asyncio
 
 from llama_agents import AgentService, SimpleMessageQueue
 
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
-
-nest_asyncio.apply()
 
 
 # create an agent
@@ -30,15 +27,21 @@ agent_server = AgentService(
     description="Useful for getting the secret fact.",
     service_name="secret_fact_agent",
     host="127.0.0.1",
-    port=8001,
+    port=8002,
 )
 
-# registration
-tasks = [
-    agent_server.register_to_message_queue(),
-    agent_server.register_to_control_plane(control_plane_url="http://0.0.0.0:8001"),
-]
-asyncio.run(tasks[0])
-asyncio.run(tasks[1])
-
 app = agent_server._app
+
+
+# registration
+async def register() -> None:
+    # register to message queue
+    await agent_server.register_to_message_queue()
+    # register to control plane
+    await agent_server.register_to_control_plane(
+        control_plane_url="http://0.0.0.0:8001"
+    )
+
+
+if __name__ == "__main__":
+    asyncio.run(register())

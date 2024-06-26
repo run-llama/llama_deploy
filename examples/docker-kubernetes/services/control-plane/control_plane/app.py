@@ -10,6 +10,8 @@ queue_client = message_queue.client
 control_plane = ControlPlaneServer(
     message_queue=queue_client,
     orchestrator=AgentOrchestrator(llm=OpenAI()),
+    host="0.0.0.0",
+    port=8001,
 )
 
 
