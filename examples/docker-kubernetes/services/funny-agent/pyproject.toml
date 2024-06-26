@@ -3,7 +3,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "dumb-agent"
+name = "funny-agent"
 version = "0.1.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
@@ -11,3 +11,5 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
+llama-index-llms-openai = "^0.1.23"
+llama-agents = {git = "git@github.com:run-llama/llama-agents.git"}

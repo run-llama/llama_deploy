@@ -48,6 +48,22 @@ services:
       dockerfile: ./secret-agent/Dockerfile
       secrets:
         - id_ed25519
+  funny_agent:
+    image: funny_agent:latest
+    command: uvicorn funny_agent.app:app --host 0.0.0.0 --port 8003 --log-config ./logging.ini --log-level debug --reload
+    env_file:
+      - ./funny-agent/.env.funny_agent.service
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./funny-agent/funny_agent:/app/funny_agent # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./funny-agent/Dockerfile
+      secrets:
+        - id_ed25519
 secrets:
   id_ed25519:
     file: ~/.ssh/id_ed25519
