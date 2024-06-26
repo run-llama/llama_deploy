@@ -18,6 +18,7 @@ class HumanTaskButton(Button):
 class HumanTaskList(Static):
     tasks: List[TaskDefinition] = reactive([])
     selected_task: str = reactive("")
+    selected_task_id: str = reactive("")
 
     def __init__(self, human_service_url: str, **kwargs: Any):
         self.human_service_url = human_service_url
@@ -79,12 +80,13 @@ class HumanTaskList(Static):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         # Update the details panel with the selected item
         self.selected_task = event.button.label
+        self.selected_task_id = event.button.task_id
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         response = HumanResponse(result=event.value).model_dump()
         async with httpx.AsyncClient(timeout=120.0) as client:
             await client.post(
-                f"{self.human_service_url}/tasks/{self.selected_task}/handle",
+                f"{self.human_service_url}/tasks/{self.selected_task_id}/handle",
                 json=response,
             )
 
@@ -92,5 +94,7 @@ class HumanTaskList(Static):
         await self.query_one("#respond").remove()
 
         # remove the task from the list
-        new_tasks = [task for task in self.tasks if task.task_id != self.selected_task]
+        new_tasks = [
+            task for task in self.tasks if task.task_id != self.selected_task_id
+        ]
         self.tasks = [*new_tasks]

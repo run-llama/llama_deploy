@@ -13,8 +13,8 @@ HISTORY_KEY = "chat_history"
 RESULT_KEY = "result"
 DEFAULT_SUMMARIZE_TMPL = "{history}\n\nThe above represents the progress so far, please condense the messages into a single message."
 DEFAULT_FOLLOWUP_TMPL = (
-    "Pick the next action to take, or return a final response if my original "
-    "input is satisfied. As a reminder, the original input was: {original_input}"
+    "Pick the next action to take, or return a finalized response if my original "
+    "input is already previously satisfied. As a reminder, the original input was: {original_input}"
 )
 
 
@@ -22,7 +22,7 @@ class AgentOrchestrator(BaseOrchestrator):
     def __init__(
         self,
         llm: LLM,
-        human_description: str = "Useful for sending a final response.",
+        human_description: str = "Useful for finalizing a response. Should contain an answer to the original input.",
         summarize_prompt: str = DEFAULT_SUMMARIZE_TMPL,
         followup_prompt: str = DEFAULT_FOLLOWUP_TMPL,
     ):

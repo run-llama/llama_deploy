@@ -72,7 +72,7 @@ class ServerLauncher(MessageQueuePublisherMixin):
 
         # register the services
         control_plane_url = f"http://{self.control_plane.host}:{self.control_plane.port}"  # type: ignore
-        service_tasks = []
+        service_tasks: List[asyncio.Task] = []
         for service in self.services:
             service_tasks.append(asyncio.create_task(service.launch_server()))
             await service.register_to_message_queue()
@@ -89,3 +89,7 @@ class ServerLauncher(MessageQueuePublisherMixin):
         while loop.is_running():
             await asyncio.sleep(0.1)
             signal.signal(signal.SIGINT, shutdown_handler)
+
+            for task in [*service_tasks, queue_task, control_plane_task]:
+                if task.done() and task.exception():  # type: ignore
+                    raise task.exception()  # type: ignore
