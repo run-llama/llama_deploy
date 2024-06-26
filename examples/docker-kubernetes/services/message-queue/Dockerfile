@@ -27,12 +27,16 @@ RUN --mount=type=secret,id=id_ed25519,dst=/root/.ssh/id_ed25519 poetry install -
 
 FROM --platform=linux/amd64 python:3.10-slim as runtime
 
+# Install wget for healthcheck
+RUN apt-get update && apt-get install -y wget
+
 RUN apt-get update -y && \
     apt-get install --no-install-recommends libpq5 -y && \
     rm -rf /var/lib/apt/lists/*  # Install libpq for psycopg2
 
 RUN groupadd -r appuser && useradd --no-create-home -g appuser -r appuser
 USER appuser
+
 
 WORKDIR /app
 
