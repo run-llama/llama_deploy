@@ -121,6 +121,13 @@ class LocalLauncher(MessageQueuePublisherMixin):
             await asyncio.sleep(0.1)
             signal.signal(signal.SIGINT, shutdown_handler)
 
+            for task in bg_tasks:
+                if task.done() and task.exception():  # type: ignore
+                    raise task.exception()  # type: ignore
+
+            if mq_task.done() and mq_task.exception():  # type: ignore
+                raise mq_task.exception()  # type: ignore
+
             if self.result:
                 break
 
