@@ -13,3 +13,4 @@ readme = "README.md"
 python = "^3.10"
 llama-index-llms-openai = "^0.1.23"
 llama-agents = {git = "git@github.com:run-llama/llama-agents.git"}
+llama-index-agent-openai = "^0.2.7"

@@ -3,8 +3,8 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "secret-agent"
-version = "0.1.1"
+name = "human-consumer"
+version = "0.1.0"
 description = ""
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
@@ -12,5 +12,3 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 llama-agents = {git = "git@github.com:run-llama/llama-agents.git"}
-llama-index-llms-openai = "^0.1.23"
-llama-index-agent-openai = "^0.2.7"

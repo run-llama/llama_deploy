@@ -1,10 +1,22 @@
 import asyncio
+import os
 
 from llama_agents import AgentService, SimpleMessageQueue
 
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
+
+
+try:
+    message_queue_host = os.environ["MESSAGE_QUEUE_HOST"]
+except KeyError:
+    raise ValueError("Missing env var `MESSAGE_QUEUE_HOST`.")
+
+try:
+    secret_agent_host = os.environ["SECRET_AGENT_HOST"]
+except KeyError:
+    raise ValueError("Missing env var `SECRET_AGENT_HOST`.")
 
 
 # create an agent
@@ -18,7 +30,7 @@ worker = FunctionCallingAgentWorker.from_tools([tool], llm=OpenAI())
 agent = worker.as_agent()
 
 # create agent server
-message_queue = SimpleMessageQueue(host="0.0.0.0", port=8000)
+message_queue = SimpleMessageQueue(host=message_queue_host, port=8000)
 queue_client = message_queue.client
 
 agent_server = AgentService(
@@ -26,7 +38,7 @@ agent_server = AgentService(
     message_queue=queue_client,
     description="Useful for getting the secret fact.",
     service_name="secret_fact_agent",
-    host="127.0.0.1",
+    host=secret_agent_host,
     port=8002,
 )
 

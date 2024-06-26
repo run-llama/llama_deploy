@@ -11,7 +11,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-llama-agents = {git = "git@github.com:run-llama/llama-agents.git#nerdai/k8s"}
+llama-agents = {git = "git@github.com:run-llama/llama-agents.git"}
 llama-index-llms-openai = "^0.1.23"
 llama-index-embeddings-openai = "^0.1.10"
 nest-asyncio = "^1.6.0"
