@@ -128,7 +128,7 @@ launcher = ServerLauncher(
 launcher.launch_servers()
 ```
 
-Now, since everything is a server, you need API requests to interact with it. The easiest way is to use our client:
+Now, since everything is a server, you need API requests to interact with it. The easiest way is to use our client and the control plane URL:
 
 ```python
 from llama_agents import LlamaAgentsClient, AsyncLlamaAgentsClient
