@@ -116,7 +116,7 @@ human_consumer = CallableMessageConsumer(
     handler=handle_result, message_type="human"
 )
 
-## Define Launcher
+# Define Launcher
 launcher = ServerLauncher(
     [agent_server_1, agent_server_2],
     control_plane,
@@ -124,15 +124,7 @@ launcher = ServerLauncher(
     additional_consumers=[human_consumer],
 )
 
-launcher.launch_servers()
-
-# launch it
-launcher = ServerLauncher(
-    [agent_server_1, agent_server_2],
-    control_plane,
-    message_queue,
-)
-
+# Launch it!
 launcher.launch_servers()
 ```
 
