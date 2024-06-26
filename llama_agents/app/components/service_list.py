@@ -29,7 +29,7 @@ class ServicesList(Static):
         self.set_interval(2, self.refresh_services)
 
     async def refresh_services(self) -> None:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.get(f"{self.control_plane_url}/services")
             services_dict = response.json()
 

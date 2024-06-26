@@ -7,6 +7,7 @@ What does the processing loop for the control plane look like?
 """
 
 from abc import ABC, abstractmethod
+from typing import Dict
 
 from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 from llama_agents.message_publishers.publisher import MessageQueuePublisherMixin
@@ -46,7 +47,7 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         ...
 
     @abstractmethod
-    async def create_task(self, task_def: TaskDefinition) -> None:
+    async def create_task(self, task_def: TaskDefinition) -> Dict[str, str]:
         """
         Submit a task to the control plane.
 

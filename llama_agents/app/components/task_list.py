@@ -29,7 +29,7 @@ class TasksList(Static):
         self.set_interval(5, self.refresh_tasks)
 
     async def refresh_tasks(self) -> None:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.get(f"{self.control_plane_url}/tasks")
             tasks_dict = response.json()
 

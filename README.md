@@ -1,6 +1,6 @@
 # 🦙 `llama-agents` 🤖
 
-`llama-agents` is a framework for building, iterating, and productionizing multi-agent systems.
+`llama-agents` is an async-first framework for building, iterating, and productionizing multi-agent systems, including multi-agent communication, distributed tool execution, human-in-the-loop, and more!
 
 In `llama-agents`, each agent is seen as a `service`, endlessly processing incoming tasks. Each agent pulls and publishes messages from a `message queue`.
 
@@ -53,22 +53,25 @@ agent1 = worker1.as_agent()
 agent2 = worker2.as_agent()
 
 # create our multi-agent framework components
-message_queue = SimpleMessageQueue()
+message_queue = SimpleMessageQueue(port=8000)
 control_plane = ControlPlaneServer(
     message_queue=message_queue,
     orchestrator=AgentOrchestrator(llm=OpenAI()),
+    port=8001,
 )
 agent_server_1 = AgentService(
     agent=agent1,
     message_queue=message_queue,
     description="Useful for getting the secret fact.",
     service_name="secret_fact_agent",
+    port=8002,
 )
 agent_server_2 = AgentService(
     agent=agent2,
     message_queue=message_queue,
     description="Useful for getting random dumb facts.",
     service_name="dumb_fact_agent",
+    port=8003,
 )
 ```
 
@@ -81,7 +84,9 @@ from llama_agents import LocalLauncher
 
 # launch it
 launcher = LocalLauncher(
-    [agent_server_1, agent_server_2], control_plane, message_queue
+    [agent_server_1, agent_server_2],
+    control_plane,
+    message_queue,
 )
 result = launcher.launch_single("What is the secret fact?")
 
@@ -94,22 +99,48 @@ As with any agentic system, its important to consider how reliable the LLM is th
 
 Once you are happy with your system, we can launch all our services as independent processes, allowing for higher throughput and scalability.
 
+By default, all task results are published to a specific "human" queue, so we also define a consumer to handle this result as it comes in. (In the future, this final queue will be configurable!)
+
 To test this, you can use the server launcher in a script:
 
 ```python
-from llama_agents import ServerLaucher
+from llama_agents import ServerLauncher, CallableMessageConsumer
 
-# launch it
-launcher = ServerLauncher(
-    [agent_server_1, agent_server_2, human_service],
-    control_plane,
-    message_queue,
+
+# Additional human consumer
+def handle_result(message) -> None:
+    print(f"Got result:", message.data)
+
+
+human_consumer = CallableMessageConsumer(
+    handler=handle_result, message_type="human"
 )
 
+# Define Launcher
+launcher = ServerLauncher(
+    [agent_server_1, agent_server_2],
+    control_plane,
+    message_queue,
+    additional_consumers=[human_consumer],
+)
+
+# Launch it!
 launcher.launch_servers()
 ```
 
-Now, since everything is a server, you need API requests to interact with it. Rather than using raw `curl` requests or `postman`, you can use a built-in CLI tool to monitor and interact with your services.
+Now, since everything is a server, you need API requests to interact with it. The easiest way is to use our client:
+
+```python
+from llama_agents import LlamaAgentsClient, AsyncLlamaAgentsClient
+
+client = LlamaAgentsClient("<control plane URL>")  # i.e. http://127.0.0.1:8001
+task_id = client.create_task("What is the secret fact?")
+# <Wait a few seconds>
+# returns TaskResult or None if not finished
+result = client.get_task_result(task_id)
+```
+
+Rather than using a client or raw `curl` requests, you can also use a built-in CLI tool to monitor and interact with your services.
 
 In another terminal, you can run:
 
@@ -123,14 +154,15 @@ llama-agents monitor --control-plane-url http://127.0.0.1:8000
 
 You can find a host of examples in our examples folder:
 
-- [Agentic RAG + Tool Service](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_rag_toolservice.ipynb)
-- [Agentic Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_local_single.py)
-- [Agentic Orchestrator w/ Server Launcher](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_server.py)
-- [Agentic Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_human_local_single.py)
-- [Agentic Orchestrator w/ Tool Service](https://github.com/run-llama/llama-agents/blob/main/example_scripts/agentic_toolservice_local_single.py)
-- [Pipeline Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/example_scripts/pipeline_local_single.py)
-- [Pipeline Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/example_scripts/pipeline_human_local_single.py)
-- [Pipeline Orchestrator w/ Agent Server As Tool](https://github.com/run-llama/llama-agents/blob/main/example_scripts/pipeline_agent_service_tool_local_single.py)
+- [Agentic RAG + Tool Service](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_rag_toolservice.ipynb)
+- [Agentic Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_local_single.py)
+- [Agentic Orchestrator w/ Server Launcher](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_server.py)
+- [Agentic Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_human_local_single.py)
+- [Agentic Orchestrator w/ Tool Service](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_toolservice_local_single.py)
+- [Pipeline Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/examples/pipeline_local_single.py)
+- [Pipeline Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/examples/pipeline_human_local_single.py)
+- [Pipeline Orchestrator w/ Agent Server As Tool](https://github.com/run-llama/llama-agents/blob/main/examples/pipeline_agent_service_tool_local_single.py)
+- [Pipeline Orchestrator w/ Query Rewrite RAG](https://github.com/run-llama/llama-agents/blob/main/examples/query_rewrite_rag.ipynb)
 
 ## Components of a `llama-agents` System
 

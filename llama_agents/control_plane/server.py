@@ -1,3 +1,4 @@
+import copy
 import uuid
 import uvicorn
 from fastapi import FastAPI
@@ -112,7 +113,10 @@ class ControlPlaneServer(BaseControlPlane):
             "/tasks", self.get_all_tasks, methods=["GET"], tags=["Tasks"]
         )
         self.app.add_api_route(
-            "/tasks/{task_id}", self.get_task_state, methods=["GET"], tags=["Tasks"]
+            "/tasks/{task_id}",
+            self.get_task_state_api_safe,
+            methods=["GET"],
+            tags=["Tasks"],
         )
 
     @property
@@ -217,7 +221,7 @@ class ControlPlaneServer(BaseControlPlane):
             for service_name, service_dict in service_dicts.items()
         }
 
-    async def create_task(self, task_def: TaskDefinition) -> None:
+    async def create_task(self, task_def: TaskDefinition) -> Dict[str, str]:
         await self.state_store.aput(
             task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
         )
@@ -226,6 +230,7 @@ class ControlPlaneServer(BaseControlPlane):
         await self.state_store.aput(
             task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
         )
+        return {"task_id": task_def.task_id}
 
     async def send_task_to_service(self, task_def: TaskDefinition) -> TaskDefinition:
         if self._total_services > self._services_retrieval_threshold:
@@ -280,14 +285,38 @@ class ControlPlaneServer(BaseControlPlane):
         if state_dict is None:
             raise ValueError(f"Task with id {task_id} not found")
 
-        return TaskDefinition.model_validate(state_dict)
+        return TaskDefinition(**state_dict)
+
+    async def get_task_state_api_safe(self, task_id: str) -> TaskDefinition:
+        state_dict = await self.state_store.aget(
+            task_id, collection=self.tasks_store_key
+        )
+        state_dict = copy.deepcopy(state_dict)
+
+        if state_dict is None:
+            raise ValueError(f"Task with id {task_id} not found")
+
+        # remove an bytes objects from state
+        for key, val in state_dict["state"].items():
+            if isinstance(val, bytes):
+                state_dict["state"][key] = "<bytes object>"
+
+        return TaskDefinition(**state_dict)
 
     async def get_all_tasks(self) -> Dict[str, TaskDefinition]:
         state_dicts = await self.state_store.aget_all(collection=self.tasks_store_key)
-        return {
-            task_id: TaskDefinition.model_validate(state_dict)
-            for task_id, state_dict in state_dicts.items()
-        }
+        state_dicts = copy.deepcopy(state_dicts)
+
+        task_defs = {}
+        for task_id, state_dict in state_dicts.items():
+            # remove an bytes objects from state
+            for key, val in state_dict["state"].items():
+                if isinstance(val, bytes):
+                    state_dict["state"][key] = "<bytes object>"
+            task_defs[task_id] = TaskDefinition(**state_dict)
+
+        print(task_defs)
+        return task_defs
 
 
 if __name__ == "__main__":

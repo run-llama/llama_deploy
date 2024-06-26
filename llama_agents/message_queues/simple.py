@@ -36,9 +36,8 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
         self, message: QueueMessage, publish_url: str = "publish", **kwargs: Any
     ) -> Any:
         client_kwargs = self.client_kwargs or {}
-        client = self.client or httpx.AsyncClient(**client_kwargs)
         url = urljoin(self.base_url, publish_url)
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(**client_kwargs) as client:
             result = await client.post(url, json=message.model_dump())
         return result
 
@@ -49,7 +48,6 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
         **kwargs: Any,
     ) -> httpx.Response:
         client_kwargs = self.client_kwargs or {}
-        client = self.client or httpx.AsyncClient(**client_kwargs)
         url = urljoin(self.base_url, register_consumer_url)
         try:
             remote_consumer_def = RemoteMessageConsumerDef(**consumer.model_dump())
@@ -57,7 +55,7 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
             raise ValueError(
                 "Unable to convert consumer to RemoteMessageConsumer"
             ) from e
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(**client_kwargs) as client:
             result = await client.post(url, json=remote_consumer_def.model_dump())
         return result
 
@@ -67,7 +65,6 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
         deregister_consumer_url: str = "deregister_consumer",
     ) -> Any:
         client_kwargs = self.client_kwargs or {}
-        client = self.client or httpx.AsyncClient(**client_kwargs)
         url = urljoin(self.base_url, deregister_consumer_url)
         try:
             remote_consumer_def = RemoteMessageConsumerDef(**consumer.model_dump())
@@ -75,7 +72,7 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
             raise ValueError(
                 "Unable to convert consumer to RemoteMessageConsumer"
             ) from e
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(**client_kwargs) as client:
             result = await client.post(url, json=remote_consumer_def.model_dump())
         return result
 
@@ -83,9 +80,8 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
         self, message_type: str, get_consumers_url: str = "get_consumers"
     ) -> List[BaseMessageQueueConsumer]:
         client_kwargs = self.client_kwargs or {}
-        client = self.client or httpx.AsyncClient(**client_kwargs)
         url = urljoin(self.base_url, f"{get_consumers_url}/{message_type}")
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(**client_kwargs) as client:
             res = await client.get(url)
         if res.status_code == 200:
             remote_consumer_defs = res.json()
@@ -134,6 +130,10 @@ class SimpleMessageQueue(BaseMessageQueue):
         super().__init__(consumers=consumers, queues=queues, host=host, port=port)
 
         self._app = FastAPI(lifespan=self.lifespan)
+
+        self._app.add_api_route(
+            "/", self.home, methods=["GET"], tags=["Message Queue State"]
+        )
 
         self._app.add_api_route(
             "/register_consumer",
@@ -296,3 +296,9 @@ class SimpleMessageQueue(BaseMessageQueue):
         cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
         server = CustomServer(cfg)
         await server.serve()
+
+    async def home(self) -> Dict[str, str]:
+        return {
+            "service_name": "message_queue",
+            "description": "Message queue for multi-agent system",
+        }

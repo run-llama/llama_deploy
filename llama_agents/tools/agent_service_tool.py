@@ -23,8 +23,6 @@ from llama_agents.types import (
 )
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logging.basicConfig(level=logging.DEBUG)
 
 
 class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
