@@ -99,10 +99,12 @@ As with any agentic system, its important to consider how reliable the LLM is th
 
 Once you are happy with your system, we can launch all our services as independent processes, allowing for higher throughput and scalability.
 
+By default, all task results are published to a specific "human" queue, so we also define a consumer to handle this result as it comes in. (In the future, this final queue will be configurable!)
+
 To test this, you can use the server launcher in a script:
 
 ```python
-from llama_agents import ServerLaucher, CallableMessageConsumer
+from llama_agents import ServerLauncher, CallableMessageConsumer
 
 
 # Additional human consumer
@@ -114,9 +116,7 @@ human_consumer = CallableMessageConsumer(
     handler=handle_result, message_type="human"
 )
 
-from llama_agents.launchers import ServerLauncher
-
-## Define Launcher
+# Define Launcher
 launcher = ServerLauncher(
     [agent_server_1, agent_server_2],
     control_plane,
@@ -124,15 +124,7 @@ launcher = ServerLauncher(
     additional_consumers=[human_consumer],
 )
 
-launcher.launch_servers()
-
-# launch it
-launcher = ServerLauncher(
-    [agent_server_1, agent_server_2, human_service],
-    control_plane,
-    message_queue,
-)
-
+# Launch it!
 launcher.launch_servers()
 ```
 
