@@ -129,6 +129,7 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
 
     def as_consumer(self) -> BaseMessageQueueConsumer:
         return CallableMessageConsumer(
+            id_=self.publisher_id,
             message_type=self.publisher_id,
             handler=self.process_message,
         )
