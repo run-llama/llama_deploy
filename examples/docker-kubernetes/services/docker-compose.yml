@@ -16,13 +16,29 @@ services:
       dockerfile: ./message-queue/Dockerfile
       secrets:
         - id_ed25519
-  secret_agent:
-    image: secret_agent:latest
-    command: uvicorn secret_agent.app:app --host 0.0.0.0 --port 8001 --log-config ./logging.ini --log-level debug --reload
-    # env_file:
-    #   - ./contributor-1/.env.contributor.service
+  control_plane:
+    image: control_plane:latest
+    command: uvicorn control_plane.app:app --host 0.0.0.0 --port 8001 --log-config ./logging.ini --log-level debug --reload
+    env_file:
+      - ./control-plane/.env.control_plane.service
     ports:
       - "8001:8001"
+    volumes:
+      - ./control-plane/control_plane:/app/control_plane # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./control-plane/Dockerfile
+      secrets:
+        - id_ed25519
+  secret_agent:
+    image: secret_agent:latest
+    command: uvicorn secret_agent.app:app --host 0.0.0.0 --port 8002 --log-config ./logging.ini --log-level debug --reload
+    env_file:
+      - ./secret-agent/.env.secret_agent.service
+    ports:
+      - "8002:8002"
     volumes:
       - ./secret-agent/secret_agent:/app/secret_agent # load local code change to container without the need of rebuild
       - ./logging.ini:/app/logging.ini
