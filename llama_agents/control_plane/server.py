@@ -230,6 +230,7 @@ class ControlPlaneServer(BaseControlPlane):
         await self.state_store.aput(
             task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
         )
+        logger.debug(f"Task {task_def.task_id} created")
         return {"task_id": task_def.task_id}
 
     async def send_task_to_service(self, task_def: TaskDefinition) -> TaskDefinition:
@@ -252,9 +253,12 @@ class ControlPlaneServer(BaseControlPlane):
             ServiceTool.from_service_definition(service_def)
             for service_def in service_defs
         ]
+
         next_messages, task_state = await self.orchestrator.get_next_messages(
             task_def, service_tools, task_def.state
         )
+
+        logger.debug(f"Sending task {task_def.task_id} to services: {next_messages}")
 
         for message in next_messages:
             await self.publish(message)
@@ -315,7 +319,6 @@ class ControlPlaneServer(BaseControlPlane):
                     state_dict["state"][key] = "<bytes object>"
             task_defs[task_id] = TaskDefinition(**state_dict)
 
-        print(task_defs)
         return task_defs
 
 
