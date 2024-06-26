@@ -9,12 +9,16 @@ from llama_agents.orchestrators.base import BaseOrchestrator
 from llama_agents.tools.service_tool import ServiceTool
 from llama_agents.types import ActionTypes, ChatMessage, TaskDefinition, TaskResult
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 HISTORY_KEY = "chat_history"
 RESULT_KEY = "result"
 DEFAULT_SUMMARIZE_TMPL = "{history}\n\nThe above represents the progress so far, please condense the messages into a single message."
 DEFAULT_FOLLOWUP_TMPL = (
-    "Pick the next action to take, or return a finalized response if my original "
-    "input is already previously satisfied. As a reminder, the original input was: {original_input}"
+    "Pick the next action to take. Invoke the 'finalize' tool with a final answer if the answer to the original input is in the chat history. "
+    "As a reminder, the original input was: {original_input}"
 )
 
 
@@ -44,6 +48,7 @@ class AgentOrchestrator(BaseOrchestrator):
 
         # check if first message
         if len(chat_history) == 0:
+            logger.debug("Agent input: " + task_def.input)
             memory.put(ChatMessage(role="user", content=task_def.input))
             response = await self.llm.apredict_and_call(
                 tools,
@@ -52,6 +57,7 @@ class AgentOrchestrator(BaseOrchestrator):
             )
         else:
             messages = memory.get()
+            logger.debug("Agent input: " + str(messages))
             response = await self.llm.apredict_and_call(
                 tools_plus_human,
                 chat_history=messages,
@@ -61,6 +67,7 @@ class AgentOrchestrator(BaseOrchestrator):
         # check if there was a tool call
         queue_messages = []
         result = None
+        logger.debug(f"Agent response sources: {response.sources}")
         if len(response.sources) == 0 or response.sources[0].tool_name == "finalize":
             # convert memory chat messages
             llama_messages = memory.get_all()
