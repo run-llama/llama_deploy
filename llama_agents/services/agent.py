@@ -227,6 +227,18 @@ class AgentService(BaseService):
                     import signal
 
                     signal.raise_signal(signal.SIGINT)
+                else:
+                    await self.message_queue.publish(
+                        QueueMessage(
+                            type=CONTROL_PLANE_NAME,
+                            action=ActionTypes.COMPLETED_TASK,
+                            data=TaskResult(
+                                task_id=task_id,
+                                history=[],
+                                result=f"Error during processing: {e}",
+                            ).model_dump(),
+                        )
+                    )
 
                 continue
 
