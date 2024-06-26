@@ -133,7 +133,7 @@ class AsyncLlamaAgentsClient:
         """
         task = await self.get_task(task_id)
 
-        if "result" in task.state:
+        try:
             return TaskResult(**task.state["result"])
-
-        return None
+        except KeyError:
+            raise ValueError(f"Task {task_id} does not have a result yet.")
