@@ -188,10 +188,12 @@ class ToolService(BaseService):
         if remote:
             url = f"http://{self.host}:{self.port}{self._app.url_path_for('process_message')}"
             return RemoteMessageConsumer(
+                id_=self.publisher_id,
                 url=url,
                 message_type=self.service_name,
             )
         return CallableMessageConsumer(
+            id_=self.publisher_id,
             message_type=self.service_name,
             handler=self.process_message,
         )

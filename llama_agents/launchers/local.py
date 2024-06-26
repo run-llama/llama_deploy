@@ -121,12 +121,32 @@ class LocalLauncher(MessageQueuePublisherMixin):
             await asyncio.sleep(0.1)
             signal.signal(signal.SIGINT, shutdown_handler)
 
+            for task in bg_tasks:
+                if task.done() and task.exception():  # type: ignore
+                    raise task.exception()  # type: ignore
+
+            if mq_task.done() and mq_task.exception():  # type: ignore
+                raise mq_task.exception()  # type: ignore
+
             if self.result:
                 break
 
-        # shutdown
+        # shutdown tasks
         for task in bg_tasks:
             task.cancel()
         mq_task.cancel()
+
+        # clean up registered services
+        for service in self.services:
+            await self.control_plane.deregister_service(
+                service.service_definition.service_name
+            )
+
+        # clean up consumers
+        for service in self.services:
+            await self.message_queue.deregister_consumer(service.as_consumer())
+
+        await self.message_queue.deregister_consumer(human_consumer)
+        await self.message_queue.deregister_consumer(self.control_plane.as_consumer())
 
         return self.result or "No result found."

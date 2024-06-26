@@ -211,13 +211,17 @@ class SimpleMessageQueue(BaseMessageQueue):
 
         if message_type_str not in self.consumers:
             self.consumers[message_type_str] = {consumer.id_: consumer}
-            logger.info(f"Consumer {consumer.id_} has been registered.")
+            logger.info(
+                f"Consumer {consumer.id_}: {message_type_str} has been registered."
+            )
         else:
             if consumer.id_ in self.consumers[message_type_str]:
                 raise ValueError("Consumer has already been added.")
 
             self.consumers[message_type_str][consumer.id_] = consumer
-            logger.info(f"Consumer {consumer.id_} has been registered.")
+            logger.info(
+                f"Consumer {consumer.id_}: {message_type_str} has been registered."
+            )
 
         if message_type_str not in self.queues:
             self.queues[message_type_str] = deque()
@@ -232,7 +236,9 @@ class SimpleMessageQueue(BaseMessageQueue):
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> None:
         message_type_str = consumer.message_type
         if consumer.id_ not in self.consumers.get(message_type_str, {}):
-            raise ValueError("No consumer found for associated message type.")
+            raise ValueError(
+                f"No consumer found for associated message type. {consumer.id_}: {message_type_str}"
+            )
 
         del self.consumers[message_type_str][consumer.id_]
         if len(self.consumers[message_type_str]) == 0:
