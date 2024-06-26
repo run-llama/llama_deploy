@@ -132,6 +132,10 @@ class SimpleMessageQueue(BaseMessageQueue):
         self._app = FastAPI(lifespan=self.lifespan)
 
         self._app.add_api_route(
+            "/", self.home, methods=["GET"], tags=["Message Queue State"]
+        )
+
+        self._app.add_api_route(
             "/register_consumer",
             self.register_remote_consumer,
             methods=["POST"],
@@ -292,3 +296,9 @@ class SimpleMessageQueue(BaseMessageQueue):
         cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
         server = CustomServer(cfg)
         await server.serve()
+
+    async def home(self) -> Dict[str, str]:
+        return {
+            "service_name": "message_queue",
+            "description": "Message queue for multi-agent system",
+        }
