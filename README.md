@@ -34,7 +34,7 @@ from llama_agents import (
     SimpleMessageQueue,
 )
 
-from llama_index.core.agent import FunctionCallingAgentWorker
+from llama_index.core.agent import ReActAgent
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
 
@@ -47,10 +47,8 @@ def get_the_secret_fact() -> str:
 
 tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
 
-worker1 = FunctionCallingAgentWorker.from_tools([tool], llm=OpenAI())
-worker2 = FunctionCallingAgentWorker.from_tools([], llm=OpenAI())
-agent1 = worker1.as_agent()
-agent2 = worker2.as_agent()
+agent1 = ReActAgent.from_tools([tool], llm=OpenAI())
+agent2 = ReActAgent.from_tools([], llm=OpenAI())
 
 # create our multi-agent framework components
 message_queue = SimpleMessageQueue(port=8000)
