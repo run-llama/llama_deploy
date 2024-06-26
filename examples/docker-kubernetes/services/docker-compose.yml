@@ -27,6 +27,8 @@ services:
       - ./control-plane/control_plane:/app/control_plane # load local code change to container without the need of rebuild
       - ./logging.ini:/app/logging.ini
     platform: linux/amd64
+    depends_on:
+      - message_queue
     build:
       context: .
       dockerfile: ./control-plane/Dockerfile
@@ -34,7 +36,7 @@ services:
         - id_ed25519
   secret_agent:
     image: secret_agent:latest
-    command: uvicorn secret_agent.app:app --host 0.0.0.0 --port 8002 --log-config ./logging.ini --log-level debug --reload
+    command: uvicorn secret_agent.app:app --host 0.0.0.0 --port 8002 --log-config ./logging.ini --log-level debug --reload --loop asyncio
     env_file:
       - ./secret-agent/.env.secret_agent.service
     ports:
@@ -43,6 +45,9 @@ services:
       - ./secret-agent/secret_agent:/app/secret_agent # load local code change to container without the need of rebuild
       - ./logging.ini:/app/logging.ini
     platform: linux/amd64
+    depends_on:
+      - message_queue
+      - control_plane
     build:
       context: .
       dockerfile: ./secret-agent/Dockerfile
@@ -50,7 +55,7 @@ services:
         - id_ed25519
   funny_agent:
     image: funny_agent:latest
-    command: uvicorn funny_agent.app:app --host 0.0.0.0 --port 8003 --log-config ./logging.ini --log-level debug --reload
+    command: uvicorn funny_agent.app:app --host 0.0.0.0 --port 8003 --log-config ./logging.ini --log-level debug --reload --loop asyncio
     env_file:
       - ./funny-agent/.env.funny_agent.service
     ports:
@@ -59,6 +64,9 @@ services:
       - ./funny-agent/funny_agent:/app/funny_agent # load local code change to container without the need of rebuild
       - ./logging.ini:/app/logging.ini
     platform: linux/amd64
+    depends_on:
+      - message_queue
+      - control_plane
     build:
       context: .
       dockerfile: ./funny-agent/Dockerfile
