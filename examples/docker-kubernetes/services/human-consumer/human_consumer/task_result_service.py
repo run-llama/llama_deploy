@@ -34,7 +34,7 @@ class TaskResultService:
             "/", self.home, methods=["GET"], tags=["Human Consumer"]
         )
         self._app.add_api_route(
-            "process_message",
+            "/process_message",
             self.process_message,
             methods=["POST"],
             tags=["Human Consumer"],
@@ -58,7 +58,7 @@ class TaskResultService:
 
     async def process_message(self, message: QueueMessage) -> None:
         Path("task_results").mkdir(exist_ok=True)
-        with open("./task_results/task_results.jsonl", "+a") as f:
+        with open("task_results/task_results.jsonl", "+a") as f:
             json.dump(message.model_dump(), f)
             f.write("\n")
 
