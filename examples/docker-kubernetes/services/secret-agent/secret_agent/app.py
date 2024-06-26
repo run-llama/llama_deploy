@@ -25,7 +25,7 @@ agent_server = AgentService(
     description="Useful for getting the secret fact.",
     service_name="secret_fact_agent",
     host="127.0.0.1",
-    port=8000,
+    port=8001,
 )
 
 app = agent_server._app

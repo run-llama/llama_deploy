@@ -11,3 +11,4 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
+llama-agents = {git = "git@github.com:run-llama/llama-agents.git"}

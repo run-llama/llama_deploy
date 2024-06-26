@@ -1,5 +1,21 @@
 version: "3"
 services:
+  message_queue:
+    image: message_queue:latest
+    command: uvicorn message_queue.app:app --host 0.0.0.0 --port 8000 --log-config ./logging.ini --log-level debug --reload
+    # env_file:
+    #   - ./contributor-1/.env.contributor.service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./message-queue/message_queue:/app/message_queue # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./message-queue/Dockerfile
+      secrets:
+        - id_ed25519
   secret_agent:
     image: secret_agent:latest
     command: uvicorn secret_agent.app:app --host 0.0.0.0 --port 8001 --log-config ./logging.ini --log-level debug --reload
