@@ -16,6 +16,12 @@ services:
       dockerfile: ./message-queue/Dockerfile
       secrets:
         - id_ed25519
+    healthcheck:
+      test: curl --fail http://0.0.0.0:8000/ || exit 1
+      interval: 60s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
   control_plane:
     image: control_plane:latest
     command: uvicorn control_plane.app:app --host 0.0.0.0 --port 8001 --log-config ./logging.ini --log-level debug --reload
@@ -34,6 +40,12 @@ services:
       dockerfile: ./control-plane/Dockerfile
       secrets:
         - id_ed25519
+    healthcheck:
+      test: curl --fail http://0.0.0.0:8001/ || exit 1
+      interval: 60s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
   secret_agent:
     image: secret_agent:latest
     command: uvicorn secret_agent.app:app --host 0.0.0.0 --port 8002 --log-config ./logging.ini --log-level debug --reload --loop asyncio
@@ -46,8 +58,10 @@ services:
       - ./logging.ini:/app/logging.ini
     platform: linux/amd64
     depends_on:
-      - message_queue
-      - control_plane
+      message_queue:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
     build:
       context: .
       dockerfile: ./secret-agent/Dockerfile
@@ -65,8 +79,10 @@ services:
       - ./logging.ini:/app/logging.ini
     platform: linux/amd64
     depends_on:
-      - message_queue
-      - control_plane
+      message_queue:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
     build:
       context: .
       dockerfile: ./funny-agent/Dockerfile

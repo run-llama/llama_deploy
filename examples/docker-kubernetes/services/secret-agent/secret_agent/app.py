@@ -1,3 +1,4 @@
+import asyncio
 import nest_asyncio
 
 from llama_agents import AgentService, SimpleMessageQueue
@@ -33,10 +34,11 @@ agent_server = AgentService(
 )
 
 # registration
-# tasks = [
-#     agent_server.register_to_message_queue(),
-#     agent_server.register_to_control_plane(control_plane_url="http://0.0.0.0:8001"),
-# ]
-# asyncio.run(asyncio.gather(*tasks))
+tasks = [
+    agent_server.register_to_message_queue(),
+    agent_server.register_to_control_plane(control_plane_url="http://0.0.0.0:8001"),
+]
+asyncio.run(tasks[0])
+asyncio.run(tasks[1])
 
 app = agent_server._app
