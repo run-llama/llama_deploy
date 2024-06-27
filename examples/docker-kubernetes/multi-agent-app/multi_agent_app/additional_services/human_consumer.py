@@ -1,37 +1,34 @@
 import asyncio
-import os
 from llama_agents import (
     SimpleMessageQueue,
 )
 
 from multi_agent_app.additional_services.task_result import TaskResultService
+from multi_agent_app.utils import load_from_env
 
-
-try:
-    message_queue_host = os.environ["MESSAGE_QUEUE_HOST"]
-except KeyError:
-    raise ValueError("Missing env var `MESSAGE_QUEUE_HOST`.")
-
-try:
-    human_consumer_host = os.environ["HUMAN_CONSUMER_HOST"]
-except KeyError:
-    raise ValueError("Missing env var `HUMAN_CONSUMER_HOST`.")
+message_queue_host = load_from_env("MESSAGE_QUEUE_HOST")
+message_queue_port = int(load_from_env("MESSAGE_QUEUE_PORT"))
+human_consumer_host = load_from_env("HUMAN_CONSUMER_HOST")
+human_consumer_port = int(load_from_env("HUMAN_CONSUMER_PORT"))
 
 # create our multi-agent framework components
-message_queue = SimpleMessageQueue(host=message_queue_host, port=8000)
+message_queue = SimpleMessageQueue(host=message_queue_host, port=message_queue_port)
 queue_client = message_queue.client
 
 
-human_consumer = TaskResultService(
-    message_queue=queue_client, host=human_consumer_host, port=8004, name="human"
+human_consumer_server = TaskResultService(
+    message_queue=queue_client,
+    host=human_consumer_host,
+    port=human_consumer_port,
+    name="human",
 )
 
-app = human_consumer._app
+app = human_consumer_server._app
 
 
 # register to message queue
 async def register() -> None:
-    await human_consumer.register_to_message_queue()
+    await human_consumer_server.register_to_message_queue()
 
 
 if __name__ == "__main__":

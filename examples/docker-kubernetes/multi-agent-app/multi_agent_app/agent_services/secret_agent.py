@@ -1,5 +1,4 @@
 import asyncio
-import os
 
 from llama_agents import AgentService, SimpleMessageQueue
 
@@ -7,38 +6,35 @@ from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
 
-try:
-    message_queue_host = os.environ["MESSAGE_QUEUE_HOST"]
-except KeyError:
-    raise ValueError("Missing env var `MESSAGE_QUEUE_HOST`.")
+from multi_agent_app.utils import load_from_env
 
-try:
-    funny_agent_host = os.environ["FUNNY_AGENT_HOST"]
-except KeyError:
-    raise ValueError("Missing env var `FUNNY_AGENT_HOST`.")
+message_queue_host = load_from_env("MESSAGE_QUEUE_HOST")
+message_queue_port = int(load_from_env("MESSAGE_QUEUE_PORT"))
+secret_agent_host = load_from_env("SECRET_AGENT_HOST")
+secret_agent_port = int(load_from_env("SECRET_AGENT_PORT"))
 
 
 # create an agent
-def get_a_funny_joke() -> str:
+def get_the_secret_fact() -> str:
     """Returns the secret fact."""
-    return "I went to the aquarium this weekend, but I didn’t stay long. There’s something fishy about that place."
+    return "The secret fact is: A baby llama is called a 'Cria'."
 
 
-tool = FunctionTool.from_defaults(fn=get_a_funny_joke)
+tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
 worker = FunctionCallingAgentWorker.from_tools([tool], llm=OpenAI())
 agent = worker.as_agent()
 
 # create agent server
-message_queue = SimpleMessageQueue(host=message_queue_host, port=8000)
+message_queue = SimpleMessageQueue(host=message_queue_host, port=message_queue_port)
 queue_client = message_queue.client
 
 agent_server = AgentService(
     agent=agent,
     message_queue=queue_client,
-    description="Useful for getting funny jokes.",
-    service_name="funny_joke_agent",
-    host=funny_agent_host,
-    port=8003,
+    description="Useful for getting the secret fact.",
+    service_name="secret_fact_agent",
+    host=secret_agent_host,
+    port=secret_agent_port,
 )
 
 app = agent_server._app
