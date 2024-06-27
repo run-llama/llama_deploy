@@ -20,7 +20,7 @@ pip install llama-agents
 
 ## Getting Started
 
-The quickest way to get started is with a an existing agent (or agents) and wrapping into launcher.
+The quickest way to get started is with an existing agent (or agents) and wrapping into launcher.
 
 The example below shows a trivial example with two agents from `llama-index`.
 
