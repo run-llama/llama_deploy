@@ -115,7 +115,7 @@ class SimpleMessageQueue(BaseMessageQueue):
     )
     queues: Dict[str, deque] = Field(default_factory=dict)
     running: bool = True
-    port: int = 8001
+    port: Optional[int] = 8001
     host: str = "127.0.0.1"
 
     _app: FastAPI = PrivateAttr()
@@ -125,7 +125,7 @@ class SimpleMessageQueue(BaseMessageQueue):
         consumers: Dict[str, Dict[str, BaseMessageQueueConsumer]] = {},
         queues: Dict[str, deque] = {},
         host: str = "127.0.0.1",
-        port: int = 8001,
+        port: Optional[int] = 8001,
     ):
         super().__init__(consumers=consumers, queues=queues, host=host, port=port)
 
@@ -165,7 +165,9 @@ class SimpleMessageQueue(BaseMessageQueue):
 
     @property
     def client(self) -> BaseMessageQueue:
-        base_url = f"http://{self.host}:{self.port}"
+        base_url = (
+            f"http://{self.host}:{self.port}" if self.port else f"http://{self.host}"
+        )
         return SimpleRemoteClientMessageQueue(base_url=base_url)
 
     def _select_consumer(self, message: QueueMessage) -> BaseMessageQueueConsumer:

@@ -42,7 +42,7 @@ class ControlPlaneServer(BaseControlPlane):
         step_interval: float = 0.1,
         services_retrieval_threshold: int = 5,
         host: str = "127.0.0.1",
-        port: int = 8000,
+        port: Optional[int] = 8000,
         running: bool = True,
     ) -> None:
         self.orchestrator = orchestrator
@@ -145,7 +145,11 @@ class ControlPlaneServer(BaseControlPlane):
         if remote:
             return RemoteMessageConsumer(
                 id_=self.publisher_id,
-                url=f"http://{self.host}:{self.port}/process_message",
+                url=(
+                    f"http://{self.host}:{self.port}/process_message"
+                    if self.port
+                    else f"http://{self.host}/process_message"
+                ),
                 message_type="control_plane",
             )
 
