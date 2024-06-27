@@ -17,6 +17,26 @@ spec:
       containers:
         - name: human-consumer
           env:
+            - name: MESSAGE_QUEUE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: MESSAGE_QUEUE_HOST
+            - name: MESSAGE_QUEUE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: MESSAGE_QUEUE_PORT
+            - name: CONTROL_PLANE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_HOST
+            - name: CONTROL_PLANE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_PORT
             - name: HUMAN_CONSUMER_HOST
               valueFrom:
                 configMapKeyRef:
@@ -37,7 +57,7 @@ spec:
           command:
             [
               "uvicorn",
-              "multi_agent_app.apps:human_consumer",
+              "multi_agent_app.app_human_consumer:app",
               "--host",
               "0.0.0.0",
               "--port",

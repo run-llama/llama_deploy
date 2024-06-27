@@ -17,6 +17,16 @@ spec:
       containers:
         - name: control-plane
           env:
+            - name: MESSAGE_QUEUE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: MESSAGE_QUEUE_HOST
+            - name: MESSAGE_QUEUE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: MESSAGE_QUEUE_PORT
             - name: CONTROL_PLANE_HOST
               valueFrom:
                 configMapKeyRef:
@@ -37,7 +47,7 @@ spec:
           command:
             [
               "uvicorn",
-              "multi_agent_app.apps:control_plane",
+              "multi_agent_app.app_control_plane:app",
               "--host",
               "0.0.0.0",
               "--port",
