@@ -6,8 +6,7 @@ build-backend = "poetry.core.masonry.api"
 name = "multi-agent-app"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
-readme = "README.md"
+authors = ["Andrei Fajardo <andrei@runllama.ai>"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
