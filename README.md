@@ -18,6 +18,12 @@ The overall system layout is pictured below.
 pip install llama-agents
 ```
 
+If you don't already have llama-index installed, to follow these examples, you'll also need
+
+```bash
+pip install llama-index-agent-openai
+```
+
 ## Getting Started
 
 The quickest way to get started is with an existing agent (or agents) and wrapping into launcher.
@@ -54,7 +60,7 @@ agent2 = ReActAgent.from_tools([], llm=OpenAI())
 message_queue = SimpleMessageQueue(port=8000)
 control_plane = ControlPlaneServer(
     message_queue=message_queue,
-    orchestrator=AgentOrchestrator(llm=OpenAI()),
+    orchestrator=AgentOrchestrator(llm=OpenAI(model="gpt-4-turbo")),
     port=8001,
 )
 agent_server_1 = AgentService(
