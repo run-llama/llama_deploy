@@ -2,7 +2,7 @@ version: "3"
 services:
   message_queue:
     image: multi_agent_app:latest
-    command: uvicorn multi_agent_app.apps:message_queue --host 0.0.0.0 --port 8000 --log-config ./logging.ini --log-level debug --reload
+    command: uvicorn multi_agent_app.app_message_queue:app --host 0.0.0.0 --port 8000 --log-config ./logging.ini --log-level debug --reload
     env_file:
       - ./multi-agent-app/.env.docker
     ports:
@@ -22,7 +22,7 @@ services:
       timeout: 10s
   control_plane:
     image: multi_agent_app:latest
-    command: uvicorn multi_agent_app.apps:control_plane --host 0.0.0.0 --port 8001 --log-config ./logging.ini --log-level debug --reload
+    command: uvicorn multi_agent_app.app_control_plane:app --host 0.0.0.0 --port 8001 --log-config ./logging.ini --log-level debug --reload
     env_file:
       - ./multi-agent-app/.env.docker
     ports:
@@ -45,7 +45,7 @@ services:
       timeout: 10s
   secret_agent:
     image: multi_agent_app:latest
-    command: uvicorn multi_agent_app.apps:secret_agent --host 0.0.0.0 --port 8002 --log-config ./logging.ini --log-level debug --reload --loop asyncio
+    command: uvicorn multi_agent_app.app_secret_agent:app --host 0.0.0.0 --port 8002 --log-config ./logging.ini --log-level debug --reload --loop asyncio
     env_file:
       - ./multi-agent-app/.env.docker
     ports:
@@ -70,7 +70,7 @@ services:
       timeout: 10s
   funny_agent:
     image: multi_agent_app:latest
-    command: uvicorn multi_agent_app.apps:funny_agent --host 0.0.0.0 --port 8003 --log-config ./logging.ini --log-level debug --reload --loop asyncio
+    command: uvicorn multi_agent_app.app_funny_agent:app --host 0.0.0.0 --port 8003 --log-config ./logging.ini --log-level debug --reload --loop asyncio
     env_file:
       - ./multi-agent-app/.env.docker
     ports:
@@ -95,7 +95,7 @@ services:
       timeout: 10s
   human_consumer:
     image: multi_agent_app:latest
-    command: uvicorn multi_agent_app.apps:human_consumer --host 0.0.0.0 --port 8004 --log-config ./logging.ini --log-level debug --reload --loop asyncio
+    command: uvicorn multi_agent_app.app_human_consumer:app --host 0.0.0.0 --port 8004 --log-config ./logging.ini --log-level debug --reload --loop asyncio
     env_file:
       - ./multi-agent-app/.env.docker
     ports:
