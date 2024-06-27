@@ -174,9 +174,9 @@ so that the services/containers can communicate with one another by name.).
 With our multi-agent-app setup, we only need to build one common Docker image
 from which we can run the individual services. The `Dockerfile` for that common
 image is found in `multi-agent-app/Dockerfile`. Before building the docker image
-and launching the services
+and launching the services (as with the case for launching without Docker), we
+first need to set the required environment variables.
 
-As with local launcher, we first need to set the required environment variables.
 Fill in the values in the `template.env.docker` file and after doing so rename the
 file to `.env.docker`. Note there are some variables there that we recommend not
 modifying as they are used to the service definitions establisehed in the
