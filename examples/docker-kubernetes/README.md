@@ -144,8 +144,11 @@ launcher = ServerLauncher(
 launcher.launch_servers()
 ```
 
-Before launching we first need to set the required environment variables. To do
-that fill in the provided `template.env.local` file provided in the `multi-agent-app/` folder. After filling in the file rename it to `.env.local` (i.e., remove "template" from the name).
+In order to launch the multi-agent system of this example, we
+first need to set the required environment variables. To do that fill in the
+provided `template.env.local` file provided in the `multi-agent-app/` folder.
+After filling in the file rename it to `.env.local` (i.e., remove "template" from
+the name).
 
 ```sh
 # set environment variables
@@ -157,7 +160,7 @@ poetry shell
 poetry install
 ```
 
-To launch the example multi-agent system app:
+Now to launch the example multi-agent system app:
 
 ```sh
 python multi-agent-app/multi_agent_app/local_launcher.py
