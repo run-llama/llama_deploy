@@ -7,13 +7,16 @@ from multi_agent_app.utils import load_from_env
 
 
 message_queue_host = load_from_env("MESSAGE_QUEUE_HOST")
-message_queue_port = int(load_from_env("MESSAGE_QUEUE_PORT"))
+message_queue_port = load_from_env("MESSAGE_QUEUE_PORT")
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
-control_plane_port = int(load_from_env("CONTROL_PLANE_PORT"))
+control_plane_port = load_from_env("CONTROL_PLANE_PORT")
 
 
 # setup message queue
-message_queue = SimpleMessageQueue(host=message_queue_host, port=message_queue_port)
+message_queue = SimpleMessageQueue(
+    host=message_queue_host,
+    port=int(message_queue_port) if message_queue_port else None,
+)
 queue_client = message_queue.client
 
 # setup control plane
@@ -21,7 +24,7 @@ control_plane = ControlPlaneServer(
     message_queue=queue_client,
     orchestrator=AgentOrchestrator(llm=OpenAI()),
     host=control_plane_host,
-    port=control_plane_port,
+    port=int(control_plane_port) if control_plane_port else None,
 )
 
 

@@ -9,9 +9,9 @@ from llama_index.llms.openai import OpenAI
 from multi_agent_app.utils import load_from_env
 
 message_queue_host = load_from_env("MESSAGE_QUEUE_HOST")
-message_queue_port = int(load_from_env("MESSAGE_QUEUE_PORT"))
+message_queue_port = load_from_env("MESSAGE_QUEUE_PORT")
 funny_agent_host = load_from_env("FUNNY_AGENT_HOST")
-funny_agent_port = int(load_from_env("FUNNY_AGENT_PORT"))
+funny_agent_port = load_from_env("FUNNY_AGENT_PORT")
 
 
 # create an agent
@@ -25,7 +25,10 @@ worker = FunctionCallingAgentWorker.from_tools([tool], llm=OpenAI())
 agent = worker.as_agent()
 
 # create agent server
-message_queue = SimpleMessageQueue(host=message_queue_host, port=message_queue_port)
+message_queue = SimpleMessageQueue(
+    host=message_queue_host,
+    port=int(message_queue_port) if message_queue_port else None,
+)
 queue_client = message_queue.client
 
 agent_server = AgentService(
@@ -34,7 +37,7 @@ agent_server = AgentService(
     description="Useful for getting funny jokes.",
     service_name="funny_joke_agent",
     host=funny_agent_host,
-    port=funny_agent_port,
+    port=int(funny_agent_port) if funny_agent_port else None,
 )
 
 app = agent_server._app

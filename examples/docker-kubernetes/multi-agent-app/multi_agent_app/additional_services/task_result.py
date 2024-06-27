@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 from llama_agents import (
     CallableMessageConsumer,
     QueueMessage,
@@ -20,7 +20,7 @@ class TaskResultService:
         message_queue: BaseMessageQueue,
         name: str = "human",
         host: str = "127.0.0.1",
-        port: int = 8000,
+        port: Optional[int] = 8000,
     ) -> None:
         self.name = name
         self.host = host
@@ -47,7 +47,11 @@ class TaskResultService:
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         if remote:
             return RemoteMessageConsumer(
-                url=f"http://{self.host}:{self.port}/process_message",
+                url=(
+                    f"http://{self.host}:{self.port}/process_message"
+                    if self.port
+                    else f"http://{self.host}/process_message"
+                ),
                 message_type=self.name,
             )
 

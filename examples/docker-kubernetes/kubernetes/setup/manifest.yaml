@@ -9,15 +9,15 @@ metadata:
 apiVersion: v1
 data:
   MESSAGE_QUEUE_HOST: "message-queue.127.0.0.1.nip.io"
-  MESSAGE_QUEUE_PORT: "8000"
+  MESSAGE_QUEUE_PORT: ""
   CONTROL_PLANE_HOST: "control-plane.127.0.0.1.nip.io"
-  CONTROL_PLANE_PORT: "8000"
+  CONTROL_PLANE_PORT: ""
   SECRET_AGENT_HOST: "secret-agent.127.0.0.1.nip.io"
-  SECRET_AGENT_PORT: "8000"
+  SECRET_AGENT_PORT: ""
   FUNNY_AGENT_HOST: "funny-agent.127.0.0.1.nip.io"
-  FUNNY_AGENT_PORT: "8000"
+  FUNNY_AGENT_PORT: ""
   HUMAN_CONSUMER_HOST: "human-consumer.127.0.0.1.nip.io"
-  HUMAN_CONSUMER_PORT: "8000"
+  HUMAN_CONSUMER_PORT: ""
 kind: ConfigMap
 metadata:
   name: xcore-config
