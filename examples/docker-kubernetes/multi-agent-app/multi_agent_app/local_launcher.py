@@ -19,4 +19,6 @@ launcher = ServerLauncher(
     additional_consumers=[human_consumer_server.as_consumer()],
 )
 
-launcher.launch_servers()
+
+if __name__ == "__main__":
+    launcher.launch_servers()
