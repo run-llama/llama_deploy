@@ -17,6 +17,16 @@ spec:
       containers:
         - name: funny-agent
           env:
+            - name: FUNNY_AGENT_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: FUNNY_AGENT_HOST
+            - name: FUNNY_AGENT_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: FUNNY_AGENT_PORT
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:

@@ -17,6 +17,16 @@ spec:
       containers:
         - name: control-plane
           env:
+            - name: CONTROL_PLANE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_HOST
+            - name: CONTROL_PLANE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_PORT
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:

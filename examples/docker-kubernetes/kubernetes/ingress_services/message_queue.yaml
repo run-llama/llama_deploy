@@ -17,11 +17,16 @@ spec:
       containers:
         - name: message-queue
           env:
-            - name: OPENAI_API_KEY
+            - name: MESSAGE_QUEUE_HOST
               valueFrom:
-                secretKeyRef:
-                  name: xcore-secret
-                  key: OPENAI_API_KEY
+                configMapKeyRef:
+                  name: xcore-config
+                  key: MESSAGE_QUEUE_HOST
+            - name: MESSAGE_QUEUE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: MESSAGE_QUEUE_PORT
           image: multi_agent_app:latest
           imagePullPolicy: Never
           command:

@@ -17,6 +17,16 @@ spec:
       containers:
         - name: human-consumer
           env:
+            - name: HUMAN_CONSUMER_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: HUMAN_CONSUMER_HOST
+            - name: HUMAN_CONSUMER_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: HUMAN_CONSUMER_PORT
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
