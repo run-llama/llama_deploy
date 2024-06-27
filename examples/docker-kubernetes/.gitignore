@@ -4,3 +4,4 @@ poetry.lock
 index.html.*
 index.html
 task_results
+.ipynb_checkpoints/
