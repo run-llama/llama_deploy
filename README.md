@@ -18,9 +18,15 @@ The overall system layout is pictured below.
 pip install llama-agents
 ```
 
+If you don't already have llama-index installed, to follow these examples, you'll also need
+
+```bash
+pip install llama-index-agent-openai
+```
+
 ## Getting Started
 
-The quickest way to get started is with a an existing agent (or agents) and wrapping into launcher.
+The quickest way to get started is with an existing agent (or agents) and wrapping into launcher.
 
 The example below shows a trivial example with two agents from `llama-index`.
 
@@ -34,7 +40,7 @@ from llama_agents import (
     SimpleMessageQueue,
 )
 
-from llama_index.core.agent import FunctionCallingAgentWorker
+from llama_index.core.agent import ReActAgent
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
 
@@ -47,16 +53,14 @@ def get_the_secret_fact() -> str:
 
 tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
 
-worker1 = FunctionCallingAgentWorker.from_tools([tool], llm=OpenAI())
-worker2 = FunctionCallingAgentWorker.from_tools([], llm=OpenAI())
-agent1 = worker1.as_agent()
-agent2 = worker2.as_agent()
+agent1 = ReActAgent.from_tools([tool], llm=OpenAI())
+agent2 = ReActAgent.from_tools([], llm=OpenAI())
 
 # create our multi-agent framework components
 message_queue = SimpleMessageQueue(port=8000)
 control_plane = ControlPlaneServer(
     message_queue=message_queue,
-    orchestrator=AgentOrchestrator(llm=OpenAI()),
+    orchestrator=AgentOrchestrator(llm=OpenAI(model="gpt-4-turbo")),
     port=8001,
 )
 agent_server_1 = AgentService(
