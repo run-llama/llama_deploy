@@ -10,6 +10,8 @@ from multi_agent_app.utils import load_from_env
 
 message_queue_host = load_from_env("MESSAGE_QUEUE_HOST")
 message_queue_port = load_from_env("MESSAGE_QUEUE_PORT")
+control_plane_host = load_from_env("CONTROL_PLANE_HOST")
+control_plane_port = load_from_env("CONTROL_PLANE_PORT")
 secret_agent_host = load_from_env("SECRET_AGENT_HOST")
 secret_agent_port = load_from_env("SECRET_AGENT_PORT")
 
@@ -49,7 +51,11 @@ async def register() -> None:
     await agent_server.register_to_message_queue()
     # register to control plane
     await agent_server.register_to_control_plane(
-        control_plane_url="http://0.0.0.0:8001"
+        control_plane_url=(
+            f"http://{control_plane_host}:{control_plane_port}"
+            if control_plane_port
+            else f"http://{control_plane_host}"
+        )
     )
 
 
