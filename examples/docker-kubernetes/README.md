@@ -7,95 +7,13 @@ components, namely:
 
 - `core_services`: message queue and control plane
 - `agent_services`: our agents and their respective services
-- `additional_services`: additional services such as human consumer service or tool service
+- `additional_services`: additional services such as human consumer service (which
+  for this example writes the final task result json objects to `task_results/task_results.jsonl`)
 
-For more context, the contents of this example folder is provided below.
+In what follows next, we present three ways to launch the multi-agent system of
+this example.
 
-```sh
-.
-├── Makefile
-├── README.md
-├── docker-compose.yml
-├── docker-example.ipynb
-├── logging.ini
-├── multi-agent-app
-│   ├── Dockerfile
-│   ├── README.md
-│   ├── multi_agent_app
-│   │   ├── __init__.py
-│   │   ├── additional_services
-│   │   ├── agent_services
-│   │   ├── apps.py
-│   │   ├── core_services
-│   │   ├── local_launcher.py
-│   │   └── utils.py
-│   ├── poetry.lock
-│   ├── pyproject.toml
-│   ├── template.env.docker
-│   └── template.env.local
-└── task_results
-    └── task_results.jsonl
-```
-
-## Developing The Multi-Agent System
-
-Building out a multi-agent system can be broken down into 3 high-level steps,
-provided below:
-
-1. Build core services (i.e., message queue and control plane)
-2. Build the agents
-3. Build any additional system services (e.g., human consumer service)
-
-### Step 1: Build core services
-
-In this step, you build the message queue, which is the main communication broker
-used by all entities in the system, as well as the control plane. It bears
-mentioning that within the control plane lies the orchestrator that has the
-responsibility of determining the execution flow of the task.
-
-#### Code snippet for defining your system's message queue
-
-```python
-from llama_agents import SimpleMessageQueue
-
-message_queue = SimpleMessageQueue(host=..., port=...)
-app = message_queue._app  # fastapi app extracted for Docker deployment
-```
-
-#### Code snippet for defining your system's control plane
-
-```python
-from llama_agents import (
-    AgentOrchestrator,
-    ControlPlaneServer,
-    SimpleMessageQueue,
-)
-from llama_index.llms.openai import OpenAI
-
-# setup message queue
-message_queue = SimpleMessageQueue(host=..., port=...)
-queue_client = message_queue.client
-
-# setup control plane
-control_plane = ControlPlaneServer(
-    message_queue=queue_client,
-    orchestrator=AgentOrchestrator(llm=OpenAI()),
-    host=...,
-    port=...,
-)
-
-app = control_plane.app  # fastapi app extracted for Docker deployment
-```
-
-### Step 2: Build the agents
-
-Fill in
-
-### Step 3: Build additional services
-
-Fill in
-
-## Launching Multi-Agent System
+## Launching Multi-Agent System: Without Docker, With Docker, Kubernetes
 
 In this example, we demonstrate how one can launch their multi-agent system
 using three different options:
@@ -155,9 +73,7 @@ the name).
 set -a && source multi-agent-app/.env.local
 
 # activate the project virtual env
-cd multi-agent-app/
-poetry shell
-poetry install
+cd multi-agent-app/ && poetry shell && poetry install && cd ../
 ```
 
 Now to launch the example multi-agent system app:
@@ -166,9 +82,21 @@ Now to launch the example multi-agent system app:
 python multi-agent-app/multi_agent_app/local_launcher.py
 ```
 
+Once launched, we can send tasks to our multi-agent system:
+
+```python
+from llama_agents import LlamaAgentsClient
+
+client = LlamaAgentsClient("http://0.0.0.0:8001")
+task_id = client.create_task("What is the secret fact?")
+task_result = client.get_task_result(task_id)
+print(task_result.result)
+```
+
 ### Launching With Docker
 
-_Prerequisites_: Must have docker installed. (See [here](https://docs.docker.com/get-docker/) for how to install Docker Desktop which comes with `docker-compose`.)
+_Prerequisites_: Must have docker installed. (See [here](https://docs.docker.com/get-docker/)
+for how to install Docker Desktop which comes with `docker-compose`.)
 
 To Launch with Docker, this example makes use of `docker-compose` that will take
 care of launching the individual services (and building a default bridge network
@@ -191,16 +119,123 @@ To launch the services we now use the `docker-compose` command line tool.
 docker-compose up --build
 ```
 
-Once all the services are up and running, which one can check by running
-`docker ps` and checking that all the services are of 'healthy' status, we must
-register our services to the message queue as well as control plane.
+Once all the services are of healthy status, and after the `registration_task`
+exits with code 0 (which should appear in the lgos) we can send tasks to our multi-agent
+system:
 
-```sh
-set -a && source multi-agent-app/.env.docker
-export MESSAGE_QUEUE=0.0.0.0
-make register
+```python
+from llama_agents import LlamaAgentsClient
+
+client = LlamaAgentsClient("http://0.0.0.0:8001")
+task_id = client.create_task("What is the secret fact?")
+task_result = client.get_task_result(task_id)
+print(task_result.result)
 ```
 
 ### Launching With Kubernetes
 
-...
+_Prerequisites_: Must have `kubectl` and local Kubernetes cluster running. The
+recommended way is to install Docker Desktop which comes with a standalone
+Kubernetes server & client (see [here](https://docs.docker.com/desktop/kubernetes/)
+for more information.)
+
+To launch with Kubernetes, we'll make use of `kubectl` command line tool and
+"apply" our k8s manifests. For this example to run, it assumes the docker image
+`multi-agent-app` has already been built, which would be the case if your
+continuining along from the previous launch with Docker example. If not, then
+simply execute the below command to build the necessary docker image:
+
+```sh
+docker-compose build
+```
+
+The Kubernetes manifest files are organized as follows:
+
+- `ingress_controller`: We use an nginx ingress controller for our reverse proxy
+  and load balancer to our ingress services
+- `ingress_services`: Contains our ingress services (i.e., all of the multi-agent
+  system components)
+- `setup`: Sets up the Kubernetes cluster with a namespace and required secrets.
+- `jobs`: Kubernetes Job for handling registration to the message queue as well
+  as control plane.
+
+As before with local and Docker, we need to fill in our secrets. But instead of
+an .env that we need to modify, it will be a .yaml file. Specifically, fill in
+the `OPENAI_API_KEY` value within the `kubernetes/setup/secrets.yaml.template`
+file. After doing so, rename the file to `secrets.yaml`.
+
+To launch the services we use the below commands:
+
+```sh
+kubectl apply -f kubernetes/setup
+kubectl apply -f kubernetes/ingress_controller
+kubectl apply -f kubernetes/ingress_services
+kubectl apply -f kubernetes/jobs
+```
+
+To view the status of the services and pods
+
+```sh
+kubectl -n llama-agents-demo get pods
+```
+
+A successful launch should yield something like this
+
+```sh
+NAME                              READY   STATUS      RESTARTS   AGE
+control-plane-f4bc9597-b77qc      1/1     Running     0          89s
+funny-agent-68db58589f-rfmk2      1/1     Running     0          89s
+human-consumer-5887c96d6c-542wl   1/1     Running     0          89s
+message-queue-856b4dbc56-4f9fz    1/1     Running     0          89s
+registration-ppwhz                0/1     Completed   0          81s
+secret-agent-578f9bc4df-hklbv     1/1     Running     0          89s
+```
+
+Note that the `registration-xxxxx` job must have Status "Completed" that signals
+that all of the services were registered to the message queue and control plane.
+
+Once all the pods are of "Running" status, we can send tasks to our multi-agent
+system:
+
+```python
+from llama_agents import LlamaAgentsClient
+
+client = LlamaAgentsClient("http://control-plane.127.0.0.1.nip.io")
+task_id = client.create_task("What is the secret fact?")
+task_result = client.get_task_result(task_id)
+print(task_result.result)
+```
+
+NOTE: With this deployment, the services can be hit (i.e. with Postman) using
+the following hosts:
+
+- `message-queue`: http://message-queue.127.0.0.1.nip.io
+- `control-plane`: http://control-plane.127.0.0.1.nip.io
+- `secret-agent`: http://secret-agent.127.0.0.1.nip.io
+- `funny-agent`: http://funny-agent.127.0.0.1.nip.io
+- `human-consumer`: http://human-consumer.127.0.0.1.nip.io
+
+#### Scaling the multi-agent system
+
+We can scale up our multi-agent system by adding more "pods" for any of the
+system components. For example to add another secret-agent to our system, we simply
+modify the `kubernetes/ingress_services/secret_agent.yaml` file by changing the value
+for `replicas` to 2:
+
+```yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secret-agent
+  namespace: llama-agents-demo
+spec:
+  replicas: 2  # set to desired number of secret-agents
+  ...
+```
+
+After making the edits, we apply the changes:
+
+```sh
+kubectl apply -f kubernetes/ingress_services
+```
