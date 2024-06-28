@@ -8,9 +8,9 @@ we employ a project structure that organizes the multi-agent app to its separate
 components, namely:
 
 - `core_services`: message queue and control plane
-- `agent_services`: our agents and their respective services
-- `additional_services`: additional services such as human consumer service (which
-  for this example writes the final task result json objects to `task_results/task_results.jsonl`)
+- `agent_services`: our two agents ("secret" agent and "funny" agent) and their services
+- `additional_services`: additional services, which for this example includes a
+  human consumer service that writes the final task result json objects to `task_results/task_results.jsonl`.
 
 In what follows next, we present three ways to launch the multi-agent system of
 this example.
@@ -39,20 +39,27 @@ An easy way to launch a multi-agent system is to use `ServerLauncher` object. Th
 object takes in all of the core, agent and additional services and makes launching
 them into a single method execution call.
 
+The `ServerLauncher` for this example resides in the file
+`multi-agent-app/multi_agent_app/local_launcher.py`. It's contents are pasted
+in the code block found below.
+
 ```python
 from llama_agents import ServerLauncher
 
-# Multi-Agent System
-# core services
-message_queue = ...
-control_plane = ...
-# agent services
-secret_agent_server = ...
-funny_agent_server = ...
-# additional services
-human_consumer_server = ...
+from multi_agent_app.core_services.message_queue import message_queue
+from multi_agent_app.core_services.control_plane import control_plane
+from multi_agent_app.agent_services.secret_agent import (
+    agent_server as secret_agent_server,
+)
+from multi_agent_app.agent_services.funny_agent import (
+    agent_server as funny_agent_server,
+)
+from multi_agent_app.additional_services.human_consumer import (
+    human_consumer_server,
+)
 
-# Server Launcher
+
+# launch the darn thing
 launcher = ServerLauncher(
     [secret_agent_server, funny_agent_server],
     control_plane,
@@ -60,15 +67,19 @@ launcher = ServerLauncher(
     additional_consumers=[human_consumer_server.as_consumer()],
 )
 
-# launch the darn thing
-launcher.launch_servers()
+
+if __name__ == "__main__":
+    launcher.launch_servers()
 ```
 
-In order to launch the multi-agent system of this example, we
-first need to set the required environment variables. To do that fill in the
-provided `template.env.local` file provided in the `multi-agent-app/` folder.
-After filling in the file rename it to `.env.local` (i.e., remove "template" from
-the name).
+We can see from the above that we're just simply importing in our multi-agent
+components from their respective modules.
+
+Now in order to launch this multi-agent system, we first need to set the required
+environment variables. To do that fill in the provided `template.env.local` file
+found in the `multi-agent-app/` folder. After filling in the file rename it to
+`.env.local` (i.e., remove "template" from the name) and the run the commands
+that follow.
 
 ```sh
 # set environment variables
@@ -78,13 +89,14 @@ set -a && source multi-agent-app/.env.local
 cd multi-agent-app/ && poetry shell && poetry install && cd ../
 ```
 
-Now to launch the example multi-agent system app:
+Finally to launch the example multi-agent app:
 
 ```sh
 python multi-agent-app/multi_agent_app/local_launcher.py
 ```
 
-Once launched, we can send tasks to our multi-agent system:
+Once launched, we can send tasks to our multi-agent system using the
+`LlamaAgentsClient`:
 
 ```python
 from llama_agents import LlamaAgentsClient
