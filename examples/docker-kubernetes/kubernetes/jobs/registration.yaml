@@ -6,6 +6,23 @@ metadata:
 spec:
   template:
     spec:
+      initContainers:
+        - name: wait-for-message-queue
+          image: busybox:1.36
+          command:
+            [
+              "sh",
+              "-c",
+              "until nslookup message-queue.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done",
+            ]
+        - name: wait-for-control-plane
+          image: busybox:1.36
+          command:
+            [
+              "sh",
+              "-c",
+              "until nslookup control-plane.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done",
+            ]
       containers:
         - name: registration
           env:
