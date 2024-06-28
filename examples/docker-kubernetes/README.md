@@ -1,6 +1,6 @@
 # Example: Launching a Multi-Agent System with Docker and Kubernetes
 
-![Slide One](https://d3ddy8balm3goa.cloudfront.net/llamaindex/launchers.svg)
+![Slide One](https://d3ddy8balm3goa.cloudfront.net/llamaindex/launchers-v2.svg)
 
 In this example, we demonstrate how one can build a multi-agent app with a
 structure and development flow more conducive to production. Specifically,
