@@ -47,7 +47,7 @@ spec:
           command:
             [
               "uvicorn",
-              "multi_agent_app.app_human_consumer:app",
+              "multi_agent_app.additional_services.human_consumer:app",
               "--host",
               "0.0.0.0",
               "--port",
