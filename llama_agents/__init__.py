@@ -14,7 +14,7 @@ from llama_agents.tools import (
     ServiceComponent,
     ServiceTool,
 )
-from llama_agents.services import AgentService, ToolService, HumanService
+from llama_agents.services import AgentService, ToolService, HumanService, ComponentService
 
 # configure logger
 import logging
@@ -38,6 +38,7 @@ __all__ = [
     "AgentService",
     "HumanService",
     "ToolService",
+    "ComponentService",
     # messages
     "QueueMessage",
     # message consumers

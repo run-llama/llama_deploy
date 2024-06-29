@@ -1,7 +1,9 @@
 import json
 from typing import Any, Dict, Optional
 
+from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.query_pipeline import CustomQueryComponent
+from llama_index.core.base.query_pipeline.query import InputKeys
 
 from llama_agents.types import ServiceDefinition
 from enum import Enum
@@ -25,7 +27,7 @@ class ServiceComponent(CustomQueryComponent):
 
     # Store a set of input keys from upstream modules
     # NOTE: no need to track the output keys, this is a fake module anyways
-    input_keys: set
+    _cur_input_keys: InputKeys = PrivateAttr()
 
     module_type: ModuleType = ModuleType.AGENT
 
@@ -33,21 +35,22 @@ class ServiceComponent(CustomQueryComponent):
         self,
         name: str,
         description: str,
-        input_keys: Optional[set] = None,
+        input_keys: Optional[InputKeys] = None,
         module_type: ModuleType = ModuleType.AGENT,
     ) -> None:
-        self.name = name
-        self.description = description
-        
-        self.input_keys = input_keys or {"input"}
-
-        self.module_type = module_type
+        super().__init__(
+            name=name,
+            description=description,
+            module_type=module_type
+        )
+        if input_keys is not None:
+            self._cur_input_keys = input_keys or InputKeys.from_keys({"input"})
 
     @classmethod
     def from_service_definition(
         cls, 
         service_def: ServiceDefinition,
-        input_keys: Optional[set] = None,
+        input_keys: Optional[InputKeys] = None,
         module_type: ModuleType = ModuleType.AGENT,
     ) -> "ServiceComponent":
         return cls(
@@ -76,9 +79,18 @@ class ServiceComponent(CustomQueryComponent):
         )
 
     @property
+    def input_keys(self) -> InputKeys:
+        """Input keys."""
+        # NOTE: user can override this too, but we have them implement an
+        # abstract method to make sure they do it
+
+        return self._cur_input_keys 
+
+    @property
     def _input_keys(self) -> set:
         """Input keys dict."""
-        return self.input_keys
+        # HACK: not used
+        return {}
 
     @property
     def _output_keys(self) -> set:

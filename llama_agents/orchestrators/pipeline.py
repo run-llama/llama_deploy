@@ -20,9 +20,6 @@ RESULT_KEY = "result"
 INPUT_DICT_KEY = "__input_dict__"
 
 
-
-
-
 def get_service_component_message(
     module: ServiceComponent,
     task_id: str,
@@ -137,23 +134,9 @@ class PipelineOrchestrator(BaseOrchestrator):
                         input_dict=module_input,
                     )
 
-                    # # input to an agent is a dict, so we need to extract the actual input
-                    # if isinstance(module_input, dict):
-                    #     module_input = next(iter(module_input.values()))
-
                     found_service_component = True
                     next_service_keys.append(module_key)
                     next_messages.append(queue_message)
-                    # next_messages.append(
-                    #     QueueMessage(
-                    #         type=module.name,
-                    #         action=ActionTypes.NEW_TASK,
-                    #         data=TaskDefinition(
-                    #             input=module_input,
-                    #             task_id=task_def.task_id,
-                    #         ).model_dump(),
-                    #     )
-                    # )
                     continue
 
                 # run the module if it is not a service component
@@ -169,17 +152,7 @@ class PipelineOrchestrator(BaseOrchestrator):
                         task_def.task_id,
                         input_dict=service_dict["input"],
                     )
-                    # service_dict = json.loads(output_dict["service_output"])
-                    # next_messages.append(
-                    #     QueueMessage(
-                    #         type=service_dict["name"],
-                    #         action=ActionTypes.NEW_TASK,
-                    #         data=TaskDefinition(
-                    #             input=service_dict["input"],
-                    #             task_id=task_def.task_id,
-                    #         ).model_dump(),
-                    #     )
-                    # )
+                    next_messages.append(queue_message)
                     continue
 
                 # process the output if it is not a service component
@@ -234,6 +207,7 @@ class PipelineOrchestrator(BaseOrchestrator):
             task_result.model_dump() if task_result is not None else None
         )
 
+
         return next_messages, state
 
     async def add_result_to_state(
@@ -254,11 +228,6 @@ class PipelineOrchestrator(BaseOrchestrator):
                 module_key,
                 result,
             )
-            # self.pipeline.process_component_output(
-            #     {"output": result.result},
-            #     module_key,
-            #     run_state,
-            # )
 
         state[RUN_STATE_KEY] = pickle.dumps(run_state)
         state[LAST_MODULES_RUN] = next_service_keys
