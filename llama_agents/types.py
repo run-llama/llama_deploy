@@ -72,6 +72,9 @@ class ActionTypes(str, Enum):
     REQUEST_FOR_HELP = "request_for_help"
     NEW_TOOL_CALL = "new_tool_call"
     COMPLETED_TOOL_CALL = "completed_tool_call"
+    
+    NEW_COMPONENT_CALL = "new_component_call"
+    COMPLETED_COMPONENT_CALL = "completed_component_call"
 
 
 class TaskDefinition(BaseModel):
@@ -85,6 +88,7 @@ class TaskResult(BaseModel):
     task_id: str
     history: List[ChatMessage]
     result: str
+    data: dict = Field(default_factory=dict)
 
 
 class ToolCallBundle(BaseModel):

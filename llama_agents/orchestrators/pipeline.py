@@ -1,19 +1,103 @@
 import json
 import pickle
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 from llama_index.core.query_pipeline import QueryPipeline
+from llama_index.core.query_pipeline.query import RunState
 from llama_index.core.tools import BaseTool
 
 from llama_agents.messages.base import QueueMessage
 from llama_agents.orchestrators.base import BaseOrchestrator
-from llama_agents.tools.service_component import ServiceComponent
+from llama_agents.tools.service_component import ServiceComponent, ModuleType
 from llama_agents.types import ActionTypes, TaskDefinition, TaskResult
 
 RUN_STATE_KEY = "run_state"
 NEXT_SERVICE_KEYS = "next_service_keys"
 LAST_MODULES_RUN = "last_modules_run"
 RESULT_KEY = "result"
+
+
+INPUT_DICT_KEY = "__input_dict__"
+
+
+
+
+
+def get_service_component_message(
+    module: ServiceComponent,
+    task_id: str,
+    input_dict: Dict[str, Any],
+) -> QueueMessage:
+    """Enqueue a service component message.
+
+    This depends directly on whether the service component
+    wraps an agent service or a component
+    
+    """
+    if module.module_type == ModuleType.AGENT:
+        # in an agent, assume input_dict is a single input
+        input = next(iter(input_dict.values()))
+        queue_message = QueueMessage(
+            type=module.name,
+            action=ActionTypes.NEW_TASK,
+            data=TaskDefinition(
+                input=input,
+                task_id=task_id,
+            ).model_dump()
+        )
+    elif module.module_type == ModuleType.COMPONENT:
+        # in a component, input_dict is a dict
+        queue_message = QueueMessage(
+            type=module.name,
+            action=ActionTypes.NEW_TASK,
+            data=TaskDefinition(
+                input="",
+                task_id=task_id,
+                state={"__input_dict__": input_dict} if input_dict else {},
+            ).model_dump(),
+        )
+    else:
+        raise ValueError("Invalid module type")
+
+    return queue_message
+
+
+def process_component_output(
+    pipeline: QueryPipeline,
+    run_state: RunState,
+    module_key: str,
+    task_result: TaskResult
+) -> None:
+    """Process component outputs.
+
+    Take the task result and update the next modules in the pipeline.
+
+    Propagate different data depending on the module type.
+    
+    """
+    module = run_state.module_dict[module_key]
+    if not isinstance(module, ServiceComponent):
+        raise ValueError("Module is not a service component")
+
+    if module.module_type == ModuleType.AGENT:
+        # in an agent, the output is a single value
+        pipeline.process_component_output(
+            {"output": task_result.result},
+            module_key,
+            run_state,
+        )
+        return
+
+    elif module.module_type == ModuleType.COMPONENT:
+        # in a component, the output is a dict
+        pipeline.process_component_output(
+            task_result.data,
+            module_key,
+            run_state
+        )
+        
+    else:
+        raise ValueError("Invalid module type")
 
 
 class PipelineOrchestrator(BaseOrchestrator):
@@ -46,22 +130,30 @@ class PipelineOrchestrator(BaseOrchestrator):
                 module_input = run_state.all_module_inputs[module_key]
 
                 if isinstance(module, ServiceComponent):
-                    # input to an agent is a dict, so we need to extract the actual input
-                    if isinstance(module_input, dict):
-                        module_input = next(iter(module_input.values()))
+
+                    queue_message = get_service_component_message(
+                        module,
+                        task_def.task_id,
+                        input_dict=module_input,
+                    )
+
+                    # # input to an agent is a dict, so we need to extract the actual input
+                    # if isinstance(module_input, dict):
+                    #     module_input = next(iter(module_input.values()))
 
                     found_service_component = True
                     next_service_keys.append(module_key)
-                    next_messages.append(
-                        QueueMessage(
-                            type=module.name,
-                            action=ActionTypes.NEW_TASK,
-                            data=TaskDefinition(
-                                input=module_input,
-                                task_id=task_def.task_id,
-                            ).model_dump(),
-                        )
-                    )
+                    next_messages.append(queue_message)
+                    # next_messages.append(
+                    #     QueueMessage(
+                    #         type=module.name,
+                    #         action=ActionTypes.NEW_TASK,
+                    #         data=TaskDefinition(
+                    #             input=module_input,
+                    #             task_id=task_def.task_id,
+                    #         ).model_dump(),
+                    #     )
+                    # )
                     continue
 
                 # run the module if it is not a service component
@@ -69,19 +161,25 @@ class PipelineOrchestrator(BaseOrchestrator):
 
                 # check if the output is a service component
                 if "service_output" in output_dict:
+                    service_dict = json.loads(output_dict["service_output"])
                     found_service_component = True
                     next_service_keys.append(module_key)
-                    service_dict = json.loads(output_dict["service_output"])
-                    next_messages.append(
-                        QueueMessage(
-                            type=service_dict["name"],
-                            action=ActionTypes.NEW_TASK,
-                            data=TaskDefinition(
-                                input=service_dict["input"],
-                                task_id=task_def.task_id,
-                            ).model_dump(),
-                        )
+                    queue_message = get_service_component_message(
+                        module,
+                        task_def.task_id,
+                        input_dict=service_dict["input"],
                     )
+                    # service_dict = json.loads(output_dict["service_output"])
+                    # next_messages.append(
+                    #     QueueMessage(
+                    #         type=service_dict["name"],
+                    #         action=ActionTypes.NEW_TASK,
+                    #         data=TaskDefinition(
+                    #             input=service_dict["input"],
+                    #             task_id=task_def.task_id,
+                    #         ).model_dump(),
+                    #     )
+                    # )
                     continue
 
                 # process the output if it is not a service component
@@ -150,11 +248,17 @@ class PipelineOrchestrator(BaseOrchestrator):
 
         # process the output of the service component(s)
         for module_key in next_service_keys:
-            self.pipeline.process_component_output(
-                {"output": result.result},
-                module_key,
+            process_component_output(
+                self.pipeline,
                 run_state,
+                module_key,
+                result,
             )
+            # self.pipeline.process_component_output(
+            #     {"output": result.result},
+            #     module_key,
+            #     run_state,
+            # )
 
         state[RUN_STATE_KEY] = pickle.dumps(run_state)
         state[LAST_MODULES_RUN] = next_service_keys
