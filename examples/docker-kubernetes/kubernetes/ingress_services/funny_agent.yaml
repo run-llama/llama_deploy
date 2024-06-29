@@ -1,0 +1,113 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: funny-agent
+  namespace: llama-agents-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: funny-agent
+  template:
+    metadata:
+      labels:
+        app: funny-agent
+    spec:
+      containers:
+        - name: funny-agent
+          env:
+            - name: MESSAGE_QUEUE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: MESSAGE_QUEUE_HOST
+            - name: MESSAGE_QUEUE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: MESSAGE_QUEUE_PORT
+            - name: CONTROL_PLANE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_HOST
+            - name: CONTROL_PLANE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_PORT
+            - name: FUNNY_AGENT_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: FUNNY_AGENT_HOST
+            - name: FUNNY_AGENT_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: FUNNY_AGENT_PORT
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: xcore-secret
+                  key: OPENAI_API_KEY
+          image: multi_agent_app:latest
+          imagePullPolicy: Never
+          command:
+            [
+              "uvicorn",
+              "multi_agent_app.agent_services.funny_agent:app",
+              "--host",
+              "0.0.0.0",
+              "--port",
+              "8000",
+              "--log-config",
+              "./logging.ini",
+              "--log-level",
+              "debug",
+            ]
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 8000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: funny-agent
+  name: funny-agent
+  namespace: llama-agents-demo
+spec:
+  selector:
+    app: funny-agent
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: funny-agent
+  namespace: llama-agents-demo
+spec:
+  rules:
+    - host: funny-agent.127.0.0.1.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: funny-agent
+                port:
+                  number: 8000
