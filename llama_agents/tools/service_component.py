@@ -8,6 +8,7 @@ from llama_index.core.base.query_pipeline.query import InputKeys
 from llama_agents.types import ServiceDefinition
 from enum import Enum
 
+
 class ModuleType(str, Enum):
     """Module types.
 
@@ -15,8 +16,9 @@ class ModuleType(str, Enum):
     the pipeline orchestrator.
 
     Ideally there should not be more types.
-    
+
     """
+
     AGENT = "agent"
     COMPONENT = "component"
 
@@ -38,23 +40,19 @@ class ServiceComponent(CustomQueryComponent):
         input_keys: Optional[InputKeys] = None,
         module_type: ModuleType = ModuleType.AGENT,
     ) -> None:
-        super().__init__(
-            name=name,
-            description=description,
-            module_type=module_type
-        )
+        super().__init__(name=name, description=description, module_type=module_type)
         if input_keys is not None:
             self._cur_input_keys = input_keys or InputKeys.from_keys({"input"})
 
     @classmethod
     def from_service_definition(
-        cls, 
+        cls,
         service_def: ServiceDefinition,
         input_keys: Optional[InputKeys] = None,
         module_type: ModuleType = ModuleType.AGENT,
     ) -> "ServiceComponent":
         return cls(
-            name=service_def.service_name, 
+            name=service_def.service_name,
             description=service_def.description,
             input_keys=input_keys,
             module_type=module_type,
@@ -70,12 +68,12 @@ class ServiceComponent(CustomQueryComponent):
 
         if not isinstance(component_service, ComponentService):
             raise ValueError("component_service must be a Component")
-        
+
         component = component_service.component
         return cls.from_service_definition(
             component_service.service_definition,
             input_keys=component.input_keys,
-            module_type=ModuleType.COMPONENT
+            module_type=ModuleType.COMPONENT,
         )
 
     @property
@@ -84,7 +82,7 @@ class ServiceComponent(CustomQueryComponent):
         # NOTE: user can override this too, but we have them implement an
         # abstract method to make sure they do it
 
-        return self._cur_input_keys 
+        return self._cur_input_keys
 
     @property
     def _input_keys(self) -> set:

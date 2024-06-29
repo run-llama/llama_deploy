@@ -1,6 +1,6 @@
 import json
 import pickle
-from typing import Any, Dict, List, Tuple, Optional
+from typing import Any, Dict, List, Tuple
 
 from llama_index.core.query_pipeline import QueryPipeline
 from llama_index.core.query_pipeline.query import RunState
@@ -29,7 +29,7 @@ def get_service_component_message(
 
     This depends directly on whether the service component
     wraps an agent service or a component
-    
+
     """
     if module.module_type == ModuleType.AGENT:
         # in an agent, assume input_dict is a single input
@@ -40,7 +40,7 @@ def get_service_component_message(
             data=TaskDefinition(
                 input=input,
                 task_id=task_id,
-            ).model_dump()
+            ).model_dump(),
         )
     elif module.module_type == ModuleType.COMPONENT:
         # in a component, input_dict is a dict
@@ -63,14 +63,14 @@ def process_component_output(
     pipeline: QueryPipeline,
     run_state: RunState,
     module_key: str,
-    task_result: TaskResult
+    task_result: TaskResult,
 ) -> None:
     """Process component outputs.
 
     Take the task result and update the next modules in the pipeline.
 
     Propagate different data depending on the module type.
-    
+
     """
     module = run_state.module_dict[module_key]
     if not isinstance(module, ServiceComponent):
@@ -87,12 +87,8 @@ def process_component_output(
 
     elif module.module_type == ModuleType.COMPONENT:
         # in a component, the output is a dict
-        pipeline.process_component_output(
-            task_result.data,
-            module_key,
-            run_state
-        )
-        
+        pipeline.process_component_output(task_result.data, module_key, run_state)
+
     else:
         raise ValueError("Invalid module type")
 
@@ -127,7 +123,6 @@ class PipelineOrchestrator(BaseOrchestrator):
                 module_input = run_state.all_module_inputs[module_key]
 
                 if isinstance(module, ServiceComponent):
-
                     queue_message = get_service_component_message(
                         module,
                         task_def.task_id,
@@ -206,7 +201,6 @@ class PipelineOrchestrator(BaseOrchestrator):
         state[RESULT_KEY] = (
             task_result.model_dump() if task_result is not None else None
         )
-
 
         return next_messages, state
 
