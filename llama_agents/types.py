@@ -73,9 +73,6 @@ class ActionTypes(str, Enum):
     NEW_TOOL_CALL = "new_tool_call"
     COMPLETED_TOOL_CALL = "completed_tool_call"
 
-    NEW_COMPONENT_CALL = "new_component_call"
-    COMPLETED_COMPONENT_CALL = "completed_component_call"
-
 
 class TaskDefinition(BaseModel):
     input: str

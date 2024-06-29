@@ -2,9 +2,6 @@ import asyncio
 import httpx
 from abc import ABC, abstractmethod
 from pydantic import BaseModel
-
-# from llama_index.core.bridge.pydantic import BaseModel
-
 from typing import Any
 
 from llama_agents.messages.base import QueueMessage
