@@ -88,7 +88,7 @@ class ServiceComponent(CustomQueryComponent):
     def _input_keys(self) -> set:
         """Input keys dict."""
         # HACK: not used
-        return {}
+        return set()
 
     @property
     def _output_keys(self) -> set:
