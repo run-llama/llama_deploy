@@ -11,6 +11,7 @@ repos:
       - id: check-symlinks
       - id: check-toml
       - id: check-yaml
+        args: [--allow-multiple-documents]
       - id: detect-private-key
       - id: end-of-file-fixer
       - id: mixed-line-ending
