@@ -1,6 +1,5 @@
 from googleapiclient import discovery
 from typing import Dict, Optional
-import json
 import os
 
 
@@ -77,14 +76,11 @@ pespective_tool = FunctionTool.from_defaults(
     perspective_function_tool,
 )
 
-from llama_index.agent.introspective import IntrospectiveAgentWorker
 from llama_index.agent.introspective import ToolInteractiveReflectionAgentWorker
 
 from llama_index.llms.openai import OpenAI
-from llama_index.agent.openai import OpenAIAgentWorker
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.llms import ChatMessage, MessageRole
-from llama_index.core import ChatPromptTemplate
 
 
 def get_tool_interactive_reflection_agent(verbose: bool = True):
@@ -103,6 +99,7 @@ def get_tool_interactive_reflection_agent(verbose: bool = True):
         tools=[pespective_tool], llm=OpenAI("gpt-3.5-turbo"), verbose=verbose
     )
     correction_llm = OpenAI("gpt-4-turbo-preview")
+
     def stopping_callable(critique_str: str) -> bool:
         """Function that determines stopping condition for reflection & correction cycles.
 
@@ -111,8 +108,6 @@ def get_tool_interactive_reflection_agent(verbose: bool = True):
 
         return "[PASS]" in critique_str
 
-    
-    
     agent_worker = ToolInteractiveReflectionAgentWorker.from_defaults(
         critique_agent_worker=critique_agent_worker,
         critique_template=(
@@ -131,29 +126,34 @@ def get_tool_interactive_reflection_agent(verbose: bool = True):
             role=MessageRole.SYSTEM,
         )
     ]
-    
+
     return agent_worker.as_agent(chat_history=chat_history)
 
 
 critic_agent_prepackaged = get_tool_interactive_reflection_agent(verbose=True)
 
 
-
 # wrap with stateful function
 from llama_index.core.agent import FnAgentWorker
 from typing import Dict, Any, Tuple
 
+
 def critic_agent_fn(state: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
     """Critic agent function."""
-    critic_agent_prepackaged, input_str = state["critic_agent_prepackaged"], state["__task__"].input
+    critic_agent_prepackaged, input_str = (
+        state["critic_agent_prepackaged"],
+        state["__task__"].input,
+    )
     response = critic_agent_prepackaged.query(input_str)
     state["__output__"] = str(response)
     return state, True
 
+
 critic_agent = FnAgentWorker(
-    fn=critic_agent_fn, initial_state={
-        "critic_agent_prepackaged": critic_agent_prepackaged, 
-    }
+    fn=critic_agent_fn,
+    initial_state={
+        "critic_agent_prepackaged": critic_agent_prepackaged,
+    },
 ).as_agent()
 
 from llama_index.agent.introspective import SelfReflectionAgentWorker
@@ -192,7 +192,7 @@ self_reflection_agent = get_self_reflection_agent(verbose=True)
 
 # self_reflection_agent = FnAgentWorker(
 #     fn=self_reflection_agent_fn, initial_state={
-#         "self_reflection_agent_prepackaged": self_reflection_agent_prepackaged, 
+#         "self_reflection_agent_prepackaged": self_reflection_agent_prepackaged,
 #     }
 # ).as_agent()
 
@@ -218,7 +218,7 @@ from llama_agents import (
     LocalLauncher,
     SimpleMessageQueue,
     QueueMessage,
-    CallableMessageConsumer
+    CallableMessageConsumer,
 )
 from llama_index.llms.openai import OpenAI
 
@@ -243,22 +243,20 @@ def get_launcher(agent, is_local: bool = True):
     )
     # launch it
     if is_local:
-        launcher = LocalLauncher(
-            [agent_service], control_plane, message_queue
-        )
+        launcher = LocalLauncher([agent_service], control_plane, message_queue)
     else:
         # Additional human consumer
         def handle_result(message: QueueMessage) -> None:
-            print(f"Got result:", message.data)
+            print("Got result:", message.data)
 
         human_consumer = CallableMessageConsumer(
             handler=handle_result, message_type="human"
         )
         launcher = ServerLauncher(
-            [agent_service], 
-            control_plane, 
+            [agent_service],
+            control_plane,
             message_queue,
-            additional_consumers=[human_consumer]
+            additional_consumers=[human_consumer],
         )
 
     return launcher
