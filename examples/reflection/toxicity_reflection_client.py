@@ -1,6 +1,7 @@
 from llama_agents import LlamaAgentsClient
 from llama_agents.types import TaskResult
 import time
+from typing import cast
 
 
 def get_task_result(
@@ -12,10 +13,12 @@ def get_task_result(
     count = 0
     while True:
         if count == max_iterations:
-            task_result = "Reached max iterations"
+            task_result = TaskResult(
+                task_id="error", history=[], result="Reached max iterations"
+            )
             break
         try:
-            task_result = client.get_task_result(task_id)
+            task_result = cast(TaskResult, client.get_task_result(task_id))
             passed = True
         except Exception as e:
             print(f"Not ready yet: {str(e)}")
