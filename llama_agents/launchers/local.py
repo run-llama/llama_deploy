@@ -125,7 +125,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
                 if task.done() and task.exception():  # type: ignore
                     raise task.exception()  # type: ignore
 
-            if mq_task.done() and mq_task.exception():  # type: ignore
+            if mq_task is not None and mq_task.done() and mq_task.exception():  # type: ignore
                 raise mq_task.exception()  # type: ignore
 
             if self.result:
