@@ -7,7 +7,7 @@ import uvicorn
 
 from collections import deque
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from logging import getLogger
 from pydantic import Field, PrivateAttr
 from typing import Any, AsyncGenerator, Dict, List, Optional
@@ -218,8 +218,10 @@ class SimpleMessageQueue(BaseMessageQueue):
             )
         else:
             if consumer.id_ in self.consumers[message_type_str]:
-                raise ValueError("Consumer has already been added.")
-
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Consumer with the same id_ has already been previously added.",
+                )
             self.consumers[message_type_str][consumer.id_] = consumer
             logger.info(
                 f"Consumer {consumer.id_}: {message_type_str} has been registered."
@@ -232,14 +234,43 @@ class SimpleMessageQueue(BaseMessageQueue):
         self, consumer_def: RemoteMessageConsumerDef
     ) -> Dict[str, str]:
         consumer = RemoteMessageConsumer(**consumer_def.model_dump())
+        message_type = consumer.message_type
+
+        # check if consumer with same url already exists
+        if message_type in self.consumers:
+
+            def consumer_with_same_url(
+                c: RemoteMessageConsumer,
+            ) -> bool:
+                return c.url == consumer.url
+
+            try:
+                next(
+                    filter(
+                        consumer_with_same_url,
+                        [
+                            c
+                            for c in self.consumers[message_type].values()
+                            if isinstance(c, RemoteMessageConsumer)
+                        ],
+                    )
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="A consumer with the same url has previously been registered.",
+                )
+            except StopIteration:
+                pass
+
         await self.register_consumer(consumer)
         return {"consumer": consumer.id_}
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> None:
         message_type_str = consumer.message_type
         if consumer.id_ not in self.consumers.get(message_type_str, {}):
-            raise ValueError(
-                f"No consumer found for associated message type. {consumer.id_}: {message_type_str}"
+            raise HTTPException(
+                detail=f"No consumer found for associated message type. {consumer.id_}: {message_type_str}",
+                status_code=status.HTTP_404_NOT_FOUND,
             )
 
         del self.consumers[message_type_str][consumer.id_]
@@ -310,3 +341,8 @@ class SimpleMessageQueue(BaseMessageQueue):
             "service_name": "message_queue",
             "description": "Message queue for multi-agent system",
         }
+
+
+if __name__ == "__main__":
+    mq = SimpleMessageQueue()
+    asyncio.run(mq.launch_server())
