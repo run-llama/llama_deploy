@@ -218,7 +218,10 @@ class SimpleMessageQueue(BaseMessageQueue):
             )
         else:
             if consumer.id_ in self.consumers[message_type_str]:
-                raise ValueError("Consumer has already been added.")
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Consumer with the same id_ has already been previously added.",
+                )
             self.consumers[message_type_str][consumer.id_] = consumer
             logger.info(
                 f"Consumer {consumer.id_}: {message_type_str} has been registered."
