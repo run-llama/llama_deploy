@@ -85,6 +85,7 @@ class TaskResult(BaseModel):
     task_id: str
     history: List[ChatMessage]
     result: str
+    data: dict = Field(default_factory=dict)
 
 
 class ToolCallBundle(BaseModel):
