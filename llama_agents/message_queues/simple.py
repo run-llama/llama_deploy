@@ -268,8 +268,9 @@ class SimpleMessageQueue(BaseMessageQueue):
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> None:
         message_type_str = consumer.message_type
         if consumer.id_ not in self.consumers.get(message_type_str, {}):
-            raise ValueError(
-                f"No consumer found for associated message type. {consumer.id_}: {message_type_str}"
+            raise HTTPException(
+                detail=f"No consumer found for associated message type. {consumer.id_}: {message_type_str}",
+                status_code=status.HTTP_404_NOT_FOUND,
             )
 
         del self.consumers[message_type_str][consumer.id_]
