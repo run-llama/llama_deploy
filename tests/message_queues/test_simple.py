@@ -1,10 +1,12 @@
 import asyncio
 import pytest
+from fastapi import HTTPException
+from pydantic import PrivateAttr
 from typing import Any, List
-from llama_index.core.bridge.pydantic import PrivateAttr
-from agentfile.message_consumers.base import BaseMessageQueueConsumer
-from agentfile.message_queues.simple import SimpleMessageQueue
-from agentfile.messages.base import QueueMessage
+
+from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_queues.simple import SimpleMessageQueue
+from llama_agents.messages.base import QueueMessage
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
@@ -26,7 +28,7 @@ async def test_simple_register_consumer() -> None:
     # Act
     await mq.register_consumer(consumer_one)
     await mq.register_consumer(consumer_two)
-    with pytest.raises(ValueError):
+    with pytest.raises(HTTPException):
         await mq.register_consumer(consumer_two)
 
     # Assert
@@ -53,7 +55,7 @@ async def test_simple_deregister_consumer() -> None:
     # Act
     await mq.deregister_consumer(consumer_one)
     await mq.deregister_consumer(consumer_three)
-    with pytest.raises(ValueError):
+    with pytest.raises(HTTPException):
         await mq.deregister_consumer(consumer_three)
 
     # Assert
@@ -67,15 +69,15 @@ async def test_simple_publish_consumer() -> None:
     consumer_one = MockMessageConsumer()
     consumer_two = MockMessageConsumer(message_type="two")
     mq = SimpleMessageQueue()
-    task = asyncio.create_task(mq.start())
+    task = await mq.launch_local()
 
     await mq.register_consumer(consumer_one)
     await mq.register_consumer(consumer_two)
 
     # Act
-    await mq.publish(QueueMessage(id_="1"))
-    await mq.publish(QueueMessage(id_="2", type="two"))
-    await mq.publish(QueueMessage(id_="3", type="two"))
+    await mq.publish(QueueMessage(publisher_id="test", id_="1"))
+    await mq.publish(QueueMessage(publisher_id="test", id_="2", type="two"))
+    await mq.publish(QueueMessage(publisher_id="test", id_="3", type="two"))
 
     # Give some time for last message to get published and sent to consumers
     await asyncio.sleep(0.5)
