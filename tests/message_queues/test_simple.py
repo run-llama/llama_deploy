@@ -1,5 +1,6 @@
 import asyncio
 import pytest
+from fastapi import HTTPException
 from pydantic import PrivateAttr
 from typing import Any, List
 
@@ -27,7 +28,7 @@ async def test_simple_register_consumer() -> None:
     # Act
     await mq.register_consumer(consumer_one)
     await mq.register_consumer(consumer_two)
-    with pytest.raises(ValueError):
+    with pytest.raises(HTTPException):
         await mq.register_consumer(consumer_two)
 
     # Assert
@@ -54,7 +55,7 @@ async def test_simple_deregister_consumer() -> None:
     # Act
     await mq.deregister_consumer(consumer_one)
     await mq.deregister_consumer(consumer_three)
-    with pytest.raises(ValueError):
+    with pytest.raises(HTTPException):
         await mq.deregister_consumer(consumer_three)
 
     # Assert
