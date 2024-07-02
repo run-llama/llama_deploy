@@ -1,6 +1,9 @@
 """RabbitMQ Message Queue."""
 
 import asyncio
+import nest_asyncio
+
+nest_asyncio.apply()
 import json
 
 from pydantic import PrivateAttr
@@ -29,7 +32,7 @@ class RabbitMQChannel(BaseChannel):
         def callback(ch, method, properties, body):
             payload = json.loads(body.decode("utf-8"))
             message = QueueMessage.model_validate(payload)
-            asyncio.get_event_loop().run_until_complete(process_message(message))
+            asyncio.run(process_message(message))
 
         self._pika_channel.basic_consume(
             queue=message_type, auto_ack=True, on_message_callback=callback

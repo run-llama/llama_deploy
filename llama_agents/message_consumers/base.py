@@ -8,7 +8,7 @@ from llama_agents.messages.base import QueueMessage
 from llama_agents.types import generate_id
 
 if TYPE_CHECKING:
-    from llama_agents.message_queues.base import BaseMessageQueue
+    pass
 
 
 class BaseMessageQueueConsumer(BaseModel, ABC):
