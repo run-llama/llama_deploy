@@ -127,6 +127,12 @@ file to `.env.docker`. Note there are some variables there that we recommend not
 modifying as they are used to the service definitions establisehed in the
 `docker_compose.yml`.
 
+This example is provided without a `poetry.lock` file as recommended in the 
+[poetry documentation for library developers](https://python-poetry.org/docs/basic-usage/#as-a-library-developer).
+Before running docker-compose the first time, we must create the `poetry.lock` file. 
+
+`cd examples/docker-kubernetes/multi-agent-app && poetry install`
+
 To launch the services we now use the `docker-compose` command line tool.
 
 ```sh
