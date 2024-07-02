@@ -3,14 +3,16 @@
 ![Slide One](https://d3ddy8balm3goa.cloudfront.net/llamaindex/launchers-v2.svg)
 
 In this example, we demonstrate how one can build a multi-agent app with a
-structure and development flow more conducive to production. Specifically,
-we employ a project structure that organizes the multi-agent app to its separate
+structure and development flow more conducive to production. Specifically, we
+employ a project structure that organizes the multi-agent app to its separate
 components, namely:
 
 - `core_services`: message queue and control plane
-- `agent_services`: our two agents ("secret" agent and "funny" agent) and their services
+- `agent_services`: our two agents ("secret" agent and "funny" agent) and their
+  services
 - `additional_services`: additional services, which for this example includes a
-  human consumer service that writes the final task result json objects to `task_results/task_results.jsonl`.
+  human consumer service that writes the final task result json objects to
+  `task_results/task_results.jsonl`.
 
 In what follows next, we present three ways to launch the multi-agent system of
 this example.
@@ -24,24 +26,24 @@ using three different options:
 2. Launching Services With Docker
 3. Launching Services With Kubernetes
 
-These options can be thought of as a progression scale that may be used depending
-on the current stage of the development process. Specifically, during early
-stages of development, rapid iteration cycles on the components are likely of
-higher priority, and so launching without docker might seem appropriate. The next
-stage may then be to progress the system towards production, where containerization
-becomes essential. Finally, when the matters of scalability and orchestrating these
-various services become of higher priority, one may want to test launching the system
-on a localized Kubernetes cluster.
+These options can be thought of as a progression scale that may be used
+depending on the current stage of the development process. Specifically, during
+early stages of development, rapid iteration cycles on the components are likely
+of higher priority, and so launching without docker might seem appropriate. The
+next stage may then be to progress the system towards production, where
+containerization becomes essential. Finally, when the matters of scalability and
+orchestrating these various services become of higher priority, one may want to
+test launching the system on a localized Kubernetes cluster.
 
 ### Launching Without Docker
 
-An easy way to launch a multi-agent system is to use `ServerLauncher` object. This
-object takes in all of the core, agent and additional services and makes launching
-them into a single method execution call.
+An easy way to launch a multi-agent system is to use `ServerLauncher` object.
+This object takes in all of the core, agent and additional services and makes
+launching them into a single method execution call.
 
 The `ServerLauncher` for this example resides in the file
-`multi-agent-app/multi_agent_app/local_launcher.py`. It's contents are pasted
-in the code block found below.
+`multi-agent-app/multi_agent_app/local_launcher.py`. It's contents are pasted in
+the code block found below.
 
 ```python
 from llama_agents import ServerLauncher
@@ -75,11 +77,11 @@ if __name__ == "__main__":
 We can see from the above that we're just simply importing in our multi-agent
 components from their respective modules.
 
-Now in order to launch this multi-agent system, we first need to set the required
-environment variables. To do that fill in the provided `template.env.local` file
-found in the `multi-agent-app/` folder. After filling in the file rename it to
-`.env.local` (i.e., remove "template" from the name) and the run the commands
-that follow.
+Now in order to launch this multi-agent system, we first need to set the
+required environment variables. To do that fill in the provided
+`template.env.local` file found in the `multi-agent-app/` folder. After filling
+in the file rename it to `.env.local` (i.e., remove "template" from the name)
+and the run the commands that follow.
 
 ```sh
 # set environment variables
@@ -109,8 +111,9 @@ print(task_result.result)
 
 ### Launching With Docker
 
-_Prerequisites_: Must have docker installed. (See [here](https://docs.docker.com/get-docker/)
-for how to install Docker Desktop which comes with `docker-compose`.)
+_Prerequisites_: Must have docker installed. (See
+[here](https://docs.docker.com/get-docker/) for how to install Docker Desktop
+which comes with `docker-compose`.)
 
 To Launch with Docker, this example makes use of `docker-compose` that will take
 care of launching the individual services (and building a default bridge network
@@ -122,14 +125,15 @@ image is found in `multi-agent-app/Dockerfile`. Before building the docker image
 and launching the services (as with the case for launching without Docker), we
 first need to set the required environment variables.
 
-Fill in the values in the `template.env.docker` file and after doing so rename the
-file to `.env.docker`. Note there are some variables there that we recommend not
-modifying as they are used to the service definitions establisehed in the
+Fill in the values in the `template.env.docker` file and after doing so rename
+the file to `.env.docker`. Note there are some variables there that we recommend
+not modifying as they are used to the service definitions establisehed in the
 `docker_compose.yml`.
 
-This example is provided without a `poetry.lock` file as recommended in the 
+This example is provided without a `poetry.lock` file as recommended in the
 [poetry documentation for library developers](https://python-poetry.org/docs/basic-usage/#as-a-library-developer).
-Before running docker-compose the first time, we must create the `poetry.lock` file. 
+Before running docker-compose the first time, we must create the `poetry.lock`
+file.
 
 `cd examples/docker-kubernetes/multi-agent-app && poetry install`
 
@@ -140,8 +144,8 @@ docker-compose up --build
 ```
 
 Once all the services are of healthy status, and after the `registration_task`
-exits with code 0 (which should appear in the lgos) we can send tasks to our multi-agent
-system:
+exits with code 0 (which should appear in the lgos) we can send tasks to our
+multi-agent system:
 
 ```python
 from llama_agents import LlamaAgentsClient
@@ -156,8 +160,8 @@ print(task_result.result)
 
 _Prerequisites_: Must have `kubectl` and local Kubernetes cluster running. The
 recommended way is to install Docker Desktop which comes with a standalone
-Kubernetes server & client (see [here](https://docs.docker.com/desktop/kubernetes/)
-for more information.)
+Kubernetes server & client (see
+[here](https://docs.docker.com/desktop/kubernetes/) for more information.)
 
 To launch with Kubernetes, we'll make use of `kubectl` command line tool and
 "apply" our k8s manifests. For this example to run, it assumes the docker image
@@ -173,8 +177,8 @@ The Kubernetes manifest files are organized as follows:
 
 - `ingress_controller`: We use an nginx ingress controller for our reverse proxy
   and load balancer to our ingress services
-- `ingress_services`: Contains our ingress services (i.e., all of the multi-agent
-  system components)
+- `ingress_services`: Contains our ingress services (i.e., all of the
+  multi-agent system components)
 - `setup`: Sets up the Kubernetes cluster with a namespace and required secrets.
 - `jobs`: Kubernetes Job for handling registration to the message queue as well
   as control plane.
@@ -229,18 +233,18 @@ print(task_result.result)
 NOTE: With this deployment, the services can be hit (i.e. with Postman) using
 the following hosts:
 
-- `message-queue`: http://message-queue.127.0.0.1.nip.io
-- `control-plane`: http://control-plane.127.0.0.1.nip.io
-- `secret-agent`: http://secret-agent.127.0.0.1.nip.io
-- `funny-agent`: http://funny-agent.127.0.0.1.nip.io
-- `human-consumer`: http://human-consumer.127.0.0.1.nip.io
+- `message-queue`: <http://message-queue.127.0.0.1.nip.io>
+- `control-plane`: <http://control-plane.127.0.0.1.nip.io>
+- `secret-agent`: <http://secret-agent.127.0.0.1.nip.io>
+- `funny-agent`: <http://funny-agent.127.0.0.1.nip.io>
+- `human-consumer`: <http://human-consumer.127.0.0.1.nip.io>
 
 #### Scaling the multi-agent system
 
 We can scale up our multi-agent system by adding more "pods" for any of the
-system components. For example to add another secret-agent to our system, we simply
-modify the `kubernetes/ingress_services/secret_agent.yaml` file by changing the value
-for `replicas` to 2:
+system components. For example to add another secret-agent to our system, we
+simply modify the `kubernetes/ingress_services/secret_agent.yaml` file by
+changing the value for `replicas` to 2:
 
 ```yaml
 ---
