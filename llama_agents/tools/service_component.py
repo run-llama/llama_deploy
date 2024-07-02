@@ -41,8 +41,7 @@ class ServiceComponent(CustomQueryComponent):
         module_type: ModuleType = ModuleType.AGENT,
     ) -> None:
         super().__init__(name=name, description=description, module_type=module_type)
-        if input_keys is not None:
-            self._cur_input_keys = input_keys or InputKeys.from_keys({"input"})
+        self._cur_input_keys = input_keys or InputKeys.from_keys({"input"})
 
     @classmethod
     def from_service_definition(
