@@ -3,10 +3,11 @@
 import asyncio
 import json
 
+from pydantic import PrivateAttr
 from logging import getLogger
 from typing import Any, Optional, TYPE_CHECKING
 
-from llama_agents.message_queues.base import BaseMessageQueue
+from llama_agents.message_queues.base import BaseMessageQueue, BaseChannel
 from llama_agents.messages.base import QueueMessage
 from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 
@@ -15,6 +16,25 @@ if TYPE_CHECKING:
 
 
 logger = getLogger(__name__)
+
+
+class RabbitMQChannel(BaseChannel):
+    _pika_channel = PrivateAttr()
+
+    def __init__(self, pika_channel: Any) -> None:
+        super().__init__()
+        self._pika_channel = pika_channel
+
+    def start_consuming(self, process_message, message_type) -> None:
+        def callback(ch, method, properties, body):
+            payload = json.loads(body.decode("utf-8"))
+            message = QueueMessage.model_validate(payload)
+            asyncio.get_event_loop().run_until_complete(process_message(message))
+
+        self._pika_channel.basic_consume(
+            queue=message_type, auto_ack=True, on_message_callback=callback
+        )
+        self._pika_channel.start_consuming()
 
 
 def _establish_connection(host: str, port: Optional[int]) -> "BlockingConnection":
@@ -50,7 +70,9 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         connection.close()
         logger.info(f"published message {message.id_}")
 
-    async def register_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
+    async def register_consumer(
+        self, consumer: BaseMessageQueueConsumer
+    ) -> RabbitMQChannel:
         print(
             f"registering consumer {consumer.id_}: {consumer.message_type}", flush=True
         )
@@ -58,20 +80,11 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         channel = connection.channel()
         channel.queue_declare(queue=consumer.message_type)
 
-        def callback(channel, method, properties, body):  # type: ignore
-            print(f"Received message {body}", flush=True)
-            json_str = str(body)
-            message = QueueMessage.model_validate(json_str)
-            return asyncio.run(consumer.process_message(message))
-
-        channel.basic_consume(
-            queue=consumer.message_type, auto_ack=True, on_message_callback=callback
-        )
         print(
             f"FINISHED registering consumer {consumer.id_}: {consumer.message_type}",
             flush=True,
         )
-        return channel
+        return RabbitMQChannel(channel)
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         pass
@@ -80,7 +93,7 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         pass
 
     async def launch_local(self) -> asyncio.Task:
-        raise NotImplementedError()
+        pass
 
     async def launch_server(self) -> None:
         pass

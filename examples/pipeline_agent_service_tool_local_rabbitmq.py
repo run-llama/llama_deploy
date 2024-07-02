@@ -7,6 +7,7 @@ from llama_agents import (
 )
 from llama_agents.tools import AgentServiceTool
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
+from llama_agents.launchers.local_rabbitmq import LocalRabbitMQLauncher
 
 
 from llama_index.core.agent import FunctionCallingAgentWorker
@@ -66,7 +67,9 @@ pipeline_orchestrator = PipelineOrchestrator(pipeline)
 control_plane = ControlPlaneServer(message_queue, pipeline_orchestrator)
 
 # launch it
-launcher = LocalLauncher([agent1_server, agent2_server], control_plane, message_queue)
+launcher = LocalRabbitMQLauncher(
+    [agent1_server, agent2_server], control_plane, message_queue
+)
 result = launcher.launch_single("What is the secret fact?")
 
 print(f"Result: {result}")

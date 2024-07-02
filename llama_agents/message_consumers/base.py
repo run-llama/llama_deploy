@@ -18,6 +18,9 @@ class BaseMessageQueueConsumer(BaseModel, ABC):
     message_type: str = Field(
         default="default", description="Type of the message to consume."
     )
+    channel: Any = Field(
+        default=None, description="The channel if any for which to receive messages."
+    )
 
     class Config:
         arbitrary_types_allowed = True
@@ -33,7 +36,8 @@ class BaseMessageQueueConsumer(BaseModel, ABC):
         return await self._process_message(message, **kwargs)
 
     async def start_consuming(
-        self, message_queue: "BaseMessageQueue", **kwargs: Any
+        self,
     ) -> None:
         """Begin consuming messages."""
-        await message_queue.register_consumer(self, **kwargs)
+        self.channel.start_consuming(self.process_message, self.message_type)
+        print(f"channel: {self.channel}", flush=True)

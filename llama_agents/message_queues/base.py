@@ -1,4 +1,5 @@
 """Message queue module."""
+
 import asyncio
 import inspect
 
@@ -15,11 +16,15 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
+class BaseChannel(BaseModel, ABC):
+    @abstractmethod
+    def start_consuming(self) -> None: ...
+
+
 class MessageProcessor(Protocol):
     """Protocol for a callable that processes messages."""
 
-    def __call__(self, message: QueueMessage, **kwargs: Any) -> None:
-        ...
+    def __call__(self, message: QueueMessage, **kwargs: Any) -> None: ...
 
 
 class PublishCallback(Protocol):
@@ -28,8 +33,7 @@ class PublishCallback(Protocol):
     TODO: Variant for Async Publish Callback.
     """
 
-    def __call__(self, message: QueueMessage, **kwargs: Any) -> None:
-        ...
+    def __call__(self, message: QueueMessage, **kwargs: Any) -> None: ...
 
 
 class BaseMessageQueue(BaseModel, ABC):
@@ -68,7 +72,7 @@ class BaseMessageQueue(BaseModel, ABC):
     async def register_consumer(
         self,
         consumer: "BaseMessageQueueConsumer",
-    ) -> Any:
+    ) -> Optional[BaseChannel]:
         """Register consumer to start consuming messages."""
 
     @abstractmethod
