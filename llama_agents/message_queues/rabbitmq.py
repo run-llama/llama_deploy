@@ -1,40 +1,44 @@
 """RabbitMQ Message Queue."""
 
 import asyncio
-import nest_asyncio
-
-nest_asyncio.apply()
 import json
-
-from pydantic import PrivateAttr
+import nest_asyncio
 from logging import getLogger
+from pydantic import PrivateAttr
 from typing import Any, Optional, TYPE_CHECKING
-
-from llama_agents.message_queues.base import BaseMessageQueue, BaseChannel
+from llama_agents.message_queues.base import (
+    BaseMessageQueue,
+    BaseChannel,
+    AsyncProcessMessageCallable,
+)
 from llama_agents.messages.base import QueueMessage
 from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 
-from pika import BlockingConnection
-from pika.adapters.blocking_connection import BlockingChannel
+if TYPE_CHECKING:
+    from pika.adapters.blocking_connection import BlockingConnection, BlockingChannel
 
-
+nest_asyncio.apply()
 logger = getLogger(__name__)
 
 
 class RabbitMQChannel(BaseChannel):
-    _pika_channel = PrivateAttr()
-    _pika_connection = PrivateAttr()
+    _pika_channel: "BlockingChannel" = PrivateAttr()
+    _pika_connection: "BlockingConnection" = PrivateAttr()
 
-    def __init__(self, pika_channel: Any, pika_connection: Any) -> None:
+    def __init__(
+        self, pika_channel: "BlockingChannel", pika_connection: "BlockingConnection"
+    ) -> None:
         super().__init__()
         self._pika_channel = pika_channel
         self._pika_connection = pika_connection
 
-    async def start_consuming(self, process_message, message_type) -> None:
+    async def start_consuming(
+        self, process_message: AsyncProcessMessageCallable, message_type: str
+    ) -> Any:
         for message in self._pika_channel.consume(message_type, inactivity_timeout=1):
             if not all(message):
                 continue
-            method, properties, body = message
+            _methods, _properties, body = message
             payload = json.loads(body.decode("utf-8"))
             message = QueueMessage.model_validate(payload)
             await process_message(message)
@@ -61,6 +65,13 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         1. https://www.rabbitmq.com/tutorials/tutorial-two-python.
         2. https://www.rabbitmq.com/tutorials/amqp-concepts#:~:text=The%20default%20exchange%20is%20a,same%20as%20the%20queue%20name.
 
+    The Work Queue created has the following properties:
+        - Exchange with name self.exchange
+        - Messages are published to this queue through the exchange
+        - Consumers are bound to the exchange and have queues based on their
+            message type
+        - Round-robin dispatching: with multiple consumers listening to the same
+            queue, only one consumer will be chosen dictated by sequence.
     """
 
     host: str = "localhost"
@@ -108,12 +119,12 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         return RabbitMQChannel(channel, connection)
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
-        consumer.channel.cancel()
+        pass
 
     async def processing_loop(self) -> None:
         pass
 
-    async def launch_local(self) -> asyncio.Task:
+    async def launch_local(self) -> Optional[asyncio.Task]:
         pass
 
     async def launch_server(self) -> None:

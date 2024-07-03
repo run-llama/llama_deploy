@@ -6,7 +6,7 @@ import inspect
 from abc import ABC, abstractmethod
 from logging import getLogger
 from pydantic import BaseModel
-from typing import Any, List, Optional, Protocol, TYPE_CHECKING
+from typing import Any, Awaitable, Callable, List, Optional, Protocol, TYPE_CHECKING
 
 from llama_agents.messages.base import QueueMessage
 
@@ -14,11 +14,14 @@ if TYPE_CHECKING:
     from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 
 logger = getLogger(__name__)
+AsyncProcessMessageCallable = Callable[[QueueMessage], Awaitable[Any]]
 
 
 class BaseChannel(BaseModel, ABC):
     @abstractmethod
-    def start_consuming(self) -> None:
+    def start_consuming(
+        self, process_message: AsyncProcessMessageCallable, message_type: str
+    ) -> Any:
         ...
 
 
@@ -97,7 +100,7 @@ class BaseMessageQueue(BaseModel, ABC):
         ...
 
     @abstractmethod
-    async def launch_local(self) -> asyncio.Task:
+    async def launch_local(self) -> Optional[asyncio.Task]:
         """Launch the service in-process."""
         ...
 
