@@ -18,7 +18,6 @@ from llama_agents.messages.base import QueueMessage
 from llama_agents.types import ActionTypes, TaskDefinition, TaskResult
 from llama_agents.message_publishers.publisher import MessageQueuePublisherMixin
 
-import pika
 
 from logging import getLogger
 
@@ -115,7 +114,6 @@ class LocalRabbitMQLauncher(MessageQueuePublisherMixin):
         return self._publish_callback
 
     async def handle_human_message(self, **kwargs: Any) -> None:
-        print(f"HANDLING HUMAN MESSAGE", flush=True)
         result = TaskResult(**kwargs["message_data"])
         print(f"result: {result.result}", flush=True)
         self.result = result
@@ -194,20 +192,21 @@ class LocalRabbitMQLauncher(MessageQueuePublisherMixin):
         for task in bg_tasks:
             task.cancel()
             await asyncio.sleep(0.1)
-        logger.info(f"Cancelled all asyncio service processing tasks.")
+        logger.info("Cancelled all asyncio service processing tasks.")
 
         # shutdown threads
         for thread in threads:
             thread.stop()
             thread.join()
-        logger.info(f"Stopped all consumer threads.")
+        logger.info("Stopped all consumer threads.")
 
-        # clear any remaining messages
+        # clear any remaining messages and delete exchange
         connection = self.message_queue.new_connection()
         channel = connection.channel()
         for consumer in self.additional_consumers + self.consumers:
             channel.queue_delete(queue=consumer.message_type)
+            channel.exchange_delete(exchange=self.message_queue.exchange)
         connection.close()
-        logger.info(f"Deleted all any remaining messages in the message queue.")
+        logger.info("Deleted all any remaining messages in the message queue.")
 
         return self.result or "No result found."

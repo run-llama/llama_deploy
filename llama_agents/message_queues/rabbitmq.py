@@ -54,11 +54,29 @@ def _establish_connection(host: str, port: Optional[int]) -> "BlockingConnection
 
 
 class RabbitMQMessageQueue(BaseMessageQueue):
-    """RabbitMQ integration."""
+    """RabbitMQ integration.
+
+    This class creates a Work (or Task) Queue. For more information on Work Queues
+    with RabbitMQ see the pages linked below:
+        1. https://www.rabbitmq.com/tutorials/tutorial-two-python.
+        2. https://www.rabbitmq.com/tutorials/amqp-concepts#:~:text=The%20default%20exchange%20is%20a,same%20as%20the%20queue%20name.
+
+    """
 
     host: str = "localhost"
     port: Optional[int] = 5672
-    _connection = PrivateAttr(default=None)
+    exchange: str = "llama-agents"
+
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: Optional[int] = 5672,
+        exchange: str = "llama-agents",
+    ) -> None:
+        super().__init__(host=host, port=port, exchange=exchange)
+        connection = _establish_connection(self.host, self.port)
+        channel = connection.channel()
+        channel.exchange_declare(exchange=exchange, exchange_type="direct")
 
     def new_connection(self) -> "BlockingConnection":
         return _establish_connection(self.host, self.port)
@@ -69,7 +87,7 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         channel = connection.channel()
         channel.queue_declare(queue=message_type_str)
         channel.basic_publish(
-            exchange="",
+            exchange=self.exchange,
             routing_key=message_type_str,
             body=json.dumps(message.model_dump()),
         )
@@ -79,16 +97,13 @@ class RabbitMQMessageQueue(BaseMessageQueue):
     async def register_consumer(
         self, consumer: BaseMessageQueueConsumer
     ) -> RabbitMQChannel:
-        print(
-            f"registering consumer {consumer.id_}: {consumer.message_type}", flush=True
-        )
         connection = _establish_connection(self.host, self.port)
         channel = connection.channel()
         channel.queue_declare(queue=consumer.message_type)
+        channel.queue_bind(exchange=self.exchange, queue=consumer.message_type)
 
-        print(
-            f"FINISHED registering consumer {consumer.id_}: {consumer.message_type}",
-            flush=True,
+        logger.info(
+            f"Registered consumer {consumer.id_}: {consumer.message_type}",
         )
         return RabbitMQChannel(channel, connection)
 
