@@ -69,6 +69,7 @@ control_plane = ControlPlaneServer(message_queue, pipeline_orchestrator)
 launcher = LocalRabbitMQLauncher(
     [agent1_server, agent2_server], control_plane, message_queue
 )
+launcher.additional_consumers = [agent1_server_tool.as_consumer()]
 result = launcher.launch_single("What is the secret fact?")
 
 print(f"Result: {result}")

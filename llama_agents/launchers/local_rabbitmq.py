@@ -20,6 +20,10 @@ from llama_agents.message_publishers.publisher import MessageQueuePublisherMixin
 
 import pika
 
+from logging import getLogger
+
+logger = getLogger(__name__)
+
 
 class ConsumerThread(threading.Thread):
     def __init__(
@@ -120,7 +124,7 @@ class LocalRabbitMQLauncher(MessageQueuePublisherMixin):
         self, additional_consumers: Optional[List[BaseMessageQueueConsumer]] = None
     ) -> None:
         additional_consumers = additional_consumers or []
-        self.additional_consumers = additional_consumers
+        self.additional_consumers += additional_consumers
         for consumer in self.additional_consumers + self.consumers:
             channel = await self.message_queue.register_consumer(consumer)
             consumer.channel = channel
@@ -190,13 +194,13 @@ class LocalRabbitMQLauncher(MessageQueuePublisherMixin):
         for task in bg_tasks:
             task.cancel()
             await asyncio.sleep(0.1)
-        print(f"DONE CANCELLING TASKS", flush=True)
+        logger.info(f"Cancelled all asyncio service processing tasks.")
 
         # shutdown threads
         for thread in threads:
             thread.stop()
             thread.join()
-        print(f"DONE SHUTTING DOWN THREADS", flush=True)
+        logger.info(f"Stopped all consumer threads.")
 
         # clear any remaining messages
         connection = self.message_queue.new_connection()
@@ -204,7 +208,6 @@ class LocalRabbitMQLauncher(MessageQueuePublisherMixin):
         for consumer in self.additional_consumers + self.consumers:
             channel.queue_delete(queue=consumer.message_type)
         connection.close()
-        print(f"DONE DELETING REMAINING MESSAGES", flush=True)
+        logger.info(f"Deleted all any remaining messages in the message queue.")
 
-        print(f"asyncio tasks: {asyncio.all_tasks()}")
         return self.result or "No result found."

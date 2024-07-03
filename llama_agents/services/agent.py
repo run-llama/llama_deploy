@@ -248,6 +248,7 @@ class AgentService(BaseService):
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
             self.agent.create_task(task_def.input, task_id=task_def.task_id)
+            logger.info(f"Created new task: {task_def.task_id}")
         elif message.action == ActionTypes.NEW_TOOL_CALL:
             task_def = TaskDefinition(**message.data or {})
             async with self.lock:
@@ -263,6 +264,7 @@ class AgentService(BaseService):
                 )
                 self._tasks_as_tool_calls[task_def.task_id] = task_as_tool_call
             self.agent.create_task(task_def.input, task_id=task_def.task_id)
+            logger.info(f"Created new tool call as task: {task_def.task_id}")
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 
