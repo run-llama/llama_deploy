@@ -8,6 +8,16 @@ from llama_agents.types import TaskDefinition, TaskResult
 
 
 class BaseOrchestrator(ABC):
+    """Base class for an orchestrator.
+
+    The general idea for an orchestrator is to manage the flow of messages between services.
+
+    Given some state, task, and list of tools, figure out the next messages to publish. Then, once
+    the messages are processed, update the state with the results.
+
+    Currently, the final message is published to the `human` message queue for final processing.
+    """
+
     @abstractmethod
     async def get_next_messages(
         self, task_def: TaskDefinition, tools: List[BaseTool], state: Dict[str, Any]

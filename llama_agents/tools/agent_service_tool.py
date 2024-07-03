@@ -40,6 +40,30 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         timeout (float, optional): Timeout. Defaults to 60.0s.
         step_interval (float, optional): Step interval when polling for a result. Defaults to 0.1s.
         raise_timeout (bool, optional): Raise timeout. Defaults to False.
+
+    Examples:
+        ```python
+        from llama_agents import AgentService, AgentServiceTool, SimpleMessageQueue
+
+        message_queue = SimpleMessageQueue()
+
+        agent1_server = AgentService(
+            agent=agent1,
+            message_queue=message_queue,
+            description="Useful for getting the secret fact.",
+            service_name="secret_fact_agent",
+        )
+
+        # create the tool for use in other agents
+        agent1_server_tool = AgentServiceTool.from_service_definition(
+            message_queue=message_queue,
+            service_definition=agent1_server.service_definition
+        )
+
+        # can also use the tool directly
+        result = await agent1_server_tool.acall(input="get the secret fact")
+        print(result)
+        ```
     """
 
     tool_call_results: Dict[str, ToolCallResult] = Field(default_factory=dict)
@@ -95,10 +119,20 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         message_queue: BaseMessageQueue,
         service_definition: ServiceDefinition,
         publish_callback: Optional[PublishCallback] = None,
-        timeout: float = 10.0,
+        timeout: float = 60.0,
         step_interval: float = 0.1,
         raise_timeout: bool = False,
     ) -> "AgentServiceTool":
+        """Create an AgentServiceTool from a ServiceDefinition.
+
+        Args:
+            message_queue (BaseMessageQueue): Message queue.
+            service_definition (ServiceDefinition): Service definition.
+            publish_callback (Optional[PublishCallback], optional): Publish callback. Defaults to None.
+            timeout (float, optional): Timeout. Defaults to 60.0s.
+            step_interval (float, optional): Step interval. Defaults to 0.1s.
+            raise_timeout (bool, optional): Raise timeout. Defaults to False.
+        """
         tool_metadata = ToolMetadata(
             description=service_definition.description,
             name=AgentService.get_tool_name_from_service_name(
@@ -117,18 +151,22 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
 
     @property
     def message_queue(self) -> BaseMessageQueue:
+        """The message queue used by the tool service."""
         return self._message_queue
 
     @property
     def publisher_id(self) -> str:
+        """The publisher ID."""
         return self._publisher_id
 
     @property
     def publish_callback(self) -> Optional[PublishCallback]:
+        """The publish callback, if any."""
         return self._publish_callback
 
     @property
     def metadata(self) -> ToolMetadata:
+        """The tool metadata."""
         return self._metadata
 
     @property
@@ -136,6 +174,7 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         return self._lock
 
     async def process_message(self, message: QueueMessage, **kwargs: Any) -> None:
+        """Process a message from the message queue."""
         if message.action == ActionTypes.COMPLETED_TOOL_CALL:
             tool_call_result = ToolCallResult(**message.data or {})
             async with self.lock:
@@ -144,6 +183,7 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
             raise ValueError(f"Unhandled action: {message.action}")
 
     def as_consumer(self) -> BaseMessageQueueConsumer:
+        """Return a message queue consumer for this tool."""
         return CallableMessageConsumer(
             id_=self.publisher_id,
             message_type=self.publisher_id,
@@ -176,7 +216,11 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         self.registered = False
 
     def call(self, *args: Any, **kwargs: Any) -> ToolOutput:
-        """Call."""
+        """Publish a call to the queue.
+
+        In order to get a ToolOutput result, this will poll the queue until
+        the result is written.
+        """
         return asyncio.run(self.acall(*args, **kwargs))
 
     def _parse_args(self, *args: Any, **kwargs: Any) -> str:

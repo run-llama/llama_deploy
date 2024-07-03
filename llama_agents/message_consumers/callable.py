@@ -6,6 +6,11 @@ from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 
 
 class CallableMessageConsumer(BaseMessageQueueConsumer):
+    """Message consumer for a callable handler.
+
+    For a given message, it will call the handler with the message as input.
+    """
+
     handler: Callable
 
     async def _process_message(self, message: QueueMessage, **kwargs: Any) -> None:

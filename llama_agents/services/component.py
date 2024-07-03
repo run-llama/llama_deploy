@@ -28,6 +28,37 @@ logger = getLogger(__name__)
 
 
 class ComponentService(BaseService):
+    """Component service.
+
+    Wraps a query pipeline component into a service.
+
+    Exposes the following endpoints:
+    - GET `/`: Home endpoint.
+    - POST `/process_message`: Process a message.
+
+    Attributes:
+        component (Any): The query pipeline component.
+        description (str): The description of the service.
+        running (bool): Whether the service is running.
+        step_interval (float): The interval in seconds to poll for tool call results. Defaults to 0.1s.
+        host (Optional[str]): The host of the service.
+        port (Optional[int]): The port of the service.
+        raise_exceptions (bool): Whether to raise exceptions.
+
+    Examples:
+        ```python
+        from llama_agents import ComponentService
+        from llama_index.core.query_pipeline import QueryComponent
+
+        component_service = ComponentService(
+            component=query_component,
+            message_queue=message_queue,
+            description="component_service",
+            service_name="my_component_service",
+        )
+        ```
+    """
+
     service_name: str
     component: Any
 
@@ -96,6 +127,7 @@ class ComponentService(BaseService):
 
     @property
     def service_definition(self) -> ServiceDefinition:
+        """Service definition."""
         return ServiceDefinition(
             service_name=self.service_name,
             description=self.description,
@@ -105,14 +137,17 @@ class ComponentService(BaseService):
 
     @property
     def message_queue(self) -> BaseMessageQueue:
+        """Message queue."""
         return self._message_queue
 
     @property
     def publisher_id(self) -> str:
+        """Publisher ID."""
         return self._publisher_id
 
     @property
     def publish_callback(self) -> Optional[PublishCallback]:
+        """Publish callback, if any."""
         return self._publish_callback
 
     @property
@@ -120,6 +155,7 @@ class ComponentService(BaseService):
         return self._lock
 
     async def processing_loop(self) -> None:
+        """The processing loop for the service."""
         while True:
             if not self.running:
                 await asyncio.sleep(self.step_interval)
@@ -151,6 +187,7 @@ class ComponentService(BaseService):
             await asyncio.sleep(self.step_interval)
 
     async def process_message(self, message: QueueMessage) -> None:
+        """Process a message received from the message queue."""
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
             async with self.lock:
@@ -161,6 +198,13 @@ class ComponentService(BaseService):
             raise ValueError(f"Unhandled action: {message.action}")
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
+        """Get the consumer for the message queue.
+
+        Args:
+            remote (bool):
+                Whether the consumer is remote. Defaults to False.
+                If True, the consumer will be a RemoteMessageConsumer that uses the `process_message` endpoint.
+        """
         if remote:
             url = (
                 f"http://{self.host}:{self.port}{self._app.url_path_for('process_message')}"
@@ -180,6 +224,7 @@ class ComponentService(BaseService):
         )
 
     async def launch_local(self) -> asyncio.Task:
+        """Launch the service in-process."""
         logger.info(f"{self.service_name} launch_local")
         return asyncio.create_task(self.processing_loop())
 
@@ -193,6 +238,7 @@ class ComponentService(BaseService):
         self.running = False
 
     async def home(self) -> Dict[str, str]:
+        """Home endpoint. Returns general information about the service."""
         return {
             "service_name": self.service_name,
             "description": self.description,
@@ -203,6 +249,7 @@ class ComponentService(BaseService):
         }
 
     async def launch_server(self) -> None:
+        """Launch the service as a FastAPI server."""
         logger.info(f"Launching {self.service_name} server at {self.host}:{self.port}")
         # uvicorn.run(self._app, host=self.host, port=self.port)
 

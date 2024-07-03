@@ -23,6 +23,47 @@ DEFAULT_FOLLOWUP_TMPL = (
 
 
 class AgentOrchestrator(BaseOrchestrator):
+    """An orchestrator that uses an agentic LLM to process messages.
+
+    Each incoming task is processed by the LLM, which decides which service to call next.
+
+    If no tools are needed, or the LLm deems the task complete, the orchestrator will finalize
+    the task by sending a message to the `human` message queue for final processing.
+
+    Attributes:
+        llm (LLM):
+            The LLM to use for processing messages.
+        human_description (str):
+            A human-readable description of the finalize tool.
+        summarize_prompt (str):
+            The prompt to use for summarizing the chat history.
+        followup_prompt (str):
+            The prompt to use for prompting the user for the next action to take.
+
+    Examples:
+        ```python
+        from llama_agents import AgentOrchestrator
+
+        # orchestrator with default prompts
+        orchestrator = AgentOrchestrator(
+            llm=llm,
+            human_description=(
+                "Useful for finalizing a response.
+                Should contain a complete answer that satisfies the original input."
+            ),
+            summarize_prompt=(
+                "{history}\n\nThe above represents the progress so far, please condense "
+                "the messages into a single message."
+            ),
+            followup_prompt=(
+                "Pick the next action to take. Invoke the 'finalize' tool with your full final answer "
+                "if the answer to the original input is in the chat history. "
+                "As a reminder, the original input was: {original_input}"
+            ),
+        )
+        ```
+    """
+
     def __init__(
         self,
         llm: LLM,
@@ -38,6 +79,10 @@ class AgentOrchestrator(BaseOrchestrator):
     async def get_next_messages(
         self, task_def: TaskDefinition, tools: List[BaseTool], state: Dict[str, Any]
     ) -> Tuple[List[QueueMessage], Dict[str, Any]]:
+        """Get the next message to process. Returns the message and the new state.
+
+        Uses the llm and the chat history related to the task to determine the next action to take.
+        """
         tools_plus_human = [self.finalize_tool, *tools]
 
         chat_dicts = state.get(HISTORY_KEY, [])

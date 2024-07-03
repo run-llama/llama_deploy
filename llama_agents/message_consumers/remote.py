@@ -8,6 +8,11 @@ from llama_agents.types import generate_id
 
 
 class RemoteMessageConsumerDef(BaseModel):
+    """Definition for a RemoteMessageConsumer.
+
+    Helps describe the configuration for a RemoteMessageConsumer.
+    """
+
     id_: str = Field(default_factory=generate_id)
     message_type: str = Field(
         default="default", description="Type of the message to consume."
@@ -17,6 +22,11 @@ class RemoteMessageConsumerDef(BaseModel):
 
 
 class RemoteMessageConsumer(BaseMessageQueueConsumer):
+    """Consumer of a MessageQueue that sends messages to a remote service.
+
+    For each message, it will send the message to the given URL.
+    """
+
     url: str
     client_kwargs: Optional[dict] = None
     client: Optional[httpx.AsyncClient] = None

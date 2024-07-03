@@ -94,6 +94,44 @@ def process_component_output(
 
 
 class PipelineOrchestrator(BaseOrchestrator):
+    """Orchestrator for a query pipeline.
+
+    Given an incoming task, process it through a query pipeline that may contain
+    calls to external `llama-agents` services.
+
+    Attributes:
+        pipeline (QueryPipeline): The query pipeline to run.
+
+    Examples:
+        ```python
+        from llama_index.core.query_pipeline import QueryPipeline
+        from llama_agents import PipelineOrchestrator, AgentService, ServiceComponent
+
+        query_rewrite_server = AgentService(
+            agent=hyde_agent,
+            message_queue=message_queue,
+            description="Used to rewrite queries",
+            service_name="query_rewrite_agent",
+            host="127.0.0.1",
+            port=8011,
+        )
+        query_rewrite_server_c = ServiceComponent.from_service_definition(query_rewrite_server)
+
+        rag_agent_server = AgentService(
+            agent=rag_agent,
+            message_queue=message_queue,
+            description="rag_agent",
+            host="127.0.0.1",
+            port=8012,
+        )
+        rag_agent_server_c = ServiceComponent.from_service_definition(rag_agent_server)
+
+        # create our multi-agent framework components
+        pipeline = QueryPipeline(chain=[query_rewrite_server_c, rag_agent_server_c])
+        orchestrator = PipelineOrchestrator(pipeline=pipeline)
+        ```
+    """
+
     def __init__(
         self,
         pipeline: QueryPipeline,

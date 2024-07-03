@@ -4,6 +4,17 @@ from llama_agents.types import ServiceDefinition
 
 
 class ServiceTool(AsyncBaseTool):
+    """A tool that wraps a service.
+
+    Mostly used under the hood by the agent orchestrator.
+
+    Attributes:
+        name (str):
+            The name of the tool.
+        description (str):
+            The description of the tool.
+    """
+
     def __init__(self, name: str, description: str) -> None:
         self.name = name
         self.description = description
