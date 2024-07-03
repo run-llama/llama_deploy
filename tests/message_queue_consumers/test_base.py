@@ -25,7 +25,8 @@ async def test_consumer_consumes_messages() -> None:
     task = await mq.launch_local()
 
     # Act
-    await consumer_one.start_consuming(message_queue=mq)
+    await mq.register_consumer(consumer_one)
+    await consumer_one.start_consuming()
     await asyncio.sleep(0.1)
     await mq.publish(QueueMessage(publisher_id="test", id_="1"))
     await mq.publish(QueueMessage(publisher_id="test", id_="2"))
