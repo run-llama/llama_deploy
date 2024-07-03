@@ -1,14 +1,12 @@
 import asyncio
 import nest_asyncio
-
-nest_asyncio.apply()
 import threading
 import json
 import signal
 import sys
 import uuid
+from logging import getLogger
 from typing import Any, Callable, Dict, List, Optional
-
 from llama_agents.services.base import BaseService
 from llama_agents.control_plane.base import BaseControlPlane
 from llama_agents.message_consumers.base import BaseMessageQueueConsumer
@@ -19,13 +17,13 @@ from llama_agents.types import ActionTypes, TaskDefinition, TaskResult
 from llama_agents.message_publishers.publisher import MessageQueuePublisherMixin
 
 
-from logging import getLogger
-
 logger = getLogger(__name__)
+
+nest_asyncio.apply()
 
 
 class ConsumerThread(threading.Thread):
-    def __init__(
+    def __init__(  # type: ignore
         self,
         consumer: BaseMessageQueueConsumer,
         group=None,
@@ -47,13 +45,13 @@ class ConsumerThread(threading.Thread):
         self.consumer = consumer
         self._event = threading.Event()
 
-    def stop(self):
+    def stop(self) -> None:
         self._event.set()
 
-    def stopped(self):
+    def stopped(self) -> bool:
         return self._event.isSet()
 
-    def run(self):
+    def run(self) -> None:
         channel = self.consumer.channel._pika_channel
         channel.queue_declare(self.consumer.message_type)
         for message in channel.consume(
@@ -94,7 +92,7 @@ class LocalRabbitMQLauncher(MessageQueuePublisherMixin):
         self.consumers = [s.as_consumer() for s in services] + [
             control_plane.as_consumer()
         ]
-        self.additional_consumers = []
+        self.additional_consumers: List[BaseMessageQueueConsumer] = []
         self.control_plane = control_plane
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
