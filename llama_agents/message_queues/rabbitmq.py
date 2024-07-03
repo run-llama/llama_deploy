@@ -14,8 +14,8 @@ from llama_agents.message_queues.base import BaseMessageQueue, BaseChannel
 from llama_agents.messages.base import QueueMessage
 from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 
-if TYPE_CHECKING:
-    from pika import BlockingConnection
+from pika import BlockingConnection
+from pika.adapters.blocking_connection import BlockingChannel
 
 
 logger = getLogger(__name__)
@@ -28,16 +28,17 @@ class RabbitMQChannel(BaseChannel):
         super().__init__()
         self._pika_channel = pika_channel
 
-    def start_consuming(self, process_message, message_type) -> None:
-        def callback(ch, method, properties, body):
+    async def start_consuming(self, process_message, message_type) -> None:
+        for message in self._pika_channel.consume(message_type, inactivity_timeout=1):
+            if not all(message):
+                continue
+            method, properties, body = message
             payload = json.loads(body.decode("utf-8"))
             message = QueueMessage.model_validate(payload)
-            asyncio.run(process_message(message))
+            await process_message(message)
 
-        self._pika_channel.basic_consume(
-            queue=message_type, auto_ack=True, on_message_callback=callback
-        )
-        self._pika_channel.start_consuming()
+    async def stop_consuming(self) -> None:
+        self._pika_channel.cancel()
 
 
 def _establish_connection(host: str, port: Optional[int]) -> "BlockingConnection":
@@ -90,7 +91,7 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         return RabbitMQChannel(channel)
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
-        pass
+        consumer.channel.cancel()
 
     async def processing_loop(self) -> None:
         pass

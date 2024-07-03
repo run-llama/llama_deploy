@@ -1,9 +1,12 @@
 import asyncio
+import nest_asyncio
+
+nest_asyncio.apply()
+import json
 import signal
 import sys
 import uuid
-from threading import Thread, Lock
-from contextvars import ContextVar
+from threading import Thread, Event
 from typing import Any, Callable, Dict, List, Optional
 
 from llama_agents.services.base import BaseService
@@ -15,8 +18,32 @@ from llama_agents.messages.base import QueueMessage
 from llama_agents.types import ActionTypes, TaskDefinition, TaskResult
 from llama_agents.message_publishers.publisher import MessageQueuePublisherMixin
 
-global_result: ContextVar[Optional[str]] = ContextVar("global_result", default=None)
-global_result.set(None)
+import pika
+
+
+class ConsumerThread(Thread):
+    def __init__(self, consumer: BaseMessageQueueConsumer):
+        super().__init__()
+        self._is_interrupted = False
+        self.consumer = consumer
+
+    def stop(self):
+        self._is_interrupted = True
+
+    def run(self):
+        channel = self.consumer.channel._pika_channel
+        channel.queue_declare(self.consumer.message_type)
+        for message in channel.consume(
+            self.consumer.message_type, inactivity_timeout=1
+        ):
+            if self._is_interrupted:
+                break
+            if not all(message):
+                continue
+            method, properties, body = message
+            payload = json.loads(body.decode("utf-8"))
+            message = QueueMessage.model_validate(payload)
+            asyncio.run(self.consumer.process_message(message))
 
 
 class HumanMessageConsumer(BaseMessageQueueConsumer):
@@ -64,8 +91,10 @@ class LocalRabbitMQLauncher(MessageQueuePublisherMixin):
         return self._publish_callback
 
     async def handle_human_message(self, **kwargs: Any) -> None:
+        print(f"HANDLING HUMAN MESSAGE", flush=True)
         result = TaskResult(**kwargs["message_data"])
-        global_result.set(result.result)
+        print(f"result: {result.result}", flush=True)
+        self.result = result
 
     async def register_consumers(
         self, additional_consumers: Optional[List[BaseMessageQueueConsumer]] = None
@@ -113,8 +142,8 @@ class LocalRabbitMQLauncher(MessageQueuePublisherMixin):
 
         # consumers start consuming in their own threads
         threads = []
-        for consumer in self.consumers:
-            thread = Thread(target=asyncio.run, args=(consumer.start_consuming(),))
+        for consumer in self.additional_consumers + self.consumers:
+            thread = ConsumerThread(consumer=consumer)
             thread.start()
             threads.append(thread)
 
@@ -126,6 +155,7 @@ class LocalRabbitMQLauncher(MessageQueuePublisherMixin):
                 data=TaskDefinition(input=initial_task).model_dump(),
             ),
         )
+
         # runs until the message queue is stopped by the human consumer
         shutdown_handler = self.get_shutdown_handler(bg_tasks)
         loop = asyncio.get_event_loop()
@@ -133,30 +163,17 @@ class LocalRabbitMQLauncher(MessageQueuePublisherMixin):
             await asyncio.sleep(0.1)
             signal.signal(signal.SIGINT, shutdown_handler)
 
-            global_result_str = global_result.get()
-            if global_result_str:
-                print(f"Got result, shutting down.", flush=True)
+            if self.result:
                 break
 
         # shutdown tasks
         for task in bg_tasks:
             task.cancel()
+        print(f"DONE CANCELLING TASKS", flush=True)
 
+        # shutdown threads
         for thread in threads:
             thread.stop()
-            thread.join()
+        print(f"DONE SHUTTING DOWN THREADS", flush=True)
 
-        # clean up registered services
-        for service in self.services:
-            await self.control_plane.deregister_service(
-                service.service_definition.service_name
-            )
-
-        # clean up consumers
-        for service in self.services:
-            await self.message_queue.deregister_consumer(service.as_consumer())
-
-        await self.message_queue.deregister_consumer(human_consumer)
-        await self.message_queue.deregister_consumer(self.control_plane.as_consumer())
-
-        return global_result_str or "No result found."
+        return self.result or "No result found."

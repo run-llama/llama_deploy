@@ -39,5 +39,11 @@ class BaseMessageQueueConsumer(BaseModel, ABC):
         self,
     ) -> None:
         """Begin consuming messages."""
-        self.channel.start_consuming(self.process_message, self.message_type)
+        await self.channel.start_consuming(self.process_message, self.message_type)
         print(f"channel: {self.channel}", flush=True)
+
+    async def stop_consuming(
+        self,
+    ) -> None:
+        """Stop consuming."""
+        await self.channel.stop_consuming()
