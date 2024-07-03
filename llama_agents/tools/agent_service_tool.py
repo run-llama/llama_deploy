@@ -26,6 +26,22 @@ logger = logging.getLogger(__name__)
 
 
 class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
+    """Agent Service Tool.
+
+    This class is a wrapper around an AgentService, providing a tool-like interface,
+    to be used as a tool in any other llama-index abstraction.
+
+    Args:
+        tool_metadata (ToolMetadata): Tool metadata.
+        message_queue (BaseMessageQueue): Message queue.
+        service_name (str): Service name.
+        publish_callback (Optional[PublishCallback], optional): Publish callback. Defaults to None.
+        tool_call_results (Dict[str, ToolCallResult], optional): Tool call results. Defaults to {}.
+        timeout (float, optional): Timeout. Defaults to 60.0s.
+        step_interval (float, optional): Step interval when polling for a result. Defaults to 0.1s.
+        raise_timeout (bool, optional): Raise timeout. Defaults to False.
+    """
+
     tool_call_results: Dict[str, ToolCallResult] = Field(default_factory=dict)
     timeout: float = Field(default=10.0, description="timeout interval in seconds.")
     service_name: str = Field(default_factory=str)
@@ -46,7 +62,7 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         service_name: str,
         publish_callback: Optional[PublishCallback] = None,
         tool_call_results: Dict[str, ToolCallResult] = {},
-        timeout: float = 10.0,
+        timeout: float = 60.0,
         step_interval: float = 0.1,
         raise_timeout: bool = False,
     ) -> None:
