@@ -2,11 +2,11 @@ import asyncio
 import nest_asyncio
 
 nest_asyncio.apply()
+import threading
 import json
 import signal
 import sys
 import uuid
-from threading import Thread, Event
 from typing import Any, Callable, Dict, List, Optional
 
 from llama_agents.services.base import BaseService
@@ -21,14 +21,34 @@ from llama_agents.message_publishers.publisher import MessageQueuePublisherMixin
 import pika
 
 
-class ConsumerThread(Thread):
-    def __init__(self, consumer: BaseMessageQueueConsumer):
-        super().__init__()
-        self._is_interrupted = False
+class ConsumerThread(threading.Thread):
+    def __init__(
+        self,
+        consumer: BaseMessageQueueConsumer,
+        group=None,
+        target=None,
+        name=None,
+        args=(),
+        kwargs=None,
+        *,
+        daemon=None,
+    ) -> None:
+        super().__init__(
+            group=group,
+            target=target,
+            name=name,
+            args=args,
+            kwargs=kwargs,
+            daemon=daemon,
+        )
         self.consumer = consumer
+        self._event = threading.Event()
 
     def stop(self):
-        self._is_interrupted = True
+        self._event.set()
+
+    def stopped(self):
+        return self._event.isSet()
 
     def run(self):
         channel = self.consumer.channel._pika_channel
@@ -36,8 +56,8 @@ class ConsumerThread(Thread):
         for message in channel.consume(
             self.consumer.message_type, inactivity_timeout=1
         ):
-            if self._is_interrupted:
-                break
+            if self.stopped():
+                return
             if not all(message):
                 continue
             method, properties, body = message
@@ -169,11 +189,22 @@ class LocalRabbitMQLauncher(MessageQueuePublisherMixin):
         # shutdown tasks
         for task in bg_tasks:
             task.cancel()
+            await asyncio.sleep(0.1)
         print(f"DONE CANCELLING TASKS", flush=True)
 
         # shutdown threads
         for thread in threads:
             thread.stop()
+            thread.join()
         print(f"DONE SHUTTING DOWN THREADS", flush=True)
 
+        # clear any remaining messages
+        connection = self.message_queue.new_connection()
+        channel = connection.channel()
+        for consumer in self.additional_consumers + self.consumers:
+            channel.queue_delete(queue=consumer.message_type)
+        connection.close()
+        print(f"DONE DELETING REMAINING MESSAGES", flush=True)
+
+        print(f"asyncio tasks: {asyncio.all_tasks()}")
         return self.result or "No result found."

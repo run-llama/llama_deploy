@@ -23,10 +23,12 @@ logger = getLogger(__name__)
 
 class RabbitMQChannel(BaseChannel):
     _pika_channel = PrivateAttr()
+    _pika_connection = PrivateAttr()
 
-    def __init__(self, pika_channel: Any) -> None:
+    def __init__(self, pika_channel: Any, pika_connection: Any) -> None:
         super().__init__()
         self._pika_channel = pika_channel
+        self._pika_connection = pika_connection
 
     async def start_consuming(self, process_message, message_type) -> None:
         for message in self._pika_channel.consume(message_type, inactivity_timeout=1):
@@ -56,10 +58,10 @@ class RabbitMQMessageQueue(BaseMessageQueue):
 
     host: str = "localhost"
     port: Optional[int] = 5672
+    _connection = PrivateAttr(default=None)
 
-    @property
-    def client(self) -> "BlockingConnection":
-        return self._client
+    def new_connection(self) -> "BlockingConnection":
+        return _establish_connection(self.host, self.port)
 
     async def _publish(self, message: QueueMessage) -> Any:
         message_type_str = message.type
@@ -88,7 +90,7 @@ class RabbitMQMessageQueue(BaseMessageQueue):
             f"FINISHED registering consumer {consumer.id_}: {consumer.message_type}",
             flush=True,
         )
-        return RabbitMQChannel(channel)
+        return RabbitMQChannel(channel, connection)
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         consumer.channel.cancel()
