@@ -2,68 +2,49 @@
 
 import asyncio
 import json
-import nest_asyncio
 from logging import getLogger
-from pydantic import PrivateAttr
 from typing import Any, Optional, TYPE_CHECKING
 from llama_agents.message_queues.base import (
     BaseMessageQueue,
-    BaseChannel,
-    AsyncProcessMessageCallable,
 )
 from llama_agents.messages.base import QueueMessage
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+)
 
 if TYPE_CHECKING:
-    from pika.adapters.blocking_connection import BlockingConnection, BlockingChannel
+    from aio_pika import Connection, ExchangeType, Queue
 
-nest_asyncio.apply()
 logger = getLogger(__name__)
 
 
-class RabbitMQChannel(BaseChannel):
-    _pika_channel: "BlockingChannel" = PrivateAttr()
-    _pika_connection: "BlockingConnection" = PrivateAttr()
-
-    def __init__(
-        self, pika_channel: "BlockingChannel", pika_connection: "BlockingConnection"
-    ) -> None:
-        super().__init__()
-        self._pika_channel = pika_channel
-        self._pika_connection = pika_connection
-
-    async def start_consuming(
-        self, process_message: AsyncProcessMessageCallable, message_type: str
-    ) -> Any:
-        for message in self._pika_channel.consume(message_type, inactivity_timeout=1):
-            if not all(message):
-                continue
-            _methods, _properties, body = message
-            payload = json.loads(body.decode("utf-8"))
-            message = QueueMessage.model_validate(payload)
-            await process_message(message)
-
-    async def stop_consuming(self) -> None:
-        self._pika_channel.cancel()
-
-
-def _establish_connection(host: str, port: Optional[int]) -> "BlockingConnection":
+async def _establish_connection(url: str):
     try:
-        import pika
+        import aio_pika
     except ImportError:
         raise ValueError(
             "Missing pika optional dep. Please install by running `pip install llama-agents[rabbimq]`."
         )
-    return pika.BlockingConnection(pika.ConnectionParameters(host=host, port=port))
+    return await aio_pika.connect(url)
 
 
 class RabbitMQMessageQueue(BaseMessageQueue):
-    """RabbitMQ integration.
+    """RabbitMQ integration with aio-pika client.
 
     This class creates a Work (or Task) Queue. For more information on Work Queues
     with RabbitMQ see the pages linked below:
-        1. https://www.rabbitmq.com/tutorials/tutorial-two-python.
-        2. https://www.rabbitmq.com/tutorials/amqp-concepts#:~:text=The%20default%20exchange%20is%20a,same%20as%20the%20queue%20name.
+        1. https://aio-pika.readthedocs.io/en/latest/rabbitmq-tutorial/2-work-queues.html
+        2. https://aio-pika.readthedocs.io/en/latest/rabbitmq-tutorial/3-publish-subscribe.html
+
+    Connections are established by url that use amqp uri scheme
+    (https://www.rabbitmq.com/docs/uri-spec#the-amqp-uri-scheme)
+        amqp_URI       = "amqp://" amqp_authority [ "/" vhost ] [ "?" query ]
+        amqp_authority = [ amqp_userinfo "@" ] host [ ":" port ]
+        amqp_userinfo  = username [ ":" password ]
+        username       = *( unreserved / pct-encoded / sub-delims )
+        password       = *( unreserved / pct-encoded / sub-delims )
+        vhost          = segment
 
     The Work Queue created has the following properties:
         - Exchange with name self.exchange
@@ -74,49 +55,133 @@ class RabbitMQMessageQueue(BaseMessageQueue):
             queue, only one consumer will be chosen dictated by sequence.
     """
 
-    host: str = "localhost"
-    port: Optional[int] = 5672
-    exchange: str = "llama-agents"
+    url: str = "amqp://guest:guest@localhost/"
+    exchange_name: str = "llama-agents"
 
     def __init__(
         self,
-        host: str = "localhost",
-        port: Optional[int] = 5672,
-        exchange: str = "llama-agents",
+        url: str = "amqp://guest:guest@localhost/",
+        exchange_name: str = "llama-agents",
     ) -> None:
-        super().__init__(host=host, port=port, exchange=exchange)
-        connection = _establish_connection(self.host, self.port)
-        channel = connection.channel()
-        channel.exchange_declare(exchange=exchange, exchange_type="direct")
+        super().__init__(url=url, exchange_name=exchange_name)
 
-    def new_connection(self) -> "BlockingConnection":
-        return _establish_connection(self.host, self.port)
+    class Config:
+        arbitrary_types_allowed = True
+
+    @classmethod
+    def from_url_params(
+        cls,
+        username=str,
+        password=str,
+        host=str,
+        port: Optional[int] = None,
+        secure: bool = False,
+        exchange_name: str = "llama-agents",
+    ) -> "AsyncRabbitMQMessageQueue":
+        if not secure:
+            if port:
+                url = f"amqp://{username}:{password}@{host}:{port}/vhost"
+            else:
+                url = f"amqp://{username}:{password}@{host}/vhost"
+        if secure:
+            if port:
+                url = f"amqps://{username}:{password}@{host}:{port}/vhost"
+            else:
+                url = f"amqps://{username}:{password}@{host}/vhost"
+        return cls(url=url, exchange_name=exchange_name)
+
+    async def new_connection(self) -> "Connection":
+        return await _establish_connection(self.url)
 
     async def _publish(self, message: QueueMessage) -> Any:
+        from aio_pika import DeliveryMode, ExchangeType, Message as AioPikaMessage
+
         message_type_str = message.type
-        connection = _establish_connection(self.host, self.port)
-        channel = connection.channel()
-        channel.queue_declare(queue=message_type_str)
-        channel.basic_publish(
-            exchange=self.exchange,
-            routing_key=message_type_str,
-            body=json.dumps(message.model_dump()),
-        )
-        connection.close()
-        logger.info(f"published message {message.id_}")
+        connection = await _establish_connection(self.url)
+
+        async with connection:
+            channel = await connection.channel()
+            exchange = await channel.declare_exchange(
+                self.exchange_name,
+                ExchangeType.DIRECT,
+            )
+            message_body = json.dumps(message.model_dump()).encode("utf-8")
+
+            aio_pika_message = AioPikaMessage(
+                message_body,
+                delivery_mode=DeliveryMode.PERSISTENT,
+            )
+            # Sending the message
+            await exchange.publish(aio_pika_message, routing_key=message_type_str)
+            logger.info(f"published message {message.id_}")
+
+    def _get_start_consuming_callable(self, consumer: BaseMessageQueueConsumer):
+        """Returns a StartConsumingCallablle to be returned to a consumer post registration."""
+
+        async def start_consuming_callable() -> None:
+            async def on_message(message) -> None:
+                async with message.process():
+                    decoded_message = json.loads(message.body.decode("utf-8"))
+                    queue_message = QueueMessage.model_validate(decoded_message)
+                    await consumer.process_message(queue_message)
+
+            connection = await _establish_connection(self.url)
+            async with connection:
+                channel = await connection.channel()
+                exchange = await channel.declare_exchange(
+                    self.exchange_name,
+                    ExchangeType.DIRECT,
+                )
+                queue: Queue = await channel.declare_queue(name=consumer.message_type)
+                await queue.bind(exchange)
+
+                await queue.consume(on_message)
+
+                await asyncio.Future()
+
+        return start_consuming_callable
 
     async def register_consumer(
         self, consumer: BaseMessageQueueConsumer
-    ) -> RabbitMQChannel:
-        connection = _establish_connection(self.host, self.port)
-        channel = connection.channel()
-        channel.queue_declare(queue=consumer.message_type)
-        channel.queue_bind(exchange=self.exchange, queue=consumer.message_type)
+    ) -> StartConsumingCallable:
+        from aio_pika import ExchangeType
+
+        connection = await _establish_connection(self.url)
+        async with connection:
+            channel = await connection.channel()
+            exchange = await channel.declare_exchange(
+                self.exchange_name,
+                ExchangeType.DIRECT,
+            )
+            queue: Queue = await channel.declare_queue(name=consumer.message_type)
+            await queue.bind(exchange)
 
         logger.info(
             f"Registered consumer {consumer.id_}: {consumer.message_type}",
         )
-        return RabbitMQChannel(channel, connection)
+
+        async def start_consuming_callable() -> None:
+            async def on_message(message) -> None:
+                async with message.process():
+                    decoded_message = json.loads(message.body.decode("utf-8"))
+                    queue_message = QueueMessage.model_validate(decoded_message)
+                    await consumer.process_message(queue_message)
+
+            connection = await _establish_connection(self.url)
+            async with connection:
+                channel = await connection.channel()
+                exchange = await channel.declare_exchange(
+                    self.exchange_name,
+                    ExchangeType.DIRECT,
+                )
+                queue: Queue = await channel.declare_queue(name=consumer.message_type)
+                await queue.bind(exchange)
+
+                await queue.consume(on_message)
+
+                await asyncio.Future()
+
+        return start_consuming_callable
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         pass

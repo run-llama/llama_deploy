@@ -6,8 +6,11 @@ from logging import getLogger
 from typing import Any, Callable, Dict, List, Optional
 from llama_agents.services.base import BaseService
 from llama_agents.control_plane.base import BaseControlPlane
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
-from llama_agents.message_queues.async_rabbitmq import AsyncRabbitMQMessageQueue
+from llama_agents.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+)
+from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 from llama_agents.message_queues.base import PublishCallback
 from llama_agents.messages.base import QueueMessage
 from llama_agents.types import ActionTypes, TaskDefinition, TaskResult
@@ -35,7 +38,7 @@ class LocalAsyncRabbitMQLauncher(MessageQueuePublisherMixin):
         self,
         services: List[BaseService],
         control_plane: BaseControlPlane,
-        message_queue: AsyncRabbitMQMessageQueue,
+        message_queue: RabbitMQMessageQueue,
         publish_callback: Optional[PublishCallback] = None,
     ) -> None:
         self.services = services
@@ -50,7 +53,7 @@ class LocalAsyncRabbitMQLauncher(MessageQueuePublisherMixin):
         self.result: Optional[str] = None
 
     @property
-    def message_queue(self) -> AsyncRabbitMQMessageQueue:
+    def message_queue(self) -> RabbitMQMessageQueue:
         return self._message_queue
 
     @property
@@ -68,14 +71,16 @@ class LocalAsyncRabbitMQLauncher(MessageQueuePublisherMixin):
 
     async def register_consumers(
         self, additional_consumers: Optional[List[BaseMessageQueueConsumer]] = None
-    ) -> None:
+    ) -> List[StartConsumingCallable]:
         additional_consumers = additional_consumers or []
         self.additional_consumers += additional_consumers
+        start_consuming_callables = []
         for consumer in self.additional_consumers + self.consumers:
             start_consuming_callable = await self.message_queue.register_consumer(
                 consumer
             )
-            consumer.consuming_callable = start_consuming_callable
+            start_consuming_callables.append(start_consuming_callable)
+        return start_consuming_callables
 
     def launch_single(self, initial_task: str) -> str:
         return asyncio.run(self.alaunch_single(initial_task))
@@ -99,7 +104,7 @@ class LocalAsyncRabbitMQLauncher(MessageQueuePublisherMixin):
                 ActionTypes.COMPLETED_TASK: self.handle_human_message,
             }
         )
-        await self.register_consumers([human_consumer])
+        start_consuming_callables = await self.register_consumers([human_consumer])
 
         # register each service to the control plane
         for service in self.services:
@@ -113,10 +118,10 @@ class LocalAsyncRabbitMQLauncher(MessageQueuePublisherMixin):
             bg_tasks.append(await service.launch_local())
 
         # consumers start consuming in their own threads
-        consumer_tasks = []
-        for consumer in self.additional_consumers + self.consumers:
-            task = asyncio.create_task(consumer.start_consuming())
-            consumer_tasks.append(task)
+        start_consumer_tasks = []
+        for start_consuming_callable in start_consuming_callables:
+            task = asyncio.create_task(start_consuming_callable())
+            start_consumer_tasks.append(task)
 
         # publish initial task
         await self.publish(
@@ -128,7 +133,7 @@ class LocalAsyncRabbitMQLauncher(MessageQueuePublisherMixin):
         )
 
         # runs until the message queue is stopped by the human consumer
-        shutdown_handler = self.get_shutdown_handler(bg_tasks + consumer_tasks)
+        shutdown_handler = self.get_shutdown_handler(bg_tasks + start_consumer_tasks)
         loop = asyncio.get_event_loop()
         while loop.is_running():
             await asyncio.sleep(0.1)
@@ -138,7 +143,7 @@ class LocalAsyncRabbitMQLauncher(MessageQueuePublisherMixin):
                 break
 
         # shutdown tasks
-        for task in bg_tasks + consumer_tasks:
+        for task in bg_tasks + start_consumer_tasks:
             task.cancel()
             await asyncio.sleep(0.1)
         logger.info("Cancelled all asyncio service processing tasks.")
