@@ -91,7 +91,7 @@ class ServerLauncher(MessageQueuePublisherMixin):
         # consumers start consuming in their own threads
         start_consuming_tasks = []
         for start_consuming_callable in start_consuming_callables:
-            task = asyncio.create_task(start_consuming_callable())
+            task: asyncio.Task = asyncio.create_task(start_consuming_callable())
             start_consuming_tasks.append(task)
 
         shutdown_handler = self.get_shutdown_handler(

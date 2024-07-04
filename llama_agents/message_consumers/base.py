@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field
-from typing import Any, Awaitable, Callable, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING, Coroutine
 
 from llama_agents.messages.base import QueueMessage
 from llama_agents.types import generate_id
@@ -10,10 +10,10 @@ from llama_agents.types import generate_id
 if TYPE_CHECKING:
     pass
 
-StartConsumingCallable = Callable[..., Awaitable[Any]]
+StartConsumingCallable = Callable[..., Coroutine[Any, Any, None]]
 
 
-async def default_start_consuming_callable():
+async def default_start_consuming_callable() -> None:
     pass
 
 

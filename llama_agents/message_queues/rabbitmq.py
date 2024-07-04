@@ -3,7 +3,7 @@
 import asyncio
 import json
 from logging import getLogger
-from typing import Any, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from llama_agents.message_queues.base import (
     BaseMessageQueue,
 )
@@ -23,7 +23,7 @@ DEFAULT_URL = "amqp://guest:guest@localhost/"
 DEFAULT_EXCHANGE_NAME = "llama-agents"
 
 
-async def _establish_connection(url: str):
+async def _establish_connection(url: str) -> "Connection":
     try:
         import aio_pika
     except ImportError:
@@ -72,9 +72,9 @@ class RabbitMQMessageQueue(BaseMessageQueue):
     @classmethod
     def from_url_params(
         cls,
-        username=str,
-        password=str,
-        host=str,
+        username: str,
+        password: str,
+        host: str,
         port: Optional[int] = None,
         secure: bool = False,
         exchange_name: str = DEFAULT_EXCHANGE_NAME,
@@ -119,7 +119,7 @@ class RabbitMQMessageQueue(BaseMessageQueue):
     async def register_consumer(
         self, consumer: BaseMessageQueueConsumer
     ) -> StartConsumingCallable:
-        from aio_pika import ExchangeType
+        from aio_pika import ExchangeType, Message as AioPikaMessage
 
         connection = await _establish_connection(self.url)
         async with connection:
@@ -141,7 +141,7 @@ class RabbitMQMessageQueue(BaseMessageQueue):
             Consumer of this queue, should call this in order to start consuming.
             """
 
-            async def on_message(message) -> None:
+            async def on_message(message: AioPikaMessage) -> None:
                 async with message.process():
                     decoded_message = json.loads(message.body.decode("utf-8"))
                     queue_message = QueueMessage.model_validate(decoded_message)
@@ -175,7 +175,9 @@ class RabbitMQMessageQueue(BaseMessageQueue):
     async def launch_server(self) -> None:
         pass
 
-    async def cleanup_local(self, message_types: List[str], *args, **kwargs) -> None:
+    async def cleanup_local(
+        self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
+    ) -> None:
         connection = await self.new_connection()
         async with connection:
             channel = await connection.channel()

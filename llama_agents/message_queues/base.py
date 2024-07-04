@@ -6,7 +6,16 @@ import inspect
 from abc import ABC, abstractmethod
 from logging import getLogger
 from pydantic import BaseModel
-from typing import Any, Awaitable, Callable, List, Optional, Protocol, TYPE_CHECKING
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    TYPE_CHECKING,
+)
 
 from llama_agents.messages.base import QueueMessage
 
@@ -95,7 +104,7 @@ class BaseMessageQueue(BaseModel, ABC):
         ...
 
     @abstractmethod
-    async def launch_local(self) -> Optional[asyncio.Task]:
+    async def launch_local(self) -> asyncio.Task:
         """Launch the service in-process."""
         ...
 
@@ -105,6 +114,8 @@ class BaseMessageQueue(BaseModel, ABC):
         ...
 
     @abstractmethod
-    async def cleanup_local(self, message_types: List[str], *args, **kwargs) -> None:
+    async def cleanup_local(
+        self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
+    ) -> None:
         """Perform any cleanup before shutting down."""
         ...

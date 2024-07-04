@@ -177,8 +177,7 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
             start_consuming_callable = await self.message_queue.register_consumer(
                 self.as_consumer()
             )
-            if start_consuming_callable:
-                _ = asyncio.create_task(start_consuming_callable())
+            _ = asyncio.create_task(start_consuming_callable())
             self.registered = True
 
         input = self._parse_args(*args, **kwargs)
