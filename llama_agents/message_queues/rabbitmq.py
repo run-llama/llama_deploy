@@ -3,7 +3,7 @@
 import asyncio
 import json
 from logging import getLogger
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, List, Optional, TYPE_CHECKING
 from llama_agents.message_queues.base import (
     BaseMessageQueue,
 )
@@ -169,8 +169,16 @@ class RabbitMQMessageQueue(BaseMessageQueue):
     async def processing_loop(self) -> None:
         pass
 
-    async def launch_local(self) -> Optional[asyncio.Task]:
-        pass
+    async def launch_local(self) -> asyncio.Task:
+        return asyncio.create_task(self.processing_loop())
 
     async def launch_server(self) -> None:
         pass
+
+    async def cleanup_local(self, message_types: List[str], *args, **kwargs) -> None:
+        connection = await self.new_connection()
+        async with connection:
+            channel = await connection.channel()
+            for message_type in message_types:
+                await channel.queue_delete(queue_name=message_type)
+            await channel.exchange_delete(exchange_name=self.exchange_name)

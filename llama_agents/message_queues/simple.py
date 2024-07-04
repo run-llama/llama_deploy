@@ -116,6 +116,11 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
             "`launch_server()` is not implemented for this class."
         )
 
+    async def cleanup_local(self, message_types=List[str], *args, **kwargs) -> None:
+        raise NotImplementedError(
+            "`cleanup_local()` is not implemented for this class."
+        )
+
 
 class SimpleMessageQueue(BaseMessageQueue):
     """SimpleMessageQueue.
@@ -355,6 +360,9 @@ class SimpleMessageQueue(BaseMessageQueue):
             "service_name": "message_queue",
             "description": "Message queue for multi-agent system",
         }
+
+    async def cleanup_local(self, message_types: List[str], *args, **kwargs) -> None:
+        pass
 
 
 if __name__ == "__main__":

@@ -101,3 +101,8 @@ class BaseMessageQueue(BaseModel, ABC):
     async def launch_server(self) -> None:
         """Launch the service as a server."""
         ...
+
+    @abstractmethod
+    async def cleanup_local(self, message_types: List[str], *args, **kwargs) -> None:
+        """Perform any cleanup before shutting down."""
+        ...
