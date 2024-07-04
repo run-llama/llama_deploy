@@ -38,6 +38,31 @@ HELP_REQUEST_TEMPLATE_STR = (
 
 
 class HumanService(BaseService):
+    """A human service for providing human-in-the-loop assistance.
+
+    When launched locally, it will prompt the user for input, which is blocking!
+
+    When launched as a server, it will provide an API for creating and handling tasks.
+
+    Exposes the following endpoints:
+    - GET `/`: Get the service information.
+    - POST `/process_message`: Process a message.
+    - POST `/tasks`: Create a task.
+    - GET `/tasks`: Get all tasks.
+    - GET `/tasks/{task_id}`: Get a task.
+    - POST `/tasks/{task_id}/handle`: Handle a task.
+
+    Attributes:
+        service_name (str): The name of the service.
+        description (str): The description of the service.
+        running (bool): Whether the service is running.
+        step_interval (float): The interval in seconds to poll for tool call results. Defaults to 0.1s.
+        host (Optional[str]): The host of the service.
+        port (Optional[int]): The port of the service.
+
+
+    """
+
     service_name: str
     description: str = "Local Human Service."
     running: bool = True
@@ -105,6 +130,7 @@ class HumanService(BaseService):
 
     @property
     def service_definition(self) -> ServiceDefinition:
+        """Get the service definition."""
         return ServiceDefinition(
             service_name=self.service_name,
             description=self.description,
@@ -115,14 +141,17 @@ class HumanService(BaseService):
 
     @property
     def message_queue(self) -> BaseMessageQueue:
+        """The message queue."""
         return self._message_queue
 
     @property
     def publisher_id(self) -> str:
+        """The publisher ID."""
         return self._publisher_id
 
     @property
     def publish_callback(self) -> Optional[PublishCallback]:
+        """The publish callback, if any."""
         return self._publish_callback
 
     @property
@@ -130,6 +159,7 @@ class HumanService(BaseService):
         return self._lock
 
     async def processing_loop(self) -> None:
+        """The processing loop for the service."""
         while True:
             if not self.running:
                 await asyncio.sleep(self.step_interval)
@@ -178,6 +208,7 @@ class HumanService(BaseService):
             await asyncio.sleep(self.step_interval)
 
     async def process_message(self, message: QueueMessage) -> None:
+        """Process a message received from the message queue."""
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
             async with self.lock:
@@ -186,6 +217,13 @@ class HumanService(BaseService):
             raise ValueError(f"Unhandled action: {message.action}")
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
+        """Get the consumer for the service.
+
+        Args:
+            remote (bool):
+                Whether the consumer is remote. Defaults to False.
+                If True, the consumer will be a RemoteMessageConsumer that uses the `process_message` endpoint.
+        """
         if remote:
             url = (
                 f"http://{self.host}:{self.port}{self._app.url_path_for('process_message')}"
@@ -205,12 +243,14 @@ class HumanService(BaseService):
         )
 
     async def launch_local(self) -> asyncio.Task:
+        """Launch the service in-process."""
         logger.info(f"{self.service_name} launch_local")
         return asyncio.create_task(self.processing_loop())
 
     # ---- Server based methods ----
 
     async def home(self) -> Dict[str, str]:
+        """Get general service information."""
         return {
             "service_name": self.service_name,
             "description": self.description,
@@ -222,15 +262,18 @@ class HumanService(BaseService):
         }
 
     async def create_task(self, task: TaskDefinition) -> Dict[str, str]:
+        """Create a task for the human service."""
         async with self.lock:
             self._outstanding_human_tasks.append(task)
         return {"task_id": task.task_id}
 
     async def get_tasks(self) -> List[TaskDefinition]:
+        """Get all outstanding tasks."""
         async with self.lock:
             return [*self._outstanding_human_tasks]
 
     async def get_task(self, task_id: str) -> Optional[TaskDefinition]:
+        """Get a specific task by ID."""
         async with self.lock:
             for task in self._outstanding_human_tasks:
                 if task.task_id == task_id:
@@ -238,6 +281,7 @@ class HumanService(BaseService):
         return None
 
     async def handle_task(self, task_id: str, result: HumanResponse) -> None:
+        """Handle a task by providing a result."""
         async with self.lock:
             for task_def in self._outstanding_human_tasks:
                 if task_def.task_id == task_id:
@@ -269,6 +313,7 @@ class HumanService(BaseService):
         )
 
     async def launch_server(self) -> None:
+        """Launch the service as a FastAPI server."""
         logger.info(
             f"Lanching server for {self.service_name} at {self.host}:{self.port}"
         )

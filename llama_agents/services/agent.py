@@ -34,6 +34,66 @@ logger = getLogger(__name__)
 
 
 class AgentService(BaseService):
+    """Agent Service.
+
+    A service that runs an agent locally, processing incoming tasks step-wise in an endless loop.
+
+    Messages are published to the message queue, and the agent processes them in a loop,
+    finally returning a message with the completed task.
+
+    This AgentService can either be run in a local loop or as a Fast-API server.
+
+    Exposes the following endpoints:
+    - GET `/`: Home endpoint.
+    - POST `/process_message`: Process a message.
+    - POST `/task`: Create a task.
+    - GET `/messages`: Get messages.
+    - POST `/toggle_agent_running`: Toggle the agent running state.
+    - GET `/is_worker_running`: Check if the agent is running.
+    - POST `/reset_agent`: Reset the agent.
+
+    Since the agent can launch as a FastAPI server, you can visit `/docs` for full swagger documentation.
+
+    Attributes:
+        service_name (str):
+            The name of the service.
+        agent (AgentRunner):
+            The agent to run.
+        description (str):
+            The description of the service.
+        prompt (Optional[List[ChatMessage]]):
+            The prompt messages, meant to be appended to the start of tasks (currently TODO).
+        running (bool):
+            Whether the agent is running.
+        step_interval (float):
+            The interval in seconds to poll for task completion. Defaults to 0.1s.
+        host (Optional[str]):
+            The host to launch a FastAPI server on.
+        port (Optional[int]):
+            The port to launch a FastAPI server on.
+        raise_exceptions (bool):
+            Whether to raise exceptions in the processing loop.
+
+    Examples:
+        ```python
+        from llama_agents import AgentService
+        from llama_index.core.agent import ReActAgent
+
+        agent = ReActAgent.from_tools([...], llm=llm)
+        agent_service = AgentService(
+            agent,
+            message_queue,
+            service_name="my_agent_service",
+            description="My Agent Service",
+            host="127.0.0.1",
+            port=8003,
+        )
+
+        # launch as a server for remote access or documentation
+        await agent_service.launch_server()
+        ```
+    """
+
     service_name: str
     agent: AgentRunner
     description: str = "Local Agent Service."
@@ -118,6 +178,7 @@ class AgentService(BaseService):
 
     @property
     def service_definition(self) -> ServiceDefinition:
+        """The service definition."""
         return ServiceDefinition(
             service_name=self.service_name,
             description=self.description,
@@ -128,14 +189,17 @@ class AgentService(BaseService):
 
     @property
     def message_queue(self) -> BaseMessageQueue:
+        """The message queue."""
         return self._message_queue
 
     @property
     def publisher_id(self) -> str:
+        """The publisher id."""
         return self._publisher_id
 
     @property
     def publish_callback(self) -> Optional[PublishCallback]:
+        """The publish callback, if any."""
         return self._publish_callback
 
     @property
@@ -153,6 +217,7 @@ class AgentService(BaseService):
         return f"{service_name}-as-tool"
 
     async def processing_loop(self) -> None:
+        """The processing loop for the agent."""
         while True:
             try:
                 if not self.running:
@@ -245,6 +310,7 @@ class AgentService(BaseService):
             await asyncio.sleep(self.step_interval)
 
     async def process_message(self, message: QueueMessage) -> None:
+        """Handling for when a message is received."""
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
             self.agent.create_task(task_def.input, task_id=task_def.task_id)
@@ -267,6 +333,13 @@ class AgentService(BaseService):
             raise ValueError(f"Unhandled action: {message.action}")
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
+        """Get the consumer for the message queue.
+
+        Args:
+            remote (bool):
+                Whether to get a remote consumer or local.
+                If remote, calls the `process_message` endpoint.
+        """
         if remote:
             url = (
                 f"http://{self.host}:{self.port}{self._app.url_path_for('process_message')}"
@@ -286,6 +359,7 @@ class AgentService(BaseService):
         )
 
     async def launch_local(self) -> asyncio.Task:
+        """Launch the agent locally."""
         logger.info(f"{self.service_name} launch_local")
         return asyncio.create_task(self.processing_loop())
 
@@ -299,6 +373,7 @@ class AgentService(BaseService):
         self.running = False
 
     async def home(self) -> Dict[str, str]:
+        """Home endpoint. Gets general information about the agent service."""
         tasks = self.agent.list_tasks()
 
         task_strings = []
@@ -325,10 +400,12 @@ class AgentService(BaseService):
         }
 
     async def create_task(self, task: TaskDefinition) -> Dict[str, str]:
+        """Create a task."""
         task_id = self.agent.create_task(task, task_id=task.task_id)
         return {"task_id": task_id}
 
     async def get_messages(self) -> List[_ChatMessage]:
+        """Get messages from the agent."""
         messages = self.agent.chat_history
 
         return [_ChatMessage.from_chat_message(message) for message in messages]
@@ -336,19 +413,23 @@ class AgentService(BaseService):
     async def toggle_agent_running(
         self, state: Literal["running", "stopped"]
     ) -> Dict[str, bool]:
+        """Toggle the agent running state."""
         self.running = state == "running"
 
         return {"running": self.running}
 
     async def is_worker_running(self) -> Dict[str, bool]:
+        """Check if the agent is running."""
         return {"running": self.running}
 
     async def reset_agent(self) -> Dict[str, str]:
+        """Reset the agent."""
         self.agent.reset()
 
         return {"message": "Agent reset"}
 
     async def launch_server(self) -> None:
+        """Launch the agent as a FastAPI server."""
         logger.info(f"Launching {self.service_name} server at {self.host}:{self.port}")
         # uvicorn.run(self._app, host=self.host, port=self.port)
 

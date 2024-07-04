@@ -33,6 +33,59 @@ logger = getLogger(__name__)
 
 
 class ToolService(BaseService):
+    """A service that executes tools remotely for other services.
+
+    This service is responsible for executing tools remotely for other services and agents.
+
+    Exposes the following endpoints:
+    - GET `/`: Home endpoint.
+    - POST `/tool_call`: Create a tool call.
+    - GET `/tool`: Get a tool by name.
+    - POST `/process_message`: Process a message.
+
+    Attributes:
+        tools (List[AsyncBaseTool]):
+            A list of tools to execute.
+        description (str):
+            The description of the tool service.
+        running (bool):
+            Whether the service is running.
+        step_interval (float):
+            The interval in seconds to poll for tool call results. Defaults to 0.1s.
+        host (Optional[str]):
+            The host of the service.
+        port (Optional[int]):
+            The port of the service.
+
+    Examples:
+        ```python
+        from llama_agents import ToolService, MetaServiceTool, SimpleMessageQueue
+        from llama_index.core.llms import OpenAI
+        from llama_index.core.agent import FunctionCallingAgentWorker
+
+        message_queue = SimpleMessageQueue()
+
+        tool_service = ToolService(
+            message_queue=message_queue,
+            tools=[tool],
+            running=True,
+            step_interval=0.5,
+        )
+
+        # create a meta tool and use it in any other agent
+        # this allows remote execution of that tool
+        meta_tool = MetaServiceTool(
+            tool_metadata=tool.metadata,
+            message_queue=message_queue,
+            tool_service_name=tool_service.service_name,
+        )
+        agent = FunctionCallingAgentWorker.from_tools(
+            [meta_tool],
+            llm=OpenAI(),
+        ).as_agent()
+        ```
+    """
+
     service_name: str
     tools: List[AsyncBaseTool]
     description: str = "Local Tool Service."
@@ -98,6 +151,7 @@ class ToolService(BaseService):
 
     @property
     def service_definition(self) -> ServiceDefinition:
+        """The service definition."""
         return ServiceDefinition(
             service_name=self.service_name,
             description=self.description,
@@ -108,14 +162,17 @@ class ToolService(BaseService):
 
     @property
     def message_queue(self) -> BaseMessageQueue:
+        """The message queue."""
         return self._message_queue
 
     @property
     def publisher_id(self) -> str:
+        """The publisher ID."""
         return self._publisher_id
 
     @property
     def publish_callback(self) -> Optional[PublishCallback]:
+        """The publish callback, if any."""
         return self._publish_callback
 
     @property
@@ -123,6 +180,7 @@ class ToolService(BaseService):
         return self._lock
 
     async def processing_loop(self) -> None:
+        """The processing loop for the service."""
         while True:
             if not self.running:
                 await asyncio.sleep(self.step_interval)
@@ -175,6 +233,7 @@ class ToolService(BaseService):
             await asyncio.sleep(self.step_interval)
 
     async def process_message(self, message: QueueMessage) -> None:
+        """Process a message."""
         if message.action == ActionTypes.NEW_TOOL_CALL:
             tool_call_data = {"source_id": message.publisher_id}
             tool_call_data.update(message.data or {})
@@ -185,6 +244,13 @@ class ToolService(BaseService):
             raise ValueError(f"Unhandled action: {message.action}")
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
+        """Get the consumer for the service.
+
+        Args:
+            remote (bool):
+                Whether the consumer is remote. Defaults to False.
+                If True, the consumer will be a RemoteMessageConsumer that uses the `process_message` endpoint.
+        """
         if remote:
             url = (
                 f"http://{self.host}:{self.port}{self._app.url_path_for('process_message')}"
@@ -203,6 +269,7 @@ class ToolService(BaseService):
         )
 
     async def launch_local(self) -> asyncio.Task:
+        """Launch the service in-process."""
         return asyncio.create_task(self.processing_loop())
 
     # ---- Server based methods ----
@@ -215,6 +282,7 @@ class ToolService(BaseService):
         self.running = False
 
     async def home(self) -> Dict[str, str]:
+        """Home endpoint. Returns the general information about the service."""
         return {
             "service_name": self.service_name,
             "description": self.description,
@@ -229,17 +297,20 @@ class ToolService(BaseService):
         }
 
     async def create_tool_call(self, tool_call: ToolCall) -> Dict[str, str]:
+        """Create a tool call."""
         async with self.lock:
             self._outstanding_tool_calls.update({tool_call.id_: tool_call})
         return {"tool_call_id": tool_call.id_}
 
     async def get_tool_by_name(self, name: str) -> Dict[str, Any]:
+        """Get a tool by name."""
         name_to_tool = {tool.metadata.name: tool for tool in self.tools}
         if name not in name_to_tool:
             raise ValueError(f"Tool with name {name} not found")
         return {"tool_metadata": name_to_tool[name].metadata}
 
     async def launch_server(self) -> None:
+        """Launch the service as a FastAPI server."""
         logger.info(f"Launching tool service server at {self.host}:{self.port}")
         # uvicorn.run(self._app, host=self.host, port=self.port)
 
