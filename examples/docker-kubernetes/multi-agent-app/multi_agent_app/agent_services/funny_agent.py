@@ -46,7 +46,7 @@ app = agent_server._app
 
 
 # registration
-async def register_and_start_consuming():
+async def register_and_start_consuming() -> None:
     # register to message queue
     start_consuming_callable = await agent_server.register_to_message_queue()
     # register to control plane
