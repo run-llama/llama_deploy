@@ -95,7 +95,7 @@ class AsyncRabbitMQMessageQueue(BaseMessageQueue):
         return await _establish_connection(self.url)
 
     async def _publish(self, message: QueueMessage) -> Any:
-        from aio_pika import DeliveryMode, ExchangeType, Message
+        from aio_pika import DeliveryMode, ExchangeType, Message as AioPikaMessage
 
         message_type_str = message.type
         connection = await _establish_connection(self.url)
@@ -108,34 +108,18 @@ class AsyncRabbitMQMessageQueue(BaseMessageQueue):
             )
             message_body = json.dumps(message.model_dump()).encode("utf-8")
 
-            pika_message = Message(
+            aio_pika_message = AioPikaMessage(
                 message_body,
                 delivery_mode=DeliveryMode.PERSISTENT,
             )
             # Sending the message
-            await exchange.publish(pika_message, routing_key=message_type_str)
+            await exchange.publish(aio_pika_message, routing_key=message_type_str)
             logger.info(f"published message {message.id_}")
 
-    async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer
-    ) -> Optional[StartConsumingCallable]:
-        from aio_pika import DeliveryMode, ExchangeType, Message
+    def _get_start_consuming_callable(self, consumer: BaseMessageQueueConsumer):
+        """Returns a StartConsumingCallablle to be returned to a consumer post registration."""
 
-        connection = await _establish_connection(self.url)
-        async with connection:
-            channel = await connection.channel()
-            exchange = await channel.declare_exchange(
-                self.exchange_name,
-                ExchangeType.DIRECT,
-            )
-            queue: Queue = await channel.declare_queue(name=consumer.message_type)
-            await queue.bind(exchange)
-
-        logger.info(
-            f"Registered consumer {consumer.id_}: {consumer.message_type}",
-        )
-
-        async def start_consuming():
+        async def start_consuming_callable() -> None:
             async def on_message(message) -> None:
                 async with message.process():
                     decoded_message = json.loads(message.body.decode("utf-8"))
@@ -156,7 +140,49 @@ class AsyncRabbitMQMessageQueue(BaseMessageQueue):
 
                 await asyncio.Future()
 
-        return start_consuming
+        return start_consuming_callable
+
+    async def register_consumer(
+        self, consumer: BaseMessageQueueConsumer
+    ) -> Optional[StartConsumingCallable]:
+        from aio_pika import ExchangeType
+
+        connection = await _establish_connection(self.url)
+        async with connection:
+            channel = await connection.channel()
+            exchange = await channel.declare_exchange(
+                self.exchange_name,
+                ExchangeType.DIRECT,
+            )
+            queue: Queue = await channel.declare_queue(name=consumer.message_type)
+            await queue.bind(exchange)
+
+        logger.info(
+            f"Registered consumer {consumer.id_}: {consumer.message_type}",
+        )
+
+        async def start_consuming_callable() -> None:
+            async def on_message(message) -> None:
+                async with message.process():
+                    decoded_message = json.loads(message.body.decode("utf-8"))
+                    queue_message = QueueMessage.model_validate(decoded_message)
+                    await consumer.process_message(queue_message)
+
+            connection = await _establish_connection(self.url)
+            async with connection:
+                channel = await connection.channel()
+                exchange = await channel.declare_exchange(
+                    self.exchange_name,
+                    ExchangeType.DIRECT,
+                )
+                queue: Queue = await channel.declare_queue(name=consumer.message_type)
+                await queue.bind(exchange)
+
+                await queue.consume(on_message)
+
+                await asyncio.Future()
+
+        return start_consuming_callable
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         pass

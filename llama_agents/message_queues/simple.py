@@ -15,7 +15,11 @@ from urllib.parse import urljoin
 
 from llama_agents.message_queues.base import BaseMessageQueue
 from llama_agents.messages.base import QueueMessage
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+    default_start_consuming_callable,
+)
 from llama_agents.message_consumers.remote import (
     RemoteMessageConsumer,
     RemoteMessageConsumerDef,
@@ -31,6 +35,7 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
     base_url: PydanticValidatedUrl
     client_kwargs: Optional[Dict] = None
     client: Optional[httpx.AsyncClient] = None
+    raise_exceptions: bool = False
 
     async def _publish(
         self, message: QueueMessage, publish_url: str = "publish", **kwargs: Any
@@ -46,7 +51,7 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
         consumer: BaseMessageQueueConsumer,
         register_consumer_url: str = "register_consumer",
         **kwargs: Any,
-    ) -> httpx.Response:
+    ) -> StartConsumingCallable:
         client_kwargs = self.client_kwargs or {}
         url = urljoin(self.base_url, register_consumer_url)
         try:
@@ -57,7 +62,15 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
             ) from e
         async with httpx.AsyncClient(**client_kwargs) as client:
             result = await client.post(url, json=remote_consumer_def.model_dump())
-        return result
+        if result.status_code != status.HTTP_200_OK:
+            logger.debug(
+                f"An error occurred in registering consumer: {result.status_code}"
+            )
+            if self.raise_exceptions:
+                raise ValueError(
+                    f"An error occurred in registering consumer: {result.status_code}"
+                )
+        return default_start_consuming_callable
 
     async def deregister_consumer(
         self,
@@ -207,7 +220,7 @@ class SimpleMessageQueue(BaseMessageQueue):
 
     async def register_consumer(
         self, consumer: BaseMessageQueueConsumer, **kwargs: Any
-    ) -> None:
+    ) -> StartConsumingCallable:
         """Register a new consumer."""
         message_type_str = consumer.message_type
 
@@ -229,6 +242,7 @@ class SimpleMessageQueue(BaseMessageQueue):
 
         if message_type_str not in self.queues:
             self.queues[message_type_str] = deque()
+        return default_start_consuming_callable
 
     async def register_remote_consumer(
         self, consumer_def: RemoteMessageConsumerDef
