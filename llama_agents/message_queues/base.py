@@ -20,19 +20,10 @@ logger = getLogger(__name__)
 AsyncProcessMessageCallable = Callable[[QueueMessage], Awaitable[Any]]
 
 
-class BaseChannel(BaseModel, ABC):
-    @abstractmethod
-    def start_consuming(
-        self, process_message: AsyncProcessMessageCallable, message_type: str
-    ) -> Any:
-        ...
-
-
 class MessageProcessor(Protocol):
     """Protocol for a callable that processes messages."""
 
-    def __call__(self, message: QueueMessage, **kwargs: Any) -> None:
-        ...
+    def __call__(self, message: QueueMessage, **kwargs: Any) -> None: ...
 
 
 class PublishCallback(Protocol):
@@ -41,8 +32,7 @@ class PublishCallback(Protocol):
     TODO: Variant for Async Publish Callback.
     """
 
-    def __call__(self, message: QueueMessage, **kwargs: Any) -> None:
-        ...
+    def __call__(self, message: QueueMessage, **kwargs: Any) -> None: ...
 
 
 class BaseMessageQueue(BaseModel, ABC):

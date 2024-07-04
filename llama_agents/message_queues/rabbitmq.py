@@ -19,6 +19,10 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
+DEFAULT_URL = "amqp://guest:guest@localhost/"
+DEFAULT_EXCHANGE_NAME = "llama-agents"
+
+
 async def _establish_connection(url: str):
     try:
         import aio_pika
@@ -55,18 +59,15 @@ class RabbitMQMessageQueue(BaseMessageQueue):
             queue, only one consumer will be chosen dictated by sequence.
     """
 
-    url: str = "amqp://guest:guest@localhost/"
-    exchange_name: str = "llama-agents"
+    url: str = DEFAULT_URL
+    exchange_name: str = DEFAULT_EXCHANGE_NAME
 
     def __init__(
         self,
-        url: str = "amqp://guest:guest@localhost/",
-        exchange_name: str = "llama-agents",
+        url: str = DEFAULT_URL,
+        exchange_name: str = DEFAULT_EXCHANGE_NAME,
     ) -> None:
         super().__init__(url=url, exchange_name=exchange_name)
-
-    class Config:
-        arbitrary_types_allowed = True
 
     @classmethod
     def from_url_params(
@@ -76,8 +77,8 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         host=str,
         port: Optional[int] = None,
         secure: bool = False,
-        exchange_name: str = "llama-agents",
-    ) -> "AsyncRabbitMQMessageQueue":
+        exchange_name: str = DEFAULT_EXCHANGE_NAME,
+    ) -> "RabbitMQMessageQueue":
         if not secure:
             if port:
                 url = f"amqp://{username}:{password}@{host}:{port}/vhost"
@@ -115,32 +116,6 @@ class RabbitMQMessageQueue(BaseMessageQueue):
             await exchange.publish(aio_pika_message, routing_key=message_type_str)
             logger.info(f"published message {message.id_}")
 
-    def _get_start_consuming_callable(self, consumer: BaseMessageQueueConsumer):
-        """Returns a StartConsumingCallablle to be returned to a consumer post registration."""
-
-        async def start_consuming_callable() -> None:
-            async def on_message(message) -> None:
-                async with message.process():
-                    decoded_message = json.loads(message.body.decode("utf-8"))
-                    queue_message = QueueMessage.model_validate(decoded_message)
-                    await consumer.process_message(queue_message)
-
-            connection = await _establish_connection(self.url)
-            async with connection:
-                channel = await connection.channel()
-                exchange = await channel.declare_exchange(
-                    self.exchange_name,
-                    ExchangeType.DIRECT,
-                )
-                queue: Queue = await channel.declare_queue(name=consumer.message_type)
-                await queue.bind(exchange)
-
-                await queue.consume(on_message)
-
-                await asyncio.Future()
-
-        return start_consuming_callable
-
     async def register_consumer(
         self, consumer: BaseMessageQueueConsumer
     ) -> StartConsumingCallable:
@@ -161,6 +136,11 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         )
 
         async def start_consuming_callable() -> None:
+            """StartConsumingCallable.
+
+            Consumer of this queue, should call this in order to start consuming.
+            """
+
             async def on_message(message) -> None:
                 async with message.process():
                     decoded_message = json.loads(message.body.decode("utf-8"))
