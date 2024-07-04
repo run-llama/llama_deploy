@@ -7,11 +7,12 @@ from pydantic import PrivateAttr
 from typing import Any, Optional, Callable, TYPE_CHECKING
 from llama_agents.message_queues.base import (
     BaseMessageQueue,
-    BaseChannel,
-    AsyncProcessMessageCallable,
 )
 from llama_agents.messages.base import QueueMessage
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+)
 
 if TYPE_CHECKING:
     from aio_pika import Connection, Channel, Exchange, ExchangeType, Queue
@@ -19,46 +20,32 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 
-class AsyncRabbitMQChannel(BaseChannel):
-    _pika_channel: "Channel" = PrivateAttr()
-
-    def __init__(self, pika_channel: "Channel", pika_connection: "Connection") -> None:
-        super().__init__()
-        self._pika_channel = pika_channel
-        self._pika_connection = pika_connection
-
-    async def start_consuming(
-        self, process_message: AsyncProcessMessageCallable, message_type: str
-    ) -> Any:
-        for message in self._pika_channel.consume(message_type, inactivity_timeout=1):
-            if not all(message):
-                continue
-            _methods, _properties, body = message
-            payload = json.loads(body.decode("utf-8"))
-            message = QueueMessage.model_validate(payload)
-            await process_message(message)
-
-    async def stop_consuming(self) -> None:
-        self._pika_channel.cancel()
-
-
-async def _establish_connection(host: str, port: Optional[int]):
+async def _establish_connection(url: str):
     try:
         import aio_pika
     except ImportError:
         raise ValueError(
             "Missing pika optional dep. Please install by running `pip install llama-agents[rabbimq]`."
         )
-    return await aio_pika.connect("amqp://guest:guest@localhost/")
+    return await aio_pika.connect(url)
 
 
 class AsyncRabbitMQMessageQueue(BaseMessageQueue):
-    """RabbitMQ integration.
+    """RabbitMQ integration with aio-pika client.
 
     This class creates a Work (or Task) Queue. For more information on Work Queues
     with RabbitMQ see the pages linked below:
-        1. https://www.rabbitmq.com/tutorials/tutorial-two-python.
-        2. https://www.rabbitmq.com/tutorials/amqp-concepts#:~:text=The%20default%20exchange%20is%20a,same%20as%20the%20queue%20name.
+        1. https://aio-pika.readthedocs.io/en/latest/rabbitmq-tutorial/2-work-queues.html
+        2. https://aio-pika.readthedocs.io/en/latest/rabbitmq-tutorial/3-publish-subscribe.html
+
+    Connections are established by url that use amqp uri scheme
+    (https://www.rabbitmq.com/docs/uri-spec#the-amqp-uri-scheme)
+        amqp_URI       = "amqp://" amqp_authority [ "/" vhost ] [ "?" query ]
+        amqp_authority = [ amqp_userinfo "@" ] host [ ":" port ]
+        amqp_userinfo  = username [ ":" password ]
+        username       = *( unreserved / pct-encoded / sub-delims )
+        password       = *( unreserved / pct-encoded / sub-delims )
+        vhost          = segment
 
     The Work Queue created has the following properties:
         - Exchange with name self.exchange
@@ -69,29 +56,49 @@ class AsyncRabbitMQMessageQueue(BaseMessageQueue):
             queue, only one consumer will be chosen dictated by sequence.
     """
 
-    host: str = "localhost"
-    port: Optional[int] = 5672
+    url: str = "amqp://guest:guest@localhost/"
     exchange_name: str = "llama-agents"
 
     def __init__(
         self,
-        host: str = "localhost",
-        port: Optional[int] = 5672,
+        url: str = "amqp://guest:guest@localhost/",
         exchange_name: str = "llama-agents",
     ) -> None:
-        super().__init__(host=host, port=port, exchange_name=exchange_name)
+        super().__init__(url=url, exchange_name=exchange_name)
 
     class Config:
         arbitrary_types_allowed = True
 
+    @classmethod
+    def from_url_params(
+        cls,
+        username=str,
+        password=str,
+        host=str,
+        port: Optional[int] = None,
+        secure: bool = False,
+        exchange_name: str = "llama-agents",
+    ) -> "AsyncRabbitMQMessageQueue":
+        if not secure:
+            if port:
+                url = f"amqp://{username}:{password}@{host}:{port}/vhost"
+            else:
+                url = f"amqp://{username}:{password}@{host}/vhost"
+        if secure:
+            if port:
+                url = f"amqps://{username}:{password}@{host}:{port}/vhost"
+            else:
+                url = f"amqps://{username}:{password}@{host}/vhost"
+        return cls(url=url, exchange_name=exchange_name)
+
     async def new_connection(self) -> "Connection":
-        return await _establish_connection(self.host, self.port)
+        return await _establish_connection(self.url)
 
     async def _publish(self, message: QueueMessage) -> Any:
         from aio_pika import DeliveryMode, ExchangeType, Message
 
         message_type_str = message.type
-        connection = await _establish_connection(self.host, self.port)
+        connection = await _establish_connection(self.url)
 
         async with connection:
             channel = await connection.channel()
@@ -111,10 +118,10 @@ class AsyncRabbitMQMessageQueue(BaseMessageQueue):
 
     async def register_consumer(
         self, consumer: BaseMessageQueueConsumer
-    ) -> Optional[Callable]:
+    ) -> Optional[StartConsumingCallable]:
         from aio_pika import DeliveryMode, ExchangeType, Message
 
-        connection = await _establish_connection(self.host, self.port)
+        connection = await _establish_connection(self.url)
         async with connection:
             channel = await connection.channel()
             exchange = await channel.declare_exchange(
@@ -135,7 +142,7 @@ class AsyncRabbitMQMessageQueue(BaseMessageQueue):
                     queue_message = QueueMessage.model_validate(decoded_message)
                     await consumer.process_message(queue_message)
 
-            connection = await _establish_connection(self.host, self.port)
+            connection = await _establish_connection(self.url)
             async with connection:
                 channel = await connection.channel()
                 exchange = await channel.declare_exchange(

@@ -2,13 +2,15 @@
 
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field
-from typing import Any, TYPE_CHECKING
+from typing import Any, Awaitable, Callable, Optional, TYPE_CHECKING
 
 from llama_agents.messages.base import QueueMessage
 from llama_agents.types import generate_id
 
 if TYPE_CHECKING:
     pass
+
+StartConsumingCallable = Callable[..., Awaitable[Any]]
 
 
 class BaseMessageQueueConsumer(BaseModel, ABC):
@@ -21,7 +23,7 @@ class BaseMessageQueueConsumer(BaseModel, ABC):
     channel: Any = Field(
         default=None, description="The channel if any for which to receive messages."
     )
-    consuming_callable: Any = Field(default=None)
+    consuming_callable: Optional[StartConsumingCallable] = Field(default=None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -42,9 +44,3 @@ class BaseMessageQueueConsumer(BaseModel, ABC):
         """Begin consuming messages."""
         if self.consuming_callable:
             await self.consuming_callable()
-
-    async def stop_consuming(
-        self,
-    ) -> None:
-        """Stop consuming."""
-        await self.channel.stop_consuming()
