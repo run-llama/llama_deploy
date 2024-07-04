@@ -19,12 +19,28 @@ from llama_agents.types import (
 
 
 class BaseControlPlane(MessageQueuePublisherMixin, ABC):
+    """The control plane for the system.
+
+    The control plane is responsible for managing the state of the system, including:
+    - Registering services.
+    - Submitting tasks.
+    - Managing task state.
+    - Handling service completion.
+    - Launching the control plane server.
+    """
+
     @abstractmethod
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         """
         Get the consumer for the message queue.
 
-        :return: Consumer for the message queue.
+        Args:
+            remote (bool):
+                Whether the consumer is remote.
+                If True, the consumer will be a RemoteMessageConsumer.
+
+        Returns:
+            BaseMessageQueueConsumer: Message queue consumer.
         """
         ...
 
@@ -33,7 +49,8 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         """
         Register an service with the control plane.
 
-        :param service_def: Definition of the service.
+        Args:
+            service_def (ServiceDefinition): Definition of the service.
         """
         ...
 
@@ -42,7 +59,8 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         """
         Deregister a service from the control plane.
 
-        :param service_name: Unique identifier of the service.
+        Args:
+            service_name (str): Name of the service.
         """
         ...
 
@@ -51,7 +69,11 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         """
         Submit a task to the control plane.
 
-        :param task_def: Definition of the task.
+        Args:
+            task_def (TaskDefinition): Definition of the task.
+
+        Returns:
+            dict: Task ID.
         """
         ...
 
@@ -60,7 +82,11 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         """
         Send a task to an service.
 
-        :param task_def: Definition of the task.
+        Args:
+            task_def (TaskDefinition): Definition of the task.
+
+        Returns:
+            TaskDefinition: Task definition with updated state.
         """
         ...
 
@@ -72,7 +98,8 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         """
         Handle the completion of a task by an service.
 
-        :param task_result: Result of the task.
+        Args:
+            task_result (TaskResult): Result of the task.
         """
         ...
 
@@ -81,8 +108,11 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         """
         Get the current state of a task.
 
-        :param task_id: Unique identifier of the task.
-        :return: Current state of the task.
+        Args:
+            task_id (str): Unique identifier of the task.
+
+        Returns:
+            dict: State of the task
         """
         ...
 
@@ -91,7 +121,8 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         """
         Get all tasks.
 
-        :return: All tasks.
+        Returns:
+            dict: All tasks.
         """
         ...
 

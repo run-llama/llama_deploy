@@ -26,6 +26,42 @@ logger = getLogger(__name__)
 
 
 class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
+    """A tool that uses a service to perform a task.
+
+    When a tool call is made, this tool forwards the call to a service for execution.
+    This enables async/non-blocking tool calls.
+
+    Attributes:
+        tool_call_results (Dict[str, ToolCallResult]):
+            A dictionary of tool call results.
+        timeout (float):
+            The timeout interval in seconds.
+        tool_service_name (str):
+            The name of the tool service.
+        step_interval (float):
+            The interval in seconds to poll for tool call results.
+        raise_timeout (bool):
+            Whether to raise a TimeoutError when the timeout is reached.
+        registered (bool):
+            Whether the tool is registered to the message queue.
+
+    Examples:
+        ```python
+        from llama_agents import SimpleMessageQueue
+        from llama_agents.tools import MetaServiceTool
+        from llama_index.core.tools import ToolMetadata
+
+        message_queue = SimpleMessageQueue()
+        tool_metadata = ToolMetadata(name="my_tool")
+        tool = MetaServiceTool(
+            tool_metadata=tool_metadata,
+            message_queue=message_queue,
+            tool_service_name="my_tool_service",
+        )
+        result = await tool.acall("arg1", kwarg1="value1")
+        print(result)
+    """
+
     tool_call_results: Dict[str, ToolCallResult] = Field(default_factory=dict)
     timeout: float = Field(default=10.0, description="timeout interval in seconds.")
     tool_service_name: str = Field(default_factory=str)

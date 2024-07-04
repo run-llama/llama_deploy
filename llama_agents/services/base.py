@@ -11,7 +11,20 @@ from llama_agents.types import ServiceDefinition
 
 
 class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
-    """Base class for a service."""
+    """Base class for a service.
+
+    The general structure of a service is as follows:
+    - A service has a name.
+    - A service has a service definition.
+    - A service uses a message queue to send/receive messages.
+    - A service has a processing loop, for continuous processing of messages.
+    - A service can process a message.
+    - A service can publish a message to another service.
+    - A service can be launched in-process.
+    - A service can be launched as a server.
+    - A service can be registered to the control plane.
+    - A service can be registered to the message queue.
+    """
 
     service_name: str
 
