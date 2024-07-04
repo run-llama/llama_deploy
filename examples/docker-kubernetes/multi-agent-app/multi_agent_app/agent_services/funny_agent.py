@@ -1,6 +1,7 @@
 import asyncio
 
 from llama_agents import AgentService, SimpleMessageQueue
+from llama_agents.message_consumers.base import StartConsumingCallable
 
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
@@ -46,9 +47,9 @@ app = agent_server._app
 
 
 # registration
-async def register() -> None:
+async def register_and_start_consuming():
     # register to message queue
-    await agent_server.register_to_message_queue()
+    start_consuming_callable = await agent_server.register_to_message_queue()
     # register to control plane
     await agent_server.register_to_control_plane(
         control_plane_url=(
@@ -57,7 +58,9 @@ async def register() -> None:
             else f"http://{control_plane_host}"
         )
     )
+    # start consuming
+    await start_consuming_callable()
 
 
 if __name__ == "__main__":
-    asyncio.run(register())
+    asyncio.run(register_and_start_consuming())

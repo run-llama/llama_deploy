@@ -31,10 +31,11 @@ control_plane = ControlPlaneServer(
 app = control_plane.app
 
 
-async def register() -> None:
+async def register_and_start_consuming() -> None:
     # register to message queue
-    await queue_client.register_consumer(control_plane.as_consumer(remote=True))
+    start_consuming_callable = await control_plane.register_to_message_queue()
+    await start_consuming_callable()
 
 
 if __name__ == "__main__":
-    asyncio.run(register())
+    asyncio.run(register_and_start_consuming())
