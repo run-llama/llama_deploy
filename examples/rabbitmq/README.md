@@ -26,7 +26,9 @@ docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.13-ma
 ```python
 from llama_agents.message_queue.rabbitmq import RabbitMQMessageQueue
 
-message_queue = RabbitMQMessageQueue(url=...)  # if no url is supplied the default localhost is used
+message_queue = RabbitMQMessageQueue(
+    url=...
+)  # if no url is supplied the default localhost is used
 ```
 
 ## Examples
@@ -37,8 +39,8 @@ subdirectory. To run them use the commands below:
 
 ```sh
 # using LocalLauncher
-python pipepline_agent_service_tool_local.py
+python local_launcher_example.py
 
-# using LocalServer
-python agentic_server.py
+# using ServerLauncher
+python server_launcher_example.py
 ```
