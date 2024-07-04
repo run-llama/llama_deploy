@@ -29,7 +29,6 @@ def get_the_secret_fact() -> str:
 tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
 
 worker1 = FunctionCallingAgentWorker.from_tools([tool], llm=OpenAI())
-# worker2 = FunctionCallingAgentWorker.from_tools([], llm=OpenAI())
 agent1 = worker1.as_agent()
 
 # create our multi-agent framework components
