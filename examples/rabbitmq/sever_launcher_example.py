@@ -5,9 +5,9 @@ from llama_agents import (
     CallableMessageConsumer,
     ControlPlaneServer,
     ServerLauncher,
-    SimpleMessageQueue,
     QueueMessage,
 )
+from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
@@ -27,17 +27,15 @@ agent1 = worker1.as_agent()
 agent2 = worker2.as_agent()
 
 # create our multi-agent framework components
-message_queue = SimpleMessageQueue()
-queue_client = message_queue.client
-
+message_queue = RabbitMQMessageQueue()
 
 control_plane = ControlPlaneServer(
-    message_queue=queue_client,
+    message_queue=message_queue,
     orchestrator=AgentOrchestrator(llm=OpenAI()),
 )
 agent_server_1 = AgentService(
     agent=agent1,
-    message_queue=queue_client,
+    message_queue=message_queue,
     description="Useful for getting the secret fact.",
     service_name="secret_fact_agent",
     host="127.0.0.1",
@@ -45,14 +43,14 @@ agent_server_1 = AgentService(
 )
 agent_server_2 = AgentService(
     agent=agent2,
-    message_queue=queue_client,
+    message_queue=message_queue,
     description="Useful for getting random dumb facts.",
     service_name="dumb_fact_agent",
     host="127.0.0.1",
     port=8003,
 )
 human_service = HumanService(
-    message_queue=queue_client,
+    message_queue=message_queue,
     description="Answers queries about math.",
     host="127.0.0.1",
     port=8004,

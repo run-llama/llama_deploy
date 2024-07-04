@@ -30,9 +30,10 @@ app = human_consumer_server._app
 
 
 # register to message queue
-async def register() -> None:
-    await human_consumer_server.register_to_message_queue()
+async def register_and_start_consuming() -> None:
+    start_consuming_callable = await human_consumer_server.register_to_message_queue()
+    await start_consuming_callable()
 
 
 if __name__ == "__main__":
-    asyncio.run(register())
+    asyncio.run(register_and_start_consuming())

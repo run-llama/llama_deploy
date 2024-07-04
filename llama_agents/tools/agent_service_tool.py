@@ -234,7 +234,10 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         """
         if not self.registered:
             # register tool to message queue
-            await self.message_queue.register_consumer(self.as_consumer())
+            start_consuming_callable = await self.message_queue.register_consumer(
+                self.as_consumer()
+            )
+            _ = asyncio.create_task(start_consuming_callable())
             self.registered = True
 
         input = self._parse_args(*args, **kwargs)

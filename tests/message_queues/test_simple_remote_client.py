@@ -6,7 +6,10 @@ from typing import Any, Callable, Dict, List, TYPE_CHECKING
 from urllib.parse import urlsplit
 from unittest.mock import patch, MagicMock
 from llama_agents.messages.base import QueueMessage
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    default_start_consuming_callable,
+)
 from llama_agents.message_consumers.remote import (
     RemoteMessageConsumer,
     RemoteMessageConsumerDef,
@@ -80,7 +83,7 @@ async def test_remote_client_register_consumer(
         "https://mock-url.io/register_consumer", json=remote_consumer_def.model_dump()
     )
     assert len(message_queue.consumers) == 1
-    assert result.status_code == 200
+    assert result == default_start_consuming_callable
 
 
 @pytest.mark.asyncio

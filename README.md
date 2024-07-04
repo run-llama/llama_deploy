@@ -205,10 +205,9 @@ control_plane_task = asyncio.create_task(self.control_plane.launch_server())
 # wait for the control plane to be ready
 await asyncio.sleep(1)
 
-# register the control plane as a consumer
-await self.message_queue.client.register_consumer(
-    self.control_plane.as_consumer(remote=True)
-)
+# register the control plane as a consumer which returns a start_consuming_callable
+start_consuming_callable = await self.control_plane.register_to_message_queue()
+start_consuming_callables = [start_consuming_callable]
 
 # register the services
 control_plane_url = (
@@ -220,10 +219,17 @@ for service in self.services:
     service_tasks.append(asyncio.create_task(service.launch_server()))
 
     # register the service to the message queue
-    await service.register_to_message_queue()
+    start_consuming_callable = await service.register_to_message_queue()
+    start_consuming_callables.append(start_consuming_callable)
 
     # register the service to the control plane
     await service.register_to_control_plane(control_plane_url)
+
+# start consuming!
+start_consuming_tasks = []
+for start_consuming_callable in start_consuming_callables:
+    task = asyncio.create_task(start_consuming_callable())
+    start_consuming_tasks.append(task)
 ```
 
 With that done, you may want to define a consumer for the results of tasks.
@@ -236,6 +242,7 @@ from llama_agents import (
     RemoteMessageConsumer,
     QueueMessage,
 )
+import asyncio
 
 
 def handle_result(message: QueueMessage) -> None:
@@ -246,7 +253,16 @@ human_consumer = CallableMessageConsumer(
     handler=handle_result, message_type="human"
 )
 
-message_queue.register_consumer(human_consumer)
+
+async def register_and_start_consuming():
+    start_consuming_callable = await message_queue.register_consumer(
+        human_consumer
+    )
+    await start_consuming_callable()
+
+
+if __name__ == "__main__":
+    asyncio.run(register_and_start_consuming())
 
 # or, you can send the message to any URL
 # human_consumer = RemoteMessageConsumer(url="some destination url")
