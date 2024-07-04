@@ -62,6 +62,13 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         url (str): The amqp url string to connect to the RabbitMQ server
         exchange_name (str): The name to give to the so-called exchange within
             RabbitMQ AMQP 0-9 protocol.
+
+    Examples:
+        ```python
+        from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
+
+        message_queue = RabbitMQMessageQueue()  # uses the default url
+        ```
     """
 
     url: str = DEFAULT_URL
