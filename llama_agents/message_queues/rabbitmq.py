@@ -14,7 +14,7 @@ from llama_agents.message_consumers.base import (
 )
 
 if TYPE_CHECKING:
-    from aio_pika import Connection, ExchangeType, Queue
+    from aio_pika import Connection, Queue
 
 logger = getLogger(__name__)
 

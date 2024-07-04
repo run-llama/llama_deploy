@@ -5,7 +5,6 @@ from llama_agents import (
     LocalLauncher,
     SimpleMessageQueue,
 )
-from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
