@@ -57,6 +57,11 @@ class RabbitMQMessageQueue(BaseMessageQueue):
             message type
         - Round-robin dispatching: with multiple consumers listening to the same
             queue, only one consumer will be chosen dictated by sequence.
+
+    Attributes:
+        url (str): The amqp url string to connect to the RabbitMQ server
+        exchange_name (str): The name to give to the so-called exchange within
+            RabbitMQ AMQP 0-9 protocol.
     """
 
     url: str = DEFAULT_URL
@@ -79,6 +84,19 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         secure: bool = False,
         exchange_name: str = DEFAULT_EXCHANGE_NAME,
     ) -> "RabbitMQMessageQueue":
+        """Convenience constructor from url params.
+
+        Args:
+            username (str): username for the amqp authority
+            password (str): password for the amqp authority
+            host (str): host for rabbitmq server
+            port (Optional[int], optional): port for rabbitmq server. Defaults to None.
+            secure (bool, optional): Whether or not to use SSL. Defaults to False.
+            exchange_name (str, optional): The exchange name. Defaults to DEFAULT_EXCHANGE_NAME.
+
+        Returns:
+            RabbitMQMessageQueue: A RabbitMQ MessageQueue integration.
+        """
         if not secure:
             if port:
                 url = f"amqp://{username}:{password}@{host}:{port}/vhost"
@@ -92,9 +110,11 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         return cls(url=url, exchange_name=exchange_name)
 
     async def new_connection(self) -> "Connection":
+        """Returns a new connection to the RabbitMQ server."""
         return await _establish_connection(self.url)
 
     async def _publish(self, message: QueueMessage) -> Any:
+        """Publish message to the queue."""
         from aio_pika import DeliveryMode, ExchangeType, Message as AioPikaMessage
 
         message_type_str = message.type
@@ -119,6 +139,7 @@ class RabbitMQMessageQueue(BaseMessageQueue):
     async def register_consumer(
         self, consumer: BaseMessageQueueConsumer
     ) -> StartConsumingCallable:
+        """Register a new consumer."""
         from aio_pika import ExchangeType, Message as AioPikaMessage
 
         connection = await _establish_connection(self.url)
@@ -164,20 +185,38 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         return start_consuming_callable
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
+        """Deregister a consumer.
+
+        Not implemented for this integration, as once the connection/channel is
+        closed, the consumer is deregistered.
+        """
         pass
 
     async def processing_loop(self) -> None:
+        """A loop for getting messages from queues and sending to consumer.
+
+        Not relevant for this class.
+        """
         pass
 
     async def launch_local(self) -> asyncio.Task:
+        """Launch the message queue locally, in-process.
+
+        Launches a dummy task.
+        """
         return asyncio.create_task(self.processing_loop())
 
     async def launch_server(self) -> None:
+        """Launch the message queue server.
+
+        Not relevant for this class. RabbitMQ server should already be launched.
+        """
         pass
 
     async def cleanup_local(
         self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
     ) -> None:
+        """Perform any clean up of queues and exchanges."""
         connection = await self.new_connection()
         async with connection:
             channel = await connection.channel()
