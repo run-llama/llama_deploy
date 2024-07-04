@@ -166,6 +166,15 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
     def _parse_args(self, *args: Any, **kwargs: Any) -> str:
         return kwargs.pop("input")
 
+    async def _register(self):
+        consumer = self.as_consumer()
+        callable = await self.message_queue.register_consumer(consumer)
+        consumer.consuming_callable = callable
+        if callable:
+            task = asyncio.create_task(consumer.start_consuming())
+        self.registered = True
+        return task
+
     async def acall(self, *args: Any, **kwargs: Any) -> ToolOutput:
         """Publish a call to the queue.
 
@@ -174,8 +183,7 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         """
         if not self.registered:
             # register tool to message queue
-            await self.message_queue.register_consumer(self.as_consumer())
-            self.registered = True
+            task = await self._register()
 
         input = self._parse_args(*args, **kwargs)
         task_def = TaskDefinition(input=input)

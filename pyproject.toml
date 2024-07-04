@@ -21,9 +21,10 @@ llama-index-core = "^0.10.50"
 pytest-asyncio = "^0.23.7"
 textual = "^0.70.0"
 pika = {version = "^1.3.2", optional = true}
+aio-pika = {version = "^9.4.2", optional = true}
 
 [tool.poetry.extras]
-rabbitmq = ["pika"]
+rabbitmq = ["pika", "aio-pika"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
