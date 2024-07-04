@@ -1,7 +1,6 @@
 import asyncio
 
 from llama_agents import AgentService, SimpleMessageQueue
-from llama_agents.message_consumers.base import StartConsumingCallable
 
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
