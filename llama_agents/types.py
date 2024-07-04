@@ -67,6 +67,11 @@ class ChatMessage(BaseModel):
 
 
 class ActionTypes(str, Enum):
+    """
+    Action types for messages.
+    Different consumers will handle (or ignore) different action types.
+    """
+
     NEW_TASK = "new_task"
     COMPLETED_TASK = "completed_task"
     REQUEST_FOR_HELP = "request_for_help"
@@ -75,6 +80,21 @@ class ActionTypes(str, Enum):
 
 
 class TaskDefinition(BaseModel):
+    """
+    The definition and state of a task.
+
+    Attributes:
+        input (str):
+            The task input.
+        task_id (str):
+            The task ID. Defaults to a random UUID.
+        state (dict):
+            The task state, used and updated as the task progresses.
+        agent_id (str):
+            The agent ID that the task should be sent to.
+            If blank, the orchestrator decides.
+    """
+
     input: str
     task_id: str = Field(default_factory=generate_id)
     state: dict = Field(default_factory=dict)
@@ -82,6 +102,20 @@ class TaskDefinition(BaseModel):
 
 
 class TaskResult(BaseModel):
+    """
+    The result of a task.
+
+    Attributes:
+        task_id (str):
+            The task ID.
+        history (List[ChatMessage]):
+            The task history.
+        result (str):
+            The task result.
+        data (dict):
+            Additional data about the task or result.
+    """
+
     task_id: str
     history: List[ChatMessage]
     result: str
@@ -89,24 +123,76 @@ class TaskResult(BaseModel):
 
 
 class ToolCallBundle(BaseModel):
+    """
+    A bundle of information for a tool call.
+
+    Attributes:
+        tool_name (str):
+            The name of the tool.
+        tool_args (List[Any]):
+            The tool arguments.
+        tool_kwargs (Dict[str, Any]):
+            The tool keyword arguments
+    """
+
     tool_name: str
     tool_args: List[Any]
     tool_kwargs: Dict[str, Any]
 
 
 class ToolCall(BaseModel):
+    """
+    A tool call.
+
+    Attributes:
+        id_ (str):
+            The tool call ID. Defaults to a random UUID.
+        tool_call_bundle (ToolCallBundle):
+            The tool call bundle.
+        source_id (str):
+            The source ID.
+    """
+
     id_: str = Field(default_factory=generate_id)
     tool_call_bundle: ToolCallBundle
     source_id: str
 
 
 class ToolCallResult(BaseModel):
+    """
+    A tool call result.
+
+    Attributes:
+        id_ (str):
+            The tool call ID. Should match the ID of the tool call.
+        tool_message (ChatMessage):
+            The tool message.
+        result (str):
+            The tool result.
+    """
+
     id_: str
     tool_message: ChatMessage
     result: str
 
 
 class ServiceDefinition(BaseModel):
+    """
+    The definition of a service, bundles useful information describing the service.
+
+    Attributes:
+        service_name (str):
+            The name of the service.
+        description (str):
+            A description of the service and it's purpose.
+        prompt (List[ChatMessage]):
+            Specific instructions for the service.
+        host (Optional[str]):
+            The host of the service, if its a network service.
+        port (Optional[int]):
+            The port of the service, if its a network service.
+    """
+
     service_name: str = Field(description="The name of the service.")
     description: str = Field(
         description="A description of the service and it's purpose."
@@ -119,6 +205,14 @@ class ServiceDefinition(BaseModel):
 
 
 class HumanResponse(BaseModel):
+    """
+    A simple human response.
+
+    Attributes:
+        response (str):
+            The human response.
+    """
+
     result: str
 
 

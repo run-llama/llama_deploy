@@ -32,6 +32,47 @@ class HumanMessageConsumer(BaseMessageQueueConsumer):
 
 
 class LocalLauncher(MessageQueuePublisherMixin):
+    """Launches a llama-agents system locally, in a single async loop.
+
+    The LocalLauncher is a convenience class for launching a system of services.
+
+    When launching, the launcher will
+    - Register each service to the control plane.
+    - Start each service.
+    - Register a human consumer to handle messages.
+    - Publish an initial task to the control plane.
+    - Run until the a result is found.
+    - Clean up registered services by deregistering them from the control plane.
+    - Clean up consumers by deregistering them from the message queue.
+
+    Args:
+        services (List[BaseService]):
+            List of services to launch.
+        control_plane (BaseControlPlane):
+            Control plane for the system.
+        message_queue (SimpleMessageQueue):
+            Message queue for the system.
+        publish_callback (Optional[PublishCallback], optional):
+            Callback for publishing messages. Defaults to None.
+
+    Examples:
+        ```python
+        from llama_agents import LocalLauncher
+
+        launcher = LocalLauncher(
+            services=[service1, service2],
+            control_plane=control_plane,
+            message_queue=message_queue,
+        )
+
+        # sync
+        result = launcher.launch_single("Do the thing.")
+
+        # async
+        result = await launcher.alaunch_single("Do the thing again.")
+        ```
+    """
+
     def __init__(
         self,
         services: List[BaseService],
@@ -47,15 +88,18 @@ class LocalLauncher(MessageQueuePublisherMixin):
         self.result: Optional[str] = None
 
     @property
-    def message_queue(self) -> BaseMessageQueue:
+    def message_queue(self) -> SimpleMessageQueue:
+        """Message queue."""
         return self._message_queue
 
     @property
     def publisher_id(self) -> str:
+        """Publisher ID."""
         return self._publisher_id
 
     @property
     def publish_callback(self) -> Optional[PublishCallback]:
+        """Publish callback, if any."""
         return self._publish_callback
 
     async def handle_human_message(self, **kwargs: Any) -> None:
@@ -83,6 +127,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
         return start_consuming_callables
 
     def launch_single(self, initial_task: str) -> str:
+        """Launch the system in a single async loop."""
         return asyncio.run(self.alaunch_single(initial_task))
 
     def get_shutdown_handler(self, tasks: List[asyncio.Task]) -> Callable:
@@ -95,6 +140,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
         return signal_handler
 
     async def alaunch_single(self, initial_task: str) -> str:
+        """Launch the system in a single async loop."""
         # clear any result
         self.result = None
 

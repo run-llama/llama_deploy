@@ -33,6 +33,42 @@ logger = getLogger(__name__)
 
 
 class ControlPlaneServer(BaseControlPlane):
+    """Control plane server.
+
+    The control plane is responsible for managing the state of the system, including:
+    - Registering services.
+    - Submitting tasks.
+    - Managing task state.
+    - Handling service completion.
+    - Launching the control plane server.
+
+    Args:
+        message_queue (BaseMessageQueue): Message queue for the system.
+        orchestrator (BaseOrchestrator): Orchestrator for the system.
+        vector_store (Optional[BasePydanticVectorStore], optional): Vector store for the system. Defaults to None.
+        publish_callback (Optional[PublishCallback], optional): Callback for publishing messages. Defaults to None.
+        state_store (Optional[BaseKVStore], optional): State store for the system. Defaults to None.
+        services_store_key (str, optional): Key for the services store. Defaults to "services".
+        tasks_store_key (str, optional): Key for the tasks store. Defaults to "tasks".
+        step_interval (float, optional): The interval in seconds to poll for tool call results. Defaults to 0.1s.
+        services_retrieval_threshold (int, optional): The threshold for retrieving services. Defaults to 5.
+        host (str, optional): The host of the service. Defaults to "127.0.0.1".
+        port (Optional[int], optional): The port of the service. Defaults to 8000.
+        running (bool, optional): Whether the service is running. Defaults to True.
+
+    Examples:
+        ```python
+        from llama_agents import ControlPlaneServer
+        from llama_agents import SimpleMessageQueue, AgentOrchestrator
+        from llama_index.llms.openai import OpenAI
+
+        control_plane = ControlPlaneServer(
+            SimpleMessageQueue(),
+            AgentOrchestrator(llm=OpenAI())
+        )
+        ```
+    """
+
     def __init__(
         self,
         message_queue: BaseMessageQueue,

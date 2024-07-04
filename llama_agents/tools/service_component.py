@@ -12,6 +12,8 @@ from enum import Enum
 class ModuleType(str, Enum):
     """Module types.
 
+    Can be either an agent or a component.
+
     NOTE: this is to allow both agent services and component services to be stitched together with
     the pipeline orchestrator.
 
@@ -24,6 +26,33 @@ class ModuleType(str, Enum):
 
 
 class ServiceComponent(CustomQueryComponent):
+    """Service component.
+
+    This wraps a service into a component that can be used in a query pipeline.
+
+    Attributes:
+        name (str): The name of the service.
+        description (str): The description of the service.
+        input_keys (Optional[InputKeys]): The input keys. Defaults to a single `input` key.
+        module_type (ModuleType): The module type. Defaults to `ModuleType.AGENT`.
+
+    Examples:
+        ```python
+        from llama_agents import ServiceComponent, AgentService
+
+        rag_agent_server = AgentService(
+            agent=rag_agent,
+            message_queue=message_queue,
+            description="rag_agent",
+        )
+        rag_agent_server_c = ServiceComponent.from_service_definition(
+            rag_agent_server.service_definition
+        )
+
+        pipeline = QueryPipeline(chain=[rag_agent_server_c])
+        ```
+    """
+
     name: str
     description: str
 
@@ -50,6 +79,7 @@ class ServiceComponent(CustomQueryComponent):
         input_keys: Optional[InputKeys] = None,
         module_type: ModuleType = ModuleType.AGENT,
     ) -> "ServiceComponent":
+        """Create a service component from a service definition."""
         return cls(
             name=service_def.service_name,
             description=service_def.description,

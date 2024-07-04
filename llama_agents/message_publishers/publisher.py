@@ -5,7 +5,14 @@ from llama_agents.message_queues.base import BaseMessageQueue, PublishCallback
 
 
 class MessageQueuePublisherMixin(ABC):
-    """PublisherMixing."""
+    """PublisherMixin.
+
+    Mixin for a message queue publisher. Allows for accessing common properties and methods for:
+    - Publisher ID.
+    - Message queue.
+    - Publish callback.
+    - Publish method.
+    """
 
     @property
     @abstractmethod

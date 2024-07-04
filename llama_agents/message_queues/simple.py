@@ -128,6 +128,28 @@ class SimpleMessageQueue(BaseMessageQueue):
     """SimpleMessageQueue.
 
     An in-memory message queue that implements a push model for consumers.
+
+    When registering, a specific queue for a consumer is created.
+    When a message is published, it is added to the queue for the given message type.
+
+    When launched as a server, exposes the following endpoints:
+    - GET `/`: Home endpoint
+    - POST `/register_consumer`: Register a consumer
+    - POST `/deregister_consumer`: Deregister a consumer
+    - GET `/get_consumers/{message_type}`: Get consumers for a message type
+    - POST `/publish`: Publish a message
+
+    Attributes:
+        consumers (Dict[str, Dict[str, BaseMessageQueueConsumer]]):
+            A dictionary of message type to consumer id to consumer.
+        queues (Dict[str, deque]):
+            A dictionary of message type to queue.
+        running (bool):
+            Whether the message queue is running.
+        port (Optional[int]):
+            The port to run the message queue server on.
+        host (str):
+            The host to run the message queue server on.
     """
 
     consumers: Dict[str, Dict[str, BaseMessageQueueConsumer]] = Field(
@@ -185,6 +207,7 @@ class SimpleMessageQueue(BaseMessageQueue):
 
     @property
     def client(self) -> BaseMessageQueue:
+        """Returns a client for the message queue server."""
         base_url = (
             f"http://{self.host}:{self.port}" if self.port else f"http://{self.host}"
         )
@@ -254,6 +277,7 @@ class SimpleMessageQueue(BaseMessageQueue):
     async def register_remote_consumer(
         self, consumer_def: RemoteMessageConsumerDef
     ) -> Dict[str, str]:
+        """API endpoint to register a consumer based on a consumer definition."""
         consumer = RemoteMessageConsumer(**consumer_def.model_dump())
         message_type = consumer.message_type
 
@@ -287,6 +311,7 @@ class SimpleMessageQueue(BaseMessageQueue):
         return {"consumer": consumer.id_}
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> None:
+        """Deregister a consumer."""
         message_type_str = consumer.message_type
         if consumer.id_ not in self.consumers.get(message_type_str, {}):
             raise HTTPException(
@@ -301,10 +326,12 @@ class SimpleMessageQueue(BaseMessageQueue):
     async def deregister_remote_consumer(
         self, consumer_def: RemoteMessageConsumerDef
     ) -> None:
+        """API endpoint to deregister a consumer based on a consumer definition."""
         consumer = RemoteMessageConsumer(**consumer_def.model_dump())
         await self.deregister_consumer(consumer)
 
     async def get_consumers(self, message_type: str) -> List[BaseMessageQueueConsumer]:
+        """Get all consumersm for a given type."""
         if message_type not in self.consumers:
             return []
 
@@ -313,6 +340,7 @@ class SimpleMessageQueue(BaseMessageQueue):
     async def get_consumer_defs(
         self, message_type: str
     ) -> List[RemoteMessageConsumerDef]:
+        """Get all consumer definitions for a given type."""
         if message_type not in self.consumers:
             return []
 
@@ -342,10 +370,12 @@ class SimpleMessageQueue(BaseMessageQueue):
         self.running = False
 
     async def launch_local(self) -> asyncio.Task:
+        """Launch the message queue locally, in-process."""
         logger.info("Launching message queue locally")
         return asyncio.create_task(self.processing_loop())
 
     async def launch_server(self) -> None:
+        """Launch the message queue as a FastAPI server."""
         logger.info(f"Launching message queue server at {self.host}:{self.port}")
 
         # uvicorn.run(self._app, host=self.host, port=self.port)

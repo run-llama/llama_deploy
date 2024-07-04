@@ -18,7 +18,10 @@ async def default_start_consuming_callable() -> None:
 
 
 class BaseMessageQueueConsumer(BaseModel, ABC):
-    """Consumer of a MessageQueue."""
+    """Consumer of a MessageQueue.
+
+    Process messages from a MessageQueue for a specific message type.
+    """
 
     id_: str = Field(default_factory=generate_id)
     message_type: str = Field(
