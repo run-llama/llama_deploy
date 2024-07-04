@@ -12,7 +12,10 @@ from llama_index.core.storage.kvstore import SimpleKVStore
 from llama_index.core.vector_stores.types import BasePydanticVectorStore
 
 from llama_agents.control_plane.base import BaseControlPlane
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+)
 from llama_agents.message_consumers.callable import CallableMessageConsumer
 from llama_agents.message_consumers.remote import RemoteMessageConsumer
 from llama_agents.message_queues.base import BaseMessageQueue, PublishCallback
@@ -326,6 +329,9 @@ class ControlPlaneServer(BaseControlPlane):
             task_defs[task_id] = TaskDefinition(**state_dict)
 
         return task_defs
+
+    async def register_to_message_queue(self) -> StartConsumingCallable:
+        return await self.message_queue.register_consumer(self.as_consumer(remote=True))
 
 
 if __name__ == "__main__":

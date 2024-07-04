@@ -9,7 +9,11 @@ What does the processing loop for the control plane look like?
 from abc import ABC, abstractmethod
 from typing import Dict
 
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_queues.base import BaseMessageQueue
+from llama_agents.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+)
 from llama_agents.message_publishers.publisher import MessageQueuePublisherMixin
 from llama_agents.types import (
     ServiceDefinition,
@@ -19,6 +23,11 @@ from llama_agents.types import (
 
 
 class BaseControlPlane(MessageQueuePublisherMixin, ABC):
+    @property
+    @abstractmethod
+    def message_queue(self) -> BaseMessageQueue:
+        """Return associated message queue."""
+
     @abstractmethod
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         """
@@ -101,3 +110,7 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Launch the control plane server.
         """
         ...
+
+    @abstractmethod
+    async def register_to_message_queue(self) -> StartConsumingCallable:
+        """Register the service to the message queue."""

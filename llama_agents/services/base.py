@@ -5,7 +5,10 @@ from pydantic import BaseModel
 from typing import Any
 
 from llama_agents.messages.base import QueueMessage
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+)
 from llama_agents.message_publishers.publisher import MessageQueuePublisherMixin
 from llama_agents.types import ServiceDefinition
 
@@ -66,6 +69,6 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
             )
             response.raise_for_status()
 
-    async def register_to_message_queue(self) -> None:
+    async def register_to_message_queue(self) -> StartConsumingCallable:
         """Register the service to the message queue."""
-        await self.message_queue.register_consumer(self.as_consumer(remote=True))
+        return await self.message_queue.register_consumer(self.as_consumer(remote=True))

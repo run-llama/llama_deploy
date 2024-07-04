@@ -6,9 +6,12 @@ from typing import Any, Callable, List, Optional
 
 from llama_agents.services.base import BaseService
 from llama_agents.control_plane.base import BaseControlPlane
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+)
 from llama_agents.message_queues.simple import SimpleMessageQueue
-from llama_agents.message_queues.base import PublishCallback
+from llama_agents.message_queues.base import PublishCallback, BaseMessageQueue
 from llama_agents.message_publishers.publisher import MessageQueuePublisherMixin
 
 
@@ -17,13 +20,13 @@ class ServerLauncher(MessageQueuePublisherMixin):
         self,
         services: List[BaseService],
         control_plane: BaseControlPlane,
-        message_queue: SimpleMessageQueue,
+        message_queue: BaseMessageQueue,
         publish_callback: Optional[PublishCallback] = None,
         additional_consumers: Optional[List[BaseMessageQueueConsumer]] = None,
     ) -> None:
         self.services = services
         self.control_plane = control_plane
-        self._message_queue = message_queue
+        self._message_queue = message_queue or SimpleMessageQueue()
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
         self._additional_consumers = additional_consumers or []
@@ -66,8 +69,9 @@ class ServerLauncher(MessageQueuePublisherMixin):
         await asyncio.sleep(1)
 
         # register the control plane as a consumer
-        await self.message_queue.client.register_consumer(
-            self.control_plane.as_consumer(remote=True)
+        start_consuming_callables: List[StartConsumingCallable] = []
+        start_consuming_callables.append(
+            await self.control_plane.register_to_message_queue()
         )
 
         # register the services
@@ -75,21 +79,34 @@ class ServerLauncher(MessageQueuePublisherMixin):
         service_tasks: List[asyncio.Task] = []
         for service in self.services:
             service_tasks.append(asyncio.create_task(service.launch_server()))
-            await service.register_to_message_queue()
+            start_consuming_callables.append(await service.register_to_message_queue())
             await service.register_to_control_plane(control_plane_url)
 
         # register additional consumers
         for consumer in self._additional_consumers:
-            await self.message_queue.register_consumer(consumer)
+            start_consuming_callables.append(
+                await self.message_queue.register_consumer(consumer)
+            )
+
+        # consumers start consuming in their own threads
+        start_consuming_tasks = []
+        for start_consuming_callable in start_consuming_callables:
+            task = asyncio.create_task(start_consuming_callable())
+            start_consuming_tasks.append(task)
 
         shutdown_handler = self.get_shutdown_handler(
-            [*service_tasks, queue_task, control_plane_task]
+            [*service_tasks, *start_consuming_tasks, queue_task, control_plane_task]
         )
         loop = asyncio.get_event_loop()
         while loop.is_running():
             await asyncio.sleep(0.1)
             signal.signal(signal.SIGINT, shutdown_handler)
 
-            for task in [*service_tasks, queue_task, control_plane_task]:
+            for task in [
+                *service_tasks,
+                *start_consuming_tasks,
+                queue_task,
+                control_plane_task,
+            ]:
                 if task.done() and task.exception():  # type: ignore
                     raise task.exception()  # type: ignore

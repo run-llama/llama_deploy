@@ -8,7 +8,6 @@ from llama_agents import (
     SimpleMessageQueue,
     QueueMessage,
 )
-
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
@@ -30,6 +29,7 @@ agent2 = worker2.as_agent()
 # create our multi-agent framework components
 message_queue = SimpleMessageQueue()
 queue_client = message_queue.client
+
 
 control_plane = ControlPlaneServer(
     message_queue=queue_client,
