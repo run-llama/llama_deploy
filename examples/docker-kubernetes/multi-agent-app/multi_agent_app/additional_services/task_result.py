@@ -7,7 +7,10 @@ from llama_agents import (
 )
 from fastapi import FastAPI
 from llama_agents.message_queues.base import BaseMessageQueue
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+)
 from llama_agents.message_consumers.remote import RemoteMessageConsumer
 from logging import getLogger
 
@@ -69,6 +72,6 @@ class TaskResultService:
     async def home(self) -> Dict[str, str]:
         return {"message": "hello, human."}
 
-    async def register_to_message_queue(self) -> None:
+    async def register_to_message_queue(self) -> StartConsumingCallable:
         """Register to the message queue."""
-        await self.message_queue.register_consumer(self.as_consumer(remote=True))
+        return await self.message_queue.register_consumer(self.as_consumer(remote=True))

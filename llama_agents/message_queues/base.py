@@ -1,18 +1,32 @@
 """Message queue module."""
+
 import asyncio
 import inspect
 
 from abc import ABC, abstractmethod
 from logging import getLogger
 from pydantic import BaseModel
-from typing import Any, List, Optional, Protocol, TYPE_CHECKING
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    TYPE_CHECKING,
+)
 
 from llama_agents.messages.base import QueueMessage
 
 if TYPE_CHECKING:
-    from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+    from llama_agents.message_consumers.base import (
+        BaseMessageQueueConsumer,
+        StartConsumingCallable,
+    )
 
 logger = getLogger(__name__)
+AsyncProcessMessageCallable = Callable[[QueueMessage], Awaitable[Any]]
 
 
 class MessageProcessor(Protocol):
@@ -68,7 +82,7 @@ class BaseMessageQueue(BaseModel, ABC):
     async def register_consumer(
         self,
         consumer: "BaseMessageQueueConsumer",
-    ) -> Any:
+    ) -> "StartConsumingCallable":
         """Register consumer to start consuming messages."""
 
     @abstractmethod
@@ -97,4 +111,11 @@ class BaseMessageQueue(BaseModel, ABC):
     @abstractmethod
     async def launch_server(self) -> None:
         """Launch the service as a server."""
+        ...
+
+    @abstractmethod
+    async def cleanup_local(
+        self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
+    ) -> None:
+        """Perform any cleanup before shutting down."""
         ...

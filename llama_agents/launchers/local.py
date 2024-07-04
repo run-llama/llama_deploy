@@ -6,8 +6,12 @@ from typing import Any, Callable, Dict, List, Optional
 
 from llama_agents.services.base import BaseService
 from llama_agents.control_plane.base import BaseControlPlane
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
+from llama_agents.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+)
 from llama_agents.message_queues.simple import SimpleMessageQueue
+from llama_agents.message_queues.base import BaseMessageQueue
 from llama_agents.message_queues.base import PublishCallback
 from llama_agents.messages.base import QueueMessage
 from llama_agents.types import ActionTypes, TaskDefinition, TaskResult
@@ -73,7 +77,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
         self,
         services: List[BaseService],
         control_plane: BaseControlPlane,
-        message_queue: SimpleMessageQueue,
+        message_queue: BaseMessageQueue = SimpleMessageQueue(),
         publish_callback: Optional[PublishCallback] = None,
     ) -> None:
         self.services = services
@@ -104,15 +108,23 @@ class LocalLauncher(MessageQueuePublisherMixin):
 
     async def register_consumers(
         self, consumers: Optional[List[BaseMessageQueueConsumer]] = None
-    ) -> None:
+    ) -> List[StartConsumingCallable]:
+        start_consuming_callables = []
         for service in self.services:
-            await self.message_queue.register_consumer(service.as_consumer())
+            start_consuming_callables.append(
+                await self.message_queue.register_consumer(service.as_consumer())
+            )
 
         consumers = consumers or []
         for consumer in consumers:
-            await self.message_queue.register_consumer(consumer)
+            start_consuming_callables.append(
+                await self.message_queue.register_consumer(consumer)
+            )
 
-        await self.message_queue.register_consumer(self.control_plane.as_consumer())
+        start_consuming_callables.append(
+            await self.message_queue.register_consumer(self.control_plane.as_consumer())
+        )
+        return start_consuming_callables
 
     def launch_single(self, initial_task: str) -> str:
         """Launch the system in a single async loop."""
@@ -138,7 +150,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
                 ActionTypes.COMPLETED_TASK: self.handle_human_message,
             }
         )
-        await self.register_consumers([human_consumer])
+        start_consuming_callables = await self.register_consumers([human_consumer])
 
         # register each service to the control plane
         for service in self.services:
@@ -151,6 +163,12 @@ class LocalLauncher(MessageQueuePublisherMixin):
                 service.raise_exceptions = True  # ensure exceptions are raised
             bg_tasks.append(await service.launch_local())
 
+        # consumers start consuming in their own threads
+        start_consuming_tasks = []
+        for start_consuming_callable in start_consuming_callables:
+            task = asyncio.create_task(start_consuming_callable())
+            start_consuming_tasks.append(task)
+
         # publish initial task
         await self.publish(
             QueueMessage(
@@ -161,7 +179,9 @@ class LocalLauncher(MessageQueuePublisherMixin):
         )
         # runs until the message queue is stopped by the human consumer
         mq_task = await self.message_queue.launch_local()
-        shutdown_handler = self.get_shutdown_handler([mq_task] + bg_tasks)
+        shutdown_handler = self.get_shutdown_handler(
+            [mq_task] + bg_tasks + start_consuming_tasks
+        )
         loop = asyncio.get_event_loop()
         while loop.is_running():
             await asyncio.sleep(0.1)
@@ -171,16 +191,15 @@ class LocalLauncher(MessageQueuePublisherMixin):
                 if task.done() and task.exception():  # type: ignore
                     raise task.exception()  # type: ignore
 
-            if mq_task.done() and mq_task.exception():  # type: ignore
+            if mq_task is not None and mq_task.done() and mq_task.exception():  # type: ignore
                 raise mq_task.exception()  # type: ignore
 
             if self.result:
                 break
 
         # shutdown tasks
-        for task in bg_tasks:
+        for task in bg_tasks + start_consuming_tasks:
             task.cancel()
-        mq_task.cancel()
 
         # clean up registered services
         for service in self.services:
@@ -194,5 +213,15 @@ class LocalLauncher(MessageQueuePublisherMixin):
 
         await self.message_queue.deregister_consumer(human_consumer)
         await self.message_queue.deregister_consumer(self.control_plane.as_consumer())
+
+        # clean up before shutting down mq
+        await self.message_queue.cleanup_local(
+            message_types=[
+                c.message_type
+                for c in [s.as_consumer() for s in self.services]
+                + [self.control_plane.as_consumer(), human_consumer]
+            ]
+        )
+        mq_task.cancel()
 
         return self.result or "No result found."
