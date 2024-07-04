@@ -11,6 +11,7 @@ from llama_agents.message_consumers.base import (
     StartConsumingCallable,
 )
 from llama_agents.message_queues.simple import SimpleMessageQueue
+from llama_agents.message_queues.base import BaseMessageQueue
 from llama_agents.message_queues.base import PublishCallback
 from llama_agents.messages.base import QueueMessage
 from llama_agents.types import ActionTypes, TaskDefinition, TaskResult
@@ -35,7 +36,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
         self,
         services: List[BaseService],
         control_plane: BaseControlPlane,
-        message_queue: SimpleMessageQueue,
+        message_queue: BaseMessageQueue = SimpleMessageQueue(),
         publish_callback: Optional[PublishCallback] = None,
     ) -> None:
         self.services = services
@@ -46,7 +47,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
         self.result: Optional[str] = None
 
     @property
-    def message_queue(self) -> SimpleMessageQueue:
+    def message_queue(self) -> BaseMessageQueue:
         return self._message_queue
 
     @property
