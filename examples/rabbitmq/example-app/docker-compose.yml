@@ -1,25 +1,14 @@
 version: "3"
 services:
   message_queue:
-    image: multi_agent_app:latest
-    command: uvicorn multi_agent_app.core_services.message_queue:app --host 0.0.0.0 --port 8000 --log-config ./logging.ini --log-level debug --reload
-    env_file:
-      - ./multi-agent-app/.env.docker
+    image: rabbitmq:3.13-management
+    hostname: "rabbitmq"
     ports:
-      - "8000:8000"
+      - "5672:5672"
+      - "15672:15672"
     volumes:
-      - ./multi-agent-app/multi_agent_app:/app/multi_agent_app # load local code change to container without the need of rebuild
-      - ./logging.ini:/app/logging.ini
-    platform: linux/amd64
-    build:
-      context: .
-      dockerfile: ./multi-agent-app/Dockerfile
-    healthcheck:
-      test: wget --no-verbose --tries=1 http://0.0.0.0:8000/ || exit 1
-      interval: 30s
-      retries: 5
-      start_period: 20s
-      timeout: 10s
+      - rabbitmq/data/:/var/lib/rabbitmq/
+      - rabbitmq/log/:/var/log/rabbitmq
   control_plane:
     image: multi_agent_app:latest
     command: uvicorn multi_agent_app.core_services.control_plane:app --host 0.0.0.0 --port 8001 --log-config ./logging.ini --log-level debug --reload
