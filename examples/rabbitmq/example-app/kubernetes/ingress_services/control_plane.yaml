@@ -54,19 +54,7 @@ spec:
                   key: OPENAI_API_KEY
           image: multi_agent_app:latest
           imagePullPolicy: Never
-          command:
-            [
-              "uvicorn",
-              "multi_agent_app.core_services.control_plane:app",
-              "--host",
-              "0.0.0.0",
-              "--port",
-              "8000",
-              "--log-config",
-              "./logging.ini",
-              "--log-level",
-              "debug",
-            ]
+          command: sh -c "python -m multi_agent_app.core_services.control_plane"
           resources:
             requests:
               memory: "128Mi"
