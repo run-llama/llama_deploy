@@ -94,13 +94,16 @@ python multi-agent-app/multi_agent_app/local_launcher.py
 ```
 
 Once launched, we can send tasks to our multi-agent system using the
-`LlamaAgentsClient`:
+`LlamaAgentsClient` (note: the code below introduce static delay to handle
+asynchronous call for quick test purpose only):
 
 ```python
 from llama_agents import LlamaAgentsClient
+import time
 
 client = LlamaAgentsClient("http://0.0.0.0:8001")
 task_id = client.create_task("What is the secret fact?")
+time.sleep(10)
 task_result = client.get_task_result(task_id)
 print(task_result.result)
 ```
@@ -151,9 +154,11 @@ system:
 
 ```python
 from llama_agents import LlamaAgentsClient
+import time
 
 client = LlamaAgentsClient("http://0.0.0.0:8001")
 task_id = client.create_task("What is the secret fact?")
+time.sleep(10)
 task_result = client.get_task_result(task_id)
 print(task_result.result)
 ```
@@ -218,9 +223,11 @@ system:
 
 ```python
 from llama_agents import LlamaAgentsClient
+import time
 
 client = LlamaAgentsClient("http://control-plane.127.0.0.1.nip.io")
 task_id = client.create_task("What is the secret fact?")
+time.sleep(10)
 task_result = client.get_task_result(task_id)
 print(task_result.result)
 ```
@@ -236,5 +243,3 @@ Next, open up a browser and visit http://127.0.0.1:8080/#/. Enter "guest" for
 both `user` and `password`.
 
 ![image](https://github.com/run-llama/llama-agents/assets/92402603/59a5278e-a80a-42d5-b49d-5c9708bc2d8f)
-
-
