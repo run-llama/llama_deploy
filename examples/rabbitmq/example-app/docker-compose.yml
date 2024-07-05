@@ -1,14 +1,20 @@
 version: "3"
 services:
-  message_queue:
+  rabbitmq:
     image: rabbitmq:3.13-management
     hostname: "rabbitmq"
+    env_file:
+      - ./multi-agent-app/.env.docker
     ports:
       - "5672:5672"
       - "15672:15672"
     volumes:
-      - rabbitmq/data/:/var/lib/rabbitmq/
-      - rabbitmq/log/:/var/log/rabbitmq
+      - rabbitmq:/var/lib/rabbitmq/
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
   control_plane:
     image: multi_agent_app:latest
     command: uvicorn multi_agent_app.core_services.control_plane:app --host 0.0.0.0 --port 8001 --log-config ./logging.ini --log-level debug --reload
@@ -90,19 +96,15 @@ services:
       retries: 5
       start_period: 20s
       timeout: 10s
-  registration_task:
+  control_plane_registration:
     image: multi_agent_app:latest
-    command: >
-      sh -c "python -m multi_agent_app.core_services.control_plane &&
-             python -m multi_agent_app.agent_services.secret_agent &&
-             python -m multi_agent_app.agent_services.funny_agent &&
-             python -m multi_agent_app.additional_services.human_consumer"
+    command: sh -c "python -m multi_agent_app.core_services.control_plane"
     env_file:
       - ./multi-agent-app/.env.docker
     volumes:
       - ./multi-agent-app/multi_agent_app:/app/multi_agent_app
     depends_on:
-      message_queue:
+      rabbitmq:
         condition: service_healthy
       control_plane:
         condition: service_healthy
@@ -110,3 +112,53 @@ services:
     build:
       context: .
       dockerfile: ./multi-agent-app/Dockerfile
+  secret_agent_registration:
+    image: multi_agent_app:latest
+    command: sh -c "python -m multi_agent_app.agent_services.secret_agent"
+    env_file:
+      - ./multi-agent-app/.env.docker
+    volumes:
+      - ./multi-agent-app/multi_agent_app:/app/multi_agent_app
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./multi-agent-app/Dockerfile
+  funny_agent_registration:
+    image: multi_agent_app:latest
+    command: sh -c "python -m multi_agent_app.agent_services.funny_agent"
+    env_file:
+      - ./multi-agent-app/.env.docker
+    volumes:
+      - ./multi-agent-app/multi_agent_app:/app/multi_agent_app
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./multi-agent-app/Dockerfile
+  human_consumer_registration:
+    image: multi_agent_app:latest
+    command: sh -c "python -m multi_agent_app.additional_services.human_consumer"
+    env_file:
+      - ./multi-agent-app/.env.docker
+    volumes:
+      - ./multi-agent-app/multi_agent_app:/app/multi_agent_app
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./multi-agent-app/Dockerfile
+volumes:
+  rabbitmq:

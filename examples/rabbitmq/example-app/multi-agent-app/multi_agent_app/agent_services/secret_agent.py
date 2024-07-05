@@ -9,6 +9,10 @@ from llama_index.llms.openai import OpenAI
 
 from multi_agent_app.utils import load_from_env
 
+message_queue_host = load_from_env("RABBITMQ_HOST")
+message_queue_port = load_from_env("RABBITMQ_NODE_PORT")
+message_queue_username = load_from_env("RABBITMQ_DEFAULT_USER")
+message_queue_password = load_from_env("RABBITMQ_DEFAULT_PASS")
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
 secret_agent_host = load_from_env("SECRET_AGENT_HOST")
@@ -26,7 +30,9 @@ worker = FunctionCallingAgentWorker.from_tools([tool], llm=OpenAI())
 agent = worker.as_agent()
 
 # create agent server
-message_queue = RabbitMQMessageQueue()
+message_queue = RabbitMQMessageQueue(
+    url=f"amqp://{message_queue_username}:{message_queue_password}@{message_queue_host}:{message_queue_port}/"
+)
 
 agent_server = AgentService(
     agent=agent,
