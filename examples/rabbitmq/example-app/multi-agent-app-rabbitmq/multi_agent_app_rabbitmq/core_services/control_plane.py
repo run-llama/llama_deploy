@@ -1,43 +1,49 @@
 import asyncio
 import uvicorn
+
+from llama_agents import AgentOrchestrator, ControlPlaneServer
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
-from multi_agent_app.additional_services.task_result import TaskResultService
-from multi_agent_app.utils import load_from_env
+from llama_index.llms.openai import OpenAI
+
+from multi_agent_app_rabbitmq.utils import load_from_env
+
 
 message_queue_host = load_from_env("RABBITMQ_HOST")
 message_queue_port = load_from_env("RABBITMQ_NODE_PORT")
 message_queue_username = load_from_env("RABBITMQ_DEFAULT_USER")
 message_queue_password = load_from_env("RABBITMQ_DEFAULT_PASS")
-human_consumer_host = load_from_env("HUMAN_CONSUMER_HOST")
-human_consumer_port = load_from_env("HUMAN_CONSUMER_PORT")
+control_plane_host = load_from_env("CONTROL_PLANE_HOST")
+control_plane_port = load_from_env("CONTROL_PLANE_PORT")
 localhost = load_from_env("LOCALHOST")
 
 
-# create our multi-agent framework components
+# setup message queue
 message_queue = RabbitMQMessageQueue(
     url=f"amqp://{message_queue_username}:{message_queue_password}@{message_queue_host}:{message_queue_port}/"
 )
 
-human_consumer_server = TaskResultService(
+# setup control plane
+control_plane = ControlPlaneServer(
     message_queue=message_queue,
-    host=human_consumer_host,
-    port=int(human_consumer_port) if human_consumer_port else None,
-    name="human",
+    orchestrator=AgentOrchestrator(llm=OpenAI()),
+    host=control_plane_host,
+    port=int(control_plane_port) if control_plane_port else None,
 )
 
-app = human_consumer_server._app
+
+app = control_plane.app
 
 
 # launch
 async def launch() -> None:
     # register to message queue and start consuming
-    start_consuming_callable = await human_consumer_server.register_to_message_queue()
+    start_consuming_callable = await control_plane.register_to_message_queue()
     _ = asyncio.create_task(start_consuming_callable())
 
     cfg = uvicorn.Config(
-        human_consumer_server._app,
+        control_plane.app,
         host=localhost,
-        port=human_consumer_server.port,
+        port=control_plane.port,
     )
     server = uvicorn.Server(cfg)
     await server.serve()

@@ -43,4 +43,4 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 # Copy source code
 COPY ./logging.ini ./logging.ini
-COPY ./multi-agent-app-rabbitmq/multi_agent_app ./multi_agent_app
+COPY ./multi-agent-app-rabbitmq/multi_agent_app_rabbitmq ./multi_agent_app_rabbitmq

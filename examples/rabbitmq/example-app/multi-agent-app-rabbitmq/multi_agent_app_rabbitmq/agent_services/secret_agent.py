@@ -8,8 +8,7 @@ from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
 
-from multi_agent_app.utils import load_from_env
-
+from multi_agent_app_rabbitmq.utils import load_from_env
 
 message_queue_host = load_from_env("RABBITMQ_HOST")
 message_queue_port = load_from_env("RABBITMQ_NODE_PORT")
@@ -17,18 +16,18 @@ message_queue_username = load_from_env("RABBITMQ_DEFAULT_USER")
 message_queue_password = load_from_env("RABBITMQ_DEFAULT_PASS")
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
-funny_agent_host = load_from_env("FUNNY_AGENT_HOST")
-funny_agent_port = load_from_env("FUNNY_AGENT_PORT")
+secret_agent_host = load_from_env("SECRET_AGENT_HOST")
+secret_agent_port = load_from_env("SECRET_AGENT_PORT")
 localhost = load_from_env("LOCALHOST")
 
 
 # create an agent
-def get_a_funny_joke() -> str:
+def get_the_secret_fact() -> str:
     """Returns the secret fact."""
-    return "I went to the aquarium this weekend, but I didn’t stay long. There’s something fishy about that place."
+    return "The secret fact is: A baby llama is called a 'Cria'."
 
 
-tool = FunctionTool.from_defaults(fn=get_a_funny_joke)
+tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
 worker = FunctionCallingAgentWorker.from_tools([tool], llm=OpenAI())
 agent = worker.as_agent()
 
@@ -40,10 +39,10 @@ message_queue = RabbitMQMessageQueue(
 agent_server = AgentService(
     agent=agent,
     message_queue=message_queue,
-    description="Useful for getting funny jokes.",
-    service_name="funny_joke_agent",
-    host=funny_agent_host,
-    port=int(funny_agent_port) if funny_agent_port else None,
+    description="Useful for getting the secret fact.",
+    service_name="secret_fact_agent",
+    host=secret_agent_host,
+    port=int(secret_agent_port) if secret_agent_port else None,
 )
 
 app = agent_server._app

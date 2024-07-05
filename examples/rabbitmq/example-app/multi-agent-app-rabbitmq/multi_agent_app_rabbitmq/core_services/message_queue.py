@@ -1,5 +1,5 @@
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
-from multi_agent_app.utils import load_from_env
+from multi_agent_app_rabbitmq.utils import load_from_env
 
 message_queue_host = load_from_env("RABBITMQ_HOST")
 message_queue_port = load_from_env("RABBITMQ_NODE_PORT")

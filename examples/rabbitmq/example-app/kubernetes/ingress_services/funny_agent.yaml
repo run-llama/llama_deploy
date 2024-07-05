@@ -76,10 +76,14 @@ spec:
                 secretKeyRef:
                   name: xcore-secret
                   key: OPENAI_API_KEY
-          image: multi_agent_app:latest
+          image: multi_agent_app_rabbitmq:latest
           imagePullPolicy: Never
           command:
-            ["sh", "-c", "python -m multi_agent_app.agent_services.funny_agent"]
+            [
+              "sh",
+              "-c",
+              "python -m multi_agent_app_rabbitmq.agent_services.funny_agent",
+            ]
           resources:
             requests:
               memory: "128Mi"

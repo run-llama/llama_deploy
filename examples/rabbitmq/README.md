@@ -90,7 +90,7 @@ cd multi-agent-app-rabbitmq/ && poetry shell && poetry install && cd ../
 Finally to launch the example multi-agent app:
 
 ```sh
-python multi-agent-app-rabbitmq/multi_agent_app/local_launcher.py
+python multi-agent-app-rabbitmq/multi_agent_app_rabbitmq/local_launcher.py
 ```
 
 Once launched, we can send tasks to our multi-agent system using the
