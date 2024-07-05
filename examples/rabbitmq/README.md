@@ -75,22 +75,22 @@ docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.13-ma
 
 Next, in order to launch this multi-agent system, we first need to set the
 required environment variables. To do that fill in the provided
-`template.env.local` file found in the `multi-agent-app/` folder. After filling
+`template.env.local` file found in the `multi-agent-app-rabbitmq/` folder. After filling
 in the file rename it to `.env.local` (i.e., remove "template" from the name)
 and the run the commands that follow.
 
 ```sh
 # set environment variables
-set -a && source multi-agent-app/.env.local
+set -a && source multi-agent-app-rabbitmq/.env.local
 
 # activate the project virtual env
-cd multi-agent-app/ && poetry shell && poetry install && cd ../
+cd multi-agent-app-rabbitmq/ && poetry shell && poetry install && cd ../
 ```
 
 Finally to launch the example multi-agent app:
 
 ```sh
-python multi-agent-app/multi_agent_app/local_launcher.py
+python multi-agent-app-rabbitmq/multi_agent_app/local_launcher.py
 ```
 
 Once launched, we can send tasks to our multi-agent system using the
@@ -135,7 +135,7 @@ This example is provided without a `poetry.lock` file as recommended in the
 Before running docker-compose the first time, we must create the `poetry.lock`
 file.
 
-`cd examples/docker-kubernetes/multi-agent-app && poetry install`
+`cd examples/docker-kubernetes/multi-agent-app-rabbitmq && poetry install`
 
 To launch the services we now use the `docker-compose` command line tool.
 
@@ -172,7 +172,7 @@ Kubernetes server & client (see
 
 To launch with Kubernetes, we'll make use of `kubectl` command line tool and
 "apply" our k8s manifests. For this example to run, it assumes the docker image
-`multi-agent-app` has already been built, which would be the case if your
+`multi-agent-app-rabbitmq` has already been built, which would be the case if your
 continuining along from the previous launch with Docker example. If not, then
 simply execute the below command to build the necessary docker image:
 
