@@ -87,6 +87,7 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         username: str,
         password: str,
         host: str,
+        vhost: str = "",
         port: Optional[int] = None,
         secure: bool = False,
         exchange_name: str = DEFAULT_EXCHANGE_NAME,
@@ -106,14 +107,14 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         """
         if not secure:
             if port:
-                url = f"amqp://{username}:{password}@{host}:{port}/vhost"
+                url = f"amqp://{username}:{password}@{host}:{port}/{vhost}"
             else:
-                url = f"amqp://{username}:{password}@{host}/vhost"
+                url = f"amqp://{username}:{password}@{host}/{vhost}"
         if secure:
             if port:
-                url = f"amqps://{username}:{password}@{host}:{port}/vhost"
+                url = f"amqps://{username}:{password}@{host}:{port}/{vhost}"
             else:
-                url = f"amqps://{username}:{password}@{host}/vhost"
+                url = f"amqps://{username}:{password}@{host}/{vhost}"
         return cls(url=url, exchange_name=exchange_name)
 
     async def new_connection(self) -> "Connection":
