@@ -1,4 +1,5 @@
 import asyncio
+import uvicorn
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 from multi_agent_app.additional_services.task_result import TaskResultService
 from multi_agent_app.utils import load_from_env
@@ -9,6 +10,8 @@ message_queue_username = load_from_env("RABBITMQ_DEFAULT_USER")
 message_queue_password = load_from_env("RABBITMQ_DEFAULT_PASS")
 human_consumer_host = load_from_env("HUMAN_CONSUMER_HOST")
 human_consumer_port = load_from_env("HUMAN_CONSUMER_PORT")
+external_host = load_from_env("EXTERNAL_HOST")
+
 
 # create our multi-agent framework components
 message_queue = RabbitMQMessageQueue(
@@ -25,11 +28,20 @@ human_consumer_server = TaskResultService(
 app = human_consumer_server._app
 
 
-# register to message queue
-async def register_and_start_consuming() -> None:
+# launch
+async def launch() -> None:
+    # register to message queue and start consuming
     start_consuming_callable = await human_consumer_server.register_to_message_queue()
-    await start_consuming_callable()
+    _ = asyncio.create_task(start_consuming_callable())
+
+    cfg = uvicorn.Config(
+        human_consumer_server._app,
+        host=external_host,
+        port=human_consumer_server.port,
+    )
+    server = uvicorn.Server(cfg)
+    await server.serve()
 
 
 if __name__ == "__main__":
-    asyncio.run(register_and_start_consuming())
+    asyncio.run(launch())

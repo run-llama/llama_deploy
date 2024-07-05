@@ -1,4 +1,5 @@
 import asyncio
+import uvicorn
 
 from llama_agents import AgentOrchestrator, ControlPlaneServer
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
@@ -13,6 +14,7 @@ message_queue_username = load_from_env("RABBITMQ_DEFAULT_USER")
 message_queue_password = load_from_env("RABBITMQ_DEFAULT_PASS")
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
+external_host = load_from_env("EXTERNAL_HOST")
 
 
 # setup message queue
@@ -32,11 +34,20 @@ control_plane = ControlPlaneServer(
 app = control_plane.app
 
 
-async def register_and_start_consuming() -> None:
-    # register to message queue
+# launch
+async def launch() -> None:
+    # register to message queue and start consuming
     start_consuming_callable = await control_plane.register_to_message_queue()
-    await start_consuming_callable()
+    _ = asyncio.create_task(start_consuming_callable())
+
+    cfg = uvicorn.Config(
+        control_plane.app,
+        host=external_host,
+        port=control_plane.port,
+    )
+    server = uvicorn.Server(cfg)
+    await server.serve()
 
 
 if __name__ == "__main__":
-    asyncio.run(register_and_start_consuming())
+    asyncio.run(launch())

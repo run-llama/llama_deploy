@@ -1,4 +1,5 @@
 import asyncio
+import uvicorn
 
 from llama_agents import AgentService
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
@@ -18,6 +19,7 @@ control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
 funny_agent_host = load_from_env("FUNNY_AGENT_HOST")
 funny_agent_port = load_from_env("FUNNY_AGENT_PORT")
+external_host = load_from_env("EXTERNAL_HOST")
 
 
 # create an agent
@@ -47,10 +49,12 @@ agent_server = AgentService(
 app = agent_server._app
 
 
-# registration
-async def register_and_start_consuming() -> None:
+# launch
+async def launch() -> None:
     # register to message queue
     start_consuming_callable = await agent_server.register_to_message_queue()
+    _ = asyncio.create_task(start_consuming_callable())
+
     # register to control plane
     await agent_server.register_to_control_plane(
         control_plane_url=(
@@ -59,9 +63,15 @@ async def register_and_start_consuming() -> None:
             else f"http://{control_plane_host}"
         )
     )
-    # start consuming
-    await start_consuming_callable()
+
+    cfg = uvicorn.Config(
+        agent_server._app,
+        host=external_host,
+        port=agent_server.port,
+    )
+    server = uvicorn.Server(cfg)
+    await server.serve()
 
 
 if __name__ == "__main__":
-    asyncio.run(register_and_start_consuming())
+    asyncio.run(launch())
