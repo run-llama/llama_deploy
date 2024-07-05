@@ -33,14 +33,18 @@ message_queue = RabbitMQMessageQueue(
 
 ## Examples
 
+### Simple Scripts
+
 A couple of scripts using `LocalLauncher` and a `LocalServer` with
 `RabbitMQMessageQueue` (rather than `SimpleMessageQueue`) are included in this
 subdirectory. To run them use the commands below:
 
 ```sh
 # using LocalLauncher
-python local_launcher_example.py
+python ./simple-scripts/local_launcher_example.py
 
 # using ServerLauncher
-python server_launcher_example.py
+python ./simple-scripts/server_launcher_example.py
 ```
+
+### Example App
