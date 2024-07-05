@@ -47,6 +47,11 @@ spec:
                 configMapKeyRef:
                   name: xcore-config
                   key: CONTROL_PLANE_PORT
+            - name: EXTERNAL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: EXTERNAL_HOST
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -54,7 +59,12 @@ spec:
                   key: OPENAI_API_KEY
           image: multi_agent_app:latest
           imagePullPolicy: Never
-          command: sh -c "python -m multi_agent_app.core_services.control_plane"
+          command:
+            [
+              "sh",
+              "-c",
+              "python -m multi_agent_app.core_services.control_plane",
+            ]
           resources:
             requests:
               memory: "128Mi"

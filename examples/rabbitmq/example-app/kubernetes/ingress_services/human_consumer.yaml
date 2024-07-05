@@ -14,6 +14,15 @@ spec:
       labels:
         app: human-consumer
     spec:
+      initContainers:
+        - name: wait-for-control-plane
+          image: busybox:1.36
+          command:
+            [
+              "sh",
+              "-c",
+              "until nslookup control-plane.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done",
+            ]
       containers:
         - name: human-consumer
           env:
@@ -47,6 +56,11 @@ spec:
                 configMapKeyRef:
                   name: xcore-config
                   key: HUMAN_CONSUMER_PORT
+            - name: EXTERNAL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: EXTERNAL_HOST
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
@@ -56,16 +70,9 @@ spec:
           imagePullPolicy: Never
           command:
             [
-              "uvicorn",
-              "multi_agent_app.additional_services.human_consumer:app",
-              "--host",
-              "0.0.0.0",
-              "--port",
-              "8000",
-              "--log-config",
-              "./logging.ini",
-              "--log-level",
-              "debug",
+              "sh",
+              "-c",
+              "python -m multi_agent_app.additional_services.human_consumer",
             ]
           resources:
             requests:

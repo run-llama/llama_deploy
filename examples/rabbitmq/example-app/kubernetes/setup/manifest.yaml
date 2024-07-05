@@ -8,7 +8,7 @@ metadata:
 ---
 apiVersion: v1
 data:
-  RABBITMQ_HOST: "10.111.26.241"
+  RABBITMQ_HOST: "rabbitmq"
   RABBITMQ_NODE_PORT: "5672"
   RABBITMQ_DEFAULT_PASS: "guest"
   RABBITMQ_DEFAULT_USER: "guest"
@@ -20,6 +20,7 @@ data:
   FUNNY_AGENT_PORT: "8000"
   HUMAN_CONSUMER_HOST: "human-consumer"
   HUMAN_CONSUMER_PORT: "8000"
+  EXTERNAL_HOST: "0.0.0.0"
 kind: ConfigMap
 metadata:
   name: xcore-config
