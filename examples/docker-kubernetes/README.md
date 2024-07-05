@@ -98,7 +98,7 @@ python multi-agent-app/multi_agent_app/local_launcher.py
 ```
 
 Once launched, we can send tasks to our multi-agent system using the
-`LlamaAgentsClient`: The code below introduce static delay to handle asynchronous call for quick test purpose only. 
+`LlamaAgentsClient`: The code below introduce static delay to handle asynchronous call for quick test purpose only.
 
 ```python
 from llama_agents import LlamaAgentsClient
