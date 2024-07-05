@@ -47,11 +47,11 @@ spec:
                 configMapKeyRef:
                   name: xcore-config
                   key: CONTROL_PLANE_PORT
-            - name: EXTERNAL_HOST
+            - name: LOCALHOST
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: EXTERNAL_HOST
+                  key: LOCALHOST
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:

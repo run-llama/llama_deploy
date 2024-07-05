@@ -18,7 +18,7 @@ control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
 secret_agent_host = load_from_env("SECRET_AGENT_HOST")
 secret_agent_port = load_from_env("SECRET_AGENT_PORT")
-external_host = load_from_env("EXTERNAL_HOST")
+localhost = load_from_env("LOCALHOST")
 
 
 # create an agent
@@ -65,7 +65,7 @@ async def launch() -> None:
 
     cfg = uvicorn.Config(
         agent_server._app,
-        host=external_host,
+        host=localhost,
         port=agent_server.port,
     )
     server = uvicorn.Server(cfg)

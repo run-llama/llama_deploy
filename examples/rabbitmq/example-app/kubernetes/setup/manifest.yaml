@@ -20,7 +20,7 @@ data:
   FUNNY_AGENT_PORT: "8000"
   HUMAN_CONSUMER_HOST: "human-consumer"
   HUMAN_CONSUMER_PORT: "8000"
-  EXTERNAL_HOST: "0.0.0.0"
+  LOCALHOST: "0.0.0.0"
 kind: ConfigMap
 metadata:
   name: xcore-config

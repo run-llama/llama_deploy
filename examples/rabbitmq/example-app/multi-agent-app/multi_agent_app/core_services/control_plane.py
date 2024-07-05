@@ -14,7 +14,7 @@ message_queue_username = load_from_env("RABBITMQ_DEFAULT_USER")
 message_queue_password = load_from_env("RABBITMQ_DEFAULT_PASS")
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
-external_host = load_from_env("EXTERNAL_HOST")
+localhost = load_from_env("LOCALHOST")
 
 
 # setup message queue
@@ -42,7 +42,7 @@ async def launch() -> None:
 
     cfg = uvicorn.Config(
         control_plane.app,
-        host=external_host,
+        host=localhost,
         port=control_plane.port,
     )
     server = uvicorn.Server(cfg)

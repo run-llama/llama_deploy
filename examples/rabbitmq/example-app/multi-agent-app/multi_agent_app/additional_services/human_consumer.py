@@ -10,7 +10,7 @@ message_queue_username = load_from_env("RABBITMQ_DEFAULT_USER")
 message_queue_password = load_from_env("RABBITMQ_DEFAULT_PASS")
 human_consumer_host = load_from_env("HUMAN_CONSUMER_HOST")
 human_consumer_port = load_from_env("HUMAN_CONSUMER_PORT")
-external_host = load_from_env("EXTERNAL_HOST")
+localhost = load_from_env("LOCALHOST")
 
 
 # create our multi-agent framework components
@@ -36,7 +36,7 @@ async def launch() -> None:
 
     cfg = uvicorn.Config(
         human_consumer_server._app,
-        host=external_host,
+        host=localhost,
         port=human_consumer_server.port,
     )
     server = uvicorn.Server(cfg)

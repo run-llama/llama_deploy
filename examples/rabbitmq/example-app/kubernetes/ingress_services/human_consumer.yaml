@@ -56,11 +56,11 @@ spec:
                 configMapKeyRef:
                   name: xcore-config
                   key: HUMAN_CONSUMER_PORT
-            - name: EXTERNAL_HOST
+            - name: LOCALHOST
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: EXTERNAL_HOST
+                  key: LOCALHOST
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
