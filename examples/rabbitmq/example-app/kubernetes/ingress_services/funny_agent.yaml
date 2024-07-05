@@ -1,0 +1,130 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: funny-agent
+  namespace: llama-agents-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: funny-agent
+  template:
+    metadata:
+      labels:
+        app: funny-agent
+    spec:
+      initContainers:
+        - name: wait-for-control-plane
+          image: busybox:1.36
+          command:
+            [
+              "sh",
+              "-c",
+              "until nslookup control-plane.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done",
+            ]
+      containers:
+        - name: funny-agent
+          env:
+            - name: RABBITMQ_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: RABBITMQ_HOST
+            - name: RABBITMQ_NODE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: RABBITMQ_NODE_PORT
+            - name: RABBITMQ_DEFAULT_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: RABBITMQ_DEFAULT_USER
+            - name: RABBITMQ_DEFAULT_PASS
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: RABBITMQ_DEFAULT_PASS
+            - name: CONTROL_PLANE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_HOST
+            - name: CONTROL_PLANE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_PORT
+            - name: FUNNY_AGENT_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: FUNNY_AGENT_HOST
+            - name: FUNNY_AGENT_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: FUNNY_AGENT_PORT
+            - name: LOCALHOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: LOCALHOST
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: xcore-secret
+                  key: OPENAI_API_KEY
+          image: multi_agent_app_rabbitmq:latest
+          imagePullPolicy: Never
+          command:
+            [
+              "sh",
+              "-c",
+              "python -m multi_agent_app_rabbitmq.agent_services.funny_agent",
+            ]
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 8000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: funny-agent
+  name: funny-agent
+  namespace: llama-agents-demo
+spec:
+  selector:
+    app: funny-agent
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: funny-agent
+  namespace: llama-agents-demo
+spec:
+  rules:
+    - host: funny-agent.127.0.0.1.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: funny-agent
+                port:
+                  number: 8000

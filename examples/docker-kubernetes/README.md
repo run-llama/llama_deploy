@@ -144,7 +144,7 @@ docker-compose up --build
 ```
 
 Once all the services are of healthy status, and after the `registration_task`
-exits with code 0 (which should appear in the lgos) we can send tasks to our
+exits with code 0 (which should appear in the logs) we can send tasks to our
 multi-agent system:
 
 ```python
