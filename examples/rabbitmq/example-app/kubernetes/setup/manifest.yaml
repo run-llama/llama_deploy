@@ -1,0 +1,27 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  creationTimestamp: null
+  name: llama-agents-demo
+
+---
+apiVersion: v1
+data:
+  RABBITMQ_HOST: "rabbitmq"
+  RABBITMQ_NODE_PORT: "5672"
+  RABBITMQ_DEFAULT_PASS: "guest"
+  RABBITMQ_DEFAULT_USER: "guest"
+  CONTROL_PLANE_HOST: "control-plane"
+  CONTROL_PLANE_PORT: "8000"
+  SECRET_AGENT_HOST: "secret-agent"
+  SECRET_AGENT_PORT: "8000"
+  FUNNY_AGENT_HOST: "funny-agent"
+  FUNNY_AGENT_PORT: "8000"
+  HUMAN_CONSUMER_HOST: "human-consumer"
+  HUMAN_CONSUMER_PORT: "8000"
+  LOCALHOST: "0.0.0.0"
+kind: ConfigMap
+metadata:
+  name: xcore-config
+  namespace: llama-agents-demo

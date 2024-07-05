@@ -1,0 +1,118 @@
+version: "3"
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    hostname: "rabbitmq"
+    env_file:
+      - ./multi-agent-app-rabbitmq/.env.docker
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq/
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  control_plane:
+    image: multi_agent_app_rabbitmq:latest
+    command: sh -c "python -m multi_agent_app_rabbitmq.core_services.control_plane"
+    env_file:
+      - ./multi-agent-app-rabbitmq/.env.docker
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./multi-agent-app-rabbitmq/multi_agent_app_rabbitmq:/app/multi_agent_app_rabbitmq # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./multi-agent-app-rabbitmq/Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8001/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+  secret_agent:
+    image: multi_agent_app_rabbitmq:latest
+    command: sh -c "python -m multi_agent_app_rabbitmq.agent_services.secret_agent"
+    env_file:
+      - ./multi-agent-app-rabbitmq/.env.docker
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./multi-agent-app-rabbitmq/multi_agent_app_rabbitmq:/app/multi_agent_app_rabbitmq # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    platform: linux/amd64
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: ./multi-agent-app-rabbitmq/Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8002/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+  funny_agent:
+    image: multi_agent_app_rabbitmq:latest
+    command: sh -c "python -m multi_agent_app_rabbitmq.agent_services.funny_agent"
+    env_file:
+      - ./multi-agent-app-rabbitmq/.env.docker
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./multi-agent-app-rabbitmq/multi_agent_app_rabbitmq:/app/multi_agent_app_rabbitmq # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./multi-agent-app-rabbitmq/Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8003/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+  human_consumer:
+    image: multi_agent_app_rabbitmq:latest
+    command: sh -c "python -m multi_agent_app_rabbitmq.additional_services.human_consumer"
+    env_file:
+      - ./multi-agent-app-rabbitmq/.env.docker
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./multi-agent-app-rabbitmq/multi_agent_app_rabbitmq:/app/multi_agent_app_rabbitmq # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+      - ./task_results:/app/task_results
+    platform: linux/amd64
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: ./multi-agent-app-rabbitmq/Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8004/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+volumes:
+  rabbitmq:
