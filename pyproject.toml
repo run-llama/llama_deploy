@@ -29,6 +29,7 @@ rabbitmq = ["aio-pika"]
 pytest = "^8.2.2"
 ruff = "^0.4.7"
 mypy = "^1.10.0"
+aio-pika = "^9.4.2"
 
 [tool.poetry.scripts]
 llama-agents = 'llama_agents.cli.command_line:main'
