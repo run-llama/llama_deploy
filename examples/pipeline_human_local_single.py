@@ -43,11 +43,13 @@ human_component = ServiceComponent.from_service_definition(human_service)
 
 pipeline = QueryPipeline(
     chain=[
-        RouterComponent(
-            selector=PydanticSingleSelector.from_defaults(llm=OpenAI()),
-            choices=[agent_service.description, human_service.description],
-            components=[agent_component, human_component],
-        )
+        agent_component,
+        human_component
+        # RouterComponent(
+        #     selector=PydanticSingleSelector.from_defaults(llm=OpenAI()),
+        #     choices=[agent_service.description, human_service.description],
+        #     components=[agent_component, human_component],
+        # )
     ]
 )
 
