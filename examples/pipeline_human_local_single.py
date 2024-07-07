@@ -10,9 +10,8 @@ from llama_agents import (
 
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
-from llama_index.core.query_pipeline import RouterComponent, QueryPipeline
+from llama_index.core.query_pipeline import QueryPipeline
 from llama_index.llms.openai import OpenAI
-from llama_index.core.selectors import PydanticSingleSelector
 
 
 # create an agent
