@@ -21,7 +21,7 @@ pip install llama-agents
 If you don't already have llama-index installed, to follow these examples, you'll also need
 
 ```bash
-pip install llama-index-agent-openai
+pip install llama-index-agent-openai llama-index-embeddings-openai
 ```
 
 ## Getting Started
