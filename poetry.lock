@@ -4,7 +4,7 @@
 name = "aio-pika"
 version = "9.4.2"
 description = "Wrapper around the aiormq for asyncio and humans"
-optional = true
+optional = false
 python-versions = "<4.0,>=3.8"
 files = [
     {file = "aio_pika-9.4.2-py3-none-any.whl", hash = "sha256:22e5fa27d10a3817dd24c031cc477953aaf7c3be5f4f25d2582a55ec229adc4c"},
@@ -115,7 +115,7 @@ speedups = ["Brotli", "aiodns", "brotlicffi"]
 name = "aiormq"
 version = "6.8.0"
 description = "Pure python AMQP asynchronous client library"
-optional = true
+optional = false
 python-versions = ">=3.8,<4.0"
 files = [
     {file = "aiormq-6.8.0-py3-none-any.whl", hash = "sha256:9a16174dcae4078c957a773d2f02d3dfd6c2fcf12c909dc244333a458f2aeab0"},
@@ -1394,7 +1394,7 @@ files = [
 name = "pamqp"
 version = "3.3.0"
 description = "RabbitMQ Focused AMQP low-level library"
-optional = true
+optional = false
 python-versions = ">=3.7"
 files = [
     {file = "pamqp-3.3.0-py2.py3-none-any.whl", hash = "sha256:c901a684794157ae39b52cbf700db8c9aae7a470f13528b9d7b4e5f7202f8eb0"},
@@ -2880,4 +2880,4 @@ rabbitmq = ["aio-pika"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<4.0"
-content-hash = "7d9a389499446ec8c3aeb8fc37a0769685beb3f4b60ce5115a865e3fe70ba74a"
+content-hash = "1d99c8677ac1bc76d90bf39621d91aad4141e8fa7200827c3225640fb9c9166c"
