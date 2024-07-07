@@ -7,11 +7,9 @@ from unittest.mock import patch, MagicMock, AsyncMock
 try:
     import aio_pika
     from aio_pika import DeliveryMode, Message as AioPikaMessage, Exchange
-    from aio_pika.abc import AbstractExchange
-except ImportError:
+except (ModuleNotFoundError, ImportError):
     aio_pika = None
     Exchange = Exchange
-    AbstractExchange = None
     DeliveryMode = None
     AioPikaMessage = None
 
