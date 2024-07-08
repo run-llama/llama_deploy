@@ -94,7 +94,9 @@ class RedisMessageQueue(BaseMessageQueue):
         redis = await self.new_connection()
         message_json = json.dumps(message.model_dump())
         result = await redis.publish(message.type, message_json)
-        logger.info(f"Published message {message.id_} to {message.type} channel")
+        logger.info(
+            f"Published message {message.id_} to {message.type} channel with {result} subscribers"
+        )
         return result
 
     async def register_consumer(
@@ -107,20 +109,15 @@ class RedisMessageQueue(BaseMessageQueue):
             )
             return self._consumers[consumer.id_].start_consuming_callable
 
-        logger.info(
-            f"Registered consumer {consumer.id_} for {consumer.message_type} messages",
-        )
+        redis = await self.new_connection()
+        pubsub = redis.pubsub()
+        await pubsub.subscribe(consumer.message_type)
 
         async def start_consuming_callable() -> None:
             """StartConsumingCallable.
 
             Consumer of this queue should call this in order to start consuming.
             """
-            redis = await self.new_connection()
-            pubsub = redis.pubsub()
-            await pubsub.subscribe(consumer.message_type)
-            self._consumers[consumer.id_].pubsub = pubsub
-
             while True:
                 message = await pubsub.get_message(ignore_subscribe_messages=True)
                 if message:
@@ -129,9 +126,14 @@ class RedisMessageQueue(BaseMessageQueue):
                     await consumer.process_message(queue_message)
                 await asyncio.sleep(0.01)
 
+        logger.info(
+            f"Registered consumer {consumer.id_} for {consumer.message_type} messages",
+        )
+
         self._consumers[consumer.id_] = Consumer(
             message_type=consumer.message_type,
             start_consuming_callable=start_consuming_callable,
+            pubsub=pubsub,
         )
 
         return start_consuming_callable
@@ -139,10 +141,9 @@ class RedisMessageQueue(BaseMessageQueue):
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         """Deregister a consumer."""
         if consumer.id_ in self._consumers:
-            if self._consumers[consumer.id_].pubsub:
-                await self._consumers[consumer.id_].pubsub.unsubscribe(
-                    consumer.message_type
-                )
+            await self._consumers[consumer.id_].pubsub.unsubscribe(
+                consumer.message_type
+            )
             del self._consumers[consumer.id_]
             logger.info(
                 f"Deregistered consumer {consumer.id_} for {consumer.message_type} messages",
