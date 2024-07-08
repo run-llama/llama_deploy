@@ -21,15 +21,18 @@ llama-index-core = "^0.10.50"
 pytest-asyncio = "^0.23.7"
 textual = "^0.70.0"
 aio-pika = {version = "^9.4.2", optional = true}
+redis = {version = "^5.0.7", optional = true}
 
 [tool.poetry.extras]
 rabbitmq = ["aio-pika"]
+redis = ["redis"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
 ruff = "^0.4.7"
 mypy = "^1.10.0"
 aio-pika = "^9.4.2"
+redis = "^5.0.7"
 
 [tool.poetry.scripts]
 llama-agents = 'llama_agents.cli.command_line:main'
