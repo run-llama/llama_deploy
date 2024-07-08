@@ -32,7 +32,7 @@ async def _establish_connection(url: str) -> "redis.Redis":
     )
 
 
-class Consumer(BaseModel):
+class RedisConsumerMetadata(BaseModel):
     message_type: str
     start_consuming_callable: StartConsumingCallable
     pubsub: Any = None
@@ -65,7 +65,7 @@ class RedisMessageQueue(BaseMessageQueue):
     ) -> None:
         super().__init__(url=url)
         self._redis = redis
-        self._consumers: Dict[str, Consumer] = {}
+        self._consumers: Dict[str, RedisConsumerMetadata] = {}
 
     @classmethod
     def from_url_params(
@@ -130,7 +130,7 @@ class RedisMessageQueue(BaseMessageQueue):
             f"Registered consumer {consumer.id_} for {consumer.message_type} messages",
         )
 
-        self._consumers[consumer.id_] = Consumer(
+        self._consumers[consumer.id_] = RedisConsumerMetadata(
             message_type=consumer.message_type,
             start_consuming_callable=start_consuming_callable,
             pubsub=pubsub,
