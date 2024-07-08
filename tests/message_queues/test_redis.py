@@ -1,43 +1,46 @@
 import json
 import pytest
+from typing import Any
 from unittest.mock import patch, AsyncMock
 from llama_agents.message_queues.redis import RedisMessageQueue
 from llama_agents.messages.base import QueueMessage
 from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 
 
+class MockPubSub:
+    async def subscribe(self, channel: str) -> None:
+        pass
+
+    async def get_message(self, ignore_subscribe_messages: bool = True) -> None:
+        return None
+
+    async def unsubscribe(self, channel: str) -> None:
+        pass
+
+
 class MockRedisConnection:
-    async def publish(self, channel, message):
+    async def publish(self, channel: str, message: str) -> int:
         return 1
 
-    def pubsub(self):
+    def pubsub(self) -> MockPubSub:
         return MockPubSub()
 
 
-class MockPubSub:
-    async def subscribe(self, channel):
-        pass
-
-    async def get_message(self, ignore_subscribe_messages=True):
-        return None
-
-    async def unsubscribe(self, channel):
-        pass
-
-
 class MockConsumer(BaseMessageQueueConsumer):
-    async def _process_message(self, message: QueueMessage):
+    async def _process_message(self, message: QueueMessage, **kwargs: Any) -> Any:
         pass
 
 
 @pytest.fixture
-def redis_queue():
+def redis_queue() -> RedisMessageQueue:
     return RedisMessageQueue(url="redis://localhost:6379")
 
 
 @pytest.mark.asyncio
 @patch("llama_agents.message_queues.redis._establish_connection")
-async def test_new_connection(mock_establish_connection, redis_queue):
+async def test_new_connection(
+    mock_establish_connection: AsyncMock, redis_queue: RedisMessageQueue
+) -> None:
     mock_establish_connection.return_value = MockRedisConnection()
 
     connection = await redis_queue.new_connection()
@@ -48,8 +51,9 @@ async def test_new_connection(mock_establish_connection, redis_queue):
 
 @pytest.mark.asyncio
 @patch("llama_agents.message_queues.redis._establish_connection")
-async def test_publish(mock_establish_connection):
-    redis_queue = RedisMessageQueue(url="redis://localhost:6379")
+async def test_publish(
+    mock_establish_connection: AsyncMock, redis_queue: RedisMessageQueue
+) -> None:
     mock_redis = AsyncMock()
     mock_establish_connection.return_value = mock_redis
 
@@ -64,7 +68,9 @@ async def test_publish(mock_establish_connection):
 
 @pytest.mark.asyncio
 @patch("llama_agents.message_queues.redis._establish_connection")
-async def test_register_consumer(mock_establish_connection, redis_queue):
+async def test_register_consumer(
+    mock_establish_connection: AsyncMock, redis_queue: RedisMessageQueue
+) -> None:
     mock_redis = MockRedisConnection()
     mock_establish_connection.return_value = mock_redis
 
@@ -77,7 +83,9 @@ async def test_register_consumer(mock_establish_connection, redis_queue):
 
 @pytest.mark.asyncio
 @patch("llama_agents.message_queues.redis._establish_connection")
-async def test_deregister_consumer(mock_establish_connection, redis_queue):
+async def test_deregister_consumer(
+    mock_establish_connection: AsyncMock, redis_queue: RedisMessageQueue
+) -> None:
     mock_redis = MockRedisConnection()
     mock_establish_connection.return_value = mock_redis
 
@@ -90,7 +98,9 @@ async def test_deregister_consumer(mock_establish_connection, redis_queue):
 
 @pytest.mark.asyncio
 @patch("llama_agents.message_queues.redis._establish_connection")
-async def test_cleanup_local(mock_establish_connection, redis_queue):
+async def test_cleanup_local(
+    mock_establish_connection: AsyncMock, redis_queue: RedisMessageQueue
+) -> None:
     mock_redis = AsyncMock()
     mock_establish_connection.return_value = mock_redis
 
@@ -103,7 +113,7 @@ async def test_cleanup_local(mock_establish_connection, redis_queue):
 
 
 @pytest.mark.asyncio
-async def test_from_url_params():
+async def test_from_url_params() -> None:
     queue = RedisMessageQueue.from_url_params(
         host="localhost", port=6379, db=0, username="user", password="pass", ssl=True
     )
@@ -115,7 +125,9 @@ async def test_from_url_params():
 
 @pytest.mark.asyncio
 @patch("llama_agents.message_queues.redis._establish_connection")
-async def test_register_same_consumer_twice(mock_establish_connection, redis_queue):
+async def test_register_same_consumer_twice(
+    mock_establish_connection: AsyncMock, redis_queue: RedisMessageQueue
+) -> None:
     mock_redis = MockRedisConnection()
     mock_establish_connection.return_value = mock_redis
 

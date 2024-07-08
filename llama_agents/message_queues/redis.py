@@ -35,7 +35,7 @@ async def _establish_connection(url: str) -> "redis.Redis":
 class Consumer(BaseModel):
     message_type: str
     start_consuming_callable: StartConsumingCallable
-    pubsub: Optional[Any] = None
+    pubsub: Any = None
 
 
 class RedisMessageQueue(BaseMessageQueue):
