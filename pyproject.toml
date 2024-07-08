@@ -21,6 +21,7 @@ llama-index-core = "^0.10.50"
 pytest-asyncio = "^0.23.7"
 textual = "^0.70.0"
 aio-pika = {version = "^9.4.2", optional = true}
+redis = "^5.0.7"
 
 [tool.poetry.extras]
 rabbitmq = ["aio-pika"]
