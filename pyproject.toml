@@ -22,6 +22,7 @@ pytest-asyncio = "^0.23.7"
 textual = "^0.70.0"
 aio-pika = {version = "^9.4.2", optional = true}
 redis = {version = "^5.0.7", optional = true}
+uvicorn = "^0.30.1"
 
 [tool.poetry.extras]
 rabbitmq = ["aio-pika"]
