@@ -85,13 +85,11 @@ class ControlPlaneServer(BaseControlPlane):
         running: bool = True,
     ) -> None:
         self.orchestrator = orchestrator
-        self.object_index = ObjectIndex(
-            VectorStoreIndex(
-                nodes=[],
-                storage_context=StorageContext.from_defaults(vector_store=vector_store),
-            ),
-            SimpleObjectNodeMapping(),
-        )
+
+        # lazily init object index when needed
+        self._vector_store = vector_store
+        self._object_index = None
+
         self.step_interval = step_interval
         self.running = running
         self.host = host
@@ -108,7 +106,6 @@ class ControlPlaneServer(BaseControlPlane):
         self._publish_callback = publish_callback
 
         self._services_cache: Dict[str, ServiceDefinition] = {}
-        self._total_services = 0
         self._services_retrieval_threshold = services_retrieval_threshold
 
         self.app = FastAPI()
@@ -170,6 +167,26 @@ class ControlPlaneServer(BaseControlPlane):
     def publish_callback(self) -> Optional[PublishCallback]:
         return self._publish_callback
 
+    @property
+    def object_index(self) -> ObjectIndex:
+        if self._object_index is None:
+            self._object_index = ObjectIndex(
+                VectorStoreIndex(
+                    nodes=[],
+                    storage_context=StorageContext.from_defaults(
+                        vector_store=self._vector_store
+                    ),
+                ),
+                SimpleObjectNodeMapping(),
+            )
+        return self._object_index
+
+    async def get_total_services(self) -> int:
+        all_services = await self.state_store.aget_all(
+            collection=self.services_store_key
+        )
+        return len(all_services)
+
     async def process_message(self, message: QueueMessage) -> None:
         action = message.action
 
@@ -211,11 +228,12 @@ class ControlPlaneServer(BaseControlPlane):
         await server.serve()
 
     async def home(self) -> Dict[str, str]:
+        total_services = await self.get_total_services()
         return {
             "running": str(self.running),
             "step_interval": str(self.step_interval),
             "services_store_key": self.services_store_key,
-            "total_services": str(self._total_services),
+            "total_services": str(total_services),
             "services_retrieval_threshold": str(self._services_retrieval_threshold),
         }
 
@@ -227,8 +245,8 @@ class ControlPlaneServer(BaseControlPlane):
         )
 
         # decide to use cache vs. retrieval
-        self._total_services += 1
-        if self._total_services > self._services_retrieval_threshold:
+        total_services = await self.get_total_services()
+        if total_services > self._services_retrieval_threshold:
             # TODO: currently blocking, should be async
             self.object_index.insert_object(service_def.model_dump())
             for service in self._services_cache.values():
@@ -238,14 +256,10 @@ class ControlPlaneServer(BaseControlPlane):
             self._services_cache[service_def.service_name] = service_def
 
     async def deregister_service(self, service_name: str) -> None:
-        deleted = await self.state_store.adelete(
-            service_name, collection=self.services_store_key
-        )
+        await self.state_store.adelete(service_name, collection=self.services_store_key)
         if service_name in self._services_cache:
             del self._services_cache[service_name]
 
-        if deleted:
-            self._total_services -= 1
         # TODO: object index does not have delete yet
 
     async def get_service(self, service_name: str) -> ServiceDefinition:
@@ -279,7 +293,8 @@ class ControlPlaneServer(BaseControlPlane):
         return {"task_id": task_def.task_id}
 
     async def send_task_to_service(self, task_def: TaskDefinition) -> TaskDefinition:
-        if self._total_services > self._services_retrieval_threshold:
+        total_services = await self.get_total_services()
+        if total_services > self._services_retrieval_threshold:
             service_retriever = self.object_index.as_retriever(similarity_top_k=5)
 
             # could also route based on similarity alone.
