@@ -1,5 +1,4 @@
-from typing import Any, Dict, List, Tuple
-
+from typing import Any, Dict, List, Optional, Tuple
 from llama_index.core.llms import LLM
 from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.tools import BaseTool
@@ -157,19 +156,14 @@ class AgentOrchestrator(BaseOrchestrator):
     ) -> Dict[str, Any]:
         """Add the result of processing a message to the state. Returns the new state."""
 
-        # summarize the result
-        new_history = result.history
-        new_history_str = "\n".join([str(x) for x in new_history])
-        # TODO: Better logic for when to summarize?
-        if len(new_history) > 1:
-            summarize_prompt_str = self.summarize_prompt.format(history=new_history_str)
-            summary = await self.llm.acomplete(summarize_prompt_str)
-
         # get the current chat history, add the summary to it
         chat_dicts = state.get(HISTORY_KEY, [])
         chat_history = [ChatMessage(**x) for x in chat_dicts]
 
-        chat_history.append(ChatMessage(role="assistant", content=str(summary)))
+        # summarize the result history
+        chat_history.append(
+            ChatMessage(role="assistant", content=str(self.summarize(result.history)))
+        )
 
         # add the followup prompt to the chat history
         original_input = chat_history[0].content
@@ -182,3 +176,10 @@ class AgentOrchestrator(BaseOrchestrator):
 
         new_state = {HISTORY_KEY: [x.dict() for x in chat_history]}
         return new_state
+
+    async def summarize(self, history) -> Optional[str]:
+        new_history = "\n".join([str(x) for x in history])
+
+        return await self.llm.acomplete(
+            self.summarize_prompt.format(history=new_history)
+        )
