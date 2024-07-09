@@ -9,7 +9,8 @@ from llama_agents import (
 
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
-from llama_index.core.query_pipeline import QueryPipeline
+from llama_index.core.query_pipeline import QueryPipeline, RouterComponent
+from llama_index.core.selectors import PydanticSingleSelector
 from llama_index.llms.openai import OpenAI
 from llama_index.agent.openai import OpenAIAgent
 
@@ -50,13 +51,11 @@ agent_component_2 = ServiceComponent.from_service_definition(agent_server_2)
 
 pipeline = QueryPipeline(
     chain=[
-        agent_component_1,
-        agent_component_2,
-        # RouterComponent(
-        #    selector=PydanticSingleSelector.from_defaults(llm=OpenAI()),
-        #    choices=[agent_server_1.description, agent_server_2.description],
-        #    components=[agent_component_1, agent_component_2],
-        # )
+        RouterComponent(
+            selector=PydanticSingleSelector.from_defaults(llm=OpenAI()),
+            choices=[agent_server_1.description, agent_server_2.description],
+            components=[agent_component_1, agent_component_2],
+        )
     ]
 )
 
