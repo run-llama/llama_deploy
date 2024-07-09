@@ -73,10 +73,9 @@ def process_component_output(
 
     """
     module = run_state.module_dict[module_key]
-    if not isinstance(module, ServiceComponent):
-        raise ValueError("Module is not a service component")
 
-    if module.module_type == ModuleType.AGENT:
+    # assume an agent component if the module type is not set
+    if not hasattr(module, "module_type") or module.module_type == ModuleType.AGENT:
         # in an agent, the output is a single value
         pipeline.process_component_output(
             {"output": task_result.result},
@@ -180,8 +179,19 @@ class PipelineOrchestrator(BaseOrchestrator):
                     service_dict = json.loads(output_dict["service_output"])
                     found_service_component = True
                     next_service_keys.append(module_key)
+
+                    # if the component isn't a service component, wrap it
+                    # this can happen if ServiceComponents are nested in routers
+                    new_module = module
+                    if not isinstance(module, ServiceComponent):
+                        new_module = ServiceComponent(
+                            name=service_dict["name"],
+                            description=service_dict["description"],
+                            module_type=ModuleType.AGENT,
+                        )
+
                     queue_message = get_service_component_message(
-                        module,
+                        new_module,
                         task_def.task_id,
                         input_dict=service_dict["input"],
                     )
