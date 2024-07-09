@@ -16,7 +16,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = ">=3.8.1,<4.0"
-fastapi = "^0.100.0"
+fastapi = "^0.109.1"
 llama-index-core = "^0.10.50"
 pytest-asyncio = "^0.23.7"
 textual = "^0.70.0"
