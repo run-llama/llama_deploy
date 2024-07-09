@@ -35,6 +35,32 @@ jobs:
         with:
           pypi_token: ${{ secrets.LLAMA_AGENTS_PYPI_TOKEN }}
           ignore_dev_requirements: "yes"
+      - name: Build Changelog
+        uses: mikepenz/release-changelog-builder-action@v4
+        with:
+          configurationJson: |
+            {
+              "categories": [
+                {
+                    "title": "## Breaking Changes 🛠",
+                    "labels": ["breaking-change", "breaking"]
+                },
+                {
+                    "title": "## New Features 🎉",
+                    "labels": ["enhancement", "feature"]
+                },
+                {
+                    "title": "## Bug Fixes 🐛",
+                    "labels": ["bug", "fix"]
+                },
+                {
+                    "title": "## Documentation 📚",
+                    "labels": ["documentation", "docs", "example", "examples"]
+                }
+              ]
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Create GitHub Release
         id: create_release
         uses: actions/create-release@v1
