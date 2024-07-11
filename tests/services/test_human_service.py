@@ -1,6 +1,6 @@
 import asyncio
 import pytest
-from pydantic import PrivateAttr
+from pydantic import PrivateAttr, ValidationError
 from typing import Any, List
 from unittest.mock import MagicMock, patch
 from llama_agents.services import HumanService
@@ -8,7 +8,12 @@ from llama_agents.services.human import HELP_REQUEST_TEMPLATE_STR
 from llama_agents.message_queues.simple import SimpleMessageQueue
 from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 from llama_agents.messages.base import QueueMessage
-from llama_agents.types import TaskDefinition, ActionTypes, CONTROL_PLANE_NAME
+from llama_agents.types import (
+    TaskDefinition,
+    ActionTypes,
+    CONTROL_PLANE_NAME,
+    ChatMessage,
+)
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
@@ -63,7 +68,7 @@ async def test_create_task(mock_uuid: MagicMock) -> None:
 
     # assert
     assert result == {"task_id": task.task_id}
-    assert human_service._outstanding_human_tasks[0] == task
+    assert human_service._outstanding_human_tasks[0].task_def == task
 
 
 @pytest.mark.asyncio()
@@ -183,4 +188,52 @@ async def test_process_task_with_custom_human_input_fn(
     )
     assert human_output_consumer.processed_messages[0].data.get("task_id") == "1"
     assert result == {"task_id": req.task_id}
+    assert len(human_service._outstanding_human_tasks) == 0
+
+
+@pytest.mark.asyncio()
+@patch("builtins.input")
+async def test_process_task_as_tool_call(
+    mock_input: MagicMock,
+) -> None:
+    # arrange
+    mq = SimpleMessageQueue()
+    human_service = HumanService(message_queue=mq, service_name="test_human_service")
+    output_consumer = MockMessageConsumer(message_type="tool_call_source")
+    await mq.register_consumer(output_consumer)
+    await mq.register_consumer(human_service.as_consumer())
+
+    mq_task = asyncio.create_task(mq.processing_loop())
+    server_task = asyncio.create_task(human_service.processing_loop())
+    mock_input.return_value = "Test human input."
+
+    # act
+    req = TaskDefinition(task_id="1", input="Mock human req.")
+    human_req_message = QueueMessage(
+        publisher_id="tool_call_source",
+        data=req.model_dump(),
+        action=ActionTypes.NEW_TOOL_CALL,
+        type="test_human_service",
+    )
+    await mq.publish(human_req_message)
+
+    # Give some time for last message to get published and sent to consumers
+    await asyncio.sleep(1)
+    mq_task.cancel()
+    server_task.cancel()
+
+    # assert
+    assert human_service.tool_name == "test_human_service-as-tool"
+    assert len(output_consumer.processed_messages) == 1
+    assert (
+        output_consumer.processed_messages[0].data.get("result") == "Test human input."
+    )
+    try:
+        tool_message = ChatMessage.model_validate(
+            output_consumer.processed_messages[0].data.get("tool_message")
+        )
+        assert tool_message.role == "tool"
+    except ValidationError:
+        pytest.fail("Unable to parse result into a ChatMessage object.")
+    assert output_consumer.processed_messages[0].data.get("id_") == "1"
     assert len(human_service._outstanding_human_tasks) == 0
