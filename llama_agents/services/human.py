@@ -5,7 +5,7 @@ from asyncio import Lock
 from fastapi import FastAPI
 from logging import getLogger
 from pydantic import ConfigDict, PrivateAttr
-from typing import Any, cast, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 from llama_index.core.llms import MessageRole
 
@@ -45,7 +45,8 @@ class HumanInputFn(Protocol):
         ...
 
 
-_input = cast(HumanInputFn, input)
+def default_human_input_fn(prompt: str, **kwargs: Any) -> str:
+    return input(prompt)
 
 
 class HumanService(BaseService):
@@ -79,7 +80,7 @@ class HumanService(BaseService):
     description: str = "Local Human Service."
     running: bool = True
     step_interval: float = 0.1
-    fn_input: HumanInputFn = _input
+    fn_input: HumanInputFn = default_human_input_fn
     host: Optional[str] = None
     port: Optional[int] = None
 
@@ -98,7 +99,7 @@ class HumanService(BaseService):
         service_name: str = "default_human_service",
         publish_callback: Optional[PublishCallback] = None,
         step_interval: float = 0.1,
-        fn_input: HumanInputFn = _input,
+        fn_input: HumanInputFn = default_human_input_fn,
         host: Optional[str] = None,
         port: Optional[int] = None,
     ) -> None:
@@ -192,8 +193,8 @@ class HumanService(BaseService):
                 )
 
                 # process req
-                result = input(
-                    HELP_REQUEST_TEMPLATE_STR.format(input_str=task_def.input)
+                result = self.fn_input(
+                    prompt=HELP_REQUEST_TEMPLATE_STR.format(input_str=task_def.input)
                 )
 
                 # create history
