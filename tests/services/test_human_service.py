@@ -157,7 +157,9 @@ async def test_process_task_with_custom_human_input_fn(
         return " ".join([prompt, prompt[::-1]])
 
     human_service = HumanService(
-        message_queue=mq, fn_input=my_custom_human_input_fn, human_input_prompt=None
+        message_queue=mq,
+        fn_input=my_custom_human_input_fn,
+        human_input_prompt="{input_str}",
     )
     await mq.register_consumer(human_output_consumer)
 

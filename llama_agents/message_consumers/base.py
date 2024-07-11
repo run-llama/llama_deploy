@@ -1,7 +1,7 @@
 """Message consumers."""
 
 from abc import ABC, abstractmethod
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Any, Callable, TYPE_CHECKING, Coroutine
 
 from llama_agents.messages.base import QueueMessage
@@ -23,6 +23,7 @@ class BaseMessageQueueConsumer(BaseModel, ABC):
     Process messages from a MessageQueue for a specific message type.
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     id_: str = Field(default_factory=generate_id)
     message_type: str = Field(
         default="default", description="Type of the message to consume."
@@ -33,9 +34,6 @@ class BaseMessageQueueConsumer(BaseModel, ABC):
     consuming_callable: StartConsumingCallable = Field(
         default=default_start_consuming_callable
     )
-
-    class Config:
-        arbitrary_types_allowed = True
 
     @abstractmethod
     async def _process_message(self, message: QueueMessage, **kwargs: Any) -> Any:
