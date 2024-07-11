@@ -149,7 +149,7 @@ Rather than using a client or raw `curl` requests, you can also use a built-in C
 In another terminal, you can run:
 
 ```bash
-llama-agents monitor --control-plane-url http://127.0.0.1:8000
+llama-agents monitor --control-plane-url http://127.0.0.1:8001
 ```
 
 ![The llama-agents monitor app](./llama_agents_monitor.png)
@@ -272,5 +272,5 @@ if __name__ == "__main__":
 Or, if you don't want to define a consumer, you can just use the `monitor` to observe your system results
 
 ```bash
-llama-agents monitor --control-plane-url http://127.0.0.1:8000
+llama-agents monitor --control-plane-url http://127.0.0.1:8001
 ```
