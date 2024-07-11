@@ -49,6 +49,23 @@ async def test_init() -> None:
     assert human_service.step_interval == 0.5
 
 
+def test_invalid_human_prompt_raises_validation_error() -> None:
+    # arrange
+    invalid_human_prompt_input_str = "{incorrect_param}"
+    human_service = HumanService(message_queue=SimpleMessageQueue())
+
+    # act/assert
+    with pytest.raises(ValidationError):
+        # using invalid prompt at construction should fail
+        _ = HumanService(
+            human_input_prompt=invalid_human_prompt_input_str,
+            message_queue=SimpleMessageQueue(),
+        )
+    with pytest.raises(ValueError):
+        # updating prompt should fail
+        human_service.human_input_prompt = invalid_human_prompt_input_str
+
+
 @pytest.mark.asyncio()
 @patch("llama_agents.types.uuid")
 async def test_create_task(mock_uuid: MagicMock) -> None:

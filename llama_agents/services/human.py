@@ -4,7 +4,7 @@ import uvicorn
 from asyncio import Lock
 from fastapi import FastAPI
 from logging import getLogger
-from pydantic import BaseModel, ConfigDict, PrivateAttr
+from pydantic import BaseModel, ConfigDict, PrivateAttr, field_validator
 from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 from llama_index.core.llms import MessageRole
@@ -28,6 +28,7 @@ from llama_agents.types import (
     ServiceDefinition,
     CONTROL_PLANE_NAME,
 )
+from llama_agents.utils import get_prompt_params
 
 
 logger = getLogger(__name__)
@@ -78,7 +79,7 @@ class HumanService(BaseService):
 
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
     service_name: str
     description: str = "Local Human Service."
     running: bool = True
@@ -411,6 +412,17 @@ class HumanService(BaseService):
         cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
         server = CustomServer(cfg)
         await server.serve()
+
+    @field_validator("human_input_prompt")
+    @classmethod
+    def validate_human_input_prompt(cls, v: str) -> str:
+        """Check if `input_str` is a prompt key."""
+        prompt_params = get_prompt_params(v)
+        if "input_str" not in prompt_params:
+            raise ValueError(
+                "`input_str` should be the only param in the prompt template."
+            )
+        return v
 
 
 HumanService.model_rebuild()
