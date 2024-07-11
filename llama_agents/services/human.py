@@ -4,8 +4,8 @@ import uvicorn
 from asyncio import Lock
 from fastapi import FastAPI
 from logging import getLogger
-from pydantic import PrivateAttr
-from typing import Dict, List, Optional
+from pydantic import ConfigDict, PrivateAttr
+from typing import Any, cast, Dict, List, Optional, Protocol, runtime_checkable
 
 from llama_index.core.llms import MessageRole
 
@@ -37,6 +37,17 @@ HELP_REQUEST_TEMPLATE_STR = (
 )
 
 
+@runtime_checkable
+class HumanInputFn(Protocol):
+    """Protocol for getting human input."""
+
+    def __call__(self, prompt: str, **kwargs: Any) -> str:
+        ...
+
+
+_input = cast(HumanInputFn, input)
+
+
 class HumanService(BaseService):
     """A human service for providing human-in-the-loop assistance.
 
@@ -63,10 +74,12 @@ class HumanService(BaseService):
 
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     service_name: str
     description: str = "Local Human Service."
     running: bool = True
     step_interval: float = 0.1
+    fn_input: HumanInputFn = _input
     host: Optional[str] = None
     port: Optional[int] = None
 
@@ -85,6 +98,7 @@ class HumanService(BaseService):
         service_name: str = "default_human_service",
         publish_callback: Optional[PublishCallback] = None,
         step_interval: float = 0.1,
+        fn_input: HumanInputFn = _input,
         host: Optional[str] = None,
         port: Optional[int] = None,
     ) -> None:
@@ -93,6 +107,7 @@ class HumanService(BaseService):
             description=description,
             service_name=service_name,
             step_interval=step_interval,
+            fn_input=fn_input,
             host=host,
             port=port,
         )
