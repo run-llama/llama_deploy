@@ -5,9 +5,11 @@ from asyncio import Lock
 from fastapi import FastAPI
 from logging import getLogger
 from pydantic import ConfigDict, PrivateAttr
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Any, cast, Dict, List, Optional, Protocol, runtime_checkable
 
 from llama_index.core.llms import MessageRole
+from llama_index.core.prompts import PromptTemplate
+from llama_index.core.prompts.mixin import PromptMixin, PromptDictType, PromptMixinType
 
 from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 from llama_agents.message_consumers.callable import CallableMessageConsumer
@@ -36,6 +38,8 @@ HELP_REQUEST_TEMPLATE_STR = (
     "{input_str}\n\n===\n"
 )
 
+default_human_input_prompt_template = PromptTemplate(HELP_REQUEST_TEMPLATE_STR)
+
 
 @runtime_checkable
 class HumanInputFn(Protocol):
@@ -49,7 +53,7 @@ def default_human_input_fn(prompt: str, **kwargs: Any) -> str:
     return input(prompt)
 
 
-class HumanService(BaseService):
+class HumanService(PromptMixin, BaseService):
     """A human service for providing human-in-the-loop assistance.
 
     When launched locally, it will prompt the user for input, which is blocking!
@@ -81,6 +85,7 @@ class HumanService(BaseService):
     running: bool = True
     step_interval: float = 0.1
     fn_input: HumanInputFn = default_human_input_fn
+    human_input_prompt: PromptTemplate = default_human_input_prompt_template
     host: Optional[str] = None
     port: Optional[int] = None
 
@@ -100,6 +105,7 @@ class HumanService(BaseService):
         publish_callback: Optional[PublishCallback] = None,
         step_interval: float = 0.1,
         fn_input: HumanInputFn = default_human_input_fn,
+        human_input_prompt: PromptTemplate = default_human_input_prompt_template,
         host: Optional[str] = None,
         port: Optional[int] = None,
     ) -> None:
@@ -109,6 +115,7 @@ class HumanService(BaseService):
             service_name=service_name,
             step_interval=step_interval,
             fn_input=fn_input,
+            human_input_prompt=human_input_prompt,
             host=host,
             port=port,
         )
@@ -193,9 +200,12 @@ class HumanService(BaseService):
                 )
 
                 # process req
-                result = self.fn_input(
-                    prompt=HELP_REQUEST_TEMPLATE_STR.format(input_str=task_def.input)
+                prompt = (
+                    self.human_input_prompt.format(input_str=task_def.input)
+                    if self.human_input_prompt
+                    else task_def.input
                 )
+                result = self.fn_input(prompt=prompt)
 
                 # create history
                 history = [
@@ -341,3 +351,24 @@ class HumanService(BaseService):
         cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
         server = CustomServer(cfg)
         await server.serve()
+
+    def _get_prompts(self) -> PromptDictType:
+        """Get prompts."""
+        return {"human_input_prompt": self.human_input_prompt}
+
+    def _get_prompt_modules(self) -> PromptMixinType:
+        """Get prompt sub-modules.
+
+        Return a dictionary of sub-modules within the current module
+        that also implement PromptMixin (so that their prompts can also be get/set).
+
+        Can be blank if no sub-modules.
+
+        """
+        return {}
+
+    def _update_prompts(self, prompts_dict: PromptDictType) -> None:
+        """Update prompts."""
+        if "human_input_prompt" in prompts_dict:
+            new_prompt = cast(PromptTemplate, prompts_dict["human_input_prompt"])
+            self.human_input_prompt = new_prompt

@@ -144,3 +144,41 @@ async def test_process_human_req_from_queue(
     )
     assert human_output_consumer.processed_messages[0].data.get("task_id") == "1"
     assert len(human_service._outstanding_human_tasks) == 0
+
+
+@pytest.mark.asyncio()
+async def test_process_task_with_custom_human_input_fn(
+    human_output_consumer: MockMessageConsumer,
+) -> None:
+    # arrange
+    mq = SimpleMessageQueue()
+
+    def my_custom_human_input_fn(prompt: str, **kwargs: Any) -> str:
+        return " ".join([prompt, prompt[::-1]])
+
+    human_service = HumanService(
+        message_queue=mq, fn_input=my_custom_human_input_fn, human_input_prompt=None
+    )
+    await mq.register_consumer(human_output_consumer)
+
+    mq_task = asyncio.create_task(mq.processing_loop())
+    server_task = asyncio.create_task(human_service.processing_loop())
+
+    # act
+    req = TaskDefinition(task_id="1", input="Mock human req.")
+    result = await human_service.create_task(req)
+
+    # give time to process and shutdown afterwards
+    await asyncio.sleep(1)
+    mq_task.cancel()
+    server_task.cancel()
+
+    # assert
+    assert len(human_output_consumer.processed_messages) == 1
+    assert (
+        human_output_consumer.processed_messages[0].data.get("result")
+        == "Mock human req. .qer namuh kcoM"
+    )
+    assert human_output_consumer.processed_messages[0].data.get("task_id") == "1"
+    assert result == {"task_id": req.task_id}
+    assert len(human_service._outstanding_human_tasks) == 0
