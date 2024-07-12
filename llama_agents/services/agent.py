@@ -29,6 +29,7 @@ from llama_agents.types import (
     ServiceDefinition,
     CONTROL_PLANE_NAME,
 )
+from llama_agents.tools.utils import get_tool_name_from_service_name
 
 logger = getLogger(__name__)
 
@@ -209,12 +210,7 @@ class AgentService(BaseService):
     @property
     def tool_name(self) -> str:
         """The name reserved when this service is used as a tool."""
-        return AgentService.get_tool_name_from_service_name(self.service_name)
-
-    @staticmethod
-    def get_tool_name_from_service_name(service_name: str) -> str:
-        """Utility function for getting the reserved name of a tool derived by a service."""
-        return f"{service_name}-as-tool"
+        return get_tool_name_from_service_name(self.service_name)
 
     async def processing_loop(self) -> None:
         """The processing loop for the agent."""

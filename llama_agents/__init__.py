@@ -11,6 +11,7 @@ from llama_agents.orchestrators import (
 from llama_agents.tools import (
     AgentServiceTool,
     MetaServiceTool,
+    ServiceAsTool,
     ServiceComponent,
     ServiceTool,
 )
@@ -60,6 +61,7 @@ __all__ = [
     "PipelineOrchestrator",
     # various utils
     "AgentServiceTool",
+    "ServiceAsTool",
     "ServiceComponent",
     "ServiceTool",
     "MetaServiceTool",

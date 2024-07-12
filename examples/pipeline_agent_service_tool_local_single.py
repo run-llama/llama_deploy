@@ -6,7 +6,7 @@ from llama_agents import (
     ServiceComponent,
     LocalLauncher,
 )
-from llama_agents.tools import AgentServiceTool
+from llama_agents.tools import ServiceAsTool
 
 
 from llama_index.core.agent import FunctionCallingAgentWorker
@@ -38,7 +38,7 @@ agent1_server = AgentService(
     service_name="secret_fact_agent",
 )
 
-agent1_server_tool = AgentServiceTool.from_service_definition(
+agent1_server_tool = ServiceAsTool.from_service_definition(
     message_queue=message_queue, service_definition=agent1_server.service_definition
 )
 

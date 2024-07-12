@@ -4,7 +4,7 @@ from llama_agents import (
     PipelineOrchestrator,
     ServiceComponent,
 )
-from llama_agents.tools import AgentServiceTool
+from llama_agents.tools import ServiceAsTool
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 from llama_agents.launchers.local import LocalLauncher
 
@@ -41,7 +41,7 @@ agent1_server = AgentService(
     service_name="secret_fact_agent",
 )
 
-agent1_server_tool = AgentServiceTool.from_service_definition(
+agent1_server_tool = ServiceAsTool.from_service_definition(
     message_queue=message_queue, service_definition=agent1_server.service_definition
 )
 

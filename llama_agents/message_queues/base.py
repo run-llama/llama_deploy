@@ -5,7 +5,7 @@ import inspect
 
 from abc import ABC, abstractmethod
 from logging import getLogger
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import (
     Any,
     Awaitable,
@@ -49,8 +49,7 @@ class PublishCallback(Protocol):
 class BaseMessageQueue(BaseModel, ABC):
     """Message broker interface between publisher and consumer."""
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @abstractmethod
     async def _publish(self, message: QueueMessage) -> Any:
