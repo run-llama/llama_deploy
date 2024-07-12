@@ -10,7 +10,7 @@ from llama_index.core.memory import ChatMemoryBuffer
 
 from llama_agents.message_queues.simple import SimpleMessageQueue
 from llama_agents.services.agent import AgentService
-from llama_agents.tools.agent_service_tool import AgentServiceTool
+from llama_agents.tools import ServiceAsTool
 
 
 @pytest.fixture()
@@ -82,7 +82,7 @@ async def test_tool_call_output(
         [completed_task],
     ]
 
-    agent_service_tool = AgentServiceTool.from_service_definition(
+    agent_service_tool = ServiceAsTool.from_service_definition(
         message_queue=message_queue,
         service_definition=agent_service.service_definition,
     )
@@ -137,7 +137,7 @@ async def test_tool_call_raises_timeout_error(
         [completed_task],
     ]
 
-    agent_service_tool = AgentServiceTool.from_service_definition(
+    agent_service_tool = ServiceAsTool.from_service_definition(
         message_queue=message_queue,
         service_definition=agent_service.service_definition,
         timeout=1e-12,
@@ -186,7 +186,7 @@ async def test_tool_call_hits_timeout_but_returns_tool_output(
         [completed_task],
     ]
 
-    agent_service_tool = AgentServiceTool.from_service_definition(
+    agent_service_tool = ServiceAsTool.from_service_definition(
         message_queue=message_queue,
         service_definition=agent_service.service_definition,
         timeout=1e-12,

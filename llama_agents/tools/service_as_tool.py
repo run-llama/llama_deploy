@@ -45,7 +45,7 @@ class ServiceAsTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
 
     Examples:
         ```python
-        from llama_agents import AgentService, AgentServiceTool, SimpleMessageQueue
+        from llama_agents import AgentService, ServiceAsTool, SimpleMessageQueue
 
         message_queue = SimpleMessageQueue()
 
@@ -123,7 +123,7 @@ class ServiceAsTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         step_interval: float = 0.1,
         raise_timeout: bool = False,
     ) -> "ServiceAsTool":
-        """Create an AgentServiceTool from a ServiceDefinition.
+        """Create an ServiceAsTool from a ServiceDefinition.
 
         Args:
             message_queue (BaseMessageQueue): Message queue.
