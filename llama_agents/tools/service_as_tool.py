@@ -26,10 +26,12 @@ logger = logging.getLogger(__name__)
 
 
 class ServiceAsTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
-    """Agent Service Tool.
+    """Service As Tool.
 
-    This class is a wrapper around an AgentService, providing a tool-like interface,
+    This class is a wrapper around any BaseService, providing a tool-like interface,
     to be used as a tool in any other llama-index abstraction.
+
+    NOTE: The BaseService must be able to process messages with action type: NEW_TOOL_CALL
 
     Args:
         tool_metadata (ToolMetadata): Tool metadata.
@@ -55,7 +57,7 @@ class ServiceAsTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         )
 
         # create the tool for use in other agents
-        agent1_server_tool = AgentServiceTool.from_service_definition(
+        agent1_server_tool = ServiceAsTool.from_service_definition(
             message_queue=message_queue,
             service_definition=agent1_server.service_definition
         )
