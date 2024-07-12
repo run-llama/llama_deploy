@@ -10,24 +10,10 @@ from llama_agents import (
 from llama_agents.tools import ServiceAsTool
 
 
-from llama_index.core.agent import FunctionCallingAgentWorker
-from llama_index.core.tools import FunctionTool
 from llama_index.core.query_pipeline import QueryPipeline
 from llama_index.llms.openai import OpenAI
 from llama_index.agent.openai import OpenAIAgent
 
-
-# create an agent
-def get_the_secret_fact() -> str:
-    """Returns the secret fact."""
-    return "The secret fact is: A baby llama is called a 'Cria'."
-
-
-tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
-
-worker1 = FunctionCallingAgentWorker.from_tools([tool], llm=OpenAI())
-# worker2 = FunctionCallingAgentWorker.from_tools([], llm=OpenAI())
-agent1 = worker1.as_agent()
 
 # create our multi-agent framework components
 message_queue = SimpleMessageQueue()
