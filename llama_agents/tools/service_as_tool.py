@@ -25,7 +25,7 @@ from llama_agents.tools.utils import get_tool_name_from_service_name
 logger = logging.getLogger(__name__)
 
 
-class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
+class ServiceAsTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
     """Agent Service Tool.
 
     This class is a wrapper around an AgentService, providing a tool-like interface,
@@ -120,7 +120,7 @@ class AgentServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         timeout: float = 60.0,
         step_interval: float = 0.1,
         raise_timeout: bool = False,
-    ) -> "AgentServiceTool":
+    ) -> "ServiceAsTool":
         """Create an AgentServiceTool from a ServiceDefinition.
 
         Args:
