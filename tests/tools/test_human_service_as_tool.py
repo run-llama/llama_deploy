@@ -1,5 +1,6 @@
 import asyncio
 import pytest
+import time
 from unittest.mock import patch, MagicMock
 
 
@@ -62,106 +63,80 @@ async def test_tool_call_output(
     assert human_service_as_tool.registered is True
 
 
-# @pytest.mark.asyncio()
-# @patch.object(ReActAgent, "arun_step")
-# @patch.object(ReActAgent, "get_completed_tasks")
-# async def test_tool_call_raises_timeout_error(
-#     mock_get_completed_tasks: MagicMock,
-#     mock_arun_step: AsyncMock,
-#     message_queue: SimpleMessageQueue,
-#     agent_service: AgentService,
-#     task_step_output: TaskStepOutput,
-#     completed_task: Task,
-# ) -> None:
-#     # arrange
-#     def arun_side_effect(task_id: str) -> TaskStepOutput:
-#         completed_task.task_id = task_id
-#         task_step_output.task_step.task_id = task_id
-#         return task_step_output
+@pytest.mark.asyncio()
+@patch("builtins.input")
+async def test_tool_call_raises_timeout_error(
+    mock_input: MagicMock,
+    message_queue: SimpleMessageQueue,
+    human_service: HumanService,
+) -> None:
+    # arrange
+    def input_side_effect(prompt: str) -> str:
+        time.sleep(0.1)
+        return prompt
 
-#     mock_arun_step.side_effect = arun_side_effect
-#     mock_get_completed_tasks.side_effect = [
-#         [],
-#         [],
-#         [completed_task],
-#         [completed_task],
-#         [completed_task],
-#     ]
+    mock_input.side_effect = input_side_effect
+    human_service_as_tool = ServiceAsTool.from_service_definition(
+        message_queue=message_queue,
+        service_definition=human_service.service_definition,
+        timeout=1e-12,
+        raise_timeout=True,
+    )
 
-#     agent_service_tool = AgentServiceTool.from_service_definition(
-#         message_queue=message_queue,
-#         service_definition=agent_service.service_definition,
-#         timeout=1e-12,
-#         raise_timeout=True,
-#     )
+    # startup
+    await message_queue.register_consumer(human_service.as_consumer())
+    mq_task = asyncio.create_task(message_queue.processing_loop())
+    hs_task = asyncio.create_task(human_service.processing_loop())
 
-#     # startup
-#     await message_queue.register_consumer(agent_service.as_consumer())
-#     mq_task = asyncio.create_task(message_queue.processing_loop())
-#     as_task = asyncio.create_task(agent_service.processing_loop())
+    # act/assert
+    with pytest.raises(
+        (TimeoutError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError)
+    ):
+        await human_service_as_tool.acall(input="Is this a mock request?")
 
-#     # act/assert
-#     with pytest.raises(
-#         (TimeoutError, asyncio.TimeoutError, asyncio.exceptions.TimeoutError)
-#     ):
-#         await agent_service_tool.acall(input="What is the secret fact?")
-
-#     # clean-up/shutdown
-#     mq_task.cancel()
-#     as_task.cancel()
+    # clean-up/shutdown
+    mq_task.cancel()
+    hs_task.cancel()
 
 
-# @pytest.mark.asyncio()
-# @patch.object(ReActAgent, "arun_step")
-# @patch.object(ReActAgent, "get_completed_tasks")
-# async def test_tool_call_hits_timeout_but_returns_tool_output(
-#     mock_get_completed_tasks: MagicMock,
-#     mock_arun_step: AsyncMock,
-#     message_queue: SimpleMessageQueue,
-#     agent_service: AgentService,
-#     task_step_output: TaskStepOutput,
-#     completed_task: Task,
-# ) -> None:
-#     # arrange
-#     def arun_side_effect(task_id: str) -> TaskStepOutput:
-#         completed_task.task_id = task_id
-#         task_step_output.task_step.task_id = task_id
-#         return task_step_output
+@pytest.mark.asyncio()
+@patch("builtins.input")
+async def test_tool_call_hits_timeout_but_returns_tool_output(
+    mock_input: MagicMock,
+    message_queue: SimpleMessageQueue,
+    human_service: HumanService,
+) -> None:
+    # arrange
+    def input_side_effect(prompt: str) -> str:
+        time.sleep(0.1)
+        return prompt
 
-#     mock_arun_step.side_effect = arun_side_effect
-#     mock_get_completed_tasks.side_effect = [
-#         [],
-#         [],
-#         [completed_task],
-#         [completed_task],
-#         [completed_task],
-#     ]
+    mock_input.side_effect = input_side_effect
+    human_service_as_tool = ServiceAsTool.from_service_definition(
+        message_queue=message_queue,
+        service_definition=human_service.service_definition,
+        timeout=1e-12,
+        raise_timeout=False,
+    )
 
-#     agent_service_tool = AgentServiceTool.from_service_definition(
-#         message_queue=message_queue,
-#         service_definition=agent_service.service_definition,
-#         timeout=1e-12,
-#         raise_timeout=False,
-#     )
+    # startup
+    await message_queue.register_consumer(human_service.as_consumer())
+    mq_task = asyncio.create_task(message_queue.processing_loop())
+    hs_task = asyncio.create_task(human_service.processing_loop())
 
-#     # startup
-#     await message_queue.register_consumer(agent_service.as_consumer())
-#     mq_task = asyncio.create_task(message_queue.processing_loop())
-#     as_task = asyncio.create_task(agent_service.processing_loop())
+    # act/assert
+    tool_output = await human_service_as_tool.acall(input="Is this a mock request?")
 
-#     # act/assert
-#     tool_output = await agent_service_tool.acall(input="What is the secret fact?")
+    # clean-up/shutdown
+    mq_task.cancel()
+    hs_task.cancel()
 
-#     # clean-up/shutdown
-#     mq_task.cancel()
-#     as_task.cancel()
-
-#     assert "Encountered error" in tool_output.content
-#     assert tool_output.is_error
-#     assert tool_output.tool_name == agent_service_tool.metadata.name
-#     assert tool_output.raw_input == {
-#         "args": (),
-#         "kwargs": {"input": "What is the secret fact?"},
-#     }
-#     assert len(agent_service_tool.tool_call_results) == 0
-#     assert agent_service_tool.registered is True
+    assert "Encountered error" in tool_output.content
+    assert tool_output.is_error
+    assert tool_output.tool_name == human_service_as_tool.metadata.name
+    assert tool_output.raw_input == {
+        "args": (),
+        "kwargs": {"input": "Is this a mock request?"},
+    }
+    assert len(human_service_as_tool.tool_call_results) == 0
+    assert human_service_as_tool.registered is True
