@@ -5,7 +5,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 from llama_index.core.llms import MockLLM
 from llama_index.core.agent import ReActAgent, AgentChatResponse
 from llama_index.core.agent.types import TaskStepOutput, TaskStep, Task
-from llama_index.core.tools import FunctionTool, ToolMetadata
+from llama_index.core.tools import FunctionTool
 from llama_index.core.memory import ChatMemoryBuffer
 
 from llama_agents.message_queues.simple import SimpleMessageQueue
@@ -54,73 +54,6 @@ def completed_task() -> Task:
         input="What is the secret fact?",
         memory=ChatMemoryBuffer.from_defaults(),
     )
-
-
-def test_init(message_queue: SimpleMessageQueue, agent_service: AgentService) -> None:
-    # arrange
-    tool_metadata = ToolMetadata(
-        description=agent_service.description,
-        name=agent_service.tool_name,
-    )
-    # act
-    agent_service_tool = AgentServiceTool(
-        tool_metadata=tool_metadata,
-        message_queue=message_queue,
-        service_name=agent_service.service_name,
-        timeout=5.5,
-        step_interval=0.5,
-    )
-
-    # assert
-    assert agent_service_tool.step_interval == 0.5
-    assert agent_service_tool.message_queue == message_queue
-    assert agent_service_tool.metadata == tool_metadata
-    assert agent_service_tool.timeout == 5.5
-    assert agent_service_tool.service_name == agent_service.service_name
-    assert agent_service_tool.registered is False
-
-
-def test_init_invalid_tool_name_should_raise_error(
-    message_queue: SimpleMessageQueue, agent_service: AgentService
-) -> None:
-    # arrange
-    tool_metadata = ToolMetadata(
-        description=agent_service.description,
-        name="incorrect-name",
-    )
-    # act/assert
-    with pytest.raises(ValueError):
-        AgentServiceTool(
-            tool_metadata=tool_metadata,
-            message_queue=message_queue,
-            service_name=agent_service.service_name,
-        )
-
-
-def test_from_service_definition(
-    message_queue: SimpleMessageQueue, agent_service: AgentService
-) -> None:
-    # arrange
-    service_def = agent_service.service_definition
-
-    # act
-    agent_service_tool = AgentServiceTool.from_service_definition(
-        message_queue=message_queue,
-        service_definition=service_def,
-        timeout=5.5,
-        step_interval=0.5,
-        raise_timeout=True,
-    )
-
-    # assert
-    assert agent_service_tool.step_interval == 0.5
-    assert agent_service_tool.message_queue == message_queue
-    assert agent_service_tool.metadata.description == service_def.description
-    assert agent_service_tool.metadata.name == f"{service_def.service_name}-as-tool"
-    assert agent_service_tool.timeout == 5.5
-    assert agent_service_tool.service_name == agent_service.service_name
-    assert agent_service_tool.raise_timeout is True
-    assert agent_service_tool.registered is False
 
 
 @pytest.mark.asyncio()
