@@ -4,7 +4,7 @@ from llama_agents import (
     PipelineOrchestrator,
     ServiceComponent,
 )
-from llama_agents.tools import AgentServiceTool
+from llama_agents.tools import ServiceAsTool
 from llama_agents.message_queues.redis import RedisMessageQueue
 from llama_agents.launchers.local import LocalLauncher
 
@@ -34,7 +34,7 @@ secret_fact_agent_service = AgentService(
     description="Useful for getting the secret fact.",
     service_name="secret_fact_agent_service",
 )
-secret_fact_agent_tool = AgentServiceTool.from_service_definition(
+secret_fact_agent_tool = ServiceAsTool.from_service_definition(
     message_queue=message_queue,
     service_definition=secret_fact_agent_service.service_definition,
 )

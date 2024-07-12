@@ -1,7 +1,7 @@
 import asyncio
 import httpx
 from abc import ABC, abstractmethod
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Any
 
 from llama_agents.messages.base import QueueMessage
@@ -29,10 +29,8 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
     - A service can be registered to the message queue.
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     service_name: str
-
-    class Config:
-        arbitrary_types_allowed = True
 
     @property
     @abstractmethod

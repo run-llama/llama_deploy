@@ -2,7 +2,7 @@
 
 import uuid
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Any, Dict, Optional
 
 from llama_agents.types import ActionTypes
@@ -47,6 +47,7 @@ class QueueMessage(BaseModel):
             The type of the message. Typically this is a service name.
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     id_: str = Field(default_factory=lambda: str(uuid.uuid4()))
     publisher_id: str = Field(default="default", description="Id of publisher.")
     data: Dict[str, Any] = Field(default_factory=dict)
@@ -55,6 +56,3 @@ class QueueMessage(BaseModel):
     type: str = Field(
         default="default", description="Type of the message, used for routing."
     )
-
-    class Config:
-        arbitrary_types_allowed = True
