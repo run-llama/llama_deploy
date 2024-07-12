@@ -48,21 +48,21 @@ def test_init(message_queue: SimpleMessageQueue, human_service: HumanService) ->
     assert agent_service_tool.registered is False
 
 
-# def test_init_invalid_tool_name_should_raise_error(
-#     message_queue: SimpleMessageQueue, agent_service: AgentService
-# ) -> None:
-#     # arrange
-#     tool_metadata = ToolMetadata(
-#         description=agent_service.description,
-#         name="incorrect-name",
-#     )
-#     # act/assert
-#     with pytest.raises(ValueError):
-#         AgentServiceTool(
-#             tool_metadata=tool_metadata,
-#             message_queue=message_queue,
-#             service_name=agent_service.service_name,
-#         )
+def test_init_invalid_tool_name_should_raise_error(
+    message_queue: SimpleMessageQueue, human_service: HumanService
+) -> None:
+    # arrange
+    tool_metadata = ToolMetadata(
+        description=human_service.description,
+        name="incorrect-name",
+    )
+    # act/assert
+    with pytest.raises(ValueError):
+        ServiceAsTool(
+            tool_metadata=tool_metadata,
+            message_queue=message_queue,
+            service_name=human_service.service_name,
+        )
 
 
 # def test_from_service_definition(
