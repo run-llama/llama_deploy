@@ -7,10 +7,11 @@ import gradio as gr
 from logging import getLogger
 import sys
 
-from llama_agents import LlamaAgentsClient
+from llama_agents import LlamaAgentsClient, HumanService
 from llama_agents.types import TaskResult
 
 from human_in_the_loop.utils import load_from_env
+from human_in_the_loop.additional_services.human_in_the_loop import human_service
 
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
@@ -40,10 +41,12 @@ class HumanInTheLoopGradioApp:
 
     def __init__(
         self,
+        human_in_the_loop_service: HumanService,
         control_plane_host: str = "127.0.0.1",
         control_plane_port: Optional[int] = 8000,
     ) -> None:
         self.app = gr.Blocks()
+        self.human_in_the_loop_service = human_in_the_loop_service
         self._client = LlamaAgentsClient(
             control_plane_url=(
                 f"http://{control_plane_host}:{control_plane_port}"
@@ -60,6 +63,7 @@ class HumanInTheLoopGradioApp:
                 gr.Markdown("# Human In The Loop")
             with gr.Row():
                 chat_window = gr.Chatbot(
+                    type="messages",
                     label="Message History",
                     scale=3,
                 )
@@ -67,7 +71,14 @@ class HumanInTheLoopGradioApp:
             with gr.Row():
                 message = gr.Textbox(label="Write A Message", scale=4)
                 clear = gr.ClearButton()
+            state = gr.State([])
 
+            # human in the loop
+            # def human_input_fn(prompt: str, kwargs: Any) -> str:
+            #    return
+
+            # event listeners
+            # message submit
             message.submit(
                 self._handle_user_message,
                 [message, chat_window],
@@ -78,6 +89,9 @@ class HumanInTheLoopGradioApp:
                 chat_window,
                 [chat_window, console],
             )
+            # chat_window
+
+            # clear chat
             clear.click(self._reset_chat, None, [message, chat_window, console])
 
     async def _handle_user_message(
@@ -86,7 +100,12 @@ class HumanInTheLoopGradioApp:
         """Handle the user submitted message. Clear message box, and append
         to the history.
         """
-        return "", [*chat_history, (user_message, "")]
+        message = gr.ChatMessage(role="user", content=user_message)
+        return "", [*chat_history, message]
+
+    def human_loop(self, prompt: str):
+        self.human_in_the_loop_service.fn_input = ...
+        # trigger
 
     async def _poll_for_task_result(self, task_id: str):
         task_result = None
@@ -98,9 +117,9 @@ class HumanInTheLoopGradioApp:
             await asyncio.sleep(self._step_interval)
         return task_result
 
-    async def _generate_response(self, chat_history: List[Tuple[str, str]]):
-        user_message = chat_history[-1][0]
-        task_id = self._client.create_task(user_message)
+    async def _generate_response(self, chat_history: List[gr.ChatMessage]):
+        user_message = gr.ChatMessage(**chat_history[-1])
+        task_id = self._client.create_task(user_message.content)
 
         # poll for tool_call_result with max timeout
         try:
@@ -124,7 +143,8 @@ class HumanInTheLoopGradioApp:
             )
 
         # update assistant message
-        chat_history[1][1] = task_result.result
+        assistant_message = gr.ChatMessage(role="assistant", content=task_result.result)
+        chat_history.append(assistant_message)
 
         return chat_history, ""
         # task_id = self._client.create_task()
@@ -142,7 +162,9 @@ class HumanInTheLoopGradioApp:
 
 
 app = HumanInTheLoopGradioApp(
-    control_plane_host=control_plane_host, control_plane_port=control_plane_port
+    human_in_the_loop_service=human_service,
+    control_plane_host=control_plane_host,
+    control_plane_port=control_plane_port,
 ).app
 
 if __name__ == "__main__":
