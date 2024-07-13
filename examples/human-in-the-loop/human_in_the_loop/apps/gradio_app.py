@@ -187,12 +187,13 @@ class HumanInTheLoopGradioApp:
         return "", "", ""  # clear textboxes
 
 
-app = HumanInTheLoopGradioApp(
+gradio_app = HumanInTheLoopGradioApp(
     human_in_the_loop_service=human_service,
     control_plane_host=control_plane_host,
     control_plane_port=control_plane_port,
-).app
+)
+app = gradio_app.app
+updated_human_service = gradio_app.human_in_the_loop_service
 
 if __name__ == "__main__":
-    _ = asyncio.create_task(human_service_launch())
     app.launch(server_name="0.0.0.0", server_port=8080)
