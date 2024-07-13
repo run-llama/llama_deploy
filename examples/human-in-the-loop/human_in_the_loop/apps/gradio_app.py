@@ -1,7 +1,7 @@
 """Gradio app."""
 
 from io import StringIO
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Literal
 import asyncio
 import gradio as gr
 from logging import getLogger
@@ -11,7 +11,10 @@ from llama_agents import LlamaAgentsClient, HumanService
 from llama_agents.types import TaskResult
 
 from human_in_the_loop.utils import load_from_env
-from human_in_the_loop.additional_services.human_in_the_loop import human_service
+from human_in_the_loop.additional_services.human_in_the_loop import (
+    human_service,
+    launch as human_service_launch,
+)
 
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
@@ -57,6 +60,8 @@ class HumanInTheLoopGradioApp:
         self._step_interval = 0.1
         self._timeout = 60
         self._raise_timeout = False
+        self._human_in_the_loop_task: Optional[str] = None
+        self._human_input: Optional[str] = None
 
         with self.app:
             with gr.Row():
@@ -71,11 +76,30 @@ class HumanInTheLoopGradioApp:
             with gr.Row():
                 message = gr.Textbox(label="Write A Message", scale=4)
                 clear = gr.ClearButton()
-            state = gr.State([])
+            timer = gr.Timer(0.1)
 
             # human in the loop
-            # def human_input_fn(prompt: str, kwargs: Any) -> str:
-            #    return
+            async def human_input_fn(prompt: str, kwargs: Any) -> str:
+                self._human_in_the_loop_task = prompt
+                # poll until human answer is stored
+
+                async def _poll_for_human_input_result():
+                    while self._human_input is None:
+                        await asyncio.sleep(self._step_interval)
+                    return self._human_input
+
+                human_input = await asyncio.wait_for(
+                    self._poll_for_human_input_result(),
+                    timeout=10,
+                )
+
+                # cleanup
+                self._human_in_the_loop_task = None
+                self._human_input = None
+
+                return human_input
+
+            self.human_in_the_loop_service.fn_input = human_input_fn
 
             # event listeners
             # message submit
@@ -89,10 +113,23 @@ class HumanInTheLoopGradioApp:
                 chat_window,
                 [chat_window, console],
             )
-            # chat_window
+            # tick
+            timer.tick(self._tick_handler, chat_window, chat_window)
 
             # clear chat
             clear.click(self._reset_chat, None, [message, chat_window, console])
+
+    async def _tick_handler(
+        self, chat_history: List[gr.ChatMessage]
+    ) -> List[gr.ChatMessage]:
+        if self._human_in_the_loop_task:
+            assistant_message = gr.ChatMessage(
+                role="assistant",
+                content=self._human_in_the_loop_task,
+                metadata={"title": "Agent asking for human input."},
+            )
+            chat_history.append(assistant_message)
+        return chat_history
 
     async def _handle_user_message(
         self, user_message: str, chat_history: List[Tuple[str, str]]
@@ -100,12 +137,10 @@ class HumanInTheLoopGradioApp:
         """Handle the user submitted message. Clear message box, and append
         to the history.
         """
+        if self._human_in_the_loop_task:
+            self._human_input = user_message
         message = gr.ChatMessage(role="user", content=user_message)
         return "", [*chat_history, message]
-
-    def human_loop(self, prompt: str):
-        self.human_in_the_loop_service.fn_input = ...
-        # trigger
 
     async def _poll_for_task_result(self, task_id: str):
         task_result = None
@@ -147,15 +182,6 @@ class HumanInTheLoopGradioApp:
         chat_history.append(assistant_message)
 
         return chat_history, ""
-        # task_id = self._client.create_task()
-
-        # with Capturing() as output:
-        #     response = self.agent.stream_chat(chat_history[-1][0])
-        #     ansi = "\n========\n".join(output)
-        #     html_output = self.conv.convert(ansi)
-        #     for token in response.response_gen:
-        #         chat_history[-1][1] += token
-        #         yield chat_history, str(html_output)
 
     def _reset_chat(self) -> Tuple[str, str, str]:
         return "", "", ""  # clear textboxes
@@ -168,4 +194,5 @@ app = HumanInTheLoopGradioApp(
 ).app
 
 if __name__ == "__main__":
+    _ = asyncio.create_task(human_service_launch())
     app.launch(server_name="0.0.0.0", server_port=8080)
