@@ -1213,13 +1213,13 @@ test = ["coverage", "pytest", "pytest-cov"]
 
 [[package]]
 name = "llama-agents"
-version = "0.0.8"
+version = "0.0.9"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "llama_agents-0.0.8-py3-none-any.whl", hash = "sha256:0da55fd07ac47fe85cfd7596398bb4eb56af31e65a394c226dfb884297f3eb75"},
-    {file = "llama_agents-0.0.8.tar.gz", hash = "sha256:e7bb48fd6a88899336945f7bcb071501aaa94dec3f07841de1c4e9b323256f78"},
+    {file = "llama_agents-0.0.9-py3-none-any.whl", hash = "sha256:8bfc8f5e067c3eb9d6b57afc5e3dd01bf0f407159277550149782f91dfea5a48"},
+    {file = "llama_agents-0.0.9.tar.gz", hash = "sha256:5ef79d9b11838e645097f151dd85408baa746a71dddab403187777d296267f65"},
 ]
 
 [package.dependencies]
@@ -3249,4 +3249,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "05bd6f870fba03b85c19f9bd8355e5ca5b8e27cfe84a845d7e66caa133e8ae06"
+content-hash = "6f9b456bd31884ea3280ff32e05d735c38dd9ad84e54ac31fab9173777a4c99e"
