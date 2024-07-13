@@ -5,7 +5,7 @@ from asyncio import Lock
 from fastapi import FastAPI
 from logging import getLogger
 from pydantic import BaseModel, ConfigDict, PrivateAttr, field_validator
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Any, Awaitable, Dict, List, Optional, Protocol, runtime_checkable
 
 from llama_index.core.llms import MessageRole
 
@@ -46,11 +46,11 @@ HELP_REQUEST_TEMPLATE_STR = (
 class HumanInputFn(Protocol):
     """Protocol for getting human input."""
 
-    def __call__(self, prompt: str, **kwargs: Any) -> str:
+    def __call__(self, prompt: str, **kwargs: Any) -> Awaitable[str]:
         ...
 
 
-def default_human_input_fn(prompt: str, **kwargs: Any) -> str:
+async def default_human_input_fn(prompt: str, **kwargs: Any) -> str:
     return input(prompt)
 
 
@@ -218,7 +218,7 @@ class HumanService(BaseService):
                     if self.human_input_prompt
                     else task_def.input
                 )
-                result = self.fn_input(prompt=prompt)
+                result = await self.fn_input(prompt=prompt)
 
                 # create history
                 history = [
