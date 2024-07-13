@@ -1,7 +1,7 @@
 """Gradio app."""
 
 from io import StringIO
-from typing import Any, List, Optional, Tuple, Literal
+from typing import Any, List, Optional, Tuple
 import asyncio
 import gradio as gr
 from logging import getLogger
