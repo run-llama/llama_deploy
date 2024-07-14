@@ -8,10 +8,9 @@ from human_in_the_loop.additional_services.human_in_the_loop import human_servic
 
 # launch it
 launcher = ServerLauncher(
-    [agent_server],
+    [agent_server, human_service],
     control_plane,
     message_queue,
-    additional_consumers=[human_service.as_consumer()],
 )
 
 
