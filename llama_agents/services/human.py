@@ -1,11 +1,21 @@
 import asyncio
 import uuid
 import uvicorn
+from contextlib import asynccontextmanager
 from asyncio import Lock
 from fastapi import FastAPI
 from logging import getLogger
 from pydantic import BaseModel, ConfigDict, PrivateAttr, field_validator
-from typing import Any, Awaitable, Dict, List, Optional, Protocol, runtime_checkable
+from typing import (
+    Any,
+    AsyncGenerator,
+    Awaitable,
+    Dict,
+    List,
+    Optional,
+    Protocol,
+    runtime_checkable,
+)
 
 from llama_index.core.llms import MessageRole
 
@@ -131,7 +141,7 @@ class HumanService(BaseService):
         self._publish_callback = publish_callback
         self._lock = asyncio.Lock()
         self._tasks_as_tool_calls = {}
-        self._app = FastAPI()
+        self._app = FastAPI(lifespan=self.lifespan)
 
         self._app.add_api_route("/", self.home, methods=["GET"], tags=["Human Service"])
         self._app.add_api_route(
@@ -329,6 +339,13 @@ class HumanService(BaseService):
         return asyncio.create_task(self.processing_loop())
 
     # ---- Server based methods ----
+
+    @asynccontextmanager
+    async def lifespan(self, app: FastAPI) -> AsyncGenerator[None, None]:
+        """Starts the processing loop when the fastapi app starts."""
+        asyncio.create_task(self.processing_loop())
+        yield
+        self.running = False
 
     async def home(self) -> Dict[str, str]:
         """Get general service information."""
