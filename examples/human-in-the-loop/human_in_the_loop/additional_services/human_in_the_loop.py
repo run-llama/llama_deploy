@@ -35,7 +35,9 @@ human_service_as_tool = ServiceAsTool.from_service_definition(
 # launch
 async def launch() -> None:
     # register to message queue
-    start_consuming_callable = await human_service.register_to_message_queue()
+    start_consuming_callable = await human_service.message_queue.register_consumer(
+        human_service.as_consumer()
+    )
     _ = asyncio.create_task(start_consuming_callable())
 
     cfg = uvicorn.Config(

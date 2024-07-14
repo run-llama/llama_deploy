@@ -3,6 +3,7 @@
 from io import StringIO
 from typing import Any, List, Optional, Tuple
 import asyncio
+import uvicorn
 import gradio as gr
 from logging import getLogger
 import sys
@@ -44,12 +45,10 @@ class HumanInTheLoopGradioApp:
 
     def __init__(
         self,
-        human_in_the_loop_service: HumanService,
         control_plane_host: str = "127.0.0.1",
         control_plane_port: Optional[int] = 8000,
     ) -> None:
         self.app = gr.Blocks()
-        self.human_in_the_loop_service = human_in_the_loop_service
         self._client = LlamaAgentsClient(
             control_plane_url=(
                 f"http://{control_plane_host}:{control_plane_port}"
@@ -57,7 +56,7 @@ class HumanInTheLoopGradioApp:
                 else f"http://{control_plane_host}"
             )
         )
-        self._step_interval = 0.1
+        self._step_interval = 0.5
         self._timeout = 60
         self._raise_timeout = False
         self._human_in_the_loop_task: Optional[str] = None
@@ -77,29 +76,6 @@ class HumanInTheLoopGradioApp:
                 message = gr.Textbox(label="Write A Message", scale=4)
                 clear = gr.ClearButton()
             timer = gr.Timer(0.1)
-
-            # human in the loop
-            async def human_input_fn(prompt: str, kwargs: Any) -> str:
-                self._human_in_the_loop_task = prompt
-                # poll until human answer is stored
-
-                async def _poll_for_human_input_result():
-                    while self._human_input is None:
-                        await asyncio.sleep(self._step_interval)
-                    return self._human_input
-
-                human_input = await asyncio.wait_for(
-                    self._poll_for_human_input_result(),
-                    timeout=10,
-                )
-
-                # cleanup
-                self._human_in_the_loop_task = None
-                self._human_input = None
-
-                return human_input
-
-            self.human_in_the_loop_service.fn_input = human_input_fn
 
             # event listeners
             # message submit
@@ -140,7 +116,8 @@ class HumanInTheLoopGradioApp:
         if self._human_in_the_loop_task:
             self._human_input = user_message
         message = gr.ChatMessage(role="user", content=user_message)
-        return "", [*chat_history, message]
+        chat_history.append(message)
+        return "", chat_history
 
     async def _poll_for_task_result(self, task_id: str):
         task_result = None
@@ -149,7 +126,7 @@ class HumanInTheLoopGradioApp:
                 task_result = self._client.get_task_result(task_id)
             except Exception:
                 pass
-            await asyncio.sleep(self._step_interval)
+            await asyncio.sleep(1)
         return task_result
 
     async def _generate_response(self, chat_history: List[gr.ChatMessage]):
@@ -159,7 +136,7 @@ class HumanInTheLoopGradioApp:
         # poll for tool_call_result with max timeout
         try:
             task_result = await asyncio.wait_for(
-                self._poll_for_tool_call_result(task_id=task_id),
+                self._poll_for_task_result(task_id=task_id),
                 timeout=self._timeout,
             )
         except (
@@ -193,7 +170,29 @@ gradio_app = HumanInTheLoopGradioApp(
     control_plane_port=control_plane_port,
 )
 app = gradio_app.app
-updated_human_service = gradio_app.human_in_the_loop_service
+
+
+# human in the loop function
+async def human_input_fn(prompt: str, kwargs: Any) -> str:
+    gradio_app._human_in_the_loop_task = prompt
+
+    # poll until human answer is stored
+    async def _poll_for_human_input_result() -> str:
+        while gradio_app._human_input is None:
+            await asyncio.sleep(gradio_app._step_interval)
+        return gradio_app._human_input
+
+    human_input = await asyncio.wait_for(
+        _poll_for_human_input_result(),
+        timeout=10,
+    )
+
+    # cleanup
+    gradio_app._human_in_the_loop_task = None
+    gradio_app._human_input = None
+
+    return human_input
+
 
 if __name__ == "__main__":
     app.launch(server_name="0.0.0.0", server_port=8080)
