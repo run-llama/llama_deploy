@@ -7,9 +7,10 @@ from llama_agents.tools.service_as_tool import ServiceAsTool
 from human_in_the_loop.utils import load_from_env
 from human_in_the_loop.apps.gradio_app import HumanInTheLoopGradioApp
 from typing import Any
-from logging import getLogger
+import logging
 
-logger = getLogger(__name__)
+logger = logging.getLogger("human_in_the_loop")
+logging.basicConfig(level=logging.INFO)
 
 control_plane_host = load_from_env("CONTROL_PLANE_HOST")
 control_plane_port = load_from_env("CONTROL_PLANE_PORT")
@@ -27,28 +28,42 @@ human_input_request_queue = asyncio.Queue()
 human_input_result_queue = asyncio.Queue()
 
 
-async def human_input_fn(prompt: str, **kwargs: Any) -> str:
-    logger.info("human input fn invoked.")
-    await human_input_request_queue.put(prompt)
-    logger.info("placed new prompt in queue.")
+def human_input_fn_closure(queue):
+    async def human_input_fn(prompt: str, **kwargs: Any) -> str:
+        logger.info("human input fn invoked.")
+        await human_input_request_queue.put(prompt)
+        logger.info("placed new prompt in queue.")
 
-    # poll until human answer is stored
-    async def _poll_for_human_input_result():
-        result = None
-        while result is None:
-            try:
-                result = await human_input_result_queue.get_nowait()
-            except asyncio.QueueEmpty:
-                pass
-            await asyncio.sleep(0.1)
-        return result
+        # poll until human answer is stored
+        async def _poll_for_human_input_result():
+            result = None
+            while result is None:
+                try:
+                    result = await human_input_result_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+                await asyncio.sleep(0.1)
+            return result
 
-    human_input = await asyncio.wait_for(
-        _poll_for_human_input_result(),
-        timeout=10,
-    )
+        try:
+            human_input = await asyncio.wait_for(
+                _poll_for_human_input_result(),
+                timeout=10,
+            )
+        except (
+            asyncio.exceptions.TimeoutError,
+            asyncio.TimeoutError,
+            TimeoutError,
+        ) as e:
+            logger.debug(f"Timeout reached for tool_call with prompt {prompt}")
+            human_input = "Something went wrong."
 
-    return human_input
+        return human_input
+
+    return human_input_fn
+
+
+human_input_fn = human_input_fn_closure(human_input_request_queue)
 
 
 # Gradio app
@@ -82,6 +97,7 @@ app = gr.mount_gradio_app(human_service._app, gradio_app.app, path="/gradio")
 # launch
 async def launch() -> None:
     # register to message queue
+    await human_input_request_queue.put("mock")
     start_consuming_callable = await human_service.register_to_message_queue()
     _ = asyncio.create_task(start_consuming_callable())
 

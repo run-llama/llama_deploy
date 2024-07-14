@@ -4,14 +4,15 @@ from io import StringIO
 from typing import Any, List, Optional, Tuple
 import asyncio
 import gradio as gr
-from logging import getLogger
 import sys
 
 from llama_agents import LlamaAgentsClient
 from llama_agents.types import TaskResult
 
+import logging
 
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 class Capturing(list):
@@ -42,6 +43,7 @@ class HumanInTheLoopGradioApp:
         control_plane_port: Optional[int] = 8000,
     ) -> None:
         self.human_in_loop_queue = human_in_loop_queue
+        logger.info(f"{human_in_loop_queue.empty()}")
         self.app = gr.Blocks()
         self._client = LlamaAgentsClient(
             control_plane_url=(
@@ -69,8 +71,9 @@ class HumanInTheLoopGradioApp:
             with gr.Row():
                 message = gr.Textbox(label="Write A Message", scale=4)
                 clear = gr.ClearButton()
+            with gr.Row():
+                human_prompt = gr.Textbox(label="Human Prompt")
             timer = gr.Timer(2)
-            state = gr.State(self.human_in_loop_queue)
 
             # event listeners
             # message submit
@@ -85,23 +88,24 @@ class HumanInTheLoopGradioApp:
                 [chat_window, console],
             )
             # tick
-            timer.tick(self._tick_handler, state, state, queue=True)
+            timer.tick(self._tick_handler, [], human_prompt, queue=True)
 
             # clear chat
             clear.click(self._reset_chat, None, [message, chat_window, console])
 
     async def _tick_handler(
-        self, human_in_the_loop_queue: asyncio.Queue
-    ) -> List[gr.ChatMessage]:
+        self,
+    ) -> str:
         logger.info("tick_handler")
         try:
-            prompt = await human_in_the_loop_queue.get_nowait()
+            prompt = self.human_in_loop_queue.get_nowait()
             logger.info("appended human input request.")
         except asyncio.QueueEmpty:
             logger.info("human input request queue is empty.")
             pass
+            prompt = ""
 
-        return human_in_the_loop_queue
+        return prompt
 
     async def _handle_user_message(
         self, user_message: str, chat_history: List[Tuple[str, str]]
