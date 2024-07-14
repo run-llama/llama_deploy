@@ -7,7 +7,7 @@ import gradio as gr
 import sys
 
 from llama_agents import LlamaAgentsClient
-from llama_agents.types import TaskResult
+from human_in_the_loop.apps.css import css
 
 import logging
 
@@ -44,7 +44,7 @@ class HumanInTheLoopGradioApp:
     ) -> None:
         self.human_in_loop_queue = human_in_loop_queue
         logger.info(f"{human_in_loop_queue.empty()}")
-        self.app = gr.Blocks()
+        self.app = gr.Blocks(css=css)
         self._client = LlamaAgentsClient(
             control_plane_url=(
                 f"http://{control_plane_host}:{control_plane_port}"
@@ -73,6 +73,31 @@ class HumanInTheLoopGradioApp:
                 clear = gr.ClearButton()
             with gr.Row():
                 human_prompt = gr.Textbox(label="Human Prompt")
+            with gr.Row():
+                with gr.Column():
+                    philosophy_quotes = [
+                        ["I think therefore I am."],
+                        ["The unexamined life is not worth living."],
+                    ]
+                    markdown = gr.Markdown(visible=False)
+                    dataset = gr.Dataset(
+                        components=[markdown],
+                        samples=philosophy_quotes,
+                        label="Human Input Required",
+                        elem_classes="human-needed",
+                    )
+                with gr.Column():
+                    philosophy_quotes = [
+                        ["I think therefore I am."],
+                        ["The unexamined life is not worth living."],
+                    ]
+                    markdown = gr.Markdown(visible=False)
+                    dataset = gr.Dataset(
+                        components=[markdown],
+                        samples=philosophy_quotes,
+                        label="Completed Tasks",
+                        elem_classes="completed-tasks",
+                    )
             timer = gr.Timer(2)
 
             # event listeners
@@ -171,5 +196,7 @@ class HumanInTheLoopGradioApp:
         return "", "", ""  # clear textboxes
 
 
-# if __name__ == "__main__":
-#     app.launch(server_name="0.0.0.0", server_port=8080)
+app = HumanInTheLoopGradioApp(asyncio.Queue(), asyncio.Queue()).app
+
+if __name__ == "__main__":
+    app.launch(server_name="0.0.0.0", server_port=8080)

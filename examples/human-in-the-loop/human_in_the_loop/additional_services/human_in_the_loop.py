@@ -54,7 +54,7 @@ def human_input_fn_closure(queue):
             asyncio.exceptions.TimeoutError,
             asyncio.TimeoutError,
             TimeoutError,
-        ) as e:
+        ):
             logger.debug(f"Timeout reached for tool_call with prompt {prompt}")
             human_input = "Something went wrong."
 
