@@ -214,6 +214,7 @@ class AgentService(BaseService):
 
     async def processing_loop(self) -> None:
         """The processing loop for the agent."""
+        logger.info("Processing initiated.")
         while True:
             try:
                 if not self.running:
