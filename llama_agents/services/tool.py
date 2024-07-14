@@ -181,6 +181,7 @@ class ToolService(BaseService):
 
     async def processing_loop(self) -> None:
         """The processing loop for the service."""
+        logger.info("Processing initiated.")
         while True:
             if not self.running:
                 await asyncio.sleep(self.step_interval)
