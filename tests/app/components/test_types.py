@@ -1,7 +1,7 @@
 from llama_agents.app.components.types import ButtonType
 
 
-def test_button_type_enum():
+def test_button_type_enum() -> None:
     # Test that the enum values are correctly assigned
     assert ButtonType.SERVICE == "Service"
     assert ButtonType.TASK == "Task"
@@ -23,7 +23,7 @@ def test_button_type_enum():
     assert isinstance(ButtonType.HUMAN, str)
 
 
-def test_button_type_members():
+def test_button_type_members() -> None:
     members = list(ButtonType)
     assert len(members) == 3
     assert ButtonType.SERVICE in members

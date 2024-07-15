@@ -5,12 +5,12 @@ from llama_agents.app.components.task_list import TasksList
 
 
 @pytest.mark.asyncio
-async def test_refresh_tasks():
+async def test_refresh_tasks() -> None:
     # Mock the response object and its json method
     mock_response = MagicMock()
     mock_response.json.return_value = ["Task1", "Task2"]
 
-    with patch('httpx.AsyncClient.get', return_value=mock_response):
+    with patch("httpx.AsyncClient.get", return_value=mock_response):
         tasks_list = TasksList("http://example.com")
         await tasks_list.refresh_tasks()
 
@@ -18,9 +18,8 @@ async def test_refresh_tasks():
         assert tasks_list.tasks == ["Task1", "Task2"]
 
 
-# Test the watch_tasks method, focusing on UI updates
 @pytest.mark.asyncio
-async def test_watch_tasks():
+async def test_watch_tasks() -> None:
     tasks_list = TasksList("http://example.com")
     tasks_list.tasks = ["Old Task1", "Old Task2"]
 
@@ -30,7 +29,7 @@ async def test_watch_tasks():
     tasks_scroll.mount = AsyncMock()
 
     # Patch the query_one method to return our mock scroll object when queried
-    with patch.object(tasks_list, 'query_one', return_value=tasks_scroll):
+    with patch.object(tasks_list, "query_one", return_value=tasks_scroll):
         new_tasks = ["New Task1", "New Task2"]
         await tasks_list.watch_tasks(new_tasks)
 
