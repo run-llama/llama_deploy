@@ -175,7 +175,7 @@ async def test_process_task_with_custom_human_input_fn(
     # arrange
     mq = SimpleMessageQueue()
 
-    async def my_custom_human_input_fn(prompt: str, **kwargs: Any) -> str:
+    async def my_custom_human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
         return " ".join([prompt, prompt[::-1]])
 
     human_service = HumanService(
