@@ -56,11 +56,12 @@ HELP_REQUEST_TEMPLATE_STR = (
 class HumanInputFn(Protocol):
     """Protocol for getting human input."""
 
-    def __call__(self, prompt: str, **kwargs: Any) -> Awaitable[str]:
+    def __call__(self, prompt: str, task_id: str, **kwargs: Any) -> Awaitable[str]:
         ...
 
 
-async def default_human_input_fn(prompt: str, **kwargs: Any) -> str:
+async def default_human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
+    del task_id
     return input(prompt)
 
 
@@ -204,6 +205,7 @@ class HumanService(BaseService):
 
     async def processing_loop(self) -> None:
         """The processing loop for the service."""
+        logger.info("Processing initiated.")
         while True:
             if not self.running:
                 await asyncio.sleep(self.step_interval)
@@ -228,7 +230,7 @@ class HumanService(BaseService):
                     if self.human_input_prompt
                     else task_def.input
                 )
-                result = await self.fn_input(prompt=prompt)
+                result = await self.fn_input(prompt=prompt, task_id=task_def.task_id)
 
                 # create history
                 history = [
