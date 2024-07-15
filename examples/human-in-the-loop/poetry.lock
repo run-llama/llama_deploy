@@ -1213,13 +1213,13 @@ test = ["coverage", "pytest", "pytest-cov"]
 
 [[package]]
 name = "llama-agents"
-version = "0.0.10"
+version = "0.0.11"
 description = ""
 optional = false
 python-versions = "<4.0,>=3.8.1"
 files = [
-    {file = "llama_agents-0.0.10-py3-none-any.whl", hash = "sha256:ae48f56e69ebfe0b508efebc8dc6a0f96ac924f9b8cd2570d713e907ce615978"},
-    {file = "llama_agents-0.0.10.tar.gz", hash = "sha256:7f5eda3da2335d91ea59151fbdbe7cd3b40a8756e41304acd915f938002cab4f"},
+    {file = "llama_agents-0.0.11-py3-none-any.whl", hash = "sha256:ad048066435c2f715804923c001561e8fd63745ed7f1ec3c3fedf92983d32ab6"},
+    {file = "llama_agents-0.0.11.tar.gz", hash = "sha256:52789d9c45c697261e646b86b1bf140f1e50f7b936820531df45ea30dad80304"},
 ]
 
 [package.dependencies]
@@ -1227,6 +1227,7 @@ aio-pika = {version = ">=9.4.2,<10.0.0", optional = true, markers = "extra == \"
 fastapi = ">=0.109.1,<0.110.0"
 llama-index-core = ">=0.10.50,<0.11.0"
 pytest-asyncio = ">=0.23.7,<0.24.0"
+pytest-mock = ">=3.14.0,<4.0.0"
 textual = ">=0.70.0,<0.71.0"
 uvicorn = ">=0.30.1,<0.31.0"
 
@@ -2213,6 +2214,23 @@ pytest = ">=7.0.0,<9"
 [package.extras]
 docs = ["sphinx (>=5.3)", "sphinx-rtd-theme (>=1.0)"]
 testing = ["coverage (>=6.2)", "hypothesis (>=5.7.1)"]
+
+[[package]]
+name = "pytest-mock"
+version = "3.14.0"
+description = "Thin-wrapper around the mock package for easier use with pytest"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "pytest-mock-3.14.0.tar.gz", hash = "sha256:2719255a1efeceadbc056d6bf3df3d1c5015530fb40cf347c0f9afac88410bd0"},
+    {file = "pytest_mock-3.14.0-py3-none-any.whl", hash = "sha256:0b72c38033392a5f4621342fe11e9219ac11ec9d375f8e2a0c164539e0d70f6f"},
+]
+
+[package.dependencies]
+pytest = ">=6.2.5"
+
+[package.extras]
+dev = ["pre-commit", "pytest-asyncio", "tox"]
 
 [[package]]
 name = "python-dateutil"
@@ -3249,4 +3267,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "2a4d220c2f784a36628830117e7913b9a4777d5f5c3cba39160bf18c2a9376c0"
+content-hash = "2b108fcfec83c799a0347dd67e9d497b44ff229d09035871b8d42a9a03e18b04"

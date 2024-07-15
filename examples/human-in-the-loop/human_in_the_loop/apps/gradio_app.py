@@ -3,7 +3,7 @@
 from enum import Enum
 from dataclasses import dataclass, field
 from io import StringIO
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import asyncio
 import gradio as gr
 import sys
@@ -109,7 +109,9 @@ class HumanInTheLoopGradioApp:
         self._tasks: List[TaskModel] = SAMPLE_TASKS
 
         with self.app:
-            tasks_state = gr.State([])
+            submitted_tasks_state = gr.State([])
+            human_required_tasks_state = gr.State([])
+            completed_tasks_state = gr.State([])
             current_task = gr.State(None)
 
             with gr.Row():
@@ -124,8 +126,6 @@ class HumanInTheLoopGradioApp:
             with gr.Row():
                 message = gr.Textbox(label="Write A Message", scale=4)
                 clear = gr.ClearButton()
-            with gr.Row():
-                human_prompt = gr.Textbox(label="Human Prompt")
 
             timer = gr.Timer(2)
 
@@ -133,23 +133,40 @@ class HumanInTheLoopGradioApp:
             # message submit
             message.submit(
                 self._handle_user_message,
-                [message, current_task, tasks_state],
-                [message, current_task, tasks_state, chat_window],
+                [message, current_task, submitted_tasks_state],
+                [message, current_task, submitted_tasks_state, chat_window],
             )
 
             # tick
-            timer.tick(self._tick_handler, tasks_state, [tasks_state])
+            timer.tick(
+                self._tick_handler,
+                [
+                    submitted_tasks_state,
+                    human_required_tasks_state,
+                    completed_tasks_state,
+                ],
+                [
+                    submitted_tasks_state,
+                    human_required_tasks_state,
+                    completed_tasks_state,
+                ],
+            )
 
             # clear chat
             clear.click(self._reset_chat, None, [message, chat_window, console])
 
-            @gr.render(inputs=tasks_state)
-            def render_datasets(tasks):
-                human_needed = [
-                    [t.input] for t in tasks if t.status == "human_required"
+            @gr.render(
+                inputs=[
+                    submitted_tasks_state,
+                    human_required_tasks_state,
+                    completed_tasks_state,
                 ]
-                completed = [[t.input] for t in tasks if t.status == "completed"]
-                submitted = [[t.input] for t in tasks if t.status == "submitted"]
+            )
+            def render_datasets(submitted, human_needed, completed):
+                human_needed = [[t.input] for t in human_needed]
+                submitted = [[t.input] for t in submitted]
+                completed = [[t.input] for t in completed]
+
                 with gr.Row():
                     with gr.Column():
                         markdown = gr.Markdown(visible=False)
@@ -177,22 +194,29 @@ class HumanInTheLoopGradioApp:
 
     async def _tick_handler(
         self,
-        tasks: List[TaskModel],
+        submitted: List[TaskModel],
+        human_needed: List[TaskModel],
+        completed: List[TaskModel],
     ) -> str:
-        logger.info("tick_handler")
+        logger.info(f"submitted: {submitted}")
+        logger.info(f"human_needed: {human_needed}")
         try:
-            dict = self.human_in_loop_queue.get_nowait()
-            prompt = dict["prompt"]
-            task_id = dict["task_id"]
+            dict: Dict[str, str] = self.human_in_loop_queue.get_nowait()
+            prompt = dict.get("prompt")
+            task_id = dict.get("task_id")
+            logger.info(f"prompt: {prompt}, task_id: {task_id}")
 
             # find task with the provided task_id
             try:
                 ix, task = next(
-                    (ix, t) for ix, t in enumerate(tasks) if t.task_id == task_id
+                    (ix, t)
+                    for ix, t in enumerate(submitted)
+                    if t.input.lower() == prompt.lower()
                 )
                 task.prompt = prompt
                 task.status = TaskStatus.HUMAN_REQUIRED
-                tasks[ix] = task
+                del submitted[ix]
+                return submitted, human_needed + [task], completed
             except StopIteration:
                 raise ValueError("Cannot find task in list of tasks.")
             logger.info("appended human input request.")
@@ -200,10 +224,10 @@ class HumanInTheLoopGradioApp:
             logger.info("human input request queue is empty.")
             pass
 
-        return tasks
+        return submitted, human_needed, completed
 
     async def _handle_user_message(
-        self, user_message: str, current_task: Optional[str], tasks: List[TaskModel]
+        self, user_message: str, current_task: Optional[str], submitted: List[TaskModel]
     ):
         """Handle the user submitted message. Clear message box, and append
         to the history.
@@ -217,8 +241,7 @@ class HumanInTheLoopGradioApp:
             ...
         else:
             # create new task and store in state
-            # task_id = self._client.create_task(user_message.content)
-            task_id = "3"
+            task_id = self._client.create_task(user_message)
             task = TaskModel(
                 task_id=task_id,
                 input=user_message,
@@ -232,10 +255,9 @@ class HumanInTheLoopGradioApp:
                 ],
                 status=TaskStatus.SUBMITTED,
             )
-            print(tasks)
             current_task = None
 
-        return "", current_task, tasks + [task], task.chat_history
+        return "", current_task, submitted + [task], task.chat_history
 
     async def _poll_for_task_result(self, task_id: str):
         task_result = None

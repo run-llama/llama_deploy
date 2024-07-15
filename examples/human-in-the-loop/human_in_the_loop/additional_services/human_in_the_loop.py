@@ -85,10 +85,13 @@ human_service = HumanService(
     host=human_in_the_loop_host,
     port=int(human_in_the_loop_port) if human_in_the_loop_port else None,
     fn_input=human_input_fn,
+    human_input_prompt="{input_str}",
 )
 
 human_service_as_tool = ServiceAsTool.from_service_definition(
-    message_queue=message_queue, service_definition=human_service.service_definition
+    message_queue=message_queue,
+    service_definition=human_service.service_definition,
+    timeout=6000,
 )
 
 app = gr.mount_gradio_app(human_service._app, gradio_app.app, path="/gradio")
@@ -97,7 +100,6 @@ app = gr.mount_gradio_app(human_service._app, gradio_app.app, path="/gradio")
 # launch
 async def launch() -> None:
     # register to message queue
-    await human_input_request_queue.put("mock")
     start_consuming_callable = await human_service.register_to_message_queue()
     _ = asyncio.create_task(start_consuming_callable())
 
