@@ -1,5 +1,7 @@
 """Gradio app."""
 
+from enum import Enum
+from dataclasses import dataclass, field
 from io import StringIO
 from typing import Any, List, Optional, Tuple
 import asyncio
@@ -32,6 +34,54 @@ class Capturing(list):
         sys.stdout = self._stdout
 
 
+class TaskStatus(str, Enum):
+
+    HUMAN_REQUIRED = "human_required"
+    COMPLETED = "completed"
+    SUBMITTED = "submitted"
+
+
+@dataclass
+class TaskModel:
+    task_id: str
+    input: str
+    status: TaskStatus
+    prompt: Optional[str] = None
+    chat_history: List[gr.ChatMessage] = field(default_factory=list)
+
+
+SAMPLE_TASKS = [
+    TaskModel(
+        task_id="1",
+        input="What is 1+1?",
+        status=TaskStatus.SUBMITTED,
+        chat_history=[gr.ChatMessage(role="user", content="What is 1+1?")],
+    ),
+    TaskModel(
+        task_id="2",
+        input="What is 1-1?",
+        status=TaskStatus.COMPLETED,
+        chat_history=[
+            gr.ChatMessage(role="user", content="What is 1-1?"),
+            gr.ChatMessage(role="assistant", content="0."),
+        ],
+    ),
+    TaskModel(
+        task_id="3",
+        input="What is 0*0?",
+        status=TaskStatus.HUMAN_REQUIRED,
+        chat_history=[
+            gr.ChatMessage(role="user", content="What is 0*0?"),
+            gr.ChatMessage(
+                role="assistant",
+                content="Your input is needed.",
+                metadata={"title": "Agent needs your input."},
+            ),
+        ],
+    ),
+]
+
+
 class HumanInTheLoopGradioApp:
     """Human In The Loop Gradio App."""
 
@@ -57,6 +107,7 @@ class HumanInTheLoopGradioApp:
         self._raise_timeout = False
         self._human_in_the_loop_task: Optional[str] = None
         self._human_input: Optional[str] = None
+        self._tasks: List[TaskModel] = SAMPLE_TASKS
 
         with self.app:
             with gr.Row():
@@ -75,26 +126,24 @@ class HumanInTheLoopGradioApp:
                 human_prompt = gr.Textbox(label="Human Prompt")
             with gr.Row():
                 with gr.Column():
-                    philosophy_quotes = [
-                        ["I think therefore I am."],
-                        ["The unexamined life is not worth living."],
-                    ]
                     markdown = gr.Markdown(visible=False)
-                    dataset = gr.Dataset(
+                    human_needed = [
+                        [t.input] for t in self._tasks if t.status == "human_required"
+                    ]
+                    human_input_required_dataset = gr.Dataset(
                         components=[markdown],
-                        samples=philosophy_quotes,
+                        samples=human_needed,
                         label="Human Input Required",
                         elem_classes="human-needed",
                     )
                 with gr.Column():
-                    philosophy_quotes = [
-                        ["I think therefore I am."],
-                        ["The unexamined life is not worth living."],
+                    completed = [
+                        [t.input] for t in self._tasks if t.status == "completed"
                     ]
                     markdown = gr.Markdown(visible=False)
-                    dataset = gr.Dataset(
+                    completed_tasks_dataset = gr.Dataset(
                         components=[markdown],
-                        samples=philosophy_quotes,
+                        samples=completed,
                         label="Completed Tasks",
                         elem_classes="completed-tasks",
                     )

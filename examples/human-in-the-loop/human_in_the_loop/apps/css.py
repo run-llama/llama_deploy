@@ -14,5 +14,5 @@ css = """
 
 .completed-tasks .gallery-item {
     background-color: green;
-} 
+}
 """
