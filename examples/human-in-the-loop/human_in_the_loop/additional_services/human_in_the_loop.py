@@ -29,9 +29,9 @@ human_input_result_queue = asyncio.Queue()
 
 
 def human_input_fn_closure(queue):
-    async def human_input_fn(prompt: str, **kwargs: Any) -> str:
+    async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
         logger.info("human input fn invoked.")
-        await human_input_request_queue.put(prompt)
+        await human_input_request_queue.put({"prompt": prompt, "task_id": task_id})
         logger.info("placed new prompt in queue.")
 
         # poll until human answer is stored

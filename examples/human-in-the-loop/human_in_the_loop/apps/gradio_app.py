@@ -7,7 +7,6 @@ from typing import Any, List, Optional, Tuple
 import asyncio
 import gradio as gr
 import sys
-import uuid
 
 from llama_agents import LlamaAgentsClient
 from human_in_the_loop.apps.css import css
@@ -36,7 +35,6 @@ class Capturing(list):
 
 
 class TaskStatus(str, Enum):
-
     HUMAN_REQUIRED = "human_required"
     COMPLETED = "completed"
     SUBMITTED = "submitted"
@@ -140,7 +138,7 @@ class HumanInTheLoopGradioApp:
             )
 
             # tick
-            timer.tick(self._tick_handler, [], human_prompt, queue=True)
+            timer.tick(self._tick_handler, tasks_state, [tasks_state])
 
             # clear chat
             clear.click(self._reset_chat, None, [message, chat_window, console])
@@ -179,19 +177,30 @@ class HumanInTheLoopGradioApp:
 
     async def _tick_handler(
         self,
-        tasks,
+        tasks: List[TaskModel],
     ) -> str:
         logger.info("tick_handler")
         try:
-            prompt = self.human_in_loop_queue.get_nowait()
-            # find task id
+            dict = self.human_in_loop_queue.get_nowait()
+            prompt = dict["prompt"]
+            task_id = dict["task_id"]
+
+            # find task with the provided task_id
+            try:
+                ix, task = next(
+                    (ix, t) for ix, t in enumerate(tasks) if t.task_id == task_id
+                )
+                task.prompt = prompt
+                task.status = TaskStatus.HUMAN_REQUIRED
+                tasks[ix] = task
+            except StopIteration:
+                raise ValueError("Cannot find task in list of tasks.")
             logger.info("appended human input request.")
         except asyncio.QueueEmpty:
             logger.info("human input request queue is empty.")
             pass
-            prompt = ""
 
-        return prompt
+        return tasks
 
     async def _handle_user_message(
         self, user_message: str, current_task: Optional[str], tasks: List[TaskModel]
