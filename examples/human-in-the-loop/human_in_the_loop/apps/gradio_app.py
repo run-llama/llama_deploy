@@ -7,6 +7,7 @@ from typing import Any, List, Optional, Tuple
 import asyncio
 import gradio as gr
 import sys
+import uuid
 
 from llama_agents import LlamaAgentsClient
 from human_in_the_loop.apps.css import css
@@ -110,6 +111,9 @@ class HumanInTheLoopGradioApp:
         self._tasks: List[TaskModel] = SAMPLE_TASKS
 
         with self.app:
+            tasks_state = gr.State([])
+            current_task = gr.State(None)
+
             with gr.Row():
                 gr.Markdown("# Human In The Loop")
             with gr.Row():
@@ -124,55 +128,63 @@ class HumanInTheLoopGradioApp:
                 clear = gr.ClearButton()
             with gr.Row():
                 human_prompt = gr.Textbox(label="Human Prompt")
-            with gr.Row():
-                with gr.Column():
-                    markdown = gr.Markdown(visible=False)
-                    human_needed = [
-                        [t.input] for t in self._tasks if t.status == "human_required"
-                    ]
-                    human_input_required_dataset = gr.Dataset(
-                        components=[markdown],
-                        samples=human_needed,
-                        label="Human Input Required",
-                        elem_classes="human-needed",
-                    )
-                with gr.Column():
-                    completed = [
-                        [t.input] for t in self._tasks if t.status == "completed"
-                    ]
-                    markdown = gr.Markdown(visible=False)
-                    completed_tasks_dataset = gr.Dataset(
-                        components=[markdown],
-                        samples=completed,
-                        label="Completed Tasks",
-                        elem_classes="completed-tasks",
-                    )
+
             timer = gr.Timer(2)
 
             # event listeners
             # message submit
             message.submit(
                 self._handle_user_message,
-                [message, chat_window],
-                [message, chat_window],
-                queue=False,
-            ).then(
-                self._generate_response,
-                chat_window,
-                [chat_window, console],
+                [message, current_task, tasks_state],
+                [message, current_task, tasks_state, chat_window],
             )
+
             # tick
             timer.tick(self._tick_handler, [], human_prompt, queue=True)
 
             # clear chat
             clear.click(self._reset_chat, None, [message, chat_window, console])
 
+            @gr.render(inputs=tasks_state)
+            def render_datasets(tasks):
+                human_needed = [
+                    [t.input] for t in tasks if t.status == "human_required"
+                ]
+                completed = [[t.input] for t in tasks if t.status == "completed"]
+                submitted = [[t.input] for t in tasks if t.status == "submitted"]
+                with gr.Row():
+                    with gr.Column():
+                        markdown = gr.Markdown(visible=False)
+                        submitted_tasks_dataset = gr.Dataset(
+                            samples=submitted,
+                            components=[markdown],
+                            label="Submitted",
+                        )
+                    with gr.Column():
+                        markdown = gr.Markdown(visible=False)
+                        human_input_required_dataset = gr.Dataset(
+                            components=[markdown],
+                            samples=human_needed,
+                            label="Human Input Required",
+                            elem_classes="human-needed",
+                        )
+                    with gr.Column():
+                        markdown = gr.Markdown(visible=False)
+                        completed_tasks_dataset = gr.Dataset(
+                            components=[markdown],
+                            samples=completed,
+                            label="Completed Tasks",
+                            elem_classes="completed-tasks",
+                        )
+
     async def _tick_handler(
         self,
+        tasks,
     ) -> str:
         logger.info("tick_handler")
         try:
             prompt = self.human_in_loop_queue.get_nowait()
+            # find task id
             logger.info("appended human input request.")
         except asyncio.QueueEmpty:
             logger.info("human input request queue is empty.")
@@ -182,16 +194,39 @@ class HumanInTheLoopGradioApp:
         return prompt
 
     async def _handle_user_message(
-        self, user_message: str, chat_history: List[Tuple[str, str]]
-    ) -> Tuple[str, List[Tuple[str, str]]]:
+        self, user_message: str, current_task: Optional[str], tasks: List[TaskModel]
+    ):
         """Handle the user submitted message. Clear message box, and append
         to the history.
         """
-        if self._human_in_the_loop_task:
-            self._human_input = user_message
         message = gr.ChatMessage(role="user", content=user_message)
-        chat_history.append(message)
-        return "", chat_history
+        if current_task:
+            # find current task from tasks
+            # append message to associated chat history
+            # chat_history.append(message)
+            # submit human input fn
+            ...
+        else:
+            # create new task and store in state
+            # task_id = self._client.create_task(user_message.content)
+            task_id = "3"
+            task = TaskModel(
+                task_id=task_id,
+                input=user_message,
+                chat_history=[
+                    message,
+                    gr.ChatMessage(
+                        role="assistant",
+                        content=f"Successfully submitted task: {task_id}.",
+                        metadata={"title": "🪵 System message"},
+                    ),
+                ],
+                status=TaskStatus.SUBMITTED,
+            )
+            print(tasks)
+            current_task = None
+
+        return "", current_task, tasks + [task], task.chat_history
 
     async def _poll_for_task_result(self, task_id: str):
         task_result = None
