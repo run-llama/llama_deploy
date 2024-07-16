@@ -84,7 +84,7 @@ class HumanInTheLoopGradioApp:
             submitted_tasks_state = gr.State([])
             human_required_tasks_state = gr.State([])
             completed_tasks_state = gr.State([])
-            current_task = gr.State(None)
+            current_task: Tuple[int, TaskStatus] = gr.State(None)
 
             # timers
             timer = gr.Timer(2)
@@ -103,9 +103,42 @@ class HumanInTheLoopGradioApp:
                         label="Message History",
                         scale=3,
                     )
-                    with gr.Row():
-                        message = gr.Textbox(label="Write A Message", scale=4)
-                        clear = gr.ClearButton()
+
+                    @gr.render(inputs=[current_task])
+                    def message_box(active_task):
+                        with gr.Row():
+                            message = gr.Textbox(
+                                label="Write A Message",
+                                scale=4,
+                                interactive=active_task
+                                and active_task[1] == TaskStatus.HUMAN_REQUIRED,
+                            )
+                            clear = gr.ClearButton()
+
+                        # message submit
+                        message.submit(
+                            self._handle_user_message,
+                            [
+                                message,
+                                current_task,
+                                submitted_tasks_state,
+                                human_required_tasks_state,
+                                completed_tasks_state,
+                            ],
+                            [
+                                message,
+                                current_task,
+                                submitted_tasks_state,
+                                human_required_tasks_state,
+                                completed_tasks_state,
+                                chat_window,
+                            ],
+                        )
+
+                        # clear chat
+                        clear.click(
+                            self._reset_chat, None, [message, chat_window, current_task]
+                        )
 
                 @gr.render(
                     inputs=[
@@ -204,26 +237,6 @@ class HumanInTheLoopGradioApp:
                 [task_submission, submitted_tasks_state],
             )
 
-            # message submit
-            message.submit(
-                self._handle_user_message,
-                [
-                    message,
-                    current_task,
-                    submitted_tasks_state,
-                    human_required_tasks_state,
-                    completed_tasks_state,
-                ],
-                [
-                    message,
-                    current_task,
-                    submitted_tasks_state,
-                    human_required_tasks_state,
-                    completed_tasks_state,
-                    chat_window,
-                ],
-            )
-
             # current task
             current_task.change(
                 self._current_task_change_handler,
@@ -269,9 +282,6 @@ class HumanInTheLoopGradioApp:
                     current_task,
                 ],
             )
-
-            # clear chat
-            clear.click(self._reset_chat, None, [message, chat_window, current_task])
 
     async def process_completed_task_messages(self, message: QueueMessage, **kwargs):
         if message.action == ActionTypes.COMPLETED_TASK:
