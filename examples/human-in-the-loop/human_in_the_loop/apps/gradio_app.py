@@ -8,7 +8,8 @@ import asyncio
 import gradio as gr
 import sys
 
-from llama_agents import LlamaAgentsClient
+from llama_agents import LlamaAgentsClient, CallableMessageConsumer, QueueMessage
+from llama_agents.types import ActionTypes, TaskResult
 from human_in_the_loop.apps.css import css
 
 import logging
@@ -49,38 +50,6 @@ class TaskModel:
     chat_history: List[gr.ChatMessage] = field(default_factory=list)
 
 
-SAMPLE_TASKS = [
-    TaskModel(
-        task_id="1",
-        input="What is 1+1?",
-        status=TaskStatus.SUBMITTED,
-        chat_history=[gr.ChatMessage(role="user", content="What is 1+1?")],
-    ),
-    TaskModel(
-        task_id="2",
-        input="What is 1-1?",
-        status=TaskStatus.COMPLETED,
-        chat_history=[
-            gr.ChatMessage(role="user", content="What is 1-1?"),
-            gr.ChatMessage(role="assistant", content="0."),
-        ],
-    ),
-    TaskModel(
-        task_id="3",
-        input="What is 0*0?",
-        status=TaskStatus.HUMAN_REQUIRED,
-        chat_history=[
-            gr.ChatMessage(role="user", content="What is 0*0?"),
-            gr.ChatMessage(
-                role="assistant",
-                content="Your input is needed.",
-                metadata={"title": "Agent needs your input."},
-            ),
-        ],
-    ),
-]
-
-
 class HumanInTheLoopGradioApp:
     """Human In The Loop Gradio App."""
 
@@ -106,7 +75,10 @@ class HumanInTheLoopGradioApp:
         self._raise_timeout = False
         self._human_in_the_loop_task: Optional[str] = None
         self._human_input: Optional[str] = None
-        self._tasks: List[TaskModel] = SAMPLE_TASKS
+        self._final_task_consumer = CallableMessageConsumer(
+            message_type="human", handler=self.process_completed_task_messages
+        )
+        self._completed_tasks_queue = asyncio.Queue()
 
         with self.app:
             submitted_tasks_state = gr.State([])
@@ -128,6 +100,7 @@ class HumanInTheLoopGradioApp:
                 clear = gr.ClearButton()
 
             timer = gr.Timer(2)
+            completed_timer = gr.Timer(5)
 
             # event listeners
             # message submit
@@ -165,6 +138,23 @@ class HumanInTheLoopGradioApp:
             # tick
             timer.tick(
                 self._tick_handler,
+                [
+                    submitted_tasks_state,
+                    human_required_tasks_state,
+                    completed_tasks_state,
+                    current_task,
+                ],
+                [
+                    submitted_tasks_state,
+                    human_required_tasks_state,
+                    completed_tasks_state,
+                    current_task,
+                ],
+            )
+
+            # tick
+            completed_timer.tick(
+                self._check_for_completed_tasks_tick_handler,
                 [
                     submitted_tasks_state,
                     human_required_tasks_state,
@@ -270,6 +260,12 @@ class HumanInTheLoopGradioApp:
                             [chat_window, current_task],
                         )
 
+    async def process_completed_task_messages(self, message: QueueMessage, **kwargs):
+        if message.action == ActionTypes.COMPLETED_TASK:
+            task_res = TaskResult(**message.data)
+            await self._completed_tasks_queue.put(task_res)
+            logger.info(f"Added task result to queue")
+
     async def _current_task_change_handler(
         self,
         current_task: Optional[Tuple[int, str]],
@@ -287,6 +283,63 @@ class HumanInTheLoopGradioApp:
                 task = completed[ix]
             return task.chat_history
         return []
+
+    async def _check_for_completed_tasks_tick_handler(
+        self,
+        submitted: List[TaskModel],
+        human_needed: List[TaskModel],
+        completed: List[TaskModel],
+        current_task: Tuple[int, str],
+    ) -> List[TaskModel]:
+        try:
+            task_res: TaskResult = self._completed_tasks_queue.get_nowait()
+            if task_res.task_id in [t.task_id for t in submitted]:
+                ix, task = next(
+                    (ix, t)
+                    for ix, t in enumerate(submitted)
+                    if t.task_id == task_res.task_id
+                )
+                task.status = TaskStatus.COMPLETED
+                task.chat_history.append(
+                    gr.ChatMessage(role="assistant", content=task_res.result)
+                )
+                del submitted[ix]
+                completed.append(task)
+
+                current_task_ix, current_task_status = current_task
+                if (
+                    current_task_status == TaskStatus.SUBMITTED
+                    and current_task_ix == ix
+                ):
+                    current_task = (len(completed) - 1, TaskStatus.COMPLETED)
+
+            elif task_res.task_id in [t.task_id for t in human_needed]:
+                ix, task = next(
+                    (ix, t)
+                    for ix, t in enumerate(human_needed)
+                    if t.task_id == task_res.task_id
+                )
+                task.status = TaskStatus.COMPLETED
+                task.chat_history.append(
+                    gr.ChatMessage(role="assistant", content=task_res.result)
+                )
+                del human_needed[ix]
+                completed.append(task)
+
+                current_task_ix, current_task_status = current_task
+                if (
+                    current_task_status == TaskStatus.HUMAN_REQUIRED
+                    and current_task_ix == ix
+                ):
+                    current_task = (len(completed) - 1, TaskStatus.COMPLETED)
+            else:
+                raise ValueError(
+                    "Completed task not in submitted or human_needed lists."
+                )
+        except asyncio.QueueEmpty:
+            pass
+
+        return submitted, human_needed, completed, current_task
 
     async def _tick_handler(
         self,

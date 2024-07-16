@@ -102,7 +102,12 @@ app = gr.mount_gradio_app(human_service._app, gradio_app.app, path="/gradio")
 async def launch() -> None:
     # register to message queue
     start_consuming_callable = await human_service.register_to_message_queue()
-    _ = asyncio.create_task(start_consuming_callable())
+    hs_task = asyncio.create_task(start_consuming_callable())
+
+    final_tasks_consuming_callable = await message_queue.register_consumer(
+        gradio_app._final_task_consumer
+    )
+    ft_task = asyncio.create_task(final_tasks_consuming_callable())
 
     cfg = uvicorn.Config(
         app,
