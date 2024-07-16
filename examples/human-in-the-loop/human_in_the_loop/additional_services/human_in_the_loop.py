@@ -36,14 +36,7 @@ def human_input_fn_closure(queue):
 
         # poll until human answer is stored
         async def _poll_for_human_input_result():
-            result = None
-            while result is None:
-                try:
-                    result = human_input_result_queue.get_nowait()
-                except asyncio.QueueEmpty:
-                    pass
-                await asyncio.sleep(0.1)
-            return result
+            return await human_input_result_queue.get()
 
         try:
             human_input = await asyncio.wait_for(
