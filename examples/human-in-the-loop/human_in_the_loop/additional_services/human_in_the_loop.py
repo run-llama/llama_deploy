@@ -39,7 +39,7 @@ def human_input_fn_closure(queue):
             result = None
             while result is None:
                 try:
-                    result = await human_input_result_queue.get_nowait()
+                    result = human_input_result_queue.get_nowait()
                 except asyncio.QueueEmpty:
                     pass
                 await asyncio.sleep(0.1)
@@ -48,14 +48,15 @@ def human_input_fn_closure(queue):
         try:
             human_input = await asyncio.wait_for(
                 _poll_for_human_input_result(),
-                timeout=10,
+                timeout=6000,
             )
+            logger.info(f"Recieved human input: {human_input}")
         except (
             asyncio.exceptions.TimeoutError,
             asyncio.TimeoutError,
             TimeoutError,
         ):
-            logger.debug(f"Timeout reached for tool_call with prompt {prompt}")
+            logger.info(f"Timeout reached for tool_call with prompt {prompt}")
             human_input = "Something went wrong."
 
         return human_input

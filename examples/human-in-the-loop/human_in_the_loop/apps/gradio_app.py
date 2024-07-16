@@ -92,7 +92,7 @@ class HumanInTheLoopGradioApp:
         control_plane_port: Optional[int] = 8000,
     ) -> None:
         self.human_in_loop_queue = human_in_loop_queue
-        logger.info(f"{human_in_loop_queue.empty()}")
+        self.human_in_loop_result_queue = human_in_loop_result_queue
         self.app = gr.Blocks(css=css)
         self._client = LlamaAgentsClient(
             control_plane_url=(
@@ -133,8 +133,33 @@ class HumanInTheLoopGradioApp:
             # message submit
             message.submit(
                 self._handle_user_message,
-                [message, current_task, submitted_tasks_state],
-                [message, current_task, submitted_tasks_state, chat_window],
+                [
+                    message,
+                    current_task,
+                    submitted_tasks_state,
+                    human_required_tasks_state,
+                    completed_tasks_state,
+                ],
+                [
+                    message,
+                    current_task,
+                    submitted_tasks_state,
+                    human_required_tasks_state,
+                    completed_tasks_state,
+                    chat_window,
+                ],
+            )
+
+            # current task
+            current_task.change(
+                self._current_task_change_handler,
+                [
+                    current_task,
+                    submitted_tasks_state,
+                    human_required_tasks_state,
+                    completed_tasks_state,
+                ],
+                chat_window,
             )
 
             # tick
@@ -144,16 +169,18 @@ class HumanInTheLoopGradioApp:
                     submitted_tasks_state,
                     human_required_tasks_state,
                     completed_tasks_state,
+                    current_task,
                 ],
                 [
                     submitted_tasks_state,
                     human_required_tasks_state,
                     completed_tasks_state,
+                    current_task,
                 ],
             )
 
             # clear chat
-            clear.click(self._reset_chat, None, [message, chat_window, console])
+            clear.click(self._reset_chat, None, [message, chat_window, current_task])
 
             @gr.render(
                 inputs=[
@@ -179,7 +206,7 @@ class HumanInTheLoopGradioApp:
                             )
                             task: TaskModel = submitted[evt.index]
                             logger.info(f"selected task: {task}")
-                            return task.chat_history
+                            return task.chat_history, (evt.index, task.status)
 
                         markdown = gr.Markdown(visible=False)
                         submitted_tasks_dataset = gr.Dataset(
@@ -190,7 +217,7 @@ class HumanInTheLoopGradioApp:
                         submitted_tasks_dataset.select(
                             _handle_selection_submitted,
                             [submitted_tasks_dataset],
-                            chat_window,
+                            [chat_window, current_task],
                         )
                     with gr.Column():
 
@@ -203,7 +230,7 @@ class HumanInTheLoopGradioApp:
                             )
                             task: TaskModel = human_needed[evt.index]
                             logger.info(f"selected task: {task}")
-                            return task.chat_history
+                            return task.chat_history, (evt.index, task.status)
 
                         markdown = gr.Markdown(visible=False)
                         human_input_required_dataset = gr.Dataset(
@@ -215,7 +242,7 @@ class HumanInTheLoopGradioApp:
                         human_input_required_dataset.select(
                             _handle_selection_human,
                             [human_input_required_dataset],
-                            chat_window,
+                            [chat_window, current_task],
                         )
                     with gr.Column():
 
@@ -228,7 +255,7 @@ class HumanInTheLoopGradioApp:
                             )
                             task: TaskModel = completed[evt.index]
                             logger.info(f"selected task: {task}")
-                            return task.chat_history
+                            return task.chat_history, (evt.index, task.status)
 
                         markdown = gr.Markdown(visible=False)
                         completed_tasks_dataset = gr.Dataset(
@@ -240,14 +267,33 @@ class HumanInTheLoopGradioApp:
                         completed_tasks_dataset.select(
                             _handle_selection_completed,
                             [completed_tasks_dataset],
-                            chat_window,
+                            [chat_window, current_task],
                         )
+
+    async def _current_task_change_handler(
+        self,
+        current_task: Optional[Tuple[int, str]],
+        submitted: List[TaskModel],
+        human_needed: List[TaskModel],
+        completed: List[TaskModel],
+    ):
+        if current_task:
+            ix, status = current_task
+            if status == TaskStatus.SUBMITTED:
+                task = submitted[ix]
+            elif status == TaskStatus.HUMAN_REQUIRED:
+                task = human_needed[ix]
+            else:
+                task = completed[ix]
+            return task.chat_history
+        return []
 
     async def _tick_handler(
         self,
         submitted: List[TaskModel],
         human_needed: List[TaskModel],
         completed: List[TaskModel],
+        current_task: Tuple[int, str],
     ) -> str:
         try:
             dict: Dict[str, str] = self.human_in_loop_queue.get_nowait()
@@ -264,8 +310,25 @@ class HumanInTheLoopGradioApp:
                 )
                 task.prompt = prompt
                 task.status = TaskStatus.HUMAN_REQUIRED
+                task.chat_history += [
+                    gr.ChatMessage(
+                        role="assistant",
+                        content="Human assistance is required.",
+                        metadata={"title": "🪵 System message"},
+                    ),
+                    gr.ChatMessage(role="assistant", content=prompt),
+                ]
+
                 del submitted[ix]
                 human_needed.append(task)
+
+                current_task_ix, current_task_status = current_task
+                if (
+                    current_task_status == TaskStatus.SUBMITTED
+                    and current_task_ix == ix
+                ):
+                    current_task = (len(human_needed) - 1, TaskStatus.HUMAN_REQUIRED)
+
             except StopIteration:
                 raise ValueError("Cannot find task in list of tasks.")
             logger.info("appended human input request.")
@@ -273,10 +336,15 @@ class HumanInTheLoopGradioApp:
             logger.info("human input request queue is empty.")
             pass
 
-        return submitted, human_needed, completed
+        return submitted, human_needed, completed, current_task
 
     async def _handle_user_message(
-        self, user_message: str, current_task: Optional[str], submitted: List[TaskModel]
+        self,
+        user_message: str,
+        current_task: Optional[Tuple[int, str]],
+        submitted: List[TaskModel],
+        human_needed: List[TaskModel],
+        completed: List[TaskModel],
     ):
         """Handle the user submitted message. Clear message box, and append
         to the history.
@@ -287,7 +355,16 @@ class HumanInTheLoopGradioApp:
             # append message to associated chat history
             # chat_history.append(message)
             # submit human input fn
-            ...
+            ix, status = current_task
+            if status == TaskStatus.SUBMITTED:
+                task = submitted[ix]
+            elif status == TaskStatus.HUMAN_REQUIRED:
+                task = human_needed[ix]
+                task.chat_history.append(message)
+                human_needed[ix] = task
+                await self.human_in_loop_result_queue.put(user_message)
+            else:
+                task = completed[ix]
         else:
             # create new task and store in state
             task_id = self._client.create_task(user_message)
@@ -304,9 +381,10 @@ class HumanInTheLoopGradioApp:
                 ],
                 status=TaskStatus.SUBMITTED,
             )
-            current_task = None
+            submitted.append(task)
+            current_task = (len(submitted) - 1, TaskStatus.SUBMITTED)
 
-        return "", current_task, submitted + [task], task.chat_history
+        return "", current_task, submitted, human_needed, completed, task.chat_history
 
     async def _poll_for_task_result(self, task_id: str):
         task_result = None
@@ -329,35 +407,8 @@ class HumanInTheLoopGradioApp:
         chat_history.append(message)
         return chat_history, ""
 
-        # # poll for tool_call_result with max timeout
-        # try:
-        #     task_result = await asyncio.wait_for(
-        #         self._poll_for_task_result(task_id=task_id),
-        #         timeout=self._timeout,
-        #     )
-        # except (
-        #     asyncio.exceptions.TimeoutError,
-        #     asyncio.TimeoutError,
-        #     TimeoutError,
-        # ) as e:
-        #     logger.debug(f"Timeout reached for task with id {task_id}")
-        #     if self._raise_timeout:
-        #         raise
-        #     task_result = TaskResult(
-        #         task_id=task_id,
-        #         result="Encountered error: " + str(e),
-        #         history=[],
-        #         data={"error": str(e)},
-        #     )
-
-        # # update assistant message
-        # assistant_message = gr.ChatMessage(role="assistant", content=task_result.result)
-        # chat_history.append(assistant_message)
-
-        # return chat_history, ""
-
     def _reset_chat(self) -> Tuple[str, str, str]:
-        return "", "", ""  # clear textboxes
+        return "", "", None  # clear textboxes
 
 
 app = HumanInTheLoopGradioApp(asyncio.Queue(), asyncio.Queue()).app
