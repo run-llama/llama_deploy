@@ -86,23 +86,124 @@ class HumanInTheLoopGradioApp:
             completed_tasks_state = gr.State([])
             current_task = gr.State(None)
 
-            with gr.Row():
-                gr.Markdown("# Human In The Loop")
-            with gr.Row():
-                chat_window = gr.Chatbot(
-                    type="messages",
-                    label="Message History",
-                    scale=3,
-                )
-                console = gr.HTML(elem_id="box")
-            with gr.Row():
-                message = gr.Textbox(label="Write A Message", scale=4)
-                clear = gr.ClearButton()
-
+            # timers
             timer = gr.Timer(2)
             completed_timer = gr.Timer(5)
 
-            # event listeners
+            with gr.Row():
+                gr.Markdown("# Human In The Loop")
+            with gr.Row():
+                with gr.Column(scale=1):
+                    task_submission = gr.Textbox(label="Submit a Task")
+                    task_submit_btn = gr.Button("Submit", variant="primary")
+
+                with gr.Column(scale=2):
+                    chat_window = gr.Chatbot(
+                        type="messages",
+                        label="Message History",
+                        scale=3,
+                    )
+                    with gr.Row():
+                        message = gr.Textbox(label="Write A Message", scale=4)
+                        clear = gr.ClearButton()
+
+                @gr.render(
+                    inputs=[
+                        submitted_tasks_state,
+                        human_required_tasks_state,
+                        completed_tasks_state,
+                    ]
+                )
+                def render_datasets(submitted, human_needed, completed):
+                    human_needed_sample = [[t.input] for t in human_needed]
+                    submitted_sample = [[t.input] for t in submitted]
+                    completed_sample = [[t.input] for t in completed]
+
+                    with gr.Column(scale=1):
+                        with gr.Row():
+
+                            async def _handle_selection_submitted(
+                                values: List[str],
+                                evt: gr.SelectData,
+                            ):
+                                logger.info(
+                                    f"You selected {evt.value} at {evt.index} from {evt.target}"
+                                )
+                                task: TaskModel = submitted[evt.index]
+                                logger.info(f"selected task: {task}")
+                                return task.chat_history, (evt.index, task.status)
+
+                            markdown = gr.Markdown(visible=False)
+                            submitted_tasks_dataset = gr.Dataset(
+                                samples=submitted_sample,
+                                components=[markdown],
+                                label="Submitted",
+                            )
+                            # datasets
+                            submitted_tasks_dataset.select(
+                                _handle_selection_submitted,
+                                [submitted_tasks_dataset],
+                                [chat_window, current_task],
+                            )
+                        with gr.Row():
+
+                            async def _handle_selection_human(
+                                values: List[str],
+                                evt: gr.SelectData,
+                            ):
+                                logger.info(
+                                    f"You selected {evt.value} at {evt.index} from {evt.target}"
+                                )
+                                task: TaskModel = human_needed[evt.index]
+                                logger.info(f"selected task: {task}")
+                                return task.chat_history, (evt.index, task.status)
+
+                            markdown = gr.Markdown(visible=False)
+                            human_input_required_dataset = gr.Dataset(
+                                components=[markdown],
+                                samples=human_needed_sample,
+                                label="Human Input Required",
+                                elem_classes="human-needed",
+                            )
+                            human_input_required_dataset.select(
+                                _handle_selection_human,
+                                [human_input_required_dataset],
+                                [chat_window, current_task],
+                            )
+
+                        with gr.Row():
+
+                            async def _handle_selection_completed(
+                                values: List[str],
+                                evt: gr.SelectData,
+                            ):
+                                logger.info(
+                                    f"You selected {evt.value} at {evt.index} from {evt.target}"
+                                )
+                                task: TaskModel = completed[evt.index]
+                                logger.info(f"selected task: {task}")
+                                return task.chat_history, (evt.index, task.status)
+
+                            markdown = gr.Markdown(visible=False)
+                            completed_tasks_dataset = gr.Dataset(
+                                components=[markdown],
+                                samples=completed_sample,
+                                label="Completed Tasks",
+                                elem_classes="completed-tasks",
+                            )
+                            completed_tasks_dataset.select(
+                                _handle_selection_completed,
+                                [completed_tasks_dataset],
+                                [chat_window, current_task],
+                            )
+
+            # task submission
+            task_submit_btn.click(
+                self._handle_task_submission,
+                [task_submission, submitted_tasks_state],
+                [task_submission, submitted_tasks_state],
+            )
+
             # message submit
             message.submit(
                 self._handle_user_message,
@@ -171,94 +272,6 @@ class HumanInTheLoopGradioApp:
 
             # clear chat
             clear.click(self._reset_chat, None, [message, chat_window, current_task])
-
-            @gr.render(
-                inputs=[
-                    submitted_tasks_state,
-                    human_required_tasks_state,
-                    completed_tasks_state,
-                ]
-            )
-            def render_datasets(submitted, human_needed, completed):
-                human_needed_sample = [[t.input] for t in human_needed]
-                submitted_sample = [[t.input] for t in submitted]
-                completed_sample = [[t.input] for t in completed]
-
-                with gr.Row():
-                    with gr.Column():
-
-                        async def _handle_selection_submitted(
-                            values: List[str],
-                            evt: gr.SelectData,
-                        ):
-                            logger.info(
-                                f"You selected {evt.value} at {evt.index} from {evt.target}"
-                            )
-                            task: TaskModel = submitted[evt.index]
-                            logger.info(f"selected task: {task}")
-                            return task.chat_history, (evt.index, task.status)
-
-                        markdown = gr.Markdown(visible=False)
-                        submitted_tasks_dataset = gr.Dataset(
-                            samples=submitted_sample,
-                            components=[markdown],
-                            label="Submitted",
-                        )
-                        submitted_tasks_dataset.select(
-                            _handle_selection_submitted,
-                            [submitted_tasks_dataset],
-                            [chat_window, current_task],
-                        )
-                    with gr.Column():
-
-                        async def _handle_selection_human(
-                            values: List[str],
-                            evt: gr.SelectData,
-                        ):
-                            logger.info(
-                                f"You selected {evt.value} at {evt.index} from {evt.target}"
-                            )
-                            task: TaskModel = human_needed[evt.index]
-                            logger.info(f"selected task: {task}")
-                            return task.chat_history, (evt.index, task.status)
-
-                        markdown = gr.Markdown(visible=False)
-                        human_input_required_dataset = gr.Dataset(
-                            components=[markdown],
-                            samples=human_needed_sample,
-                            label="Human Input Required",
-                            elem_classes="human-needed",
-                        )
-                        human_input_required_dataset.select(
-                            _handle_selection_human,
-                            [human_input_required_dataset],
-                            [chat_window, current_task],
-                        )
-                    with gr.Column():
-
-                        async def _handle_selection_completed(
-                            values: List[str],
-                            evt: gr.SelectData,
-                        ):
-                            logger.info(
-                                f"You selected {evt.value} at {evt.index} from {evt.target}"
-                            )
-                            task: TaskModel = completed[evt.index]
-                            logger.info(f"selected task: {task}")
-                            return task.chat_history, (evt.index, task.status)
-
-                        markdown = gr.Markdown(visible=False)
-                        completed_tasks_dataset = gr.Dataset(
-                            components=[markdown],
-                            samples=completed_sample,
-                            label="Completed Tasks",
-                            elem_classes="completed-tasks",
-                        )
-                        completed_tasks_dataset.select(
-                            _handle_selection_completed,
-                            [completed_tasks_dataset],
-                            [chat_window, current_task],
-                        )
 
     async def process_completed_task_messages(self, message: QueueMessage, **kwargs):
         if message.action == ActionTypes.COMPLETED_TASK:
@@ -375,12 +388,16 @@ class HumanInTheLoopGradioApp:
                 del submitted[ix]
                 human_needed.append(task)
 
-                current_task_ix, current_task_status = current_task
-                if (
-                    current_task_status == TaskStatus.SUBMITTED
-                    and current_task_ix == ix
-                ):
-                    current_task = (len(human_needed) - 1, TaskStatus.HUMAN_REQUIRED)
+                if current_task:
+                    current_task_ix, current_task_status = current_task
+                    if (
+                        current_task_status == TaskStatus.SUBMITTED
+                        and current_task_ix == ix
+                    ):
+                        current_task = (
+                            len(human_needed) - 1,
+                            TaskStatus.HUMAN_REQUIRED,
+                        )
 
             except StopIteration:
                 raise ValueError("Cannot find task in list of tasks.")
@@ -390,6 +407,34 @@ class HumanInTheLoopGradioApp:
             pass
 
         return submitted, human_needed, completed, current_task
+
+    async def _handle_task_submission(
+        self,
+        user_message: str,
+        submitted: List[TaskModel],
+    ):
+        """Handle the user submitted message. Clear message box, and append
+        to the history.
+        """
+        message = gr.ChatMessage(role="user", content=user_message)
+        # create new task and store in state
+        task_id = self._client.create_task(user_message)
+        task = TaskModel(
+            task_id=task_id,
+            input=user_message,
+            chat_history=[
+                message,
+                gr.ChatMessage(
+                    role="assistant",
+                    content=f"Successfully submitted task: {task_id}.",
+                    metadata={"title": "🪵 System message"},
+                ),
+            ],
+            status=TaskStatus.SUBMITTED,
+        )
+        submitted.append(task)
+
+        return "", submitted
 
     async def _handle_user_message(
         self,
@@ -403,39 +448,20 @@ class HumanInTheLoopGradioApp:
         to the history.
         """
         message = gr.ChatMessage(role="user", content=user_message)
-        if current_task:
-            # find current task from tasks
-            # append message to associated chat history
-            # chat_history.append(message)
-            # submit human input fn
-            ix, status = current_task
-            if status == TaskStatus.SUBMITTED:
-                task = submitted[ix]
-            elif status == TaskStatus.HUMAN_REQUIRED:
-                task = human_needed[ix]
-                task.chat_history.append(message)
-                human_needed[ix] = task
-                await self.human_in_loop_result_queue.put(user_message)
-            else:
-                task = completed[ix]
+        # find current task from tasks
+        # append message to associated chat history
+        # chat_history.append(message)
+        # submit human input fn
+        ix, status = current_task
+        if status == TaskStatus.SUBMITTED:
+            task = submitted[ix]
+        elif status == TaskStatus.HUMAN_REQUIRED:
+            task = human_needed[ix]
+            task.chat_history.append(message)
+            human_needed[ix] = task
+            await self.human_in_loop_result_queue.put(user_message)
         else:
-            # create new task and store in state
-            task_id = self._client.create_task(user_message)
-            task = TaskModel(
-                task_id=task_id,
-                input=user_message,
-                chat_history=[
-                    message,
-                    gr.ChatMessage(
-                        role="assistant",
-                        content=f"Successfully submitted task: {task_id}.",
-                        metadata={"title": "🪵 System message"},
-                    ),
-                ],
-                status=TaskStatus.SUBMITTED,
-            )
-            submitted.append(task)
-            current_task = (len(submitted) - 1, TaskStatus.SUBMITTED)
+            task = completed[ix]
 
         return "", current_task, submitted, human_needed, completed, task.chat_history
 
