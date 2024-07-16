@@ -163,33 +163,84 @@ class HumanInTheLoopGradioApp:
                 ]
             )
             def render_datasets(submitted, human_needed, completed):
-                human_needed = [[t.input] for t in human_needed]
-                submitted = [[t.input] for t in submitted]
-                completed = [[t.input] for t in completed]
+                human_needed_sample = [[t.input] for t in human_needed]
+                submitted_sample = [[t.input] for t in submitted]
+                completed_sample = [[t.input] for t in completed]
 
                 with gr.Row():
                     with gr.Column():
+
+                        async def _handle_selection_submitted(
+                            values: List[str],
+                            evt: gr.SelectData,
+                        ):
+                            logger.info(
+                                f"You selected {evt.value} at {evt.index} from {evt.target}"
+                            )
+                            task: TaskModel = submitted[evt.index]
+                            logger.info(f"selected task: {task}")
+                            return task.chat_history
+
                         markdown = gr.Markdown(visible=False)
                         submitted_tasks_dataset = gr.Dataset(
-                            samples=submitted,
+                            samples=submitted_sample,
                             components=[markdown],
                             label="Submitted",
                         )
+                        submitted_tasks_dataset.select(
+                            _handle_selection_submitted,
+                            [submitted_tasks_dataset],
+                            chat_window,
+                        )
                     with gr.Column():
+
+                        async def _handle_selection_human(
+                            values: List[str],
+                            evt: gr.SelectData,
+                        ):
+                            logger.info(
+                                f"You selected {evt.value} at {evt.index} from {evt.target}"
+                            )
+                            task: TaskModel = human_needed[evt.index]
+                            logger.info(f"selected task: {task}")
+                            return task.chat_history
+
                         markdown = gr.Markdown(visible=False)
                         human_input_required_dataset = gr.Dataset(
                             components=[markdown],
-                            samples=human_needed,
+                            samples=human_needed_sample,
                             label="Human Input Required",
                             elem_classes="human-needed",
                         )
+                        human_input_required_dataset.select(
+                            _handle_selection_human,
+                            [human_input_required_dataset],
+                            chat_window,
+                        )
                     with gr.Column():
+
+                        async def _handle_selection_completed(
+                            values: List[str],
+                            evt: gr.SelectData,
+                        ):
+                            logger.info(
+                                f"You selected {evt.value} at {evt.index} from {evt.target}"
+                            )
+                            task: TaskModel = completed[evt.index]
+                            logger.info(f"selected task: {task}")
+                            return task.chat_history
+
                         markdown = gr.Markdown(visible=False)
                         completed_tasks_dataset = gr.Dataset(
                             components=[markdown],
-                            samples=completed,
+                            samples=completed_sample,
                             label="Completed Tasks",
                             elem_classes="completed-tasks",
+                        )
+                        completed_tasks_dataset.select(
+                            _handle_selection_completed,
+                            [completed_tasks_dataset],
+                            chat_window,
                         )
 
     async def _tick_handler(
@@ -198,8 +249,6 @@ class HumanInTheLoopGradioApp:
         human_needed: List[TaskModel],
         completed: List[TaskModel],
     ) -> str:
-        logger.info(f"submitted: {submitted}")
-        logger.info(f"human_needed: {human_needed}")
         try:
             dict: Dict[str, str] = self.human_in_loop_queue.get_nowait()
             prompt = dict.get("prompt")
@@ -216,7 +265,7 @@ class HumanInTheLoopGradioApp:
                 task.prompt = prompt
                 task.status = TaskStatus.HUMAN_REQUIRED
                 del submitted[ix]
-                return submitted, human_needed + [task], completed
+                human_needed.append(task)
             except StopIteration:
                 raise ValueError("Cannot find task in list of tasks.")
             logger.info("appended human input request.")
