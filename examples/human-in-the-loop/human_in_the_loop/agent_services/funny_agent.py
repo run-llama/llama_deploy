@@ -4,13 +4,11 @@ import uvicorn
 from llama_agents import AgentService, ServiceComponent
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 
+from llama_index.core.tools import FunctionTool
 from llama_index.llms.openai import OpenAI
 from llama_index.agent.openai import OpenAIAgent
 
 from human_in_the_loop.utils import load_from_env
-from human_in_the_loop.additional_services.human_in_the_loop import (
-    human_service_as_tool,
-)
 
 
 message_queue_host = load_from_env("RABBITMQ_HOST")
@@ -28,15 +26,25 @@ localhost = load_from_env("LOCALHOST")
 message_queue = RabbitMQMessageQueue(
     url=f"amqp://{message_queue_username}:{message_queue_password}@{message_queue_host}:{message_queue_port}/"
 )
+
+
+# create an agent
+def get_the_secret_fact() -> str:
+    """Returns the secret fact."""
+    return "The secret fact is: A baby llama is called a 'Cria'."
+
+
+tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
+
 agent = OpenAIAgent.from_tools(
-    [human_service_as_tool],
-    system_prompt="Perform the task, return the result as well as a funny joke.",
+    [tool],
+    system_prompt="Gets the secret fact and tell a funny joke.",
     llm=OpenAI(model="gpt-4o"),
 )  # worker2.as_agent()
 agent_server = AgentService(
     agent=agent,
     message_queue=message_queue,
-    description="Useful for telling funny jokes.",
+    description="Useful for everything but math, and especially telling funny jokes.",
     service_name="funny_agent",
     host=funny_agent_host,
     port=int(funny_agent_port) if funny_agent_port else None,

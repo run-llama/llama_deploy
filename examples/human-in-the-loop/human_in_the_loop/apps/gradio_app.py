@@ -329,12 +329,13 @@ class HumanInTheLoopGradioApp:
                 del submitted[ix]
                 completed.append(task)
 
-                current_task_ix, current_task_status = current_task
-                if (
-                    current_task_status == TaskStatus.SUBMITTED
-                    and current_task_ix == ix
-                ):
-                    current_task = (len(completed) - 1, TaskStatus.COMPLETED)
+                if current_task:
+                    current_task_ix, current_task_status = current_task
+                    if (
+                        current_task_status == TaskStatus.SUBMITTED
+                        and current_task_ix == ix
+                    ):
+                        current_task = (len(completed) - 1, TaskStatus.COMPLETED)
 
             elif task_res.task_id in [t.task_id for t in human_needed]:
                 ix, task = next(
@@ -349,12 +350,13 @@ class HumanInTheLoopGradioApp:
                 del human_needed[ix]
                 completed.append(task)
 
-                current_task_ix, current_task_status = current_task
-                if (
-                    current_task_status == TaskStatus.HUMAN_REQUIRED
-                    and current_task_ix == ix
-                ):
-                    current_task = (len(completed) - 1, TaskStatus.COMPLETED)
+                if current_task:
+                    current_task_ix, current_task_status = current_task
+                    if (
+                        current_task_status == TaskStatus.HUMAN_REQUIRED
+                        and current_task_ix == ix
+                    ):
+                        current_task = (len(completed) - 1, TaskStatus.COMPLETED)
             else:
                 raise ValueError(
                     "Completed task not in submitted or human_needed lists."
@@ -380,9 +382,7 @@ class HumanInTheLoopGradioApp:
             # find task with the provided task_id
             try:
                 ix, task = next(
-                    (ix, t)
-                    for ix, t in enumerate(submitted)
-                    if t.input.lower() == prompt.lower()
+                    (ix, t) for ix, t in enumerate(submitted) if t.task_id == task_id
                 )
                 task.prompt = prompt
                 task.status = TaskStatus.HUMAN_REQUIRED

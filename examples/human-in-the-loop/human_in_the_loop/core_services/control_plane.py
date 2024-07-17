@@ -4,10 +4,16 @@ import uvicorn
 from llama_agents import PipelineOrchestrator, ControlPlaneServer
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 
-from llama_index.core.query_pipeline import QueryPipeline
+from llama_index.core.query_pipeline import QueryPipeline, RouterComponent
+from llama_index.core.selectors import PydanticSingleSelector
+from llama_index.llms.openai import OpenAI
 
 from human_in_the_loop.utils import load_from_env
-from human_in_the_loop.agent_services.funny_agent import agent_component
+from human_in_the_loop.agent_services.funny_agent import agent_component, agent_server
+from human_in_the_loop.additional_services.human_in_the_loop import (
+    human_component,
+    human_service,
+)
 
 
 message_queue_host = load_from_env("RABBITMQ_HOST")
@@ -24,7 +30,15 @@ message_queue = RabbitMQMessageQueue(
     url=f"amqp://{message_queue_username}:{message_queue_password}@{message_queue_host}:{message_queue_port}/"
 )
 
-pipeline = QueryPipeline(chain=[agent_component])
+pipeline = QueryPipeline(
+    chain=[
+        RouterComponent(
+            selector=PydanticSingleSelector.from_defaults(llm=OpenAI()),
+            choices=[agent_server.description, human_service.description],
+            components=[agent_component, human_component],
+        )
+    ]
+)
 pipeline_orchestrator = PipelineOrchestrator(pipeline)
 
 # setup control plane

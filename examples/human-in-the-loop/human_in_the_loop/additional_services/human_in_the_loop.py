@@ -1,9 +1,8 @@
 import asyncio
 import uvicorn
 import gradio as gr
+from llama_agents import ServiceComponent, HumanService
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
-from llama_agents.services.human import HumanService
-from llama_agents.tools.service_as_tool import ServiceAsTool
 from human_in_the_loop.utils import load_from_env
 from human_in_the_loop.apps.gradio_app import HumanInTheLoopGradioApp
 from typing import Any
@@ -81,12 +80,7 @@ human_service = HumanService(
     fn_input=human_input_fn,
     human_input_prompt="{input_str}",
 )
-
-human_service_as_tool = ServiceAsTool.from_service_definition(
-    message_queue=message_queue,
-    service_definition=human_service.service_definition,
-    timeout=6000,
-)
+human_component = ServiceComponent.from_service_definition(human_service)
 
 app = gr.mount_gradio_app(human_service._app, gradio_app.app, path="/gradio")
 
