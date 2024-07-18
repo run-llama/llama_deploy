@@ -1,0 +1,21 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "human-in-the-loop"
+version = "0.1.0"
+description = ""
+authors = ["Andrei Fajardo <andrei@llamaindex.ai>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+llama-agents = {version = "^0.0.11", extras = ["rabbitmq"]}
+llama-index-core = "^0.10.55"
+llama-index-llms-openai = "^0.1.25"
+llama-index-embeddings-openai = "^0.1.10"
+llama-index-agent-openai = "^0.2.8"
+gradio = "^4.38.1"
+llama-index-program-openai = "^0.1.6"
+llama-index-readers-file = "^0.1.30"
