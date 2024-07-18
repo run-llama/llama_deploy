@@ -198,6 +198,11 @@ class HumanInTheLoopGradioApp:
                 [task_submission, submitted_tasks_state],
                 [task_submission, submitted_tasks_state],
             )
+            task_submission.submit(
+                self._handle_task_submission,
+                [task_submission, submitted_tasks_state],
+                [task_submission, submitted_tasks_state],
+            )
 
             # current task
             current_task.change(
