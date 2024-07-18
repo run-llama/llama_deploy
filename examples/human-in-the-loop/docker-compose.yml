@@ -47,6 +47,7 @@ services:
       - "8002:8002"
     volumes:
       - ./human_in_the_loop:/app/human_in_the_loop # load local code change to container without the need of rebuild
+      - ./data:/app/data
       - ./logging.ini:/app/logging.ini
     depends_on:
       rabbitmq:

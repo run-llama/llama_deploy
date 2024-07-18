@@ -5,7 +5,6 @@ multi-agent system to enable a human-in-the-loop design frontend by a Gradio app
 
 <img width="960" alt="image" src="https://github.com/user-attachments/assets/ce838acd-8a14-46ef-a5f0-f8d804e6f49c">
 
-
 ## The Multi-Agent System
 
 The system consists of the following components:
@@ -40,6 +39,11 @@ With that out of the way, we can build/launch our multi-agent system app along w
 our Gradio app.
 
 ```sh
+# download data for the agentic rag
+mkdir data
+wget 'https://raw.githubusercontent.com/run-llama/llama_index/main/docs/docs/examples/data/paul_graham/paul_graham_essay.txt' -O 'data/paul_graham_essay.txt'
+
+# launch the system
 docker-compose up --build
 ```
 
@@ -48,4 +52,4 @@ sequence: message queue, control plane, agent server & human server. Note that
 the Gradio (fastapi) app is merely mounted to the human server app.
 
 Once running, we can visit our browser and enter the host and port of the
-Human Server app adding the necessary route to our Gradio app: http://0.0.0.0:8003/gradio.
+Human Server app adding the necessary route to our Gradio app: [http://0.0.0.0:8003/gradio](http://0.0.0.0:8003/gradio]).
