@@ -2,11 +2,9 @@
 
 from enum import Enum
 from dataclasses import dataclass, field
-from io import StringIO
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import asyncio
 import gradio as gr
-import sys
 
 from llama_agents import LlamaAgentsClient, CallableMessageConsumer, QueueMessage
 from llama_agents.types import ActionTypes, TaskResult
@@ -248,7 +246,7 @@ class HumanInTheLoopGradioApp:
         if message.action == ActionTypes.COMPLETED_TASK:
             task_res = TaskResult(**message.data)
             await self._completed_tasks_queue.put(task_res)
-            logger.info(f"Added task result to queue")
+            logger.info("Added task result to queue")
 
     async def _current_task_change_handler(
         self,
