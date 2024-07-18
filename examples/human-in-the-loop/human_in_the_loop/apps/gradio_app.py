@@ -103,7 +103,7 @@ class HumanInTheLoopGradioApp:
                         """
                         with gr.Row():
                             message = gr.Textbox(
-                                label="Write A Message",
+                                label="Human (In The Loop) Input",
                                 scale=4,
                                 interactive=active_task
                                 and active_task[1] == TaskStatus.HUMAN_REQUIRED,
