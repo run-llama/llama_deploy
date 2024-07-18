@@ -68,7 +68,7 @@ class HumanInTheLoopGradioApp:
             current_task: Tuple[int, TaskStatus] = gr.State(None)
 
             # timers
-            timer = gr.Timer(2)
+            human_in_loop_timer = gr.Timer(2)
             completed_timer = gr.Timer(5)
 
             with gr.Row():
@@ -91,12 +91,8 @@ class HumanInTheLoopGradioApp:
                             message = gr.Textbox(
                                 label="Write A Message",
                                 scale=4,
-                                interactive=(
-                                    True
-                                    if active_task
-                                    else False
-                                    and active_task[1] == TaskStatus.HUMAN_REQUIRED
-                                ),
+                                interactive=active_task
+                                and active_task[1] == TaskStatus.HUMAN_REQUIRED,
                             )
                             clear = gr.ClearButton()
 
@@ -216,8 +212,8 @@ class HumanInTheLoopGradioApp:
             )
 
             # tick
-            timer.tick(
-                self._tick_handler,
+            human_in_loop_timer.tick(
+                self._human_in_loop_tick_handler,
                 [
                     submitted_tasks_state,
                     human_required_tasks_state,
@@ -319,7 +315,7 @@ class HumanInTheLoopGradioApp:
 
         return submitted, human_needed, completed, current_task
 
-    async def _tick_handler(
+    async def _human_in_loop_tick_handler(
         self,
         submitted: List[TaskModel],
         human_needed: List[TaskModel],
@@ -412,9 +408,6 @@ class HumanInTheLoopGradioApp:
         """
         message = gr.ChatMessage(role="user", content=user_message)
         # find current task from tasks
-        # append message to associated chat history
-        # chat_history.append(message)
-        # submit human input fn
         ix, status = current_task
         if status == TaskStatus.SUBMITTED:
             task = submitted[ix]
