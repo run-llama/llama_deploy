@@ -31,7 +31,7 @@ class TaskModel:
     chat_history: List[gr.ChatMessage] = field(default_factory=list)
 
 
-APP_HEADER_MD = """# Human In The Loop
+APP_HEADER_MD = """# Human In The Loop W/ LlamaAgents
 
 Here is a multi-agent system powered by [llama-agents](https://github.com/run-llama/llama-agents).
 This system consists of a human-in-the-loop service for answering math queries,
