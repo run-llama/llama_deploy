@@ -27,36 +27,30 @@ human_input_request_queue = asyncio.Queue()
 human_input_result_queue = asyncio.Queue()
 
 
-def human_input_fn_closure(queue):
-    async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
-        logger.info("human input fn invoked.")
-        await human_input_request_queue.put({"prompt": prompt, "task_id": task_id})
-        logger.info("placed new prompt in queue.")
+async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
+    logger.info("human input fn invoked.")
+    await human_input_request_queue.put({"prompt": prompt, "task_id": task_id})
+    logger.info("placed new prompt in queue.")
 
-        # poll until human answer is stored
-        async def _poll_for_human_input_result():
-            return await human_input_result_queue.get()
+    # poll until human answer is stored
+    async def _poll_for_human_input_result():
+        return await human_input_result_queue.get()
 
-        try:
-            human_input = await asyncio.wait_for(
-                _poll_for_human_input_result(),
-                timeout=6000,
-            )
-            logger.info(f"Recieved human input: {human_input}")
-        except (
-            asyncio.exceptions.TimeoutError,
-            asyncio.TimeoutError,
-            TimeoutError,
-        ):
-            logger.info(f"Timeout reached for tool_call with prompt {prompt}")
-            human_input = "Something went wrong."
+    try:
+        human_input = await asyncio.wait_for(
+            _poll_for_human_input_result(),
+            timeout=6000,
+        )
+        logger.info(f"Recieved human input: {human_input}")
+    except (
+        asyncio.exceptions.TimeoutError,
+        asyncio.TimeoutError,
+        TimeoutError,
+    ):
+        logger.info(f"Timeout reached for tool_call with prompt {prompt}")
+        human_input = "Something went wrong."
 
-        return human_input
-
-    return human_input_fn
-
-
-human_input_fn = human_input_fn_closure(human_input_request_queue)
+    return human_input
 
 
 # Gradio app

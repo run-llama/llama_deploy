@@ -43,7 +43,7 @@ class HumanInTheLoopGradioApp:
     ) -> None:
         self.human_in_loop_queue = human_in_loop_queue
         self.human_in_loop_result_queue = human_in_loop_result_queue
-        self.app = gr.Blocks(css=css)
+        self.app = gr.Blocks(css=css).queue(default_concurrency_limit=10)
         self._client = LlamaAgentsClient(
             control_plane_url=(
                 f"http://{control_plane_host}:{control_plane_port}"
@@ -91,8 +91,12 @@ class HumanInTheLoopGradioApp:
                             message = gr.Textbox(
                                 label="Write A Message",
                                 scale=4,
-                                interactive=active_task
-                                and active_task[1] == TaskStatus.HUMAN_REQUIRED,
+                                interactive=(
+                                    True
+                                    if active_task
+                                    else False
+                                    and active_task[1] == TaskStatus.HUMAN_REQUIRED
+                                ),
                             )
                             clear = gr.ClearButton()
 
@@ -160,6 +164,7 @@ class HumanInTheLoopGradioApp:
                                 handle_selection_closure(submitted),
                                 [submitted_tasks_dataset],
                                 [chat_window, current_task],
+                                concurrency_limit=10,
                             )
                         with gr.Row():
                             markdown = gr.Markdown(visible=False)
@@ -173,6 +178,7 @@ class HumanInTheLoopGradioApp:
                                 handle_selection_closure(human_needed),
                                 [human_input_required_dataset],
                                 [chat_window, current_task],
+                                concurrency_limit=10,
                             )
 
                         with gr.Row():
@@ -187,6 +193,7 @@ class HumanInTheLoopGradioApp:
                                 handle_selection_closure(completed),
                                 [completed_tasks_dataset],
                                 [chat_window, current_task],
+                                concurrency_limit=10,
                             )
 
             # task submission
@@ -273,49 +280,36 @@ class HumanInTheLoopGradioApp:
         completed: List[TaskModel],
         current_task: Tuple[int, str],
     ) -> List[TaskModel]:
+
+        def remove_from_list_closure(
+            task_list: List[TaskModel],
+            task_status: TaskStatus,
+            current_task: Tuple[int, str] = current_task,
+        ) -> None:
+            ix, task = next(
+                (ix, t)
+                for ix, t in enumerate(task_list)
+                if t.task_id == task_res.task_id
+            )
+            task.status = TaskStatus.COMPLETED
+            task.chat_history.append(
+                gr.ChatMessage(role="assistant", content=task_res.result)
+            )
+            del task_list[ix]
+            completed.append(task)
+
+            if current_task:
+                current_task_ix, current_task_status = current_task
+                if current_task_status == task_status and current_task_ix == ix:
+                    # current task is the task that is being moved to completed
+                    current_task = (len(completed) - 1, TaskStatus.COMPLETED)
+
         try:
             task_res: TaskResult = self._completed_tasks_queue.get_nowait()
             if task_res.task_id in [t.task_id for t in submitted]:
-                ix, task = next(
-                    (ix, t)
-                    for ix, t in enumerate(submitted)
-                    if t.task_id == task_res.task_id
-                )
-                task.status = TaskStatus.COMPLETED
-                task.chat_history.append(
-                    gr.ChatMessage(role="assistant", content=task_res.result)
-                )
-                del submitted[ix]
-                completed.append(task)
-
-                if current_task:
-                    current_task_ix, current_task_status = current_task
-                    if (
-                        current_task_status == TaskStatus.SUBMITTED
-                        and current_task_ix == ix
-                    ):
-                        current_task = (len(completed) - 1, TaskStatus.COMPLETED)
-
+                remove_from_list_closure(submitted, TaskStatus.SUBMITTED)
             elif task_res.task_id in [t.task_id for t in human_needed]:
-                ix, task = next(
-                    (ix, t)
-                    for ix, t in enumerate(human_needed)
-                    if t.task_id == task_res.task_id
-                )
-                task.status = TaskStatus.COMPLETED
-                task.chat_history.append(
-                    gr.ChatMessage(role="assistant", content=task_res.result)
-                )
-                del human_needed[ix]
-                completed.append(task)
-
-                if current_task:
-                    current_task_ix, current_task_status = current_task
-                    if (
-                        current_task_status == TaskStatus.HUMAN_REQUIRED
-                        and current_task_ix == ix
-                    ):
-                        current_task = (len(completed) - 1, TaskStatus.COMPLETED)
+                remove_from_list_closure(human_needed, TaskStatus.HUMAN_REQUIRED)
             else:
                 raise ValueError(
                     "Completed task not in submitted or human_needed lists."
