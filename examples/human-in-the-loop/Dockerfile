@@ -44,3 +44,6 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 # Copy source code
 COPY ./logging.ini ./logging.ini
 COPY ./human_in_the_loop ./human_in_the_loop
+
+# Copy data for Agentic RAG
+COPY ./data ./data

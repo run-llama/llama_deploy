@@ -1,10 +1,13 @@
 import asyncio
 import uvicorn
+from pathlib import Path
 
 from llama_agents import AgentService, ServiceComponent
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 
-from llama_index.core.tools import FunctionTool
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader
+from llama_index.core.tools import FunctionTool, ToolMetadata
+from llama_index.core.tools import QueryEngineTool
 from llama_index.llms.openai import OpenAI
 from llama_index.agent.openai import OpenAIAgent
 
@@ -34,17 +37,33 @@ def get_the_secret_fact() -> str:
     return "The secret fact is: A baby llama is called a 'Cria'."
 
 
-tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
+secret_fact_tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
+
+# rag tool
+data_path = Path(Path(__file__).parents[2].absolute(), "data").as_posix()
+loader = SimpleDirectoryReader(input_dir=data_path)
+documents = loader.load_data()
+index = VectorStoreIndex.from_documents(documents)
+query_engine = index.as_query_engine(llm=OpenAI(model="gpt-4o"))
+query_engine_tool = QueryEngineTool(
+    query_engine=query_engine,
+    metadata=ToolMetadata(
+        name="paul_graham_tool",
+        description=("Provides information about Paul Graham and his written essays."),
+    ),
+)
+
 
 agent = OpenAIAgent.from_tools(
-    [tool],
-    system_prompt="Gets the secret fact and tell a funny joke.",
+    [secret_fact_tool, query_engine_tool],
+    system_prompt="Knows about Paul Graham, the secret fact, and is able to tell a funny joke.",
     llm=OpenAI(model="gpt-4o"),
-)  # worker2.as_agent()
+    verbose=True,
+)
 agent_server = AgentService(
     agent=agent,
     message_queue=message_queue,
-    description="Useful for everything but math, and especially telling funny jokes.",
+    description="Useful for everything but math, and especially telling funny jokes and anything about Paul Graham.",
     service_name="funny_agent",
     host=funny_agent_host,
     port=int(funny_agent_port) if funny_agent_port else None,
