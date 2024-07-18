@@ -6,7 +6,6 @@ multi-agent system to enable a human-in-the-loop design frontend by a Gradio app
 ![image](https://github.com/user-attachments/assets/b070131f-bd56-44d0-91e5-387dbe5674cc)
 [GIF](https://d3ddy8balm3goa.cloudfront.net/llamaindex/human-in-the-loop.gif)
 
-
 ## The Multi-Agent System
 
 The system consists of the following components:
