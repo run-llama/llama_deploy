@@ -5,7 +5,7 @@ from llama_agents import ServiceComponent, HumanService
 from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
 from human_in_the_loop.utils import load_from_env
 from human_in_the_loop.apps.gradio_app import HumanInTheLoopGradioApp
-from typing import Any
+from typing import Any, Dict
 import logging
 
 logger = logging.getLogger("human_in_the_loop")
@@ -23,8 +23,8 @@ localhost = load_from_env("LOCALHOST")
 
 
 # # human in the loop function
-human_input_request_queue = asyncio.Queue()
-human_input_result_queue = asyncio.Queue()
+human_input_request_queue: asyncio.Queue[Dict[str, str]] = asyncio.Queue()
+human_input_result_queue: asyncio.Queue[str] = asyncio.Queue()
 
 
 async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
@@ -33,7 +33,7 @@ async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
     logger.info("placed new prompt in queue.")
 
     # poll until human answer is stored
-    async def _poll_for_human_input_result():
+    async def _poll_for_human_input_result() -> str:
         return await human_input_result_queue.get()
 
     try:
@@ -56,7 +56,7 @@ async def human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
 # Gradio app
 gradio_app = HumanInTheLoopGradioApp(
     control_plane_host=control_plane_host,
-    control_plane_port=control_plane_port,
+    control_plane_port=int(control_plane_port) if control_plane_port else None,
     human_in_loop_queue=human_input_request_queue,
     human_in_loop_result_queue=human_input_result_queue,
 )
@@ -83,12 +83,12 @@ app = gr.mount_gradio_app(human_service._app, gradio_app.app, path="/gradio")
 async def launch() -> None:
     # register to message queue
     start_consuming_callable = await human_service.register_to_message_queue()
-    hs_task = asyncio.create_task(start_consuming_callable())
+    hs_task = asyncio.create_task(start_consuming_callable())  # noqa: F841
 
     final_tasks_consuming_callable = await message_queue.register_consumer(
         gradio_app._final_task_consumer
     )
-    ft_task = asyncio.create_task(final_tasks_consuming_callable())
+    ft_task = asyncio.create_task(final_tasks_consuming_callable())  # noqa: F841
 
     cfg = uvicorn.Config(
         app,
