@@ -3,7 +3,7 @@
 In this example, we demonstrate how to utilize a `HumanService` as part of a
 multi-agent system to enable a human-in-the-loop design frontend by a Gradio app.
 
-<img width="960" alt="image" src="https://github.com/user-attachments/assets/ce838acd-8a14-46ef-a5f0-f8d804e6f49c">
+![image](https://github.com/user-attachments/assets/222833bf-49c1-4b0e-be6f-85a2f33ad72d)
 
 ## The Multi-Agent System
 
