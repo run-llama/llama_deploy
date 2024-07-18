@@ -2,7 +2,7 @@
 
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 import asyncio
 import gradio as gr
 
@@ -29,6 +29,15 @@ class TaskModel:
     status: TaskStatus
     prompt: Optional[str] = None
     chat_history: List[gr.ChatMessage] = field(default_factory=list)
+
+
+APP_HEADER_MD = """# Human In The Loop
+
+Here is a multi-agent system powered by [llama-agents](https://github.com/run-llama/llama-agents).
+This system consists of a human-in-the-loop service for answering math queries,
+and an agent for answering any other kind of query. The control plane for this system uses
+a router component to determine to which service (agent or human) to route the task.
+"""
 
 
 class HumanInTheLoopGradioApp:
@@ -59,20 +68,20 @@ class HumanInTheLoopGradioApp:
         self._final_task_consumer = CallableMessageConsumer(
             message_type="human", handler=self.process_completed_task_messages
         )
-        self._completed_tasks_queue = asyncio.Queue()
+        self._completed_tasks_queue: asyncio.Queue[TaskResult] = asyncio.Queue()
 
         with self.app:
             submitted_tasks_state = gr.State([])
             human_required_tasks_state = gr.State([])
             completed_tasks_state = gr.State([])
-            current_task: Tuple[int, TaskStatus] = gr.State(None)
+            current_task_state = gr.State(None)  # Optional[Tuple[int, TaskStatus]]
 
             # timers
             human_in_loop_timer = gr.Timer(2)
             completed_timer = gr.Timer(5)
 
             with gr.Row():
-                gr.Markdown("# Human In The Loop")
+                gr.Markdown(APP_HEADER_MD)
             with gr.Row():
                 with gr.Column(scale=1):
                     task_submission = gr.Textbox(label="Submit a Task")
@@ -85,8 +94,13 @@ class HumanInTheLoopGradioApp:
                         scale=3,
                     )
 
-                    @gr.render(inputs=[current_task])
-                    def message_box(active_task):
+                    @gr.render(inputs=[current_task_state])
+                    def message_box(active_task: Tuple[int, TaskStatus]) -> None:
+                        """Render the message box for Chatbot.
+
+                        Only make interactive when human-input is required. Otherwise
+                        chat is only READONLY.
+                        """
                         with gr.Row():
                             message = gr.Textbox(
                                 label="Write A Message",
@@ -101,14 +115,14 @@ class HumanInTheLoopGradioApp:
                             self._handle_user_message,
                             [
                                 message,
-                                current_task,
+                                current_task_state,
                                 submitted_tasks_state,
                                 human_required_tasks_state,
                                 completed_tasks_state,
                             ],
                             [
                                 message,
-                                current_task,
+                                current_task_state,
                                 submitted_tasks_state,
                                 human_required_tasks_state,
                                 completed_tasks_state,
@@ -118,7 +132,9 @@ class HumanInTheLoopGradioApp:
 
                         # clear chat
                         clear.click(
-                            self._reset_chat, None, [message, chat_window, current_task]
+                            self._reset_chat,
+                            None,
+                            [message, chat_window, current_task_state],
                         )
 
                 @gr.render(
@@ -128,16 +144,28 @@ class HumanInTheLoopGradioApp:
                         completed_tasks_state,
                     ]
                 )
-                def render_datasets(submitted, human_needed, completed):
+                def render_datasets(
+                    submitted: List[TaskModel],
+                    human_needed: List[TaskModel],
+                    completed: List[TaskModel],
+                ) -> None:
+                    """Render datasets.
+
+                    Show the tasks on the UI as pills in one of three datasets
+                    associated to the task status: Submitted, Human Required,
+                    Completed.
+                    """
                     human_needed_sample = [[t.input] for t in human_needed]
                     submitted_sample = [[t.input] for t in submitted]
                     completed_sample = [[t.input] for t in completed]
 
-                    def handle_selection_closure(dataset):
+                    def handle_selection_closure(
+                        dataset: List[TaskModel],
+                    ) -> Callable[[Any, Any], Awaitable[Any]]:
                         async def _handle_selection(
                             values: List[str],
                             evt: gr.SelectData,
-                        ):
+                        ) -> Tuple[List[gr.ChatMessage], Tuple[int, TaskStatus]]:
                             logger.info(
                                 f"You selected {evt.value} at {evt.index} from {evt.target}"
                             )
@@ -159,7 +187,7 @@ class HumanInTheLoopGradioApp:
                             submitted_tasks_dataset.select(
                                 handle_selection_closure(submitted),
                                 [submitted_tasks_dataset],
-                                [chat_window, current_task],
+                                [chat_window, current_task_state],
                                 concurrency_limit=10,
                             )
                         with gr.Row():
@@ -173,7 +201,7 @@ class HumanInTheLoopGradioApp:
                             human_input_required_dataset.select(
                                 handle_selection_closure(human_needed),
                                 [human_input_required_dataset],
-                                [chat_window, current_task],
+                                [chat_window, current_task_state],
                                 concurrency_limit=10,
                             )
 
@@ -188,7 +216,7 @@ class HumanInTheLoopGradioApp:
                             completed_tasks_dataset.select(
                                 handle_selection_closure(completed),
                                 [completed_tasks_dataset],
-                                [chat_window, current_task],
+                                [chat_window, current_task_state],
                                 concurrency_limit=10,
                             )
 
@@ -205,10 +233,10 @@ class HumanInTheLoopGradioApp:
             )
 
             # current task
-            current_task.change(
+            current_task_state.change(
                 self._current_task_change_handler,
                 [
-                    current_task,
+                    current_task_state,
                     submitted_tasks_state,
                     human_required_tasks_state,
                     completed_tasks_state,
@@ -223,13 +251,13 @@ class HumanInTheLoopGradioApp:
                     submitted_tasks_state,
                     human_required_tasks_state,
                     completed_tasks_state,
-                    current_task,
+                    current_task_state,
                 ],
                 [
                     submitted_tasks_state,
                     human_required_tasks_state,
                     completed_tasks_state,
-                    current_task,
+                    current_task_state,
                 ],
             )
 
@@ -240,17 +268,25 @@ class HumanInTheLoopGradioApp:
                     submitted_tasks_state,
                     human_required_tasks_state,
                     completed_tasks_state,
-                    current_task,
+                    current_task_state,
                 ],
                 [
                     submitted_tasks_state,
                     human_required_tasks_state,
                     completed_tasks_state,
-                    current_task,
+                    current_task_state,
                 ],
             )
 
-    async def process_completed_task_messages(self, message: QueueMessage, **kwargs):
+    async def process_completed_task_messages(
+        self, message: QueueMessage, **kwargs: Any
+    ) -> None:
+        """Consumer of completed tasks.
+
+        By default control plane sends to message consumer of type "human".
+        The process message logic contained here simply puts the TaskResult into
+        a queue that is continuosly via a gr.Timer().
+        """
         if message.action == ActionTypes.COMPLETED_TASK:
             task_res = TaskResult(**message.data)
             await self._completed_tasks_queue.put(task_res)
@@ -262,7 +298,8 @@ class HumanInTheLoopGradioApp:
         submitted: List[TaskModel],
         human_needed: List[TaskModel],
         completed: List[TaskModel],
-    ):
+    ) -> List[gr.ChatMessage]:
+        """Show the current tasks chat history in Chatbot."""
         if current_task:
             ix, status = current_task
             if status == TaskStatus.SUBMITTED:
@@ -279,14 +316,26 @@ class HumanInTheLoopGradioApp:
         submitted: List[TaskModel],
         human_needed: List[TaskModel],
         completed: List[TaskModel],
-        current_task: Tuple[int, str],
-    ) -> List[TaskModel]:
+        current_task: Tuple[int, TaskStatus],
+    ) -> Tuple[
+        List[TaskModel], List[TaskModel], List[TaskModel], Tuple[int, TaskStatus]
+    ]:
+        """Logic used when polling the completed tasks queue.
+
+        Specifically, move tasks from either submitted/human-required status to
+        completed status.
+        """
 
         def remove_from_list_closure(
             task_list: List[TaskModel],
             task_status: TaskStatus,
-            current_task: Tuple[int, str] = current_task,
+            current_task: Tuple[int, TaskStatus] = current_task,
         ) -> None:
+            """Closure depending on the task list/status.
+
+            Returns a function used to move the task from the incumbent list/status
+            over to the completed list.
+            """
             ix, task = next(
                 (ix, t)
                 for ix, t in enumerate(task_list)
@@ -325,8 +374,16 @@ class HumanInTheLoopGradioApp:
         submitted: List[TaskModel],
         human_needed: List[TaskModel],
         completed: List[TaskModel],
-        current_task: Tuple[int, str],
-    ) -> str:
+        current_task: Tuple[int, TaskStatus],
+    ) -> Tuple[
+        List[TaskModel], List[TaskModel], List[TaskModel], Tuple[int, TaskStatus]
+    ]:
+        """Logic to be performed when polling the human_in_the_loop_queue.
+
+        This app is the consumer of this queue, where as the producer is the
+        HumanService (more specifically its HumanFnInput).
+        """
+
         try:
             dict: Dict[str, str] = self.human_in_loop_queue.get_nowait()
             prompt = dict.get("prompt")
@@ -376,9 +433,9 @@ class HumanInTheLoopGradioApp:
         self,
         user_message: str,
         submitted: List[TaskModel],
-    ):
-        """Handle the user submitted message. Clear message box, and append
-        to the history.
+    ) -> Tuple[str, List[TaskModel]]:
+        """Handle the user submitted message. Clear task submission box, and
+        add the new task to the submitted list.
         """
         message = gr.ChatMessage(role="user", content=user_message)
         # create new task and store in state
@@ -403,14 +460,24 @@ class HumanInTheLoopGradioApp:
     async def _handle_user_message(
         self,
         user_message: str,
-        current_task: Optional[Tuple[int, str]],
+        current_task: Optional[Tuple[int, TaskStatus]],
         submitted: List[TaskModel],
         human_needed: List[TaskModel],
         completed: List[TaskModel],
-    ):
-        """Handle the user submitted message. Clear message box, and append
-        to the history.
+    ) -> Tuple[
+        str,
+        Tuple[int, TaskStatus],
+        List[TaskModel],
+        List[TaskModel],
+        List[TaskModel],
+        List[gr.ChatMessage],
+    ]:
+        """Handle the human input.
+
+        This is the entrypoint for the human of the human in the loop.
         """
+        if not current_task:
+            raise ValueError("`current_task` should not be None.")
         message = gr.ChatMessage(role="user", content=user_message)
         # find current task from tasks
         ix, status = current_task
@@ -426,29 +493,9 @@ class HumanInTheLoopGradioApp:
 
         return "", current_task, submitted, human_needed, completed, task.chat_history
 
-    async def _poll_for_task_result(self, task_id: str):
-        task_result = None
-        while task_result is None:
-            if not self.human_in_loop_queue.empty():
-                break
-            try:
-                task_result = self._client.get_task_result(task_id)
-            except Exception:
-                pass
-            await asyncio.sleep(1)
-        return task_result
-
-    async def _generate_response(self, chat_history: List[gr.ChatMessage]):
-        user_message = gr.ChatMessage(**chat_history[-1])
-        task_id = self._client.create_task(user_message.content)
-        message = gr.ChatMessage(
-            role="assistant", content=f"Successfully submitted task: {task_id}."
-        )
-        chat_history.append(message)
-        return chat_history, ""
-
-    def _reset_chat(self) -> Tuple[str, str, str]:
-        return "", "", None  # clear textboxes
+    def _reset_chat(self) -> Tuple[str, str, None]:
+        """Clear chatbot and user message textbox."""
+        return "", "", None
 
 
 app = HumanInTheLoopGradioApp(asyncio.Queue(), asyncio.Queue()).app
