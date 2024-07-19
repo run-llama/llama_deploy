@@ -3,7 +3,7 @@ import uuid
 import uvicorn
 from fastapi import FastAPI
 from logging import getLogger
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Callable
 
 from llama_index.core import StorageContext, VectorStoreIndex
 from llama_index.core.objects import ObjectIndex, SimpleObjectNodeMapping
@@ -155,6 +155,11 @@ class ControlPlaneServer(BaseControlPlane):
             tags=["Tasks"],
         )
 
+        self.action_handlers: Dict[ActionTypes, Callable] = {
+            ActionTypes.NEW_TASK: self.handle_new_task,
+            ActionTypes.COMPLETED_TASK: self.handle_completed_task,
+        }
+
     @property
     def message_queue(self) -> BaseMessageQueue:
         return self._message_queue
@@ -188,14 +193,22 @@ class ControlPlaneServer(BaseControlPlane):
         return len(all_services)
 
     async def process_message(self, message: QueueMessage) -> None:
-        action = message.action
-
-        if action == ActionTypes.NEW_TASK and message.data is not None:
-            await self.create_task(TaskDefinition(**message.data))
-        elif action == ActionTypes.COMPLETED_TASK and message.data is not None:
-            await self.handle_service_completion(TaskResult(**message.data))
+        if message.action in self.action_handlers and message.data is not None:
+            await self.action_handlers[message.action](message)
+        elif not message.data:
+            raise ValueError(f"Message for action {message.action} must contain data")
         else:
-            raise ValueError(f"Action {action} not supported by control plane")
+            raise ValueError(f"Action {message.action} not supported by control plane")
+
+    async def handle_new_task(self, message: QueueMessage) -> None:
+        return await self.create_task(TaskDefinition(**message.data))
+
+    async def handle_completed_task(self, message: QueueMessage) -> None:
+        task_result = TaskResult(**message.data)
+        if len(task_result.history) > 1:
+            await self.handle_service_completion(task_result)
+        else:
+            raise ValueError(f"Task {task_result.task_id} has empty history")
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         if remote:
