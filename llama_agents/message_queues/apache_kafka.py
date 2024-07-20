@@ -1,23 +1,28 @@
 """Apache Kafka Message Queue."""
 
 import asyncio
+import json
 from logging import getLogger
 from typing import Any, Callable, Coroutine, Dict, List, Optional
+from llama_agents import CallableMessageConsumer, QueueMessage
 from llama_agents.message_queues.base import (
     BaseMessageQueue,
 )
-from llama_agents.messages.base import QueueMessage
 from llama_agents.message_consumers.base import (
     BaseMessageQueueConsumer,
     default_start_consuming_callable,
 )
 
+import logging
+
 logger = getLogger(__name__)
+logger.setLevel(logging.INFO)
 
 
 DEFAULT_URL = "localhost:9092"
 DEFAULT_TOPIC_PARTITIONS = 10
 DEFAULT_TOPIC_REPLICATION_FACTOR = 1
+DEFAULT_GROUP_ID = "default_group"  # single group for competing consumers
 
 
 class KafkaMessageQueue(BaseMessageQueue):
@@ -95,6 +100,29 @@ class KafkaMessageQueue(BaseMessageQueue):
     async def register_consumer(
         self, consumer: BaseMessageQueueConsumer
     ) -> Callable[..., Coroutine[Any, Any, None]]:
+        """Register a new consumer."""
+        from aiokafka import AIOKafkaConsumer
+
+        # register topic
+        self._create_new_topic(consumer.message_type)
+
+        async def start_consuming_callable() -> None:
+            """StartConsumingCallable."""
+
+            kafka_consumer = AIOKafkaConsumer(
+                consumer.message_type,
+                bootstrap_servers=self.url,
+                group_id=DEFAULT_GROUP_ID,
+            )
+            await consumer.start()
+            try:
+                async for msg in kafka_consumer:
+                    decoded_message = json.loads(msg.value.decode("utf-8"))
+                    queue_message = QueueMessage.model_validate(decoded_message)
+                    await consumer.process_message(queue_message)
+            finally:
+                await kafka_consumer.stop()
+
         return default_start_consuming_callable
 
 
@@ -102,6 +130,23 @@ async def main() -> None:
     mq = KafkaMessageQueue()
     mq._create_new_topic(topic_name="test")
 
+    # register a sample consumer
+    test_consumer = CallableMessageConsumer(
+        message_type="test", handler=lambda msg: print(msg)
+    )
+
+    start_consuming_callable = await mq.register_consumer(test_consumer)
+    _ = asyncio.create_task(start_consuming_callable())
+
+    await asyncio.Future()
+
 
 if __name__ == "__main__":
+    import logging
+    import logging
+    import sys
+
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+
+    logger.addHandler(logging.StreamHandler(stream=sys.stdout))
     asyncio.run(main())
