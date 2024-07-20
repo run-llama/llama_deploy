@@ -10,7 +10,6 @@ from llama_agents.message_queues.base import (
 )
 from llama_agents.message_consumers.base import (
     BaseMessageQueueConsumer,
-    default_start_consuming_callable,
 )
 
 import logging
@@ -123,7 +122,7 @@ class KafkaMessageQueue(BaseMessageQueue):
             finally:
                 await kafka_consumer.stop()
 
-        return default_start_consuming_callable
+        return start_consuming_callable
 
 
 async def main() -> None:
@@ -137,8 +136,6 @@ async def main() -> None:
 
     start_consuming_callable = await mq.register_consumer(test_consumer)
     _ = asyncio.create_task(start_consuming_callable())
-
-    await asyncio.Future()
 
 
 if __name__ == "__main__":
