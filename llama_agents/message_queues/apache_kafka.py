@@ -113,7 +113,7 @@ class KafkaMessageQueue(BaseMessageQueue):
                 bootstrap_servers=self.url,
                 group_id=DEFAULT_GROUP_ID,
             )
-            await consumer.start()
+            await kafka_consumer.start()
             try:
                 async for msg in kafka_consumer:
                     decoded_message = json.loads(msg.value.decode("utf-8"))
@@ -135,7 +135,9 @@ async def main() -> None:
     )
 
     start_consuming_callable = await mq.register_consumer(test_consumer)
-    _ = asyncio.create_task(start_consuming_callable())
+    task = asyncio.create_task(start_consuming_callable())
+
+    task.cancel()
 
 
 if __name__ == "__main__":
