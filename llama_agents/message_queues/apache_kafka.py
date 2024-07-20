@@ -106,13 +106,15 @@ class KafkaMessageQueue(BaseMessageQueue):
         await asyncio.sleep(0.1)  # apply small wait for delete to actually take place
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
-        ...
+        """Deregister a consumer."""
+        raise NotImplementedError
 
     async def launch_local(self) -> asyncio.Task:
         return asyncio.create_task(self.processing_loop())
 
     async def launch_server(self) -> None:
-        ...
+        """Launch server."""
+        raise NotImplementedError
 
     async def processing_loop(self) -> None:
         pass
