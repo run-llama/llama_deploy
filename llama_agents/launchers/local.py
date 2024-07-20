@@ -200,6 +200,7 @@ class LocalLauncher(MessageQueuePublisherMixin):
         # shutdown tasks
         for task in bg_tasks + start_consuming_tasks:
             task.cancel()
+            await asyncio.sleep(0.1)
 
         # clean up registered services
         for service in self.services:

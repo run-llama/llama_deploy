@@ -104,10 +104,9 @@ class KafkaMessageQueue(BaseMessageQueue):
         admin_client = KafkaAdminClient(bootstrap_servers=self.url)
         active_topics = admin_client.list_topics()
         topics_to_delete = [el for el in message_types if el in active_topics]
-        logger.info(f"TOPICS TO DELETE: {topics_to_delete}")
+        admin_client.delete_consumer_groups(DEFAULT_GROUP_ID)
         if topics_to_delete:
             admin_client.delete_topics(topics_to_delete)
-        await asyncio.sleep(0.1)  # apply small wait for delete to actually take place
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         """Deregister a consumer."""
@@ -151,7 +150,13 @@ class KafkaMessageQueue(BaseMessageQueue):
                     queue_message = QueueMessage.model_validate(decoded_message)
                     await consumer.process_message(queue_message)
             finally:
-                await kafka_consumer.stop()
+                stop_task = asyncio.create_task(kafka_consumer.stop())
+                stop_task.add_done_callback(
+                    lambda _: logger.info(
+                        f"stopped kafka consumer {consumer.id_}: {consumer.message_type}"
+                    )
+                )
+                await asyncio.shield(stop_task)
 
         return start_consuming_callable
 
