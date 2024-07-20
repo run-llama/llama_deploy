@@ -47,7 +47,13 @@ class KafkaMessageQueue(BaseMessageQueue):
         replication_factor: Optional[int] = None,
         **kwargs: Dict[str, Any],
     ) -> None:
-        """Create a new topic."""
+        """Create a new topic.
+
+        Use kafka-python-ng instead of aio-kafka as latter has issues with
+        resolving api_version with broker.
+
+        TODO: convert to aiokafka once this it is resolved there.
+        """
         from kafka.admin import KafkaAdminClient, NewTopic
         from kafka.errors import TopicAlreadyExistsError
 
