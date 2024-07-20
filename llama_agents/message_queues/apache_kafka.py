@@ -102,19 +102,23 @@ class KafkaMessageQueue(BaseMessageQueue):
         from kafka.admin import KafkaAdminClient
 
         admin_client = KafkaAdminClient(bootstrap_servers=self.url)
-        admin_client.delete_topics(message_types)
+        active_topics = admin_client.list_topics()
+        topics_to_delete = [el for el in message_types if el in active_topics]
+        logger.info(f"TOPICS TO DELETE: {topics_to_delete}")
+        if topics_to_delete:
+            admin_client.delete_topics(topics_to_delete)
         await asyncio.sleep(0.1)  # apply small wait for delete to actually take place
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         """Deregister a consumer."""
-        raise NotImplementedError
+        pass
 
     async def launch_local(self) -> asyncio.Task:
         return asyncio.create_task(self.processing_loop())
 
     async def launch_server(self) -> None:
         """Launch server."""
-        raise NotImplementedError
+        pass
 
     async def processing_loop(self) -> None:
         pass
@@ -127,6 +131,13 @@ class KafkaMessageQueue(BaseMessageQueue):
 
         # register topic
         self._create_new_topic(consumer.message_type)
+        kafka_consumer = AIOKafkaConsumer(
+            consumer.message_type,
+            bootstrap_servers=self.url,
+            group_id=DEFAULT_GROUP_ID,
+            auto_offset_reset="earliest",
+        )
+        await kafka_consumer.start()
 
         logger.info(
             f"Registered consumer {consumer.id_}: {consumer.message_type}",
@@ -134,13 +145,6 @@ class KafkaMessageQueue(BaseMessageQueue):
 
         async def start_consuming_callable() -> None:
             """StartConsumingCallable."""
-
-            kafka_consumer = AIOKafkaConsumer(
-                consumer.message_type,
-                bootstrap_servers=self.url,
-                group_id=DEFAULT_GROUP_ID,
-            )
-            await kafka_consumer.start()
             try:
                 async for msg in kafka_consumer:
                     decoded_message = json.loads(msg.value.decode("utf-8"))
