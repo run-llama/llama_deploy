@@ -215,13 +215,13 @@ class LocalLauncher(MessageQueuePublisherMixin):
         await self.message_queue.deregister_consumer(self.control_plane.as_consumer())
 
         # clean up before shutting down mq
-        # await self.message_queue.cleanup_local(
-        #     message_types=[
-        #         c.message_type
-        #         for c in [s.as_consumer() for s in self.services]
-        #         + [self.control_plane.as_consumer(), human_consumer]
-        #     ]
-        # )
+        await self.message_queue.cleanup_local(
+            message_types=[
+                c.message_type
+                for c in [s.as_consumer() for s in self.services]
+                + [self.control_plane.as_consumer(), human_consumer]
+            ]
+        )
         mq_task.cancel()
 
         return self.result or "No result found."
