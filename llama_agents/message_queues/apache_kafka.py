@@ -150,42 +150,50 @@ class KafkaMessageQueue(BaseMessageQueue):
         return start_consuming_callable
 
 
-async def consume() -> None:
-    mq = KafkaMessageQueue()
-
-    # register a sample consumer
-    def message_handler(message: QueueMessage) -> None:
-        print(f"MESSAGE: {message}")
-
-    test_consumer = CallableMessageConsumer(
-        message_type="test", handler=message_handler
-    )
-
-    start_consuming_callable = await mq.register_consumer(test_consumer)
-    await start_consuming_callable()
-
-
-async def produce() -> None:
-    mq = KafkaMessageQueue()
-    mq._create_new_topic(topic_name="test")
-
-    test_message = QueueMessage(type="test", data={"message": "this is a test"})
-    await mq.publish(test_message)
-
-
-async def clean_up() -> None:
-    mq = KafkaMessageQueue()
-    await mq.cleanup_local(["test"])
-
-
 if __name__ == "__main__":
-    import logging
-    import logging
+    import argparse
     import sys
 
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-
     logger.addHandler(logging.StreamHandler(stream=sys.stdout))
-    asyncio.run(produce())
-    # asyncio.run(consume())
-    # asyncio.run(clean_up())
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--produce", action="store_true", default=False)
+    parser.add_argument("--consume", action="store_true", default=False)
+    parser.add_argument("--clean-up", action="store_true", default=False)
+
+    args = parser.parse_args()
+
+    async def consume() -> None:
+        mq = KafkaMessageQueue()
+
+        # register a sample consumer
+        def message_handler(message: QueueMessage) -> None:
+            print(f"MESSAGE: {message}")
+
+        test_consumer = CallableMessageConsumer(
+            message_type="test", handler=message_handler
+        )
+
+        start_consuming_callable = await mq.register_consumer(test_consumer)
+        await start_consuming_callable()
+
+    async def produce() -> None:
+        mq = KafkaMessageQueue()
+        mq._create_new_topic(topic_name="test")
+
+        test_message = QueueMessage(type="test", data={"message": "this is a test"})
+        await mq.publish(test_message)
+
+    async def clean_up() -> None:
+        mq = KafkaMessageQueue()
+        await mq.cleanup_local(["test"])
+
+    if args.produce:
+        asyncio.run(produce())
+
+    if args.consume:
+        asyncio.run(consume())
+
+    if args.clean_up:
+        asyncio.run(clean_up())
