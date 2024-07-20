@@ -82,7 +82,18 @@ class KafkaMessageQueue(BaseMessageQueue):
     async def cleanup_local(
         self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
     ) -> None:
-        ...
+        """Cleanup for local runs.
+
+        Use kafka-python-ng instead of aio-kafka as latter has issues with
+        resolving api_version with broker when using admin client.
+
+        TODO: convert to aiokafka once this it is resolved there.
+        """
+        from kafka.admin import KafkaAdminClient
+
+        admin_client = KafkaAdminClient(bootstrap_servers=self.url)
+        admin_client.delete_topics(message_types)
+        await asyncio.sleep(0.1)  # apply small wait for delete to actually take place
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         ...
@@ -138,6 +149,7 @@ async def main() -> None:
     task = asyncio.create_task(start_consuming_callable())
 
     task.cancel()
+    await mq.cleanup_local(["test"])
 
 
 if __name__ == "__main__":
