@@ -42,7 +42,7 @@ With our Kafka broker running, we can now run our example scripts.
 
 ```sh
 # using LocalLauncher
-python ./simple-scripts/local_launcher_example.py
+python ./simple-scripts/local_launcher_human_single.py
 ```
 
 The script above will build a simple multi-agent app, connect it to the Kafka
