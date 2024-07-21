@@ -3,7 +3,9 @@
 The examples contained in this subdirectory make use of the Apache Kafka integration
 within `llama-agents`.
 
-To run these examples, you'll need to have the installed the `kafka` extra:
+## Installation
+
+Simply install `llama-agents` with the `kafka` extra:
 
 ```sh
 # using pip install
@@ -12,6 +14,9 @@ pip install llama-agents[kafka]
 # using poetry
 poetry add llama-agents -E "kafka"
 ```
+
+An virtual environment with this installation of `llama-agents` is what will
+be needed to run the example scripts in `simple-scripts/`.
 
 ## Usage Pattern
 
