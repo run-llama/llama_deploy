@@ -12,5 +12,5 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.10"
 uvicorn = "^0.30.3"
-llama-agents = {version = "^0.0.11", extras = ["kafka"]}
+llama-agents = {git = "git@github.com:run-llama/llama-agents.git", rev = "nerdai-kafka", extras = ["kafka"]}
 llama-index-llms-openai = "^0.1.26"

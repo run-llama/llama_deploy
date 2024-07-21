@@ -45,6 +45,8 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
+      secrets:
+        - id_ed25519
     healthcheck:
       test: wget --no-verbose --tries=1 http://0.0.0.0:8001/ || exit 1
       interval: 30s
@@ -70,6 +72,8 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
+      secrets:
+        - id_ed25519
     healthcheck:
       test: wget --no-verbose --tries=1 http://0.0.0.0:8002/ || exit 1
       interval: 30s
@@ -95,6 +99,8 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
+      secrets:
+        - id_ed25519
     healthcheck:
       test: wget --no-verbose --tries=1 http://0.0.0.0:8003/ || exit 1
       interval: 30s
@@ -121,6 +127,8 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
+      secrets:
+        - id_ed25519
     healthcheck:
       test: wget --no-verbose --tries=1 http://0.0.0.0:8004/ || exit 1
       interval: 30s
@@ -129,3 +137,6 @@ services:
       timeout: 10s
 volumes:
   kafka:
+secrets:
+  id_ed25519:
+    file: ~/.ssh/id_ed25519
