@@ -8,6 +8,7 @@ changelog:
       labels:
         - enhancement
         - feature
+        - integration
     - title: Bug Fixes 🐛
       labels:
         - bug
