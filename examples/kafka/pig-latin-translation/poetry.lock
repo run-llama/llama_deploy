@@ -801,6 +801,22 @@ reference = "nerdai-kafka"
 resolved_reference = "1bed39cfda1ba33fe7cbdbc398302af1806492f5"
 
 [[package]]
+name = "llama-index-agent-openai"
+version = "0.2.9"
+description = "llama-index agent openai integration"
+optional = false
+python-versions = "<4.0,>=3.8.1"
+files = [
+    {file = "llama_index_agent_openai-0.2.9-py3-none-any.whl", hash = "sha256:d7f0fd4c87124781acd783be603871f8808b1a3969e876a9c96e2ed0844d46ac"},
+    {file = "llama_index_agent_openai-0.2.9.tar.gz", hash = "sha256:debe86da6d9d983db32b445ddca7c798ac140fe59573bafded73595b3995f3d5"},
+]
+
+[package.dependencies]
+llama-index-core = ">=0.10.41,<0.11.0"
+llama-index-llms-openai = ">=0.1.5,<0.2.0"
+openai = ">=1.14.0"
+
+[[package]]
 name = "llama-index-core"
 version = "0.10.56"
 description = "Interface between LLMs and your data"
@@ -2273,4 +2289,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "caf6d8ee7ced609810dfdc862e5752684153b7e41c8413971bb0418d8525779d"
+content-hash = "2f3c74a9baab2f23d95c81a976f431c3276d7b3d5e60b6f1c7364ea979fd40db"

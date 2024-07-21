@@ -14,3 +14,4 @@ python = "^3.10"
 uvicorn = "^0.30.3"
 llama-agents = {git = "git@github.com:run-llama/llama-agents.git", rev = "nerdai-kafka", extras = ["kafka"]}
 llama-index-llms-openai = "^0.1.26"
+llama-index-agent-openai = "^0.2.9"
