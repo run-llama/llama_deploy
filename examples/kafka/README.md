@@ -15,7 +15,7 @@ pip install llama-agents[kafka]
 poetry add llama-agents -E "kafka"
 ```
 
-An virtual environment with this installation of `llama-agents` is what will
+A virtual environment with this installation of `llama-agents` is what will
 be needed to run the example scripts in `simple-scripts/`.
 
 ## Usage Pattern
