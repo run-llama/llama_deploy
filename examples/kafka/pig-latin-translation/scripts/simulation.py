@@ -1,3 +1,5 @@
+"""Module for sending simulated tasks to pig-latin translation system."""
+
 import asyncio
 import numpy as np
 import random
