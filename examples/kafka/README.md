@@ -47,3 +47,5 @@ python ./simple-scripts/local_launcher_human_single.py
 
 The script above will build a simple multi-agent app, connect it to the Kafka
 message queue, and subsequently send the specified task.
+
+### Example App: Pig-Latin Translator
