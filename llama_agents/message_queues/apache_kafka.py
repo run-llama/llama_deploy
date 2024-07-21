@@ -25,7 +25,25 @@ DEFAULT_GROUP_ID = "default_group"  # single group for competing consumers
 
 
 class KafkaMessageQueue(BaseMessageQueue):
-    """Apache Kafka integration with aiokafka."""
+    """Apache Kafka integration with aiokafka.
+
+    This class implements a traditional message broker using Apache Kafka.
+        - Topics are created with N partitions
+        - Consumers are registered to a single group to implement a competing
+        consumer scheme where only one consumer subscribed to a topic gets the
+        message
+            - Default round-robin assignment is used
+
+    Attributes:
+        url (str): The broker url string to connect to the Kafka server
+
+    Examples:
+        ```python
+        from llama_agents.message_queues.apache_kafka import KafkaMessageQueue
+
+        message_queue = KafkaMessageQueue()  # uses the default url
+        ```
+    """
 
     url: str = DEFAULT_URL
 
@@ -41,6 +59,15 @@ class KafkaMessageQueue(BaseMessageQueue):
         host: str,
         port: Optional[int] = None,
     ) -> "KafkaMessageQueue":
+        """Convenience constructor from url params.
+
+        Args:
+            host (str): host for rabbitmq server
+            port (Optional[int], optional): port for rabbitmq server. Defaults to None.
+
+        Returns:
+            KafkaMessageQueue: An Apache Kafka MessageQueue integration.
+        """
         url = f"{host}:{port}" if port else f"{host}"
         return cls(url=url)
 
@@ -113,6 +140,10 @@ class KafkaMessageQueue(BaseMessageQueue):
         pass
 
     async def launch_local(self) -> asyncio.Task:
+        """Launch the message queue locally, in-process.
+
+        Launches a dummy task.
+        """
         return asyncio.create_task(self.processing_loop())
 
     async def launch_server(self) -> None:
@@ -162,6 +193,7 @@ class KafkaMessageQueue(BaseMessageQueue):
 
 
 if __name__ == "__main__":
+    # for testing
     import argparse
     import sys
 
