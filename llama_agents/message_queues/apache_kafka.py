@@ -85,8 +85,14 @@ class KafkaMessageQueue(BaseMessageQueue):
 
         TODO: convert to aiokafka once this it is resolved there.
         """
-        from kafka.admin import KafkaAdminClient, NewTopic
-        from kafka.errors import TopicAlreadyExistsError
+        try:
+            from kafka.admin import KafkaAdminClient, NewTopic
+            from kafka.errors import TopicAlreadyExistsError
+        except ImportError:
+            raise ImportError(
+                "kafka-python-ng is not installed. "
+                "Please install it using `pip install kafka-python-ng`."
+            )
 
         admin_client = KafkaAdminClient(bootstrap_servers=self.url)
         try:
@@ -105,7 +111,13 @@ class KafkaMessageQueue(BaseMessageQueue):
 
     async def _publish(self, message: QueueMessage) -> Any:
         """Publish message to the queue."""
-        from aiokafka import AIOKafkaProducer
+        try:
+            from aiokafka import AIOKafkaProducer
+        except ImportError:
+            raise ImportError(
+                "aiokafka is not installed. "
+                "Please install it using `pip install aiokafka`."
+            )
 
         producer = AIOKafkaProducer(bootstrap_servers=self.url)
         await producer.start()
@@ -126,7 +138,13 @@ class KafkaMessageQueue(BaseMessageQueue):
 
         TODO: convert to aiokafka once this it is resolved there.
         """
-        from kafka.admin import KafkaAdminClient
+        try:
+            from kafka.admin import KafkaAdminClient
+        except ImportError:
+            raise ImportError(
+                "aiokafka is not installed. "
+                "Please install it using `pip install aiokafka`."
+            )
 
         admin_client = KafkaAdminClient(bootstrap_servers=self.url)
         active_topics = admin_client.list_topics()
@@ -157,7 +175,13 @@ class KafkaMessageQueue(BaseMessageQueue):
         self, consumer: BaseMessageQueueConsumer
     ) -> Callable[..., Coroutine[Any, Any, None]]:
         """Register a new consumer."""
-        from aiokafka import AIOKafkaConsumer
+        try:
+            from aiokafka import AIOKafkaConsumer
+        except ImportError:
+            raise ImportError(
+                "aiokafka is not installed. "
+                "Please install it using `pip install aiokafka`."
+            )
 
         # register topic
         self._create_new_topic(consumer.message_type)

@@ -69,6 +69,14 @@ The multi-agent system translate's simple Pig-Latin text by reversing the
 previously mentioned two steps. It does so by using two agents that work in
 sequence: `remove_ay_agent` and `correct_first_character_agent`.
 
+This multi-agent system also features a `TaskResultService` that is a consumer
+of messages containing the final `TaskResult` data. That is, when a task is
+completed, the control plane sends a message containing the results of the task
+to a consumer that subscribes to the message type "human". This is precisely
+what `TaskResultService` is, and it consumes these messages by appending the
+results to a `task_results.jsonl` file that is stored in a `task_results` folder
+that gets created in the directory from which the service was launched.
+
 #### Launching Without Docker
 
 As with running our example simple scripts above, we need to standup our

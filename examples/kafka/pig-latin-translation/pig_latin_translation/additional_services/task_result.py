@@ -18,6 +18,18 @@ logger = getLogger(__name__)
 
 
 class TaskResultService:
+    """TaskResultService.
+
+    This is a consumer service for the Task Result of the multi-agent system.
+    When a task is completed, the control plane sends a message containing the
+    TaskResult to a consumer of message type "human".
+
+    This TaskResultService accepts those messages and appends the TaskResult
+    JSON object to the `task_results.jsonl` that is stored in the folder
+    `task_results` that gets created in the directory from which the service
+    is launched.
+    """
+
     def __init__(
         self,
         message_queue: BaseMessageQueue,
