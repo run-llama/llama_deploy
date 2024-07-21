@@ -22,6 +22,12 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
+    healthcheck:
+      test: nc -z localhost 9092 || exit -1
+      start_period: 15s
+      interval: 30s
+      timeout: 10s
+      retries: 5
   control_plane:
     image: pig_latin_translation:latest
     command: sh -c "python -m pig_latin_translation.core_services.control_plane"
@@ -33,7 +39,7 @@ services:
       - ./pig_latin_translation:/app/pig_latin_translation # load local code change to container without the need of rebuild
       - ./logging.ini:/app/logging.ini
     depends_on:
-      rabbitmq:
+      kafka:
         condition: service_healthy
     platform: linux/amd64
     build:
@@ -57,7 +63,7 @@ services:
       - ./logging.ini:/app/logging.ini
     platform: linux/amd64
     depends_on:
-      rabbitmq:
+      kafka:
         condition: service_healthy
       control_plane:
         condition: service_healthy
@@ -81,7 +87,7 @@ services:
       - ./pig_latin_translation:/app/pig_latin_translation # load local code change to container without the need of rebuild
       - ./logging.ini:/app/logging.ini
     depends_on:
-      rabbitmq:
+      kafka:
         condition: service_healthy
       control_plane:
         condition: service_healthy
@@ -108,7 +114,7 @@ services:
       - ./task_results:/app/task_results
     platform: linux/amd64
     depends_on:
-      rabbitmq:
+      kafka:
         condition: service_healthy
       control_plane:
         condition: service_healthy
@@ -122,4 +128,4 @@ services:
       start_period: 20s
       timeout: 10s
 volumes:
-  rabbitmq:
+  kafka:

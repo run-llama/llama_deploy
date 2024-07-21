@@ -44,6 +44,3 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 # Copy source code
 COPY ./logging.ini ./logging.ini
 COPY ./pig_latin_translation ./pig_latin_translation
-
-# Copy data for Agentic RAG
-COPY ./data ./data
