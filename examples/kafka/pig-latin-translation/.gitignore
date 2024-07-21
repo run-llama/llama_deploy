@@ -1,0 +1,11 @@
+.env.*
+.env
+poetry.lock
+index.html.*
+index.html
+task_results
+.ipynb_checkpoints/
+secrets.yaml
+Dockerfile.local
+docker-compose.local.yml
+pyproject.local.toml
