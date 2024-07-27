@@ -6,7 +6,7 @@ from llama_agents import (
     ServiceComponent,
     LocalLauncher,
 )
-from llama_agents.message_queues.apache_kafka import KafkaMessageQueue
+from llama_agents.message_queues.aws_sqs import SQSMessageQueue
 
 from llama_index.core.agent import FunctionCallingAgentWorker
 from llama_index.core.tools import FunctionTool
@@ -24,7 +24,7 @@ def get_the_secret_fact() -> str:
 tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
 
 # create our multi-agent framework components
-message_queue = KafkaMessageQueue()
+message_queue = SQSMessageQueue()
 
 worker = FunctionCallingAgentWorker.from_tools([tool], llm=OpenAI())
 agent = worker.as_agent()
