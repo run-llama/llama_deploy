@@ -3,7 +3,7 @@
 import asyncio
 import json
 from logging import getLogger
-from typing import Any, Dict, List, TYPE_CHECKING, Tuple
+from typing import Any, Dict, List, TYPE_CHECKING
 from botocore.exceptions import ClientError
 
 from llama_agents.message_queues.base import BaseMessageQueue
@@ -15,6 +15,7 @@ from llama_agents.message_consumers.base import (
 from llama_agents.message_queues.aws_sqs.policies import (
     get_attributes_with_topic_policy,
 )
+from llama_agents.message_queues.aws_sqs.types import Topic, Queue, Subscription
 
 if TYPE_CHECKING:
     from aiobotocore.session import AioSession
@@ -23,11 +24,6 @@ logger = getLogger(__name__)
 
 DEFAULT_REGION = "us-east-1"
 DEFAULT_MESSAGE_GROUP_ID = "llama-agents"
-
-TopicArn = str
-QueueArn = str
-QueueUrl = str
-SubscriptionArn = str
 
 logger = getLogger(__name__)
 
@@ -45,8 +41,8 @@ class SQSMessageQueue(BaseMessageQueue):
 
     region: str = DEFAULT_REGION
     message_group_id: str = DEFAULT_MESSAGE_GROUP_ID
-    topic_arns: Dict[str, str] = {}
-    subscription_arns: List[str] = []
+    topics: List[Topic] = []
+    subscriptions: List[Subscription] = []
 
     def _get_aio_session(self) -> "AioSession":
         try:
@@ -58,17 +54,27 @@ class SQSMessageQueue(BaseMessageQueue):
 
         return get_session()
 
-    async def _create_sns_topic(self, topic_name: str) -> TopicArn:
+    def get_topic_by_name(self, topic_name: str) -> Topic:
+        """Get topic by name."""
+        try:
+            topic = next(t for t in self.topics if t.name == topic_name)
+        except StopIteration:
+            raise ValueError("Could not find topic arn.")
+        return topic
+
+    async def _create_sns_topic(self, topic_name: str) -> Topic:
         """Create AWS SNS topic."""
         session = self._get_aio_session()
         async with session.create_client("sns", region_name=self.region) as client:
             response = await client.create_topic(
                 Name=f"{topic_name}.fifo", Attributes={"FifoTopic": "true"}
             )
-        self.topic_arns[topic_name] = response["TopicArn"]
-        return response["TopicArn"]
+        topic = Topic(arn=response["TopicArn"], name=topic_name)
+        if topic.arn not in [t.arn for t in self.topics]:
+            self.topics.append(topic)
+        return topic
 
-    async def _create_sqs_queue(self, queue_name: str) -> Tuple[QueueUrl, QueueArn]:
+    async def _create_sqs_queue(self, queue_name: str) -> Queue:
         """Create AWS SQS Fifo queue."""
         session = self._get_aio_session()
         async with session.create_client("sqs", region_name=self.region) as client:
@@ -83,40 +89,41 @@ class SQSMessageQueue(BaseMessageQueue):
                 QueueUrl=queue_url, AttributeNames=["QueueArn"]
             )
             queue_arn = response["Attributes"]["QueueArn"]
-            return queue_url, queue_arn
+            return Queue(arn=queue_arn, url=queue_url, name=queue_name)
 
-    async def _update_queue_policy(
-        self, queue_arn: str, queue_url: str, topic_arn: str
-    ) -> None:
+    async def _update_queue_policy(self, queue: Queue, topic: Topic) -> None:
         session = self._get_aio_session()
         async with session.create_client("sqs", region_name=self.region) as client:
             attributes = get_attributes_with_topic_policy(
-                queue_arn=queue_arn, topic_arn=topic_arn
+                queue_arn=queue.arn, topic_arn=topic.arn
             )
             _ = await client.set_queue_attributes(
-                QueueUrl=queue_url, Attributes=attributes
+                QueueUrl=queue.url, Attributes=attributes
             )
 
     async def _subscribe_queue_to_topic(
-        self, topic_arn: str, queue_arn: str
-    ) -> SubscriptionArn:
+        self, topic: Topic, queue: Queue
+    ) -> Subscription:
         """Subscribe queue to topic."""
         session = self._get_aio_session()
         async with session.create_client("sns", region_name=self.region) as client:
             response = await client.subscribe(
-                TopicArn=topic_arn, Protocol="sqs", Endpoint=queue_arn
+                TopicArn=topic.arn, Protocol="sqs", Endpoint=queue.arn
             )
-        return response["SubscriptionArn"]
+        subscription = Subscription(arn=response["SubscriptionArn"])
+        if subscription.arn not in [s.arn for s in self.subscriptions]:
+            self.subscriptions.append(subscription)
+        return subscription
 
     async def _publish(self, message: QueueMessage) -> Any:
         """Publish message to the SQS queue."""
         message_body = json.dumps(message.model_dump())
-        topic_arn = self.topic_arns[message.type]
+        topic = self.get_topic_by_name(message.type)
         session = self._get_aio_session()
         try:
             async with session.create_client("sns", region_name=self.region) as client:
                 response = await client.publish(
-                    TopicArn=topic_arn,
+                    TopicArn=topic.arn,
                     Message=message_body,
                     MessageStructure="bytes",
                     MessageGroupId=self.message_group_id,
@@ -132,18 +139,10 @@ class SQSMessageQueue(BaseMessageQueue):
         self, consumer: BaseMessageQueueConsumer
     ) -> StartConsumingCallable:
         """Register a new consumer."""
-        topic_arn = await self._create_sns_topic(topic_name=consumer.message_type)
-        queue_url, queue_arn = await self._create_sqs_queue(
-            queue_name=consumer.message_type
-        )
-        await self._update_queue_policy(
-            queue_arn=queue_arn, queue_url=queue_url, topic_arn=topic_arn
-        )
-        susbscription_arn = await self._subscribe_queue_to_topic(
-            topic_arn=topic_arn, queue_arn=queue_arn
-        )
-        if susbscription_arn not in self.subscription_arns:
-            self.subscription_arns.append(susbscription_arn)
+        topic = await self._create_sns_topic(topic_name=consumer.message_type)
+        queue = await self._create_sqs_queue(queue_name=consumer.message_type)
+        await self._update_queue_policy(queue=queue, topic=topic)
+        _ = await self._subscribe_queue_to_topic(queue=queue, topic=topic)
         logger.info(f"Registered consumer {consumer.id_}: {consumer.message_type}")
 
         async def start_consuming_callable() -> None:
@@ -158,7 +157,7 @@ class SQSMessageQueue(BaseMessageQueue):
                 ) as client:
                     try:
                         response = await client.receive_message(
-                            QueueUrl=queue_url,
+                            QueueUrl=queue.url,
                             WaitTimeSeconds=2,
                         )
                         messages = response.get("Messages", [])
@@ -171,7 +170,7 @@ class SQSMessageQueue(BaseMessageQueue):
                             )
                             await consumer.process_message(queue_message)
                             await client.delete_message(
-                                QueueUrl=queue_url, ReceiptHandle=receipt_handle
+                                QueueUrl=queue.url, ReceiptHandle=receipt_handle
                             )
                     except ClientError as e:
                         logger.error(f"Error receiving messages from SQS queue: {e}")
