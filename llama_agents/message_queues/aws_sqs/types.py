@@ -1,22 +1,18 @@
-from pydantic import BaseModel
+from llama_agents.message_queues.aws_sqs.base import BaseAWSResource
 
 
-class Topic(BaseModel):
+class Topic(BaseAWSResource):
     """Light data class for AWS SNS Topic."""
 
-    arn: str
     name: str
 
 
-class Queue(BaseModel):
+class Queue(BaseAWSResource):
     """Light data class for AWS SQS Queue."""
 
-    arn: str
     url: str
     name: str
 
 
-class Subscription(BaseModel):
+class Subscription(BaseAWSResource):
     """Light data class for AWS SNS Subscription."""
-
-    arn: str
