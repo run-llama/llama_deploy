@@ -1,10 +1,9 @@
-import asyncio
 from llama_agents import (
     AgentService,
     ControlPlaneServer,
     PipelineOrchestrator,
     ServiceComponent,
-    LocalLauncher
+    LocalLauncher,
 )
 from llama_agents.message_queues.aws_sqs import SQSMessageQueue
 from llama_index.core.agent import ReActAgent
@@ -13,10 +12,12 @@ from llama_index.core.query_pipeline import QueryPipeline, RouterComponent
 from llama_index.core.selectors import PydanticSingleSelector
 from llama_index.llms.openai import OpenAI
 
+
 # Create an agent
 def get_the_secret_fact() -> str:
     """Returns the secret fact."""
     return "The secret fact is: A baby llama is called a 'Cria'."
+
 
 tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
 
