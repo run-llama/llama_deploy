@@ -13,7 +13,7 @@ from llama_index.core.selectors import PydanticSingleSelector
 from llama_index.llms.openai import OpenAI
 
 
-# Create an agent
+# Define a function that will be wrapped in a FunctionTool, to be used by our "secret fact" agent
 def get_the_secret_fact() -> str:
     """Returns the secret fact."""
     return "The secret fact is: A baby llama is called a 'Cria'."
@@ -25,7 +25,12 @@ agent1 = ReActAgent.from_tools([tool], llm=OpenAI())
 agent2 = ReActAgent.from_tools([], llm=OpenAI())
 
 # Create our multi-agent framework components with SQS as the message queue
-message_queue = SQSMessageQueue(region="us-west-2", queue_name="llama-agents")
+# Note that in this example, all messages will be processed in the order they are sent within their respective topics, ie. enforcing strict message ordering across different agents.
+# You may want to use unique MessageGroupIds for different agents to allow for concurrency, if it fits your particular use case.
+AWS_SNS_SQS_REGION = "us-east-1"
+AGENTS_MESSAGE_GROUP_ID = "llama-agents"
+
+message_queue = SQSMessageQueue(region=AWS_SNS_SQS_REGION, message_group_id=AGENTS_MESSAGE_GROUP_ID)
 
 agent_server_1 = AgentService(
     agent=agent1,
@@ -38,8 +43,8 @@ agent_server_1 = AgentService(
 agent_server_2 = AgentService(
     agent=agent2,
     message_queue=message_queue,
-    description="Useful for getting random dumb facts.",
-    service_name="dumb_fact_agent",
+    description="Useful for getting random funny facts.",
+    service_name="funny_fact_agent",
     port=8003,
 )
 

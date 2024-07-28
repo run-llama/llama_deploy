@@ -31,12 +31,12 @@ logger = getLogger(__name__)
 class SQSMessageQueue(BaseMessageQueue):
     """AWS SQS integration with aiobotocore client.
 
-    This class creates and interacts with SQS queues. It includes methods for
-    publishing messages to the queue and registering consumers to process messages.
+    This class creates and interacts with SNS topics and SQS queues. It includes methods 
+    for publishing messages to the queue and registering consumers to process messages.
 
     Attributes:
         region (str): The AWS region where the SQS queue is located.
-        queue_name (str): The name of the SQS queue.
+        message_group_id (str): Name of the unique FIFO queue's MessageGroupId. Messages within the same group are processed sequentially, while messages in different groups can be processed concurrently.
     """
 
     region: str = DEFAULT_REGION
