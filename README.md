@@ -101,8 +101,8 @@ result = launcher.launch_single("What is the secret fact?")
 print(f"Result: {result}")
 ```
 
-> [!NOTE]  
->`launcher.launch_single` creates a new asyncio event loop. Since Jupyter notebooks already have an event loop running, we need to use `nest_asyncio` to allow the creation of new event loops within the existing one.
+> [!NOTE]
+> `launcher.launch_single` creates a new asyncio event loop. Since Jupyter notebooks already have an event loop running, we need to use `nest_asyncio` to allow the creation of new event loops within the existing one.
 
 As with any agentic system, its important to consider how reliable the LLM is that you are using. In general, APIs that support function calling (OpenAI, Anthropic, Mistral, etc.) are the most reliable.
 
