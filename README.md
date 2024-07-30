@@ -101,6 +101,7 @@ result = launcher.launch_single("What is the secret fact?")
 print(f"Result: {result}")
 ```
 
+<!-- prettier-ignore -->
 > [!NOTE]
 > `launcher.launch_single` creates a new asyncio event loop. Since Jupyter notebooks already have an event loop running, we need to use `nest_asyncio` to allow the creation of new event loops within the existing one.
 
