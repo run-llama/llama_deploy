@@ -164,6 +164,12 @@ class AgentOrchestrator(BaseOrchestrator):
         if len(new_history) > 1:
             summarize_prompt_str = self.summarize_prompt.format(history=new_history_str)
             summary = await self.llm.acomplete(summarize_prompt_str)
+        elif len(new_history) == 1:
+            summary = new_history[0].content
+        elif result.result:
+            summary = result.result
+        else:
+            summary = "There was no response from the agents..."
 
         # get the current chat history, add the summary to it
         chat_dicts = state.get(HISTORY_KEY, [])
