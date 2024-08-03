@@ -11,11 +11,6 @@ from llama_agents.orchestrators.base import BaseOrchestrator
 from llama_agents.tools.service_component import ServiceComponent, ModuleType
 from llama_agents.types import ActionTypes, TaskDefinition, TaskResult
 
-import logging
-
-logger = logging.getLogger(__name__)
-
-
 RUN_STATE_KEY = "run_state"
 NEXT_SERVICE_KEYS = "next_service_keys"
 LAST_MODULES_RUN = "last_modules_run"
@@ -153,7 +148,6 @@ class PipelineOrchestrator(BaseOrchestrator):
 
         # run the next step in the pipeline, until we hit a service component
         next_module_keys = self.pipeline.get_next_module_keys(run_state)
-        logger.info(f"NEXT MODULE KEYS: {next_module_keys}")
 
         next_messages = []
         next_service_keys = []
@@ -164,9 +158,6 @@ class PipelineOrchestrator(BaseOrchestrator):
             for module_key in next_module_keys:
                 module = run_state.module_dict[module_key]
                 module_input = run_state.all_module_inputs[module_key]
-
-                if isinstance(module, QueryPipeline):
-                    logger.info("FOUND A QUERYPIPELINE.")
 
                 if isinstance(module, ServiceComponent):
                     queue_message = get_service_component_message(
@@ -180,7 +171,6 @@ class PipelineOrchestrator(BaseOrchestrator):
                     next_messages.append(queue_message)
                     continue
 
-                logger.info(f"module type: {type(module).__name__}")
                 # run the module if it is not a service component
                 output_dict = await module.arun_component(**module_input)
 
@@ -199,7 +189,6 @@ class PipelineOrchestrator(BaseOrchestrator):
                             description=service_dict["description"],
                             module_type=ModuleType.AGENT,
                         )
-                        logger.info("Wrapped module as a service component.")
 
                     queue_message = get_service_component_message(
                         new_module,
