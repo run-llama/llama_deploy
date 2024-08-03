@@ -165,6 +165,9 @@ class PipelineOrchestrator(BaseOrchestrator):
                 module = run_state.module_dict[module_key]
                 module_input = run_state.all_module_inputs[module_key]
 
+                if isinstance(module, QueryPipeline):
+                    logger.info("FOUND A QUERYPIPELINE.")
+
                 if isinstance(module, ServiceComponent):
                     queue_message = get_service_component_message(
                         module,
@@ -190,8 +193,6 @@ class PipelineOrchestrator(BaseOrchestrator):
                     # this can happen if ServiceComponents are nested in routers
                     new_module = module
                     if not isinstance(module, ServiceComponent):
-                        if isinstance(module, QueryPipeline):
-                            logger.info("FOUND A QUERYPIPELINE.")
                         new_module = ServiceComponent(
                             name=service_dict["name"],
                             description=service_dict["description"],
