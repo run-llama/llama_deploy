@@ -169,7 +169,7 @@ class PipelineOrchestrator(BaseOrchestrator):
                     found_service_component = True
                     next_service_keys.append(module_key)
                     next_messages.append(queue_message)
-                    continue
+                    break
 
                 # run the module if it is not a service component
                 output_dict = await module.arun_component(**module_input)
@@ -196,7 +196,7 @@ class PipelineOrchestrator(BaseOrchestrator):
                         input_dict=service_dict["input"],
                     )
                     next_messages.append(queue_message)
-                    continue
+                    break
 
                 # process the output if it is not a service component
                 self.pipeline.process_component_output(
