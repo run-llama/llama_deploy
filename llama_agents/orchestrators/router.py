@@ -49,5 +49,4 @@ class RouterOrchestrator(BaseOrchestrator):
             raise ValueError("Task not found.")
         orchestrator = self.orchestrators[self.tasks[result.task_id]]
         res = await orchestrator.add_result_to_state(result, state)
-        del self.tasks[result.task_id]
         return res
