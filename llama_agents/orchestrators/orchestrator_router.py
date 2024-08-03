@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class RouterOrchestrator(BaseOrchestrator):
+class OrchestratorRouter(BaseOrchestrator):
     """Orchestrator that routes between a list of orchestrators.
 
     Given an incoming task, first select the most relevant orchestrator to the
