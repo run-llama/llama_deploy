@@ -7,6 +7,7 @@ from llama_agents.messages import QueueMessage
 from llama_agents.orchestrators import (
     AgentOrchestrator,
     PipelineOrchestrator,
+    RouterOrchestrator,
 )
 from llama_agents.tools import (
     AgentServiceTool,
@@ -59,6 +60,7 @@ __all__ = [
     # orchestrators
     "AgentOrchestrator",
     "PipelineOrchestrator",
+    "RouterOrchestrator",
     # various utils
     "AgentServiceTool",
     "ServiceAsTool",
