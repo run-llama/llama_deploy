@@ -190,11 +190,14 @@ class PipelineOrchestrator(BaseOrchestrator):
                     # this can happen if ServiceComponents are nested in routers
                     new_module = module
                     if not isinstance(module, ServiceComponent):
+                        if isinstance(module, QueryPipeline):
+                            logger.info("FOUND A QUERYPIPELINE.")
                         new_module = ServiceComponent(
                             name=service_dict["name"],
                             description=service_dict["description"],
                             module_type=ModuleType.AGENT,
                         )
+                        logger.info("Wrapped module as a service component.")
 
                     queue_message = get_service_component_message(
                         new_module,
