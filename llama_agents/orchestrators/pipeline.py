@@ -180,6 +180,7 @@ class PipelineOrchestrator(BaseOrchestrator):
                     next_messages.append(queue_message)
                     continue
 
+                logger.info(f"module type: {type(module).__name__}")
                 # run the module if it is not a service component
                 output_dict = await module.arun_component(**module_input)
 
