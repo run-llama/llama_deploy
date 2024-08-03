@@ -27,13 +27,14 @@ class RouterOrchestrator(BaseOrchestrator):
         self.tasks: Dict[str, int] = {}
 
     def _select_orchestrator(self, task_def: TaskDefinition) -> BaseOrchestrator:
-        sel_output = self.selector.select(self.choices, task_def.input)
-        # assume one selection
-        if len(sel_output.selections) != 1:
-            raise ValueError("Expected one selection")
-        logger.info("Selected orchestrator for task.")
-        self.tasks[task_def.task_id] = sel_output.ind
-        return self.orchestrators[sel_output.ind]
+        if task_def.task_id not in self.tasks:
+            sel_output = self.selector.select(self.choices, task_def.input)
+            self.tasks[task_def.task_id] = sel_output.ind
+            # assume one selection
+            if len(sel_output.selections) != 1:
+                raise ValueError("Expected one selection")
+            logger.info("Selected orchestrator for task.")
+        return self.orchestrators[self.tasks[task_def.task_id]]
 
     async def get_next_messages(
         self, task_def: TaskDefinition, tools: List[BaseTool], state: Dict[str, Any]
