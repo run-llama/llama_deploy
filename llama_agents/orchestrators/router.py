@@ -77,9 +77,9 @@ class RouterOrchestrator(BaseOrchestrator):
         self.selector = selector
         self.tasks: Dict[str, int] = {}
 
-    def _select_orchestrator(self, task_def: TaskDefinition) -> BaseOrchestrator:
+    async def _select_orchestrator(self, task_def: TaskDefinition) -> BaseOrchestrator:
         if task_def.task_id not in self.tasks:
-            sel_output = self.selector.select(self.choices, task_def.input)
+            sel_output = await self.selector.aselect(self.choices, task_def.input)
             self.tasks[task_def.task_id] = sel_output.ind
             # assume one selection
             if len(sel_output.selections) != 1:
@@ -90,12 +90,18 @@ class RouterOrchestrator(BaseOrchestrator):
     async def get_next_messages(
         self, task_def: TaskDefinition, tools: List[BaseTool], state: Dict[str, Any]
     ) -> Tuple[List[QueueMessage], Dict[str, Any]]:
-        orchestrator = self._select_orchestrator(task_def)
+        """Get the next message to process. Returns the message and the new state."""
+        orchestrator = await self._select_orchestrator(task_def)
         return await orchestrator.get_next_messages(task_def, tools, state)
 
     async def add_result_to_state(
         self, result: TaskResult, state: Dict[str, Any]
     ) -> Dict[str, Any]:
+        """Add the result of processing a message to the state. Returns the new state.
+
+        TODO: figure out a way to properly clear the tasks dictionary when the
+        highest level Task is actually completed.
+        """
         if result.task_id not in self.tasks:
             raise ValueError("Task not found.")
         orchestrator = self.orchestrators[self.tasks[result.task_id]]
