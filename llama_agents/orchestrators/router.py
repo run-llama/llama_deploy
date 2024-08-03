@@ -31,6 +31,7 @@ class RouterOrchestrator(BaseOrchestrator):
         # assume one selection
         if len(sel_output.selections) != 1:
             raise ValueError("Expected one selection")
+        logger.info("Selected orchestrator for task.")
         self.tasks[task_def.task_id] = sel_output.ind
         return self.orchestrators[sel_output.ind]
 
