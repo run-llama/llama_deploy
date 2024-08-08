@@ -45,9 +45,7 @@ async def test_workflow_service(
     test_workflow: Workflow, human_output_consumer: MockMessageConsumer
 ) -> None:
     message_queue = SimpleMessageQueue()
-    await message_queue.register_consumer(human_output_consumer)
-
-    result = await test_workflow.run(arg1="test_arg1")
+    _ = await message_queue.register_consumer(human_output_consumer)
 
     # create the service
     workflow_service = WorkflowService(
