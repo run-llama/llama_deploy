@@ -1,6 +1,7 @@
 import asyncio
 import json
 import pytest
+from pydantic import PrivateAttr
 from typing import Any, List
 from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 
@@ -13,9 +14,11 @@ from llama_agents.types import CONTROL_PLANE_NAME, ActionTypes, TaskDefinition
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
     processed_messages: List[QueueMessage] = []
+    _lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
 
     async def _process_message(self, message: QueueMessage, **kwargs: Any) -> None:
-        self.processed_messages.append(message)
+        async with self._lock:
+            self.processed_messages.append(message)
 
 
 @pytest.fixture()
