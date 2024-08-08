@@ -2,7 +2,6 @@ import asyncio
 import json
 import pytest
 from typing import Any, List
-from llama_index.core.bridge.pydantic import PrivateAttr
 from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 
 from llama_agents.messages import QueueMessage
@@ -14,11 +13,9 @@ from llama_agents.types import CONTROL_PLANE_NAME, ActionTypes, TaskDefinition
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
     processed_messages: List[QueueMessage] = []
-    _lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
 
     async def _process_message(self, message: QueueMessage, **kwargs: Any) -> None:
-        async with self._lock:
-            self.processed_messages.append(message)
+        self.processed_messages.append(message)
 
 
 @pytest.fixture()
@@ -58,7 +55,8 @@ async def test_workflow_service(
     )
 
     # launch it
-    await workflow_service.launch_local()
+    mq_task = await message_queue.launch_local()
+    server_task = await workflow_service.launch_local()
 
     # pass a task to the service
     task = TaskDefinition(
@@ -74,7 +72,9 @@ async def test_workflow_service(
     )
 
     # let the service process the message
-    await asyncio.sleep(0)
+    await asyncio.sleep(1)
+    mq_task.cancel()
+    server_task.cancel()
 
     # check the result
     result = human_output_consumer.processed_messages[0]
