@@ -42,6 +42,7 @@ class AWSMessageQueue(BaseMessageQueue):
     region: str = DEFAULT_REGION
     message_group_id: str = DEFAULT_MESSAGE_GROUP_ID
     topics: List[Topic] = []
+    queues: List[Queue] = []
     subscriptions: List[Subscription] = []
 
     def _get_aio_session(self) -> "AioSession":
@@ -89,7 +90,10 @@ class AWSMessageQueue(BaseMessageQueue):
                 QueueUrl=queue_url, AttributeNames=["QueueArn"]
             )
             queue_arn = response["Attributes"]["QueueArn"]
-            return Queue(arn=queue_arn, url=queue_url, name=queue_name)
+            queue = Queue(arn=queue_arn, url=queue_url, name=queue_name)
+            if queue.arn not in [q.arn for q in self.queues]:
+                self.queues.append(queue)
+            return queue
 
     async def _update_queue_policy(self, queue: Queue, topic: Topic) -> None:
         session = self._get_aio_session()
@@ -209,4 +213,23 @@ class AWSMessageQueue(BaseMessageQueue):
         self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
     ) -> None:
         """Perform any clean up of queues and messages."""
-        pass
+        session = self._get_aio_session()
+
+        async with session.create_client("sqs", region_name=self.region) as sqs_client, \
+                   session.create_client("sns", region_name=self.region) as sns_client:
+            
+            # Delete all SQS queues
+            for queue in self.queues:
+                try:
+                    await sqs_client.delete_queue(QueueUrl=queue.url)
+                    logger.info(f"Deleted SQS queue {queue.name}")
+                except ClientError as e:
+                    logger.error(f"Could not delete SQS queue {queue.name}: {e}")
+
+            # Delete all SNS topics
+            for topic in self.topics:
+                try:
+                    await sns_client.delete_topic(TopicArn=topic.arn)
+                    logger.info(f"Deleted SNS topic {topic.name}")
+                except ClientError as e:
+                    logger.error(f"Could not delete SNS topic {topic.name}: {e}")
