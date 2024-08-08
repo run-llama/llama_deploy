@@ -1,4 +1,4 @@
-from llama_agents.message_queues.aws_sqs.aws_sqs import SQSMessageQueue
+from llama_agents.message_queues.aws_sqs.aws_sqs import AWSMessageQueue
 
 
-__all__ = ["SQSMessageQueue"]
+__all__ = ["AWSMessageQueue"]

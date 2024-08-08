@@ -28,7 +28,7 @@ DEFAULT_MESSAGE_GROUP_ID = "llama-agents"
 logger = getLogger(__name__)
 
 
-class SQSMessageQueue(BaseMessageQueue):
+class AWSMessageQueue(BaseMessageQueue):
     """AWS SQS integration with aiobotocore client.
 
     This class creates and interacts with SNS topics and SQS queues. It includes methods 

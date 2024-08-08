@@ -5,7 +5,7 @@ from llama_agents import (
     ServiceComponent,
     LocalLauncher,
 )
-from llama_agents.message_queues.aws_sqs import SQSMessageQueue
+from llama_agents.message_queues.aws_sqs import AWSMessageQueue
 from llama_index.core.agent import ReActAgent
 from llama_index.core.tools import FunctionTool
 from llama_index.core.query_pipeline import QueryPipeline, RouterComponent
@@ -30,7 +30,7 @@ agent2 = ReActAgent.from_tools([], llm=OpenAI())
 AWS_SNS_SQS_REGION = "us-east-1"
 AGENTS_MESSAGE_GROUP_ID = "llama-agents"
 
-message_queue = SQSMessageQueue(region=AWS_SNS_SQS_REGION, message_group_id=AGENTS_MESSAGE_GROUP_ID)
+message_queue = AWSMessageQueue(region=AWS_SNS_SQS_REGION, message_group_id=AGENTS_MESSAGE_GROUP_ID)
 
 agent_server_1 = AgentService(
     agent=agent1,
