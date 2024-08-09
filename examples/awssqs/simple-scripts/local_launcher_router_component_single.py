@@ -28,9 +28,8 @@ agent2 = ReActAgent.from_tools([], llm=OpenAI())
 # Note that in this example, all messages will be processed in the order they are sent within their respective topics, ie. enforcing strict message ordering across different agents.
 # You may want to use unique MessageGroupIds for different agents to allow for concurrency, if it fits your particular use case.
 AWS_SNS_SQS_REGION = "us-east-1"
-AGENTS_MESSAGE_GROUP_ID = "llama-agents"
 
-message_queue = AWSMessageQueue(region=AWS_SNS_SQS_REGION, message_group_id=AGENTS_MESSAGE_GROUP_ID)
+message_queue = AWSMessageQueue(region=AWS_SNS_SQS_REGION)
 
 agent_server_1 = AgentService(
     agent=agent1,

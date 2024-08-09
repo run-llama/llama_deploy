@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 DEFAULT_REGION = "us-east-1"
-DEFAULT_MESSAGE_GROUP_ID = "llama-agents"
 
 # AWS retry configuration with exponential backoff
 RETRY_CONFIG = Config(
@@ -42,11 +41,9 @@ class AWSMessageQueue(BaseMessageQueue):
 
     Attributes:
         region (str): The AWS region where the SQS queue is located.
-        message_group_id (str): Name of the unique FIFO queue's MessageGroupId. Messages within the same group are processed sequentially, while messages in different groups can be processed concurrently.
     """
 
     region: str = DEFAULT_REGION
-    message_group_id: str = DEFAULT_MESSAGE_GROUP_ID
     topics: List[Topic] = []
     queues: List[Queue] = []
     subscriptions: List[Subscription] = []
@@ -155,7 +152,7 @@ class AWSMessageQueue(BaseMessageQueue):
                     TopicArn=topic.arn,
                     Message=message_body,
                     MessageStructure="bytes",
-                    MessageGroupId=self.message_group_id,
+                    MessageGroupId=message.id_,  # Assigning message id as the group id for simplicity
                     MessageDeduplicationId=message.id_,
                 )
                 logger.info(f"Published {message.type} message {message.id_}")
