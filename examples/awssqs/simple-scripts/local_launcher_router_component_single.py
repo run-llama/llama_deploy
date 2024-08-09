@@ -24,9 +24,7 @@ tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
 agent1 = ReActAgent.from_tools([tool], llm=OpenAI())
 agent2 = ReActAgent.from_tools([], llm=OpenAI())
 
-# Create our multi-agent framework components with SQS as the message queue
-# Note that in this example, all messages will be processed in the order they are sent within their respective topics, ie. enforcing strict message ordering across different agents.
-# You may want to use unique MessageGroupIds for different agents to allow for concurrency, if it fits your particular use case.
+# Create our multi-agent framework components with SNS and SQS as the messaging mechanism
 AWS_SNS_SQS_REGION = "us-east-1"
 
 message_queue = AWSMessageQueue(region=AWS_SNS_SQS_REGION)

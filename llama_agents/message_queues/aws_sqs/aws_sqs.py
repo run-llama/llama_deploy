@@ -1,4 +1,4 @@
-"""AWS SQS Message Queue."""
+"""AWS SNS and SQS Message Queue."""
 
 import asyncio
 import json
@@ -40,7 +40,7 @@ class AWSMessageQueue(BaseMessageQueue):
     for publishing messages to the queue and registering consumers to process messages.
 
     Attributes:
-        region (str): The AWS region where the SQS queue is located.
+        region (str): The AWS region where the SNS topics and SQS queues are / will be located.
     """
 
     region: str = DEFAULT_REGION
