@@ -5,6 +5,7 @@ import json
 from logging import getLogger
 from typing import Any, Dict, List, TYPE_CHECKING
 from botocore.exceptions import ClientError
+from botocore.config import Config
 
 from llama_agents.message_queues.base import BaseMessageQueue
 from llama_agents.messages.base import QueueMessage
@@ -25,8 +26,13 @@ logger = getLogger(__name__)
 DEFAULT_REGION = "us-east-1"
 DEFAULT_MESSAGE_GROUP_ID = "llama-agents"
 
-logger = getLogger(__name__)
-
+# AWS retry configuration with exponential backoff
+RETRY_CONFIG = Config(
+    retries={
+        "max_attempts": 5,
+        "mode": "adaptive"
+    }
+)
 
 class AWSMessageQueue(BaseMessageQueue):
     """AWS SQS integration with aiobotocore client.
@@ -64,25 +70,40 @@ class AWSMessageQueue(BaseMessageQueue):
         return topic
 
     async def _create_sns_topic(self, topic_name: str) -> Topic:
-        """Create AWS SNS topic."""
+        """Create AWS SNS topic or return existing one."""
         session = self._get_aio_session()
-        async with session.create_client("sns", region_name=self.region) as client:
-            response = await client.create_topic(
-                Name=f"{topic_name}.fifo", Attributes={"FifoTopic": "true"}
-            )
+        async with session.create_client("sns", region_name=self.region, config=RETRY_CONFIG) as client:
+            try:
+                response = await client.create_topic(
+                    Name=f"{topic_name}.fifo", Attributes={"FifoTopic": "true"}
+                )
+            except ClientError as e:
+                if e.response["Error"]["Code"] == "ResourceInUseException":
+                    logger.info(f"SNS topic {topic_name} already exists.")
+                    response = await client.get_topic_attributes(TopicArn=f"arn:aws:sns:{self.region}:{topic_name}.fifo")
+                else:
+                    raise
         topic = Topic(arn=response["TopicArn"], name=topic_name)
         if topic.arn not in [t.arn for t in self.topics]:
             self.topics.append(topic)
         return topic
 
     async def _create_sqs_queue(self, queue_name: str) -> Queue:
-        """Create AWS SQS Fifo queue."""
+        """Create AWS SQS Fifo queue or return existing one."""
         session = self._get_aio_session()
-        async with session.create_client("sqs", region_name=self.region) as client:
-            # create queue
-            response = await client.create_queue(
-                QueueName=f"{queue_name}.fifo", Attributes={"FifoQueue": "true"}
-            )
+        async with session.create_client("sqs", region_name=self.region, config=RETRY_CONFIG) as client:
+            try:
+                # create queue
+                response = await client.create_queue(
+                    QueueName=f"{queue_name}.fifo", Attributes={"FifoQueue": "true"}
+                )
+            except ClientError as e:
+                if e.response["Error"]["Code"] == "QueueAlreadyExists":
+                    logger.info(f"SQS queue {queue_name} already exists.")
+                    response = await client.get_queue_url(QueueName=f"{queue_name}.fifo")
+                else:
+                    raise
+
             queue_url = response["QueueUrl"]
 
             # get queue arn
@@ -97,7 +118,7 @@ class AWSMessageQueue(BaseMessageQueue):
 
     async def _update_queue_policy(self, queue: Queue, topic: Topic) -> None:
         session = self._get_aio_session()
-        async with session.create_client("sqs", region_name=self.region) as client:
+        async with session.create_client("sqs", region_name=self.region, config=RETRY_CONFIG) as client:
             attributes = get_attributes_with_topic_policy(
                 queue_arn=queue.arn, topic_arn=topic.arn
             )
@@ -110,10 +131,14 @@ class AWSMessageQueue(BaseMessageQueue):
     ) -> Subscription:
         """Subscribe queue to topic."""
         session = self._get_aio_session()
-        async with session.create_client("sns", region_name=self.region) as client:
-            response = await client.subscribe(
-                TopicArn=topic.arn, Protocol="sqs", Endpoint=queue.arn
-            )
+        async with session.create_client("sns", region_name=self.region, config=RETRY_CONFIG) as client:
+            try:
+                response = await client.subscribe(
+                    TopicArn=topic.arn, Protocol="sqs", Endpoint=queue.arn
+                )
+            except ClientError as e:
+                logger.error(f"Could not subscribe SQS queue {queue.name} to SNS topic {topic.name}: {e}")
+                raise
         subscription = Subscription(arn=response["SubscriptionArn"])
         if subscription.arn not in [s.arn for s in self.subscriptions]:
             self.subscriptions.append(subscription)
@@ -125,7 +150,7 @@ class AWSMessageQueue(BaseMessageQueue):
         topic = self.get_topic_by_name(message.type)
         session = self._get_aio_session()
         try:
-            async with session.create_client("sns", region_name=self.region) as client:
+            async with session.create_client("sns", region_name=self.region, config=RETRY_CONFIG) as client:
                 response = await client.publish(
                     TopicArn=topic.arn,
                     Message=message_body,
@@ -157,7 +182,7 @@ class AWSMessageQueue(BaseMessageQueue):
             while True:
                 session = self._get_aio_session()
                 async with session.create_client(
-                    "sqs", region_name=self.region
+                    "sqs", region_name=self.region, config=RETRY_CONFIG
                 ) as client:
                     try:
                         response = await client.receive_message(
@@ -215,8 +240,8 @@ class AWSMessageQueue(BaseMessageQueue):
         """Perform any clean up of queues and messages."""
         session = self._get_aio_session()
 
-        async with session.create_client("sqs", region_name=self.region) as sqs_client, \
-                   session.create_client("sns", region_name=self.region) as sns_client:
+        async with session.create_client("sqs", region_name=self.region, config=RETRY_CONFIG) as sqs_client, \
+                   session.create_client("sns", region_name=self.region, config=RETRY_CONFIG) as sns_client:
             
             # Delete all SQS queues
             for queue in self.queues:
