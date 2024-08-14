@@ -258,7 +258,7 @@ class WorkflowService(BaseService):
 
                 # clean up
                 async with self.lock:
-                    del self._outstanding_calls[task_id]
+                    self._outstanding_calls.pop("task_id", None)
 
             await asyncio.sleep(self.step_interval)
 
