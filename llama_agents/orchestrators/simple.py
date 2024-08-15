@@ -1,3 +1,4 @@
+import json
 from typing import Any, Dict, List, Tuple
 
 from llama_index.core.tools import BaseTool
@@ -28,11 +29,22 @@ class SimpleOrchestrator(BaseOrchestrator):
         """
 
         if state.get("result", None) is not None:
+            result = state["result"]
+            if not isinstance(result, TaskResult):
+                if isinstance(result, str):
+                    result = TaskResult(**json.loads(result))
+                elif isinstance(result, dict):
+                    result = TaskResult(**result)
+                else:
+                    raise ValueError(f"Result must be a TaskResult, not {type(result)}")
+
+            assert isinstance(result, TaskResult), "Result must be a TaskResult"
+
             destination = self.final_message_type
             destination_message = QueueMessage(
                 type=destination,
                 action=ActionTypes.COMPLETED_TASK,
-                data=state["result"],
+                data=result.model_dump(),
             )
         else:
             assert (
@@ -43,10 +55,10 @@ class SimpleOrchestrator(BaseOrchestrator):
             destination_message = QueueMessage(
                 type=destination,
                 action=ActionTypes.NEW_TASK,
-                data=task_def.state,
+                data=task_def.model_dump(),
             )
 
-        return destination_message, state
+        return [destination_message], state
 
     async def add_result_to_state(
         self, result: TaskResult, state: Dict[str, Any]

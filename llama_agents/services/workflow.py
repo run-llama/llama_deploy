@@ -198,7 +198,9 @@ class WorkflowService(BaseService):
 
         return workflow
 
-    def dump_workflow_state(self, workflow: Workflow) -> WorkflowState:
+    def dump_workflow_state(
+        self, workflow: Workflow, run_kawrgs: dict
+    ) -> WorkflowState:
         """Dump the workflow state.
 
         TODO: This is a bit of a hack.
@@ -209,7 +211,9 @@ class WorkflowService(BaseService):
         context_str = base64.b64encode(context_bytes).decode("ascii")
         context_hash = hash(context_str + hash_secret)
 
-        return WorkflowState(hash=context_hash, state=context_str, run_kwargs={})
+        return WorkflowState(
+            hash=context_hash, state=context_str, run_kwargs=run_kawrgs
+        )
 
     async def processing_loop(self) -> None:
         """The processing loop for the service.
@@ -241,7 +245,9 @@ class WorkflowService(BaseService):
                 result = await workflow.run(**current_call.run_kwargs)
 
                 # dump the state
-                updated_state = self.dump_workflow_state(workflow)
+                updated_state = self.dump_workflow_state(
+                    workflow, current_call.run_kwargs
+                )
 
                 await self.message_queue.publish(
                     QueueMessage(
@@ -258,7 +264,7 @@ class WorkflowService(BaseService):
 
                 # clean up
                 async with self.lock:
-                    self._outstanding_calls.pop("task_id", None)
+                    self._outstanding_calls.pop(task_id, None)
 
             await asyncio.sleep(self.step_interval)
 
