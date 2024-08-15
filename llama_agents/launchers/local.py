@@ -126,9 +126,9 @@ class LocalLauncher(MessageQueuePublisherMixin):
         )
         return start_consuming_callables
 
-    def launch_single(self, initial_task: str) -> str:
+    def launch_single(self, initial_task: str, service_id: Optional[str] = None) -> str:
         """Launch the system in a single async loop."""
-        return asyncio.run(self.alaunch_single(initial_task))
+        return asyncio.run(self.alaunch_single(initial_task, service_id=service_id))
 
     def get_shutdown_handler(self, tasks: List[asyncio.Task]) -> Callable:
         def signal_handler(sig: Any, frame: Any) -> None:
@@ -139,7 +139,9 @@ class LocalLauncher(MessageQueuePublisherMixin):
 
         return signal_handler
 
-    async def alaunch_single(self, initial_task: str) -> str:
+    async def alaunch_single(
+        self, initial_task: str, service_id: Optional[str] = None
+    ) -> str:
         """Launch the system in a single async loop."""
         # clear any result
         self.result = None
@@ -174,7 +176,9 @@ class LocalLauncher(MessageQueuePublisherMixin):
             QueueMessage(
                 type="control_plane",
                 action=ActionTypes.NEW_TASK,
-                data=TaskDefinition(input=initial_task).model_dump(),
+                data=TaskDefinition(
+                    input=initial_task, agent_id=service_id
+                ).model_dump(),
             ),
         )
         # runs until the message queue is stopped by the human consumer

@@ -8,6 +8,7 @@ from llama_agents.orchestrators import (
     AgentOrchestrator,
     PipelineOrchestrator,
     OrchestratorRouter,
+    SimpleOrchestrator,
 )
 from llama_agents.tools import (
     AgentServiceTool,
@@ -21,6 +22,7 @@ from llama_agents.services import (
     ToolService,
     HumanService,
     ComponentService,
+    WorkflowService,
 )
 
 # configure logger
@@ -46,6 +48,7 @@ __all__ = [
     "HumanService",
     "ToolService",
     "ComponentService",
+    "WorkflowService",
     # messages
     "QueueMessage",
     # message consumers
@@ -61,6 +64,7 @@ __all__ = [
     "AgentOrchestrator",
     "PipelineOrchestrator",
     "OrchestratorRouter",
+    "SimpleOrchestrator",
     # various utils
     "AgentServiceTool",
     "ServiceAsTool",
