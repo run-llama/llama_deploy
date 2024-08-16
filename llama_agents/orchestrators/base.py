@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple
 
-from llama_index.core.tools import BaseTool
-
 from llama_agents.messages.base import QueueMessage
 from llama_agents.types import TaskDefinition, TaskResult
 
@@ -12,15 +10,13 @@ class BaseOrchestrator(ABC):
 
     The general idea for an orchestrator is to manage the flow of messages between services.
 
-    Given some state, task, and list of tools, figure out the next messages to publish. Then, once
+    Given some state, and task, figure out the next messages to publish. Then, once
     the messages are processed, update the state with the results.
-
-    Currently, the final message is published to the `human` message queue for final processing.
     """
 
     @abstractmethod
     async def get_next_messages(
-        self, task_def: TaskDefinition, tools: List[BaseTool], state: Dict[str, Any]
+        self, task_def: TaskDefinition, state: Dict[str, Any]
     ) -> Tuple[List[QueueMessage], Dict[str, Any]]:
         """Get the next message to process. Returns the message and the new state."""
         ...

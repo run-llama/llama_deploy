@@ -1,13 +1,5 @@
-"""
-What does the processing loop for the control plane look like?
-- check message queue
-- handle incoming new tasks
-- handle incoming general chats
-- handle services returning a completed task
-"""
-
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, List, Optional
 
 from llama_agents.message_queues.base import BaseMessageQueue
 from llama_agents.message_consumers.base import (
@@ -18,6 +10,7 @@ from llama_agents.message_publishers.publisher import MessageQueuePublisherMixin
 from llama_agents.types import (
     ServiceDefinition,
     TaskDefinition,
+    SessionDefinition,
     TaskResult,
 )
 
@@ -27,8 +20,7 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
 
     The control plane is responsible for managing the state of the system, including:
     - Registering services.
-    - Submitting tasks.
-    - Managing task state.
+    - Managing sessions and tasks.
     - Handling service completion.
     - Launching the control plane server.
     """
@@ -56,7 +48,7 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
     @abstractmethod
     async def register_service(self, service_def: ServiceDefinition) -> None:
         """
-        Register an service with the control plane.
+        Register a service with the control plane.
 
         Args:
             service_def (ServiceDefinition): Definition of the service.
@@ -74,22 +66,58 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         ...
 
     @abstractmethod
-    async def create_task(self, task_def: TaskDefinition) -> Dict[str, str]:
+    async def get_service(self, service_name: str) -> ServiceDefinition:
         """
-        Submit a task to the control plane.
+        Get the definition of a service by name.
 
         Args:
+            service_name (str): Name of the service.
+
+        Returns:
+            ServiceDefinition: Definition of the service.
+        """
+        ...
+
+    @abstractmethod
+    async def get_all_services(self) -> Dict[str, ServiceDefinition]:
+        """
+        Get all services registered with the control plane.
+
+        Returns:
+            dict: All services, mapped from service name to service definition.
+        """
+        ...
+
+    @abstractmethod
+    async def create_session(self) -> str:
+        """
+        Create a new session.
+
+        Returns:
+            str: Session ID.
+        """
+        ...
+
+    @abstractmethod
+    async def add_task_to_session(
+        self, session_id: str, task_def: TaskDefinition
+    ) -> str:
+        """
+        Add a task to an existing session.
+
+        Args:
+            session_id (str): ID of the session.
             task_def (TaskDefinition): Definition of the task.
 
         Returns:
-            dict: Task ID.
+            str: Task ID.
         """
         ...
 
     @abstractmethod
     async def send_task_to_service(self, task_def: TaskDefinition) -> TaskDefinition:
         """
-        Send a task to an service.
+        Send a task to a service.
 
         Args:
             task_def (TaskDefinition): Definition of the task.
@@ -105,7 +133,7 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         task_result: TaskResult,
     ) -> None:
         """
-        Handle the completion of a task by an service.
+        Handle the completion of a task by a service.
 
         Args:
             task_result (TaskResult): Result of the task.
@@ -113,25 +141,65 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         ...
 
     @abstractmethod
-    async def get_task_state(self, task_id: str) -> dict:
+    async def get_session(self, session_id: str) -> SessionDefinition:
         """
-        Get the current state of a task.
+        Get the specified session session.
 
         Args:
-            task_id (str): Unique identifier of the task.
+            session_id (str): Unique identifier of the session.
 
         Returns:
-            dict: State of the task
+            SessionDefinition: The session definition.
         """
         ...
 
     @abstractmethod
-    async def get_all_tasks(self) -> dict:
+    async def get_all_sessions(self) -> Dict[str, SessionDefinition]:
         """
-        Get all tasks.
+        Get all sessions.
 
         Returns:
-            dict: All tasks.
+            dict: All sessions, mapped from session ID to session definition.
+        """
+        ...
+
+    @abstractmethod
+    async def get_session_tasks(self, session_id: str) -> List[TaskDefinition]:
+        """
+        Get all tasks for a session.
+
+        Args:
+            session_id (str): Unique identifier of the session.
+
+        Returns:
+            List[TaskDefinition]: All tasks in the session.
+        """
+        ...
+
+    @abstractmethod
+    async def get_current_task(self, session_id: str) -> Optional[TaskDefinition]:
+        """
+        Get the current task for a session.
+
+        Args:
+            session_id (str): Unique identifier of the session.
+
+        Returns:
+            Optional[TaskDefinition]: The current task, if any.
+        """
+        ...
+
+    @abstractmethod
+    async def get_task(self, task_id: str) -> TaskDefinition:
+        """
+        Get the specified task.
+
+        Args:
+            task_id (str): Unique identifier of the task.
+            session_id (str): Unique identifier of the session.
+
+        Returns:
+            TaskDefinition: The task definition.
         """
         ...
 

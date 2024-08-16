@@ -1,15 +1,11 @@
-import copy
 import uuid
 import uvicorn
 from fastapi import FastAPI
 from logging import getLogger
 from typing import Dict, List, Optional
 
-from llama_index.core import StorageContext, VectorStoreIndex
-from llama_index.core.objects import ObjectIndex, SimpleObjectNodeMapping
 from llama_index.core.storage.kvstore.types import BaseKVStore
 from llama_index.core.storage.kvstore import SimpleKVStore
-from llama_index.core.vector_stores.types import BasePydanticVectorStore
 
 from llama_agents.control_plane.base import BaseControlPlane
 from llama_agents.message_consumers.base import (
@@ -21,9 +17,9 @@ from llama_agents.message_consumers.remote import RemoteMessageConsumer
 from llama_agents.message_queues.base import BaseMessageQueue, PublishCallback
 from llama_agents.messages.base import QueueMessage
 from llama_agents.orchestrators.base import BaseOrchestrator
-from llama_agents.tools import ServiceTool
 from llama_agents.types import (
     ActionTypes,
+    SessionDefinition,
     ServiceDefinition,
     TaskDefinition,
     TaskResult,
@@ -45,13 +41,11 @@ class ControlPlaneServer(BaseControlPlane):
     Args:
         message_queue (BaseMessageQueue): Message queue for the system.
         orchestrator (BaseOrchestrator): Orchestrator for the system.
-        vector_store (Optional[BasePydanticVectorStore], optional): Vector store for the system. Defaults to None.
         publish_callback (Optional[PublishCallback], optional): Callback for publishing messages. Defaults to None.
         state_store (Optional[BaseKVStore], optional): State store for the system. Defaults to None.
         services_store_key (str, optional): Key for the services store. Defaults to "services".
         tasks_store_key (str, optional): Key for the tasks store. Defaults to "tasks".
         step_interval (float, optional): The interval in seconds to poll for tool call results. Defaults to 0.1s.
-        services_retrieval_threshold (int, optional): The threshold for retrieving services. Defaults to 5.
         host (str, optional): The host of the service. Defaults to "127.0.0.1".
         port (Optional[int], optional): The port of the service. Defaults to 8000.
         running (bool, optional): Whether the service is running. Defaults to True.
@@ -59,12 +53,12 @@ class ControlPlaneServer(BaseControlPlane):
     Examples:
         ```python
         from llama_agents import ControlPlaneServer
-        from llama_agents import SimpleMessageQueue, AgentOrchestrator
+        from llama_agents import SimpleMessageQueue, SimpleOrchestrator
         from llama_index.llms.openai import OpenAI
 
         control_plane = ControlPlaneServer(
             SimpleMessageQueue(),
-            AgentOrchestrator(llm=OpenAI())
+            SimpleOrchestrator(),
         )
         ```
     """
@@ -73,22 +67,17 @@ class ControlPlaneServer(BaseControlPlane):
         self,
         message_queue: BaseMessageQueue,
         orchestrator: BaseOrchestrator,
-        vector_store: Optional[BasePydanticVectorStore] = None,
         publish_callback: Optional[PublishCallback] = None,
         state_store: Optional[BaseKVStore] = None,
         services_store_key: str = "services",
         tasks_store_key: str = "tasks",
+        session_store_key: str = "sessions",
         step_interval: float = 0.1,
-        services_retrieval_threshold: int = 5,
         host: str = "127.0.0.1",
         port: Optional[int] = 8000,
         running: bool = True,
     ) -> None:
         self.orchestrator = orchestrator
-
-        # lazily init object index when needed
-        self._vector_store = vector_store
-        self._object_index = None
 
         self.step_interval = step_interval
         self.running = running
@@ -97,16 +86,13 @@ class ControlPlaneServer(BaseControlPlane):
 
         self.state_store = state_store or SimpleKVStore()
 
-        # TODO: should we store services in a tool retriever?
         self.services_store_key = services_store_key
         self.tasks_store_key = tasks_store_key
+        self.session_store_key = session_store_key
 
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
-
-        self._services_cache: Dict[str, ServiceDefinition] = {}
-        self._services_retrieval_threshold = services_retrieval_threshold
 
         self.app = FastAPI()
         self.app.add_api_route("/", self.home, methods=["GET"], tags=["Control Plane"])
@@ -143,16 +129,28 @@ class ControlPlaneServer(BaseControlPlane):
         )
 
         self.app.add_api_route(
-            "/tasks", self.create_task, methods=["POST"], tags=["Tasks"]
-        )
-        self.app.add_api_route(
-            "/tasks", self.get_all_tasks, methods=["GET"], tags=["Tasks"]
-        )
-        self.app.add_api_route(
-            "/tasks/{task_id}",
-            self.get_task_state_api_safe,
+            "/sessions/{session_id}",
+            self.get_session,
             methods=["GET"],
-            tags=["Tasks"],
+            tags=["Sessions"],
+        )
+        self.app.add_api_route(
+            "/sessions",
+            self.get_all_sessions,
+            methods=["GET"],
+            tags=["Sessions"],
+        )
+        self.app.add_api_route(
+            "/sessions/{session_id}/tasks",
+            self.get_session_tasks,
+            methods=["GET"],
+            tags=["Sessions"],
+        )
+        self.app.add_api_route(
+            "/sessions/{session_id}/current_task",
+            self.get_current_task,
+            methods=["GET"],
+            tags=["Sessions"],
         )
 
     @property
@@ -167,31 +165,16 @@ class ControlPlaneServer(BaseControlPlane):
     def publish_callback(self) -> Optional[PublishCallback]:
         return self._publish_callback
 
-    @property
-    def object_index(self) -> ObjectIndex:
-        if self._object_index is None:
-            self._object_index = ObjectIndex(
-                VectorStoreIndex(
-                    nodes=[],
-                    storage_context=StorageContext.from_defaults(
-                        vector_store=self._vector_store
-                    ),
-                ),
-                SimpleObjectNodeMapping(),
-            )
-        return self._object_index
-
-    async def get_total_services(self) -> int:
-        all_services = await self.state_store.aget_all(
-            collection=self.services_store_key
-        )
-        return len(all_services)
-
     async def process_message(self, message: QueueMessage) -> None:
         action = message.action
 
         if action == ActionTypes.NEW_TASK and message.data is not None:
-            await self.create_task(TaskDefinition(**message.data))
+            task_def = TaskDefinition(**message.data)
+            if task_def.session_id is None:
+                task_def.session_id = await self.create_session()
+
+            await self.add_task_to_session(task_def.session_id, task_def)
+            await self.send_task_to_service(task_def)
         elif action == ActionTypes.COMPLETED_TASK and message.data is not None:
             await self.handle_service_completion(TaskResult(**message.data))
         else:
@@ -228,13 +211,12 @@ class ControlPlaneServer(BaseControlPlane):
         await server.serve()
 
     async def home(self) -> Dict[str, str]:
-        total_services = await self.get_total_services()
         return {
             "running": str(self.running),
             "step_interval": str(self.step_interval),
             "services_store_key": self.services_store_key,
-            "total_services": str(total_services),
-            "services_retrieval_threshold": str(self._services_retrieval_threshold),
+            "tasks_store_key": self.tasks_store_key,
+            "session_store_key": self.session_store_key,
         }
 
     async def register_service(self, service_def: ServiceDefinition) -> None:
@@ -244,23 +226,8 @@ class ControlPlaneServer(BaseControlPlane):
             collection=self.services_store_key,
         )
 
-        # decide to use cache vs. retrieval
-        total_services = await self.get_total_services()
-        if total_services > self._services_retrieval_threshold:
-            # TODO: currently blocking, should be async
-            self.object_index.insert_object(service_def.model_dump())
-            for service in self._services_cache.values():
-                self.object_index.insert_object(service.model_dump())
-            self._services_cache = {}
-        else:
-            self._services_cache[service_def.service_name] = service_def
-
     async def deregister_service(self, service_name: str) -> None:
         await self.state_store.adelete(service_name, collection=self.services_store_key)
-        if service_name in self._services_cache:
-            del self._services_cache[service_name]
-
-        # TODO: object index does not have delete yet
 
     async def get_service(self, service_name: str) -> ServiceDefinition:
         service_dict = await self.state_store.aget(
@@ -275,47 +242,83 @@ class ControlPlaneServer(BaseControlPlane):
         service_dicts = await self.state_store.aget_all(
             collection=self.services_store_key
         )
+
         return {
             service_name: ServiceDefinition.model_validate(service_dict)
             for service_name, service_dict in service_dicts.items()
         }
 
-    async def create_task(self, task_def: TaskDefinition) -> Dict[str, str]:
+    async def create_session(self) -> str:
+        session = SessionDefinition()
+        await self.state_store.aput(
+            session.session_id,
+            session.model_dump(),
+            collection=self.session_store_key,
+        )
+
+        return session.session_id
+
+    async def get_session(self, session_id: str) -> SessionDefinition:
+        session_dict = await self.state_store.aget(
+            session_id, collection=self.session_store_key
+        )
+        if session_dict is None:
+            raise ValueError(f"Session with id {session_id} not found")
+
+        return SessionDefinition(**session_dict)
+
+    async def get_all_sessions(self) -> Dict[str, SessionDefinition]:
+        session_dicts = await self.state_store.aget_all(
+            collection=self.session_store_key
+        )
+
+        return {
+            session_id: SessionDefinition(**session_dict)
+            for session_id, session_dict in session_dicts.items()
+        }
+
+    async def get_session_tasks(self, session_id: str) -> List[TaskDefinition]:
+        session = await self.get_session(session_id)
+        task_defs = []
+        for task_id in session.task_ids:
+            task_defs.append(await self.get_task(task_id))
+        return task_defs
+
+    async def get_current_task(self, session_id: str) -> Optional[TaskDefinition]:
+        session = await self.get_session(session_id)
+        if len(session.task_ids) == 0:
+            return None
+        return await self.get_task(session.task_ids[-1])
+
+    async def add_task_to_session(
+        self, session_id: str, task_def: TaskDefinition
+    ) -> str:
+        session_dict = await self.state_store.aget(
+            session_id, collection=self.session_store_key
+        )
+        if session_dict is None:
+            raise ValueError(f"Session with id {session_id} not found")
+
+        session = SessionDefinition(**session_dict)
+        session.task_ids.append(task_def.task_id)
+        await self.state_store.aput(
+            session_id, session.model_dump(), collection=self.session_store_key
+        )
+
         await self.state_store.aput(
             task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
         )
 
-        task_def = await self.send_task_to_service(task_def)
-        await self.state_store.aput(
-            task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
-        )
-        logger.debug(f"Task {task_def.task_id} created")
-        return {"task_id": task_def.task_id}
+        return task_def.task_id
 
     async def send_task_to_service(self, task_def: TaskDefinition) -> TaskDefinition:
-        total_services = await self.get_total_services()
-        if total_services > self._services_retrieval_threshold:
-            service_retriever = self.object_index.as_retriever(similarity_top_k=5)
+        if task_def.session_id is None:
+            raise ValueError(f"Task with id {task_def.task_id} has no session")
 
-            # could also route based on similarity alone.
-            # TODO: Figure out user-specified routing
-            service_def_dicts: List[dict] = await service_retriever.aretrieve(
-                task_def.input
-            )
-            service_defs = [
-                ServiceDefinition.model_validate(service_def_dict)
-                for service_def_dict in service_def_dicts
-            ]
-        else:
-            service_defs = list(self._services_cache.values())
+        session = await self.get_session(task_def.session_id)
 
-        service_tools = [
-            ServiceTool.from_service_definition(service_def)
-            for service_def in service_defs
-        ]
-
-        next_messages, task_state = await self.orchestrator.get_next_messages(
-            task_def, service_tools, task_def.state
+        next_messages, session_state = await self.orchestrator.get_next_messages(
+            task_def, session.state
         )
 
         logger.debug(f"Sending task {task_def.task_id} to services: {next_messages}")
@@ -323,7 +326,12 @@ class ControlPlaneServer(BaseControlPlane):
         for message in next_messages:
             await self.publish(message)
 
-        task_def.state.update(task_state)
+        session.state.update(session_state)
+
+        await self.state_store.aput(
+            task_def.session_id, session.model_dump(), collection=self.session_store_key
+        )
+
         return task_def
 
     async def handle_service_completion(
@@ -331,9 +339,20 @@ class ControlPlaneServer(BaseControlPlane):
         task_result: TaskResult,
     ) -> None:
         # add result to task state
-        task_def = await self.get_task_state(task_result.task_id)
-        state = await self.orchestrator.add_result_to_state(task_result, task_def.state)
-        task_def.state.update(state)
+        task_def = await self.get_task(task_result.task_id)
+        if task_def.session_id is None:
+            raise ValueError(f"Task with id {task_result.task_id} has no session")
+
+        session = await self.get_session(task_def.session_id)
+        state = await self.orchestrator.add_result_to_state(task_result, session.state)
+
+        # update session state
+        session.state.update(state)
+        await self.state_store.aput(
+            session.session_id,
+            session.model_dump(),
+            collection=self.session_store_key,
+        )
 
         # generate and send new tasks (if any)
         task_def = await self.send_task_to_service(task_def)
@@ -342,7 +361,7 @@ class ControlPlaneServer(BaseControlPlane):
             task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
         )
 
-    async def get_task_state(self, task_id: str) -> TaskDefinition:
+    async def get_task(self, task_id: str) -> TaskDefinition:
         state_dict = await self.state_store.aget(
             task_id, collection=self.tasks_store_key
         )
@@ -350,48 +369,15 @@ class ControlPlaneServer(BaseControlPlane):
             raise ValueError(f"Task with id {task_id} not found")
 
         return TaskDefinition(**state_dict)
-
-    async def get_task_state_api_safe(self, task_id: str) -> TaskDefinition:
-        state_dict = await self.state_store.aget(
-            task_id, collection=self.tasks_store_key
-        )
-        state_dict = copy.deepcopy(state_dict)
-
-        if state_dict is None:
-            raise ValueError(f"Task with id {task_id} not found")
-
-        # remove an bytes objects from state
-        for key, val in state_dict["state"].items():
-            if isinstance(val, bytes):
-                state_dict["state"][key] = "<bytes object>"
-
-        return TaskDefinition(**state_dict)
-
-    async def get_all_tasks(self) -> Dict[str, TaskDefinition]:
-        state_dicts = await self.state_store.aget_all(collection=self.tasks_store_key)
-        state_dicts = copy.deepcopy(state_dicts)
-
-        task_defs = {}
-        for task_id, state_dict in state_dicts.items():
-            # remove an bytes objects from state
-            for key, val in state_dict["state"].items():
-                if isinstance(val, bytes):
-                    state_dict["state"][key] = "<bytes object>"
-            task_defs[task_id] = TaskDefinition(**state_dict)
-
-        return task_defs
 
     async def register_to_message_queue(self) -> StartConsumingCallable:
         return await self.message_queue.register_consumer(self.as_consumer(remote=True))
 
 
 if __name__ == "__main__":
-    from llama_agents import SimpleMessageQueue, AgentOrchestrator
-    from llama_index.llms.openai import OpenAI
-
-    control_plane = ControlPlaneServer(
-        SimpleMessageQueue(), AgentOrchestrator(llm=OpenAI())
-    )
     import asyncio
+    from llama_agents import SimpleMessageQueue, SimpleOrchestrator
+
+    control_plane = ControlPlaneServer(SimpleMessageQueue(), SimpleOrchestrator())
 
     asyncio.run(control_plane.launch_server())
