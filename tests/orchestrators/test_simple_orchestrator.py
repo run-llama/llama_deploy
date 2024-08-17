@@ -1,0 +1,75 @@
+import pytest
+
+from llama_agents.orchestrators.simple import SimpleOrchestrator
+from llama_agents.messages.base import QueueMessage
+from llama_agents.types import (
+    ActionTypes,
+    NewTask,
+    TaskDefinition,
+    TaskResult,
+    SessionDefinition,
+)
+
+TASK_DEF = TaskDefinition(
+    input="Tell me a secret fact.",
+    agent_id="secret_fact_agent",
+    session_id="session_id",
+)
+
+SESSION_DEF = SessionDefinition(
+    task_ids=[TASK_DEF.task_id],
+    session_id="session_id",
+    state={},
+)
+
+INITIAL_QUEUE_MESSAGE = QueueMessage(
+    type="secret_fact_agent",
+    data=NewTask(task=TASK_DEF, state=SESSION_DEF.state).model_dump(),
+    action=ActionTypes.NEW_TASK,
+)
+
+
+@pytest.mark.asyncio()
+async def test_get_next_message() -> None:
+    orchestrator = SimpleOrchestrator()
+
+    queue_messages, state = await orchestrator.get_next_messages(
+        TASK_DEF,
+        SESSION_DEF.state,
+    )
+
+    assert len(queue_messages) == 1
+    assert queue_messages[0].type == INITIAL_QUEUE_MESSAGE.type
+    assert isinstance(queue_messages[0].data, dict)
+    assert queue_messages[0].data["task"]["input"] == INITIAL_QUEUE_MESSAGE.data["task"]["input"]  # type: ignore
+
+    assert state == {}
+
+
+@pytest.mark.asyncio()
+async def test_add_result_to_state() -> None:
+    orchestrator = SimpleOrchestrator()
+
+    _, state = await orchestrator.get_next_messages(
+        TASK_DEF,
+        SESSION_DEF.state,
+    )
+
+    new_state = await orchestrator.add_result_to_state(
+        TaskResult(
+            task_id=TASK_DEF.task_id,
+            result="The secret fact is: A Cria is a baby llama.",
+            history=[],
+        ),
+        state,
+    )
+
+    assert "retries" in new_state
+    assert new_state["retries"] == 0
+
+    assert "result" in new_state
+    result = new_state["result"]
+    assert isinstance(result, TaskResult)
+    assert result.task_id == TASK_DEF.task_id
+    assert result.result == "The secret fact is: A Cria is a baby llama."
+    assert result.history == []

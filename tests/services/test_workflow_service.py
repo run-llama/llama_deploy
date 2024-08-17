@@ -9,7 +9,7 @@ from llama_agents.messages import QueueMessage
 from llama_agents.message_consumers import BaseMessageQueueConsumer
 from llama_agents.message_queues import SimpleMessageQueue
 from llama_agents.services.workflow import WorkflowService, WorkflowState
-from llama_agents.types import CONTROL_PLANE_NAME, ActionTypes, TaskDefinition
+from llama_agents.types import CONTROL_PLANE_NAME, ActionTypes, NewTask, TaskDefinition
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
@@ -68,7 +68,7 @@ async def test_workflow_service(
     await workflow_service.process_message(
         QueueMessage(
             action=ActionTypes.NEW_TASK,
-            data=task.dict(),
+            data=NewTask(task=task).model_dump(),
         )
     )
 

@@ -14,6 +14,7 @@ class CallableMessageConsumer(BaseMessageQueueConsumer):
     handler: Callable
 
     async def _process_message(self, message: QueueMessage, **kwargs: Any) -> None:
+        print("In callable handler")
         if asyncio.iscoroutinefunction(self.handler):
             await self.handler(message, **kwargs)
         else:

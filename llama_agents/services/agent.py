@@ -21,6 +21,7 @@ from llama_agents.types import (
     ActionTypes,
     ChatMessage,
     MessageRole,
+    NewTask,
     TaskResult,
     TaskDefinition,
     ToolCall,
@@ -309,7 +310,8 @@ class AgentService(BaseService):
     async def process_message(self, message: QueueMessage) -> None:
         """Handling for when a message is received."""
         if message.action == ActionTypes.NEW_TASK:
-            task_def = TaskDefinition(**message.data or {})
+            new_task = NewTask(**message.data or {})
+            task_def = new_task.task
             self.agent.create_task(task_def.input, task_id=task_def.task_id)
             logger.info(f"Created new task: {task_def.task_id}")
         elif message.action == ActionTypes.NEW_TOOL_CALL:
