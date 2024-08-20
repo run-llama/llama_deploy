@@ -196,7 +196,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
 
         Args:
             task_id (str): Unique identifier of the task.
-            session_id (str): Unique identifier of the session.
 
         Returns:
             TaskDefinition: The task definition.
