@@ -30,6 +30,7 @@ from llama_agents.types import (
     ActionTypes,
     ChatMessage,
     HumanResponse,
+    NewTask,
     TaskDefinition,
     TaskResult,
     ToolCall,
@@ -287,7 +288,8 @@ class HumanService(BaseService):
     async def process_message(self, message: QueueMessage) -> None:
         """Process a message received from the message queue."""
         if message.action == ActionTypes.NEW_TASK:
-            task_def = TaskDefinition(**message.data or {})
+            new_task = NewTask(**message.data or {})
+            task_def = new_task.task
             human_task = self.HumanTask(task_def=task_def)
             logger.info(f"Created new task: {task_def.task_id}")
         elif message.action == ActionTypes.NEW_TOOL_CALL:

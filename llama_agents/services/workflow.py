@@ -23,8 +23,8 @@ from llama_agents.messages.base import QueueMessage
 from llama_agents.services.base import BaseService
 from llama_agents.types import (
     ActionTypes,
+    NewTask,
     TaskResult,
-    TaskDefinition,
     ServiceDefinition,
     CONTROL_PLANE_NAME,
 )
@@ -271,13 +271,13 @@ class WorkflowService(BaseService):
     async def process_message(self, message: QueueMessage) -> None:
         """Process a message received from the message queue."""
         if message.action == ActionTypes.NEW_TASK:
-            task_def = TaskDefinition(**message.data or {})
+            new_task = NewTask(**message.data or {})
             async with self.lock:
-                task_def.state["run_kwargs"] = json.loads(task_def.input)
+                new_task.state["run_kwargs"] = json.loads(new_task.task.input)
                 workflow_state = WorkflowState(
-                    **task_def.state,
+                    **new_task.state,
                 )
-                self._outstanding_calls[task_def.task_id] = workflow_state
+                self._outstanding_calls[new_task.task.task_id] = workflow_state
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 

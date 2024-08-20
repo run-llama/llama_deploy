@@ -1,11 +1,10 @@
 import json
 from typing import Any, Dict, List, Tuple
 
-from llama_index.core.tools import BaseTool
 
 from llama_agents.messages.base import QueueMessage
 from llama_agents.orchestrators.base import BaseOrchestrator
-from llama_agents.types import ActionTypes, TaskDefinition, TaskResult
+from llama_agents.types import ActionTypes, NewTask, TaskDefinition, TaskResult
 
 
 class SimpleOrchestrator(BaseOrchestrator):
@@ -19,7 +18,7 @@ class SimpleOrchestrator(BaseOrchestrator):
         self.final_message_type = final_message_type
 
     async def get_next_messages(
-        self, task_def: TaskDefinition, tools: List[BaseTool], state: Dict[str, Any]
+        self, task_def: TaskDefinition, state: Dict[str, Any]
     ) -> Tuple[List[QueueMessage], Dict[str, Any]]:
         """Get the next message to process. Returns the message and the new state.
 
@@ -40,6 +39,7 @@ class SimpleOrchestrator(BaseOrchestrator):
 
             assert isinstance(result, TaskResult), "Result must be a TaskResult"
 
+            # TODO: Final message should just go to the control plane by default and stop there?
             destination = self.final_message_type
             destination_message = QueueMessage(
                 type=destination,
@@ -55,7 +55,7 @@ class SimpleOrchestrator(BaseOrchestrator):
             destination_message = QueueMessage(
                 type=destination,
                 action=ActionTypes.NEW_TASK,
-                data=task_def.model_dump(),
+                data=NewTask(task=task_def, state=state).model_dump(),
             )
 
         return [destination_message], state
@@ -66,7 +66,7 @@ class SimpleOrchestrator(BaseOrchestrator):
         """Add the result of processing a message to the state. Returns the new state."""
 
         # TODO: detect failures + retries
-        cur_retries = state.get("retries", 0) + 1
+        cur_retries = state.get("retries", -1) + 1
         state["retries"] = cur_retries
         state["result"] = result
 

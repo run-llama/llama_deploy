@@ -49,6 +49,7 @@ repos:
             --ignore-missing-imports,
             --python-version=3.8,
           ]
+        exclude: examples/
   - repo: https://github.com/adamchainz/blacken-docs
     rev: 1.16.0
     hooks:

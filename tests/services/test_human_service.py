@@ -9,6 +9,7 @@ from llama_agents.message_queues.simple import SimpleMessageQueue
 from llama_agents.message_consumers.base import BaseMessageQueueConsumer
 from llama_agents.messages.base import QueueMessage
 from llama_agents.types import (
+    NewTask,
     TaskDefinition,
     ActionTypes,
     CONTROL_PLANE_NAME,
@@ -146,7 +147,7 @@ async def test_process_human_req_from_queue(
     # act
     req = TaskDefinition(task_id="1", input="Mock human req.")
     human_req_message = QueueMessage(
-        data=req.model_dump(),
+        data=NewTask(task=req).model_dump(),
         action=ActionTypes.NEW_TASK,
         type="test_human_service",
     )

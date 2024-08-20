@@ -86,10 +86,10 @@ class TaskDefinition(BaseModel):
     Attributes:
         input (str):
             The task input.
+        session_id (str):
+            The session ID that the task belongs to.
         task_id (str):
             The task ID. Defaults to a random UUID.
-        state (dict):
-            The task state, used and updated as the task progresses.
         agent_id (str):
             The agent ID that the task should be sent to.
             If blank, the orchestrator decides.
@@ -97,8 +97,40 @@ class TaskDefinition(BaseModel):
 
     input: str
     task_id: str = Field(default_factory=generate_id)
-    state: dict = Field(default_factory=dict)
+    session_id: Optional[str] = None
     agent_id: Optional[str] = None
+
+
+class SessionDefinition(BaseModel):
+    """
+    The definition of a session.
+
+    Attributes:
+        session_id (str):
+            The session ID. Defaults to a random UUID.
+        task_definitions (List[str]):
+            The task ids in order, representing the session.
+        state (dict):
+            The current session state.
+    """
+
+    session_id: str = Field(default_factory=generate_id)
+    task_ids: List[str] = Field(default_factory=list)
+    state: dict = Field(default_factory=dict)
+
+    @property
+    def current_task_id(self) -> Optional[str]:
+        if len(self.task_ids) == 0:
+            return None
+
+        return self.task_ids[-1]
+
+
+class NewTask(BaseModel):
+    """The payload for a new task message."""
+
+    task: TaskDefinition
+    state: Dict[str, Any] = Field(default_factory=dict)
 
 
 class TaskResult(BaseModel):
