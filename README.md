@@ -1,5 +1,10 @@
 # 🦙 `llama-agents` 🤖
 
+> [!IMPORTANT]  
+> Breaking changes are coming soon to the `llama-agents` codebase!
+> 
+> As [workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/?h=workflow) were recently introduced in the core `llama-index` library, we are working on a large refactor to pivot `llama-agents` to be the place you go to serve, deploy, and scale workflows that you built with `llama-index`. We recommend building workflows with the core `llama-index` library, and then coming here in the near future for deployment and scaling of those workflows as micro-services.
+
 `llama-agents` is an async-first framework for building, iterating, and productionizing multi-agent systems, including multi-agent communication, distributed tool execution, human-in-the-loop, and more!
 
 In `llama-agents`, each agent is seen as a `service`, endlessly processing incoming tasks. Each agent pulls and publishes messages from a `message queue`.
