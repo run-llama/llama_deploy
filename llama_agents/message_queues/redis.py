@@ -20,6 +20,29 @@ logger = getLogger(__name__)
 DEFAULT_URL = "redis://localhost:6379"
 
 
+class RedisMessageQueueConfig(BaseModel):
+    """Redis message queue configuration."""
+
+    url: str = DEFAULT_URL
+
+    def __init__(
+        self,
+        url: str = DEFAULT_URL,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+        db: Optional[int] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        ssl: Optional[bool] = None,
+    ) -> None:
+        if host and port:
+            scheme = "rediss" if ssl else "redis"
+            auth = f"{username}:{password}@" if username and password else ""
+            url = f"{scheme}://{auth}{host}:{port}/{db}"
+
+        super().__init__(url=url)
+
+
 async def _establish_connection(url: str) -> "redis.Redis":
     try:
         import redis.asyncio as redis

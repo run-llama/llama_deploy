@@ -1,6 +1,6 @@
 from llama_agents.client import AsyncLlamaAgentsClient, LlamaAgentsClient
 from llama_agents.control_plane import ControlPlaneServer
-from llama_agents.launchers import LocalLauncher, ServerLauncher
+from llama_agents.launchers import Launcher
 from llama_agents.message_consumers import CallableMessageConsumer
 from llama_agents.message_queues import SimpleMessageQueue
 from llama_agents.messages import QueueMessage
@@ -51,8 +51,7 @@ __all__ = [
     # message queues
     "SimpleMessageQueue",
     # launchers
-    "LocalLauncher",
-    "ServerLauncher",
+    "Launcher",
     # control planes
     "ControlPlaneServer",
     # orchestrators

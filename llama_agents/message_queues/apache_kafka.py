@@ -3,14 +3,16 @@
 import asyncio
 import json
 from logging import getLogger
+from pydantic import BaseModel
 from typing import Any, Callable, Coroutine, Dict, List, Optional
-from llama_agents import CallableMessageConsumer, QueueMessage
+from llama_agents.message_consumers.callable import CallableMessageConsumer
 from llama_agents.message_queues.base import (
     BaseMessageQueue,
 )
 from llama_agents.message_consumers.base import (
     BaseMessageQueueConsumer,
 )
+from llama_agents.messages.base import QueueMessage
 
 import logging
 
@@ -22,6 +24,23 @@ DEFAULT_URL = "localhost:9092"
 DEFAULT_TOPIC_PARTITIONS = 10
 DEFAULT_TOPIC_REPLICATION_FACTOR = 1
 DEFAULT_GROUP_ID = "default_group"  # single group for competing consumers
+
+
+class KafkaMessageQueueConfig(BaseModel):
+    """Kafka message queue configuration."""
+
+    url: str = DEFAULT_URL
+
+    def __init__(
+        self,
+        url: str = DEFAULT_URL,
+        host: Optional[str] = None,
+        port: Optional[int] = None,
+    ) -> None:
+        if host and port:
+            url = f"{host}:{port}"
+
+        super().__init__(url=url)
 
 
 class KafkaMessageQueue(BaseMessageQueue):

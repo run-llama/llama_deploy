@@ -73,6 +73,15 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
             )
             response.raise_for_status()
 
+    async def deregister_from_control_plane(self, control_plane_url: str) -> None:
+        """Deregister the service from the control plane."""
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{control_plane_url}/services/deregister",
+                json={"service_name": self.service_name},
+            )
+            response.raise_for_status()
+
     async def register_to_message_queue(self) -> StartConsumingCallable:
         """Register the service to the message queue."""
         return await self.message_queue.register_consumer(self.as_consumer(remote=True))

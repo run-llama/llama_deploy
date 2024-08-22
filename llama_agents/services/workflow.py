@@ -9,9 +9,9 @@ import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from logging import getLogger
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from typing import AsyncGenerator, Dict, Optional, Any
 
-from llama_index.core.bridge.pydantic import BaseModel, Field, PrivateAttr
 from llama_index.core.workflow import Workflow
 
 from llama_agents.message_consumers.base import BaseMessageQueueConsumer
@@ -33,6 +33,18 @@ logger = getLogger(__name__)
 hash_secret = str(os.environ.get("LLAMA_AGENTS_HASH_SECRET", "default"))
 
 
+class WorkflowServiceConfig(BaseModel):
+    """Workflow service configuration."""
+
+    host: str
+    port: int
+    service_name: str
+    description: str = "A service that wraps a llama-index workflow."
+    running: bool = True
+    step_interval: float = 0.1
+    raise_exceptions: bool = False
+
+
 class WorkflowState(BaseModel):
     """Holds the state of the workflow.
 
@@ -41,8 +53,7 @@ class WorkflowState(BaseModel):
     TODO: Should this be the general payload for all messages?
     """
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     hash: Optional[int] = Field(
         default=None, description="Hash of the context, if any."

@@ -2,6 +2,7 @@ import uuid
 import uvicorn
 from fastapi import FastAPI
 from logging import getLogger
+from pydantic import BaseModel, ConfigDict
 from typing import Dict, List, Optional
 
 from llama_index.core.storage.kvstore.types import BaseKVStore
@@ -26,6 +27,21 @@ from llama_agents.types import (
 )
 
 logger = getLogger(__name__)
+
+
+class ControlPlaneConfig(BaseModel):
+    """Control plane configuration."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    state_store: Optional[BaseKVStore] = None
+    services_store_key: str = "services"
+    tasks_store_key: str = "tasks"
+    session_store_key: str = "sessions"
+    step_interval: float = 0.1
+    host: str = "127.0.0.1"
+    port: Optional[int] = 8000
+    running: bool = True
 
 
 class ControlPlaneServer(BaseControlPlane):
@@ -132,6 +148,18 @@ class ControlPlaneServer(BaseControlPlane):
             "/sessions/{session_id}",
             self.get_session,
             methods=["GET"],
+            tags=["Sessions"],
+        )
+        self.app.add_api_route(
+            "/sessions/create",
+            self.create_session,
+            methods=["POST"],
+            tags=["Sessions"],
+        )
+        self.app.add_api_route(
+            "/sessions/{session_id}/tasks",
+            self.add_task_to_session,
+            methods=["POST"],
             tags=["Sessions"],
         )
         self.app.add_api_route(
