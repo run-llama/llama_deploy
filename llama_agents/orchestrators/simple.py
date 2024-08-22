@@ -1,10 +1,16 @@
 import json
+from pydantic import BaseModel
 from typing import Any, Dict, List, Tuple
 
 
 from llama_agents.messages.base import QueueMessage
 from llama_agents.orchestrators.base import BaseOrchestrator
 from llama_agents.types import ActionTypes, NewTask, TaskDefinition, TaskResult
+
+
+class SimpleOrchestratorConfig(BaseModel):
+    max_retries: int = 3
+    final_message_type: str = "human"
 
 
 class SimpleOrchestrator(BaseOrchestrator):

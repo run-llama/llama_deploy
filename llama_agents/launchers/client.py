@@ -3,7 +3,7 @@ import signal
 import sys
 
 from pydantic import BaseModel
-from typing import Any, Callable, List
+from typing import Any, Callable, List, Optional
 from llama_index.core.workflow import Workflow
 
 from llama_agents.control_plane.server import ControlPlaneConfig, ControlPlaneServer
@@ -18,7 +18,10 @@ from llama_agents.message_queues import (
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
 )
-from llama_agents.orchestrators.simple import SimpleOrchestrator
+from llama_agents.orchestrators.simple import (
+    SimpleOrchestrator,
+    SimpleOrchestratorConfig,
+)
 from llama_agents.services.workflow import WorkflowServiceConfig, WorkflowService
 
 DEFAULT_TIMEOUT = 120.0
@@ -65,12 +68,15 @@ class Launcher:
         self,
         control_plane_config: ControlPlaneConfig,
         message_queue_config: BaseModel,
+        orchestrator_config: Optional[SimpleOrchestratorConfig] = None,
     ) -> None:
+        orchestrator_config = orchestrator_config or SimpleOrchestratorConfig()
+
         message_queue_client = self._get_message_queue_client(message_queue_config)
 
         control_plane = ControlPlaneServer(
             message_queue_client,
-            SimpleOrchestrator(),
+            SimpleOrchestrator(**orchestrator_config.model_dump()),
             **control_plane_config.model_dump(),
         )
 
