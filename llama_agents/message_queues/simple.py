@@ -9,7 +9,8 @@ from collections import deque
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, status
 from logging import getLogger
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import Field, PrivateAttr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, AsyncGenerator, Dict, List, Optional
 from urllib.parse import urljoin
 
@@ -29,8 +30,10 @@ from llama_agents.types import PydanticValidatedUrl
 logger = getLogger(__name__)
 
 
-class SimpleMessageQueueConfig(BaseModel):
+class SimpleMessageQueueConfig(BaseSettings):
     """Simple message queue configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="SIMPLE_MESSAGE_QUEUE_")
 
     host: str = "127.0.0.1"
     port: int = 8001

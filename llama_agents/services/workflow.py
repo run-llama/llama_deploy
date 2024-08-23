@@ -10,6 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from logging import getLogger
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import AsyncGenerator, Dict, Optional, Any
 
 from llama_index.core.workflow import Workflow
@@ -33,8 +34,10 @@ logger = getLogger(__name__)
 hash_secret = str(os.environ.get("LLAMA_AGENTS_HASH_SECRET", "default"))
 
 
-class WorkflowServiceConfig(BaseModel):
+class WorkflowServiceConfig(BaseSettings):
     """Workflow service configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="WORKFLOW_SERVICE_")
 
     host: str
     port: int

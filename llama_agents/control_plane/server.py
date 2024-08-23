@@ -2,7 +2,7 @@ import uuid
 import uvicorn
 from fastapi import FastAPI
 from logging import getLogger
-from pydantic import BaseModel, ConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Dict, List, Optional
 
 from llama_index.core.storage.kvstore.types import BaseKVStore
@@ -29,10 +29,12 @@ from llama_agents.types import (
 logger = getLogger(__name__)
 
 
-class ControlPlaneConfig(BaseModel):
+class ControlPlaneConfig(BaseSettings):
     """Control plane configuration."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = SettingsConfigDict(
+        env_prefix="CONTROL_PLANE_", arbitrary_types_allowed=True
+    )
 
     state_store: Optional[BaseKVStore] = None
     services_store_key: str = "services"

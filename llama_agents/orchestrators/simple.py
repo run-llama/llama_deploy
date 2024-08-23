@@ -1,5 +1,5 @@
 import json
-from pydantic import BaseModel
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Dict, List, Tuple
 
 
@@ -8,7 +8,9 @@ from llama_agents.orchestrators.base import BaseOrchestrator
 from llama_agents.types import ActionTypes, NewTask, TaskDefinition, TaskResult
 
 
-class SimpleOrchestratorConfig(BaseModel):
+class SimpleOrchestratorConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="SIMPLE_ORCHESTRATOR_")
+
     max_retries: int = 3
     final_message_type: str = "human"
 
