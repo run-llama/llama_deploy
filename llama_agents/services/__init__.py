@@ -10,7 +10,7 @@ from llama_agents.services.types import (
     _TaskStepOutput,
     _ChatMessage,
 )
-from llama_agents.services.workflow import WorkflowService
+from llama_agents.services.workflow import WorkflowService, WorkflowServiceConfig
 
 __all__ = [
     "BaseService",
@@ -19,6 +19,7 @@ __all__ = [
     "ToolService",
     "ComponentService",
     "WorkflowService",
+    "WorkflowServiceConfig",
     "_Task",
     "_TaskSate",
     "_TaskStep",

@@ -3,6 +3,7 @@
 import asyncio
 import json
 from logging import getLogger
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from llama_agents.message_queues.base import (
     BaseMessageQueue,
@@ -21,6 +22,30 @@ logger = getLogger(__name__)
 
 DEFAULT_URL = "amqp://guest:guest@localhost/"
 DEFAULT_EXCHANGE_NAME = "llama-agents"
+
+
+class RabbitMQMessageQueueConfig(BaseSettings):
+    """RabbitMQ message queue configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="RABBITMQ_")
+
+    url: str = DEFAULT_URL
+    exchange_name: str = DEFAULT_EXCHANGE_NAME
+    username: Optional[str] = None
+    password: Optional[str] = None
+    host: Optional[str] = None
+    port: Optional[int] = None
+    vhost: Optional[str] = None
+    secure: Optional[bool] = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.username and self.password and self.host:
+            scheme = "amqps" if self.secure else "amqp"
+            self.url = f"{scheme}://{self.username}:{self.password}@{self.host}"
+            if self.port:
+                self.url += f":{self.port}"
+            elif self.vhost:
+                self.url += f"/{self.vhost}"
 
 
 async def _establish_connection(url: str) -> "Connection":

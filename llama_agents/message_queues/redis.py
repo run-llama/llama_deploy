@@ -3,6 +3,7 @@
 import asyncio
 import json
 from pydantic import PrivateAttr, BaseModel
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from logging import getLogger
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from llama_agents.message_queues.base import BaseMessageQueue
@@ -18,6 +19,30 @@ if TYPE_CHECKING:
 logger = getLogger(__name__)
 
 DEFAULT_URL = "redis://localhost:6379"
+
+
+class RedisMessageQueueConfig(BaseSettings):
+    """Redis message queue configuration."""
+
+    model_config = SettingsConfigDict(env_prefix="REDIS_")
+
+    url: str = DEFAULT_URL
+    host: Optional[str] = None
+    port: Optional[int] = None
+    db: Optional[int] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    ssl: Optional[bool] = None
+
+    def model_post_init(self, __context: Any) -> None:
+        if self.host and self.port:
+            scheme = "rediss" if self.ssl else "redis"
+            auth = (
+                f"{self.username}:{self.password}@"
+                if self.username and self.password
+                else ""
+            )
+            self.url = f"{scheme}://{auth}{self.host}:{self.port}/{self.db or ''}"
 
 
 async def _establish_connection(url: str) -> "redis.Redis":

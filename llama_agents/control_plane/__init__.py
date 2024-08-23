@@ -1,4 +1,4 @@
 from llama_agents.control_plane.base import BaseControlPlane
-from llama_agents.control_plane.server import ControlPlaneServer
+from llama_agents.control_plane.server import ControlPlaneServer, ControlPlaneConfig
 
-__all__ = ["BaseControlPlane", "ControlPlaneServer"]
+__all__ = ["BaseControlPlane", "ControlPlaneServer", "ControlPlaneConfig"]
