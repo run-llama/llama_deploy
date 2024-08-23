@@ -1,10 +1,10 @@
 from llama_agents.client import AsyncLlamaAgentsClient, LlamaAgentsClient
-from llama_agents.control_plane import ControlPlaneServer
-from llama_agents.launchers import Launcher
+from llama_agents.control_plane import ControlPlaneServer, ControlPlaneConfig
+from llama_agents.deploy import deploy_core, deploy_workflow
 from llama_agents.message_consumers import CallableMessageConsumer
-from llama_agents.message_queues import SimpleMessageQueue
+from llama_agents.message_queues import SimpleMessageQueue, SimpleMessageQueueConfig
 from llama_agents.messages import QueueMessage
-from llama_agents.orchestrators import SimpleOrchestrator
+from llama_agents.orchestrators import SimpleOrchestrator, SimpleOrchestratorConfig
 from llama_agents.tools import (
     AgentServiceTool,
     MetaServiceTool,
@@ -18,6 +18,7 @@ from llama_agents.services import (
     HumanService,
     ComponentService,
     WorkflowService,
+    WorkflowServiceConfig,
 )
 
 # configure logger
@@ -44,18 +45,23 @@ __all__ = [
     "ToolService",
     "ComponentService",
     "WorkflowService",
+    "WorkflowServiceConfig",
     # messages
     "QueueMessage",
     # message consumers
     "CallableMessageConsumer",
     # message queues
     "SimpleMessageQueue",
-    # launchers
-    "Launcher",
+    "SimpleMessageQueueConfig",
+    # deployment
+    "deploy_core",
+    "deploy_workflow",
     # control planes
     "ControlPlaneServer",
+    "ControlPlaneConfig",
     # orchestrators
     "SimpleOrchestrator",
+    "SimpleOrchestratorConfig",
     # various utils
     "AgentServiceTool",
     "ServiceAsTool",
