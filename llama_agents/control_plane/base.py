@@ -154,6 +154,16 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         ...
 
     @abstractmethod
+    async def delete_session(self, session_id: str) -> None:
+        """
+        Delete the specified session.
+
+        Args:
+            session_id (str): Unique identifier of the session.
+        """
+        ...
+
+    @abstractmethod
     async def get_all_sessions(self) -> Dict[str, SessionDefinition]:
         """
         Get all sessions.
