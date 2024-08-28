@@ -26,7 +26,7 @@ pip install llama_deploy
 
 ## Getting Started
 
-## High-Level Deployment
+### High-Level Deployment
 
 `llama_deploy` provides a simple way to deploy your workflows using configuration objects and helper functions.
 
