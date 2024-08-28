@@ -33,14 +33,14 @@ class AsyncSessionClient:
         task_id = await self.create_task(task_def)
 
         # wait for task to complete, up to timeout seconds
-        start_time = asyncio.get_event_loop().time()
-        while asyncio.get_event_loop().time() - start_time < self.timeout:
-            result = await self.get_task_result(task_id)
-            if isinstance(result, TaskResult):
-                return result.result
-            await asyncio.sleep(self.poll_interval)
+        async def _get_result() -> str:
+            while True:
+                task_result = await self.get_task_result(task_id)
+                if isinstance(task_result, TaskResult):
+                    return task_result.result or ""
+                await asyncio.sleep(self.poll_interval)
 
-        raise TimeoutError(f"Task {task_id} timed out after {self.timeout} seconds")
+        return await asyncio.wait_for(_get_result(), timeout=self.timeout)
 
     async def create_task(self, task_def: TaskDefinition) -> str:
         """Create a new task in this session.
