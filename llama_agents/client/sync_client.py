@@ -1,7 +1,7 @@
 import httpx
 import json
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 from llama_agents.types import (
     TaskDefinition,
     ServiceDefinition,
@@ -26,7 +26,7 @@ class SessionClient:
         self.timeout = timeout
         self.poll_interval = poll_interval
 
-    def run(self, service_name: str, **run_kwargs: Dict[str, Any]) -> str:
+    def run(self, service_name: str, **run_kwargs: Any) -> str:
         """Implements the workflow-based run API for a session."""
         task_input = json.dumps(run_kwargs)
         task_def = TaskDefinition(input=task_input, agent_id=service_name)
