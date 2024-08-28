@@ -12,7 +12,7 @@ The overall system layout is pictured below.
 
 ## Wait, where is `llama-agents`?
 
-With the introduction of [Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/#workflows) in `llama_index`, we say this as the most intuitive way to deplop agentic applications. The question then became, how can we close the gap between how you development something, and how you deploy it.
+The introduction of [Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/#workflows) in `llama_index`produced the most intuitive way to develop agentic applications. The question then became: how can we close the gap between developing an agentic application as a workflow, and deploying it?
 
 With `llama_deploy`, the goal is to make it as 1:1 as possible between something that you built in a notebook, and something running on the cloud in a cluster. `llama_deploy` enables this by simply being able to pass in and deploy any workflow.
 
