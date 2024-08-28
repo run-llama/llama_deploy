@@ -53,7 +53,7 @@ async def test_async_client() -> None:
 
     await asyncio.sleep(1)
 
-    client = AsyncLlamaAgentsClient("http://127.0.0.1:8000")
+    client = AsyncLlamaAgentsClient(ControlPlaneConfig())
 
     sessions = await client.list_sessions()
     assert len(sessions) == 0

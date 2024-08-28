@@ -2,6 +2,8 @@ import httpx
 import json
 import asyncio
 from typing import Any, List, Optional
+
+from llama_agents.control_plane.server import ControlPlaneConfig
 from llama_agents.types import (
     TaskDefinition,
     ServiceDefinition,
@@ -16,12 +18,15 @@ DEFAULT_POLL_INTERVAL = 0.1
 class AsyncSessionClient:
     def __init__(
         self,
-        control_plane_url: str,
+        control_plane_config: ControlPlaneConfig,
         session_id: str,
         timeout: float = DEFAULT_TIMEOUT,
         poll_interval: float = DEFAULT_POLL_INTERVAL,
     ):
-        self.control_plane_url = control_plane_url
+        # TODO: add scheme to config (http, https, ..)
+        self.control_plane_url = (
+            f"http://{control_plane_config.host}:{control_plane_config.port}"
+        )
         self.session_id = session_id
         self.timeout = timeout
         self.poll_interval = poll_interval
@@ -103,8 +108,14 @@ class AsyncSessionClient:
 
 
 class AsyncLlamaAgentsClient:
-    def __init__(self, control_plane_url: str, timeout: float = DEFAULT_TIMEOUT):
-        self.control_plane_url = control_plane_url
+    def __init__(
+        self, control_plane_config: ControlPlaneConfig, timeout: float = DEFAULT_TIMEOUT
+    ):
+        self.control_plane_config = control_plane_config
+        # TODO: add scheme to config (http, https, ..)
+        self.control_plane_url = (
+            f"http://{control_plane_config.host}:{control_plane_config.port}"
+        )
         self.timeout = timeout
 
     async def create_session(
@@ -119,7 +130,7 @@ class AsyncLlamaAgentsClient:
             response = await client.post(f"{self.control_plane_url}/sessions/create")
             session_id = response.json()
         return AsyncSessionClient(
-            self.control_plane_url,
+            self.control_plane_config,
             session_id,
             timeout=self.timeout,
             poll_interval=poll_interval,
@@ -158,7 +169,7 @@ class AsyncLlamaAgentsClient:
             response.raise_for_status()
 
         return AsyncSessionClient(
-            self.control_plane_url,
+            self.control_plane_config,
             session_id,
             timeout=self.timeout,
             poll_interval=poll_interval,
