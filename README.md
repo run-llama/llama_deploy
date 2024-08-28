@@ -10,7 +10,7 @@ The overall system layout is pictured below.
 
 ![A basic system in llama_deploy](./system_diagram.png)
 
-## Wait, where is `llama_deploy` ??
+## Wait, where is `llama-agents`?
 
 With the introduction of [Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/#workflows) in `llama_index`, we say this as the most intuitive way to deplop agentic applications. The question then became, how can we close the gap between how you development something, and how you deploy it.
 
