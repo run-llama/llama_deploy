@@ -2,6 +2,7 @@ import pytest
 
 from llama_agents.orchestrators.simple import SimpleOrchestrator
 from llama_agents.messages.base import QueueMessage
+from llama_agents.orchestrators.simple import get_result_key
 from llama_agents.types import (
     ActionTypes,
     NewTask,
@@ -43,7 +44,7 @@ async def test_get_next_message() -> None:
     assert isinstance(queue_messages[0].data, dict)
     assert queue_messages[0].data["task"]["input"] == INITIAL_QUEUE_MESSAGE.data["task"]["input"]  # type: ignore
 
-    assert state == {}
+    assert state[TASK_DEF.task_id] == {}
 
 
 @pytest.mark.asyncio()
@@ -67,8 +68,8 @@ async def test_add_result_to_state() -> None:
     assert "retries" in new_state
     assert new_state["retries"] == 0
 
-    assert "result" in new_state
-    result = new_state["result"]
+    assert get_result_key(TASK_DEF.task_id) in new_state
+    result = new_state[get_result_key(TASK_DEF.task_id)]
     assert isinstance(result, TaskResult)
     assert result.task_id == TASK_DEF.task_id
     assert result.result == "The secret fact is: A Cria is a baby llama."

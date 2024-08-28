@@ -1,6 +1,7 @@
+import json
 import uuid
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from logging import getLogger
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Dict, List, Optional
@@ -18,6 +19,7 @@ from llama_agents.message_consumers.remote import RemoteMessageConsumer
 from llama_agents.message_queues.base import BaseMessageQueue, PublishCallback
 from llama_agents.messages.base import QueueMessage
 from llama_agents.orchestrators.base import BaseOrchestrator
+from llama_agents.orchestrators.utils import get_result_key
 from llama_agents.types import (
     ActionTypes,
     SessionDefinition,
@@ -159,6 +161,12 @@ class ControlPlaneServer(BaseControlPlane):
             tags=["Sessions"],
         )
         self.app.add_api_route(
+            "/sessions/{session_id}/delete",
+            self.delete_session,
+            methods=["POST"],
+            tags=["Sessions"],
+        )
+        self.app.add_api_route(
             "/sessions/{session_id}/tasks",
             self.add_task_to_session,
             methods=["POST"],
@@ -179,6 +187,12 @@ class ControlPlaneServer(BaseControlPlane):
         self.app.add_api_route(
             "/sessions/{session_id}/current_task",
             self.get_current_task,
+            methods=["GET"],
+            tags=["Sessions"],
+        )
+        self.app.add_api_route(
+            "/sessions/{session_id}/tasks/{task_id}/result",
+            self.get_task_result,
             methods=["GET"],
             tags=["Sessions"],
         )
@@ -204,7 +218,6 @@ class ControlPlaneServer(BaseControlPlane):
                 task_def.session_id = await self.create_session()
 
             await self.add_task_to_session(task_def.session_id, task_def)
-            await self.send_task_to_service(task_def)
         elif action == ActionTypes.COMPLETED_TASK and message.data is not None:
             await self.handle_service_completion(TaskResult(**message.data))
         else:
@@ -264,7 +277,7 @@ class ControlPlaneServer(BaseControlPlane):
             service_name, collection=self.services_store_key
         )
         if service_dict is None:
-            raise ValueError(f"Service with name {service_name} not found")
+            raise HTTPException(status_code=404, detail="Service not found")
 
         return ServiceDefinition.model_validate(service_dict)
 
@@ -293,9 +306,12 @@ class ControlPlaneServer(BaseControlPlane):
             session_id, collection=self.session_store_key
         )
         if session_dict is None:
-            raise ValueError(f"Session with id {session_id} not found")
+            raise HTTPException(status_code=404, detail="Session not found")
 
         return SessionDefinition(**session_dict)
+
+    async def delete_session(self, session_id: str) -> None:
+        await self.state_store.adelete(session_id, collection=self.session_store_key)
 
     async def get_all_sessions(self) -> Dict[str, SessionDefinition]:
         session_dicts = await self.state_store.aget_all(
@@ -327,7 +343,7 @@ class ControlPlaneServer(BaseControlPlane):
             session_id, collection=self.session_store_key
         )
         if session_dict is None:
-            raise ValueError(f"Session with id {session_id} not found")
+            raise HTTPException(status_code=404, detail="Session not found")
 
         session = SessionDefinition(**session_dict)
         session.task_ids.append(task_def.task_id)
@@ -338,6 +354,8 @@ class ControlPlaneServer(BaseControlPlane):
         await self.state_store.aput(
             task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
         )
+
+        task_def = await self.send_task_to_service(task_def)
 
         return task_def.task_id
 
@@ -396,9 +414,45 @@ class ControlPlaneServer(BaseControlPlane):
             task_id, collection=self.tasks_store_key
         )
         if state_dict is None:
-            raise ValueError(f"Task with id {task_id} not found")
+            raise HTTPException(status_code=404, detail="Task not found")
 
         return TaskDefinition(**state_dict)
+
+    async def get_task_result(
+        self, task_id: str, session_id: str
+    ) -> Optional[TaskResult]:
+        """Get the result of a task if it has one.
+
+        Args:
+            task_id (str): The ID of the task to get the result for.
+            session_id (str): The ID of the session the task belongs to.
+
+        Returns:
+            Optional[TaskResult]: The result of the task if it has one, otherwise None.
+        """
+        session = await self.get_session(session_id)
+
+        result_key = get_result_key(task_id)
+        if result_key not in session.state:
+            return None
+
+        result = session.state[result_key]
+        if not isinstance(result, TaskResult):
+            if isinstance(result, dict):
+                result = TaskResult(**result)
+            elif isinstance(result, str):
+                result = TaskResult(**json.loads(result))
+            else:
+                raise HTTPException(status_code=500, detail="Unexpected result type")
+
+        # sanity check
+        if result.task_id != task_id:
+            logger.debug(
+                f"Retrieved result did not match requested task_id: {str(result)}"
+            )
+            return None
+
+        return result
 
     async def register_to_message_queue(self) -> StartConsumingCallable:
         return await self.message_queue.register_consumer(self.as_consumer(remote=True))
