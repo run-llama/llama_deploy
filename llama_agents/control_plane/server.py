@@ -447,6 +447,9 @@ class ControlPlaneServer(BaseControlPlane):
 
         # sanity check
         if result.task_id != task_id:
+            logger.debug(
+                f"Retrieved result did not match requested task_id: {str(result)}"
+            )
             return None
 
         return result
