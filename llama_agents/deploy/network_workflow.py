@@ -24,12 +24,9 @@ class NetworkWorkflow(Workflow):
         client = AsyncLlamaAgentsClient(self.control_plane_config)
         kwargs = ev.dict()
 
-        session_id = kwargs.pop("session_id", None)
-        if session_id is None:
-            raise ValueError("session_id must be passed in!")
-
-        session = await client.get_session(session_id)
+        session = await client.create_session()
         result = await session.run(self.remote_service_name, **kwargs)
+        await client.delete_session(session.session_id)
 
         return StopEvent(result=result)
 
