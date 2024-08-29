@@ -133,7 +133,7 @@ class ControlPlaneServer(BaseControlPlane):
             "/queue_config",
             self.get_message_queue_config,
             methods=["GET"],
-            tags=["Control Plane"],
+            tags=["Message Queue"],
         )
 
         self.app.add_api_route(
