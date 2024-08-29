@@ -213,6 +213,16 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         ...
 
     @abstractmethod
+    async def get_message_queue_config(self) -> Dict[str, dict]:
+        """
+        Gets the config dict for the message queue being used.
+
+        Returns:
+            Dict[str, dict]: A dict of message queue name -> config dict
+        """
+        ...
+
+    @abstractmethod
     async def launch_server(self) -> None:
         """
         Launch the control plane server.

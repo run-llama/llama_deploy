@@ -3,6 +3,7 @@
 import asyncio
 import json
 from logging import getLogger
+from pydantic import BaseModel
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from llama_agents.message_queues.base import (
@@ -256,3 +257,8 @@ class RabbitMQMessageQueue(BaseMessageQueue):
             for message_type in message_types:
                 await channel.queue_delete(queue_name=message_type)
             await channel.exchange_delete(exchange_name=self.exchange_name)
+
+    def as_config(self) -> BaseModel:
+        return RabbitMQMessageQueueConfig(
+            url=self.url, exchange_name=self.exchange_name
+        )
