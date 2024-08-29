@@ -9,7 +9,7 @@ from collections import deque
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, status
 from logging import getLogger
-from pydantic import Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, AsyncGenerator, Dict, List, Optional
 from urllib.parse import urljoin
@@ -36,13 +36,15 @@ class SimpleMessageQueueConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="SIMPLE_MESSAGE_QUEUE_")
 
     host: str = "127.0.0.1"
-    port: int = 8001
+    port: Optional[int] = 8001
 
 
 class SimpleRemoteClientMessageQueue(BaseMessageQueue):
     """Remote client to be used with a SimpleMessageQueue server."""
 
     base_url: PydanticValidatedUrl
+    host: str
+    port: Optional[int]
     client_kwargs: Optional[Dict] = None
     client: Optional[httpx.AsyncClient] = None
     raise_exceptions: bool = False
@@ -133,6 +135,9 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
             "`cleanup_local()` is not implemented for this class."
         )
 
+    def as_config(self) -> Dict[str, dict]:
+        return SimpleMessageQueueConfig(host=self.host, port=self.port)
+
 
 class SimpleMessageQueue(BaseMessageQueue):
     """SimpleMessageQueue.
@@ -221,7 +226,9 @@ class SimpleMessageQueue(BaseMessageQueue):
         base_url = (
             f"http://{self.host}:{self.port}" if self.port else f"http://{self.host}"
         )
-        return SimpleRemoteClientMessageQueue(base_url=base_url)
+        return SimpleRemoteClientMessageQueue(
+            base_url=base_url, host=self.host, port=self.port
+        )
 
     def _select_consumer(self, message: QueueMessage) -> BaseMessageQueueConsumer:
         """Select a single consumer to publish a message to."""
@@ -407,6 +414,9 @@ class SimpleMessageQueue(BaseMessageQueue):
         self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
     ) -> None:
         pass
+
+    def as_config(self) -> BaseModel:
+        return SimpleMessageQueueConfig(host=self.host, port=self.port)
 
 
 if __name__ == "__main__":

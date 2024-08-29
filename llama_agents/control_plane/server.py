@@ -47,6 +47,13 @@ class ControlPlaneConfig(BaseSettings):
     port: Optional[int] = 8000
     running: bool = True
 
+    @property
+    def url(self) -> str:
+        if self.port:
+            return f"http://{self.host}:{self.port}"
+        else:
+            return f"http://{self.host}"
+
 
 class ControlPlaneServer(BaseControlPlane):
     """Control plane server.
@@ -121,6 +128,12 @@ class ControlPlaneServer(BaseControlPlane):
             self.process_message,
             methods=["POST"],
             tags=["Control Plane"],
+        )
+        self.app.add_api_route(
+            "/queue_config",
+            self.get_message_queue_config,
+            methods=["GET"],
+            tags=["Message Queue"],
         )
 
         self.app.add_api_route(
@@ -453,6 +466,16 @@ class ControlPlaneServer(BaseControlPlane):
             return None
 
         return result
+
+    async def get_message_queue_config(self) -> Dict[str, dict]:
+        """
+        Gets the config dict for the message queue being used.
+
+        Returns:
+            Dict[str, dict]: A dict of message queue name -> config dict
+        """
+        queue_name = self._message_queue.__class__.__name__
+        return {queue_name: self._message_queue.as_config().model_dump()}
 
     async def register_to_message_queue(self) -> StartConsumingCallable:
         return await self.message_queue.register_consumer(self.as_consumer(remote=True))

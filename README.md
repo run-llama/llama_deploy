@@ -93,7 +93,6 @@ async def main():
             host="127.0.0.1", port=8002, service_name="my_workflow"
         ),
         control_plane_config=ControlPlaneConfig(),
-        message_queue_config=SimpleMessageQueueConfig(),
     )
 
 
@@ -206,8 +205,14 @@ async def deploy_workflow(
     workflow: Workflow,
     workflow_config: WorkflowServiceConfig,
     control_plane_config: ControlPlaneConfig,
-    message_queue_config: BaseSettings,
 ) -> None:
+    control_plane_url = control_plane_config.url
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{control_plane_url}/queue_config")
+        queue_config_dict = response.json()
+
+    message_queue_config = _get_message_queue_config(queue_config_dict)
     message_queue_client = _get_message_queue_client(message_queue_config)
 
     service = WorkflowService(

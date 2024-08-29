@@ -1,7 +1,9 @@
 import asyncio
+import httpx
 import signal
 import sys
 
+from llama_agents.message_queues.simple import SimpleRemoteClientMessageQueue
 from pydantic_settings import BaseSettings
 from typing import Any, Callable, List, Optional
 from llama_index.core.workflow import Workflow
@@ -31,6 +33,22 @@ DEFAULT_TIMEOUT = 120.0
 def _deploy_local_message_queue(config: SimpleMessageQueueConfig) -> asyncio.Task:
     queue = SimpleMessageQueue(**config.model_dump())
     return asyncio.create_task(queue.launch_server())
+
+
+def _get_message_queue_config(config_dict: dict) -> BaseSettings:
+    key = next(iter(config_dict.keys()))
+    if key == SimpleMessageQueueConfig.__name__:
+        return SimpleMessageQueueConfig(**config_dict[key])
+    elif key == SimpleRemoteClientMessageQueue.__name__:
+        return SimpleMessageQueueConfig(**config_dict[key])
+    elif key == KafkaMessageQueueConfig.__name__:
+        return KafkaMessageQueueConfig(**config_dict[key])
+    elif key == RabbitMQMessageQueueConfig.__name__:
+        return RabbitMQMessageQueueConfig(**config_dict[key])
+    elif key == RedisMessageQueueConfig.__name__:
+        return RedisMessageQueueConfig(**config_dict[key])
+    else:
+        raise ValueError(f"Unknown message queue: {key}")
 
 
 def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
@@ -116,8 +134,14 @@ async def deploy_workflow(
     workflow: Workflow,
     workflow_config: WorkflowServiceConfig,
     control_plane_config: ControlPlaneConfig,
-    message_queue_config: BaseSettings,
 ) -> None:
+    control_plane_url = control_plane_config.url
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{control_plane_url}/queue_config")
+        queue_config_dict = response.json()
+
+    message_queue_config = _get_message_queue_config(queue_config_dict)
     message_queue_client = _get_message_queue_client(message_queue_config)
 
     # override the service manager, while maintaining dict of existing services

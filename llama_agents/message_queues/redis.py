@@ -203,3 +203,6 @@ class RedisMessageQueue(BaseMessageQueue):
 
         self._redis = None
         self._consumers = {}
+
+    def as_config(self) -> BaseModel:
+        return RedisMessageQueueConfig(url=self.url)
