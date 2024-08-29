@@ -118,3 +118,8 @@ class BaseMessageQueue(BaseModel, ABC):
     ) -> None:
         """Perform any cleanup before shutting down."""
         ...
+
+    @abstractmethod
+    def as_config(self) -> BaseModel:
+        """Returns the config dict to reconstruct the message queue."""
+        ...

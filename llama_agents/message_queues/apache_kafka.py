@@ -3,7 +3,7 @@
 import asyncio
 import json
 from logging import getLogger
-from pydantic import model_validator
+from pydantic import BaseModel, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Callable, Coroutine, Dict, List, Optional
 from llama_agents.message_consumers.callable import CallableMessageConsumer
@@ -233,6 +233,9 @@ class KafkaMessageQueue(BaseMessageQueue):
                 await asyncio.shield(stop_task)
 
         return start_consuming_callable
+
+    def as_config(self) -> BaseModel:
+        return KafkaMessageQueueConfig(url=self.url)
 
 
 if __name__ == "__main__":
