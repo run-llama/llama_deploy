@@ -68,7 +68,9 @@ async def test_remote_client_register_consumer(
     mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
     # Arrange
-    remote_mq = SimpleRemoteClientMessageQueue(base_url="https://mock-url.io")
+    remote_mq = SimpleRemoteClientMessageQueue(
+        base_url="https://mock-url.io", host=message_queue.host, port=message_queue.port
+    )
     remote_consumer = RemoteMessageConsumer(
         message_type="mock_type", url="remote-consumer.io"
     )
@@ -92,7 +94,9 @@ async def test_remote_client_deregister_consumer(
     mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
     # Arrange
-    remote_mq = SimpleRemoteClientMessageQueue(base_url="https://mock-url.io")
+    remote_mq = SimpleRemoteClientMessageQueue(
+        base_url="https://mock-url.io", host=message_queue.host, port=message_queue.port
+    )
     remote_consumer = RemoteMessageConsumer(
         message_type="mock_type", url="remote-consumer.io"
     )
@@ -117,7 +121,9 @@ async def test_remote_client_get_consumers(
     mock_get: MagicMock, message_queue: SimpleMessageQueue, get_side_effect: Callable
 ) -> None:
     # Arrange
-    remote_mq = SimpleRemoteClientMessageQueue(base_url="https://mock-url.io")
+    remote_mq = SimpleRemoteClientMessageQueue(
+        base_url="https://mock-url.io", host=message_queue.host, port=message_queue.port
+    )
     remote_consumer = RemoteMessageConsumer(
         message_type="mock_type", url="remote-consumer.io"
     )
@@ -141,7 +147,9 @@ async def test_remote_client_publish(
     # Arrange
     consumer = MockMessageConsumer(message_type="mock_type")
     await message_queue.register_consumer(consumer)
-    remote_mq = SimpleRemoteClientMessageQueue(base_url=message_queue.host)
+    remote_mq = SimpleRemoteClientMessageQueue(
+        base_url=message_queue.host, host=message_queue.host, port=message_queue.port
+    )
     mock_post.side_effect = post_side_effect
 
     # act
