@@ -3,8 +3,8 @@ import json
 import asyncio
 from typing import Any, List, Optional
 
-from llama_agents.control_plane.server import ControlPlaneConfig
-from llama_agents.types import (
+from llama_deploy.control_plane.server import ControlPlaneConfig
+from llama_deploy.types import (
     TaskDefinition,
     ServiceDefinition,
     TaskResult,
