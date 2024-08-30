@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from llama_agents.app.components.task_list import TasksList
+from llama_deploy.app.components.task_list import TasksList
 
 
 @pytest.mark.asyncio

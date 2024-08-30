@@ -5,11 +5,11 @@ from pydantic import PrivateAttr
 from typing import Any, List
 from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 
-from llama_agents.messages import QueueMessage
-from llama_agents.message_consumers import BaseMessageQueueConsumer
-from llama_agents.message_queues import SimpleMessageQueue
-from llama_agents.services.workflow import WorkflowService, WorkflowState
-from llama_agents.types import CONTROL_PLANE_NAME, ActionTypes, NewTask, TaskDefinition
+from llama_deploy.messages import QueueMessage
+from llama_deploy.message_consumers import BaseMessageQueueConsumer
+from llama_deploy.message_queues import SimpleMessageQueue
+from llama_deploy.services.workflow import WorkflowService, WorkflowState
+from llama_deploy.types import CONTROL_PLANE_NAME, ActionTypes, NewTask, TaskDefinition
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):

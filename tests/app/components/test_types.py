@@ -1,4 +1,4 @@
-from llama_agents.app.components.types import ButtonType
+from llama_deploy.app.components.types import ButtonType
 
 
 def test_button_type_enum() -> None:

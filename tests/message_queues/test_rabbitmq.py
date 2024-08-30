@@ -1,7 +1,7 @@
 import json
 import pytest
-from llama_agents import QueueMessage
-from llama_agents.message_queues.rabbitmq import RabbitMQMessageQueue
+from llama_deploy import QueueMessage
+from llama_deploy.message_queues.rabbitmq import RabbitMQMessageQueue
 from unittest.mock import patch, MagicMock, AsyncMock
 
 try:
@@ -49,7 +49,7 @@ def test_from_url_params() -> None:
 
 @pytest.mark.asyncio()
 @pytest.mark.skipif(aio_pika is None, reason="aio_pika not installed")
-@patch("llama_agents.message_queues.rabbitmq._establish_connection")
+@patch("llama_deploy.message_queues.rabbitmq._establish_connection")
 async def test_establish_connection(mock_connect: MagicMock) -> None:
     # arrange
     mq = RabbitMQMessageQueue()
@@ -64,7 +64,7 @@ async def test_establish_connection(mock_connect: MagicMock) -> None:
 
 @pytest.mark.asyncio()
 @pytest.mark.skipif(aio_pika is None, reason="aio_pika not installed")
-@patch("llama_agents.message_queues.rabbitmq._establish_connection")
+@patch("llama_deploy.message_queues.rabbitmq._establish_connection")
 async def test_publish(mock_connect: MagicMock) -> None:
     # Arrange
     mq = RabbitMQMessageQueue()
