@@ -1,10 +1,10 @@
 import pytest
 
-from llama_agents.message_queues.simple import SimpleMessageQueue
-from llama_agents.services.base import BaseService
-from llama_agents.services.human import HumanService
-from llama_agents.services.agent import AgentService
-from llama_agents.tools.service_as_tool import ServiceAsTool
+from llama_deploy.message_queues.simple import SimpleMessageQueue
+from llama_deploy.services.base import BaseService
+from llama_deploy.services.human import HumanService
+from llama_deploy.services.agent import AgentService
+from llama_deploy.tools.service_as_tool import ServiceAsTool
 
 from llama_index.core.agent import ReActAgent
 from llama_index.core.llms import MockLLM

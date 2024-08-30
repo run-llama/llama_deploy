@@ -1,9 +1,9 @@
 import pytest
 
-from llama_agents.orchestrators.simple import SimpleOrchestrator
-from llama_agents.messages.base import QueueMessage
-from llama_agents.orchestrators.simple import get_result_key
-from llama_agents.types import (
+from llama_deploy.orchestrators.simple import SimpleOrchestrator
+from llama_deploy.messages.base import QueueMessage
+from llama_deploy.orchestrators.simple import get_result_key
+from llama_deploy.types import (
     ActionTypes,
     NewTask,
     TaskDefinition,

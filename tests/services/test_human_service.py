@@ -3,12 +3,12 @@ import pytest
 from pydantic import PrivateAttr, ValidationError
 from typing import Any, List
 from unittest.mock import MagicMock, patch
-from llama_agents.services import HumanService
-from llama_agents.services.human import HELP_REQUEST_TEMPLATE_STR
-from llama_agents.message_queues.simple import SimpleMessageQueue
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
-from llama_agents.messages.base import QueueMessage
-from llama_agents.types import (
+from llama_deploy.services import HumanService
+from llama_deploy.services.human import HELP_REQUEST_TEMPLATE_STR
+from llama_deploy.message_queues.simple import SimpleMessageQueue
+from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
+from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import (
     NewTask,
     TaskDefinition,
     ActionTypes,
@@ -68,7 +68,7 @@ def test_invalid_human_prompt_raises_validation_error() -> None:
 
 
 @pytest.mark.asyncio()
-@patch("llama_agents.types.uuid")
+@patch("llama_deploy.types.uuid")
 async def test_create_task(mock_uuid: MagicMock) -> None:
     # arrange
     human_service = HumanService(
