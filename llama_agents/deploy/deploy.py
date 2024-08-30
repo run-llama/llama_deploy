@@ -86,6 +86,22 @@ async def deploy_core(
     message_queue_config: BaseSettings,
     orchestrator_config: Optional[SimpleOrchestratorConfig] = None,
 ) -> None:
+    """
+    Deploy the core components of the llama_deploy system.
+
+    This function sets up and launches the message queue, control plane, and orchestrator.
+    It handles the initialization and connection of these core components.
+
+    Args:
+        control_plane_config (ControlPlaneConfig): Configuration for the control plane.
+        message_queue_config (BaseSettings): Configuration for the message queue.
+        orchestrator_config (Optional[SimpleOrchestratorConfig]): Configuration for the orchestrator.
+            If not provided, a default SimpleOrchestratorConfig will be used.
+
+    Raises:
+        ValueError: If an unknown message queue type is specified in the config.
+        Exception: If any of the launched tasks encounter an error.
+    """
     orchestrator_config = orchestrator_config or SimpleOrchestratorConfig()
 
     message_queue_client = _get_message_queue_client(message_queue_config)
@@ -135,6 +151,22 @@ async def deploy_workflow(
     workflow_config: WorkflowServiceConfig,
     control_plane_config: ControlPlaneConfig,
 ) -> None:
+    """
+    Deploy a workflow as a service within the llama_deploy system.
+
+    This function sets up a workflow as a service, connects it to the message queue,
+    and registers it with the control plane.
+
+    Args:
+        workflow (Workflow): The workflow to be deployed as a service.
+        workflow_config (WorkflowServiceConfig): Configuration for the workflow service.
+        control_plane_config (ControlPlaneConfig): Configuration for the control plane.
+
+    Raises:
+        httpx.HTTPError: If there's an error communicating with the control plane.
+        ValueError: If an invalid message queue config is encountered.
+        Exception: If any of the launched tasks encounter an error.
+    """
     control_plane_url = control_plane_config.url
 
     async with httpx.AsyncClient() as client:
