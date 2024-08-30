@@ -9,6 +9,7 @@ from typing import Any, Callable, List, Optional
 from llama_index.core.workflow import Workflow
 
 from llama_agents.control_plane.server import ControlPlaneConfig, ControlPlaneServer
+from llama_agents.deploy.network_workflow import NetworkServiceManager
 from llama_agents.message_queues import (
     BaseMessageQueue,
     KafkaMessageQueue,
@@ -142,6 +143,11 @@ async def deploy_workflow(
 
     message_queue_config = _get_message_queue_config(queue_config_dict)
     message_queue_client = _get_message_queue_client(message_queue_config)
+
+    # override the service manager, while maintaining dict of existing services
+    workflow._service_manager = NetworkServiceManager(
+        control_plane_config, workflow._service_manager._services
+    )
 
     service = WorkflowService(
         workflow=workflow,

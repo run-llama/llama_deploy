@@ -120,6 +120,103 @@ print(result)
 # prints 'hello_world_result'
 ```
 
+### Deploying Nested Workflows
+
+Every `Workflow` is capable of injecting and running nested workflows. For example
+
+```python
+from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
+
+
+class InnerWorkflow(Workflow):
+    @step()
+    async def run_step(self, ev: StartEvent) -> StopEvent:
+        arg1 = ev.get("arg1")
+        if not arg1:
+            raise ValueError("arg1 is required.")
+
+        return StopEvent(result=str(arg1) + "_result")
+
+
+class OuterWorkflow(Workflow):
+    @step()
+    async def run_step(
+        self, ev: StartEvent, inner: InnerWorkflow
+    ) -> StopEvent:
+        arg1 = ev.get("arg1")
+        if not arg1:
+            raise ValueError("arg1 is required.")
+
+        arg1 = await inner.run(arg1=arg1)
+
+        return StopEvent(result=str(arg1) + "_result")
+
+
+inner = InnerWorkflow()
+outer = OuterWorkflow()
+outer.add_workflows(inner=InnerWorkflow())
+```
+
+`llama_deploy` makes it dead simple to spin up each workflow above as a service, and run everything without any changes to your code!
+
+Just deploy each workflow:
+
+> [!NOTE]
+> This code is launching both workflows from the same script, but these could easily be separate scripts, machines, or docker containers!
+
+```python
+import asyncio
+from llama_deploy import (
+    WorkflowServiceConfig,
+    ControlPlaneConfig,
+    deploy_workflow,
+)
+
+
+async def main():
+    inner_task = asyncio.create_task(
+        deploy_workflow(
+            inner,
+            WorkflowServiceConfig(
+                host="127.0.0.1", port=8003, service_name="inner"
+            ),
+            ControlPlaneConfig(),
+        )
+    )
+
+    outer_task = asyncio.create_task(
+        deploy_workflow(
+            outer,
+            WorkflowServiceConfig(
+                host="127.0.0.1", port=8002, service_name="outer"
+            ),
+            ControlPlaneConfig(),
+        )
+    )
+
+    await asyncio.gather(inner_task, outer_task)
+
+
+if name == "main":
+    import asyncio
+
+    asyncio.run(main())
+```
+
+And then use it as before:
+
+```python
+from llama_deploy import LlamaDeployClient
+
+# points to deployed control plane
+client = LlamaAgentsClient(ControlPlaneConfig())
+
+session = client.create_session()
+result = session.run("outer", arg1="hello_world")
+print(result)
+# prints 'hello_world_result_result'
+```
+
 ## Components of a `llama_deploy` System
 
 In `llama_deploy`, there are several key components that make up the overall system
