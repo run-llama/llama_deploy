@@ -1,5 +1,9 @@
+from llama_deploy import deploy_workflow, WorkflowServiceConfig
+
 from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 from llama_index.llms.openai import OpenAI
+
+from multi_workflows_rabbitmq.core import control_plane_config
 
 
 class FunnyJokeWorkflow(Workflow):
@@ -13,7 +17,8 @@ class FunnyJokeWorkflow(Workflow):
         return StopEvent(result=result)
 
 
-async def test_workflow():
+# Local Testing
+async def _test_workflow():
     w = FunnyJokeWorkflow(timeout=60, verbose=False)
     result = await w.run(input="A baby llama is called a cria.")
     print(str(result))
@@ -22,4 +27,14 @@ async def test_workflow():
 if __name__ == "__main__":
     import asyncio
 
-    asyncio.run(test_workflow())
+    # asyncio.run(_test_workflow())
+
+    asyncio.run(
+        deploy_workflow(
+            workflow=FunnyJokeWorkflow(),
+            workflow_config=WorkflowServiceConfig(
+                host="127.0.0.1", port=8001, service_name="funny_joke_workflow"
+            ),
+            control_plane_config=control_plane_config,
+        )
+    )
