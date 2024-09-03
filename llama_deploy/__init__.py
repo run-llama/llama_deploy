@@ -1,4 +1,4 @@
-from llama_deploy.client import AsyncLlamaAgentsClient, LlamaAgentsClient
+from llama_deploy.client import AsyncLlamaDeployClient, LlamaDeployClient
 from llama_deploy.control_plane import ControlPlaneServer, ControlPlaneConfig
 from llama_deploy.deploy import deploy_core, deploy_workflow
 from llama_deploy.message_consumers import CallableMessageConsumer
@@ -37,8 +37,8 @@ root_logger.propagate = False
 
 __all__ = [
     # clients
-    "LlamaAgentsClient",
-    "AsyncLlamaAgentsClient",
+    "LlamaDeployClient",
+    "AsyncLlamaDeployClient",
     # services
     "AgentService",
     "HumanService",

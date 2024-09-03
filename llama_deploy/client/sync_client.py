@@ -107,7 +107,7 @@ class SessionClient:
             return TaskResult(**data) if data else None
 
 
-class LlamaAgentsClient:
+class LlamaDeployClient:
     def __init__(
         self, control_plane_config: ControlPlaneConfig, timeout: float = DEFAULT_TIMEOUT
     ):
