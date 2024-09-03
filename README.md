@@ -10,6 +10,20 @@ The overall system layout is pictured below.
 
 ![A basic system in llama_deploy](./system_diagram.png)
 
+## Why `llama_deploy`?
+
+1. **Seamless Deployment**: It bridges the gap between development and production, allowing you to deploy `llama_index` workflows with minimal changes to your code.
+
+2. **Scalability**: The microservices architecture enables easy scaling of individual components as your system grows.
+
+3. **Flexibility**: By using a hub-and-spoke architecture, you can easily swap out components (like message queues) or add new services without disrupting the entire system.
+
+4. **Fault Tolerance**: With built-in retry mechanisms and failure handling, `llama_deploy` ensures robustness in production environments.
+
+5. **State Management**: The control plane manages state across services, simplifying complex multi-step processes.
+
+6. **Async-First**: Designed for high-concurrency scenarios, making it suitable for real-time and high-throughput applications.
+
 ## Wait, where is `llama-agents`?
 
 The introduction of [Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/#workflows) in `llama_index`produced the most intuitive way to develop agentic applications. The question then became: how can we close the gap between developing an agentic application as a workflow, and deploying it?
