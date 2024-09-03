@@ -3,8 +3,8 @@ from typing import Any, Dict, Optional
 from llama_index.core.workflow import Workflow, StopEvent, StartEvent, step
 from llama_index.core.workflow.service import ServiceManager, ServiceNotFoundError
 
-from llama_deploy.client.async_client import AsyncLlamaAgentsClient
-from llama_deploy.client.sync_client import LlamaAgentsClient
+from llama_deploy.client.async_client import AsyncLlamaDeployClient
+from llama_deploy.client.sync_client import LlamaDeployClient
 from llama_deploy.control_plane.server import ControlPlaneConfig
 
 
@@ -21,7 +21,7 @@ class NetworkWorkflow(Workflow):
 
     @step
     async def run_remote_workflow(self, ev: StartEvent) -> StopEvent:
-        client = AsyncLlamaAgentsClient(self.control_plane_config)
+        client = AsyncLlamaDeployClient(self.control_plane_config)
         kwargs = ev.dict()
 
         session = await client.create_session()
@@ -49,7 +49,7 @@ class NetworkServiceManager(ServiceManager):
             local_workflow = None
 
         # TODO: service manager does not support async
-        client = LlamaAgentsClient(self.control_plane_config)
+        client = LlamaDeployClient(self.control_plane_config)
         services = client.list_services()
 
         remote_service = None

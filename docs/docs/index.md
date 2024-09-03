@@ -112,7 +112,7 @@ Once deployed, you can interact with your deployment using a client.
 from llama_deploy import LlamaDeployClient
 
 # points to deployed control plane
-client = LlamaAgentsClient(ControlPlaneConfig())
+client = LlamaDeployClient(ControlPlaneConfig())
 
 session = client.create_session()
 result = session.run("my_workflow", arg1="hello_world")
@@ -209,7 +209,7 @@ And then use it as before:
 from llama_deploy import LlamaDeployClient
 
 # points to deployed control plane
-client = LlamaAgentsClient(ControlPlaneConfig())
+client = LlamaDeployClient(ControlPlaneConfig())
 
 session = client.create_session()
 result = session.run("outer", arg1="hello_world")
