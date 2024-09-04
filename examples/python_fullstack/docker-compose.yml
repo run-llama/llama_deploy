@@ -1,0 +1,88 @@
+version: "3.8"
+
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  core_services:
+    build:
+      context: ./llama_deploy_app/core_serivces
+      dockerfile: dockerfile
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    volumes:
+      - ./llama_deploy_app/core_serivces:/app
+    depends_on:
+      - qdrant
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  rag_workflow:
+    build:
+      context: ./llama_deploy_app/workflows
+      dockerfile: dockerfile
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./llama_deploy_app/workflows:/app
+    depends_on:
+      - core_services
+    environment:
+      DEPLOY_SETTINGS_NAME: rag
+      OPENAI_API_KEY: $OPENAI_API_KEY
+    deploy:
+      replicas: 1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  agentic_workflow:
+    build:
+      context: ./llama_deploy_app/workflows
+      dockerfile: dockerfile
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./llama_deploy_app/workflows:/app
+    depends_on:
+      - rag_workflow
+    environment:
+      DEPLOY_SETTINGS_NAME: agentic
+      OPENAI_API_KEY: $OPENAI_API_KEY
+      CONTROL_PLANE_EXTERNAL_HOST: core_services
+    deploy:
+      replicas: 1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+  frontend:
+    build:
+      context: ./llama_deploy_app/frontend
+      dockerfile: dockerfile
+    ports:
+      - "3000:3000"
+      - "9000:8000"
+    volumes:
+      - ./llama_deploy_app/frontend:/app
+    depends_on:
+      - rag_workflow
+      - agentic_workflow
+
+volumes:
+  qdrant_data:
