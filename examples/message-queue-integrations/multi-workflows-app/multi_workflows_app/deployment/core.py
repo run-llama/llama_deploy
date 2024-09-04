@@ -1,3 +1,4 @@
+import argparse
 from llama_deploy import (
     deploy_core,
     ControlPlaneConfig,
@@ -11,13 +12,29 @@ control_plane_config = ControlPlaneConfig(
     external_host="0.0.0.0",
     external_port=8000,
 )
-message_queue_config = RabbitMQMessageQueueConfig(
-    username="guest", password="guest", host="rabbitmq", port=5672
-)
+
+message_queue_configs = {
+    "rabbitmq": RabbitMQMessageQueueConfig(
+        username="guest", password="guest", host="rabbitmq", port=5672
+    )
+}
+
 
 if __name__ == "__main__":
     import asyncio
 
+    parser = argparse.ArgumentParser(description="Deploy core services.")
+    parser.add_argument(
+        "-q",
+        "--message-queue",
+        choices=["rabbitmq", "simple", "kafka", "redis"],
+        default="simple",
+        type=str,
+        help="The message queue to use.",
+    )
+    args = parser.parse_args()
+
+    message_queue_config = message_queue_configs[args.message_queue]
     asyncio.run(
         deploy_core(
             control_plane_config=control_plane_config,

@@ -16,7 +16,7 @@ services:
       retries: 5
   control_plane:
     image: multi_workflows_app:latest
-    command: sh -c "python -m multi_workflows_app.deployment.core"
+    command: sh -c "python -m multi_workflows_app.deployment.core -q 'rabbitmq' "
     env_file:
       - ./rabbitmq/docker/.env.docker
     ports:
