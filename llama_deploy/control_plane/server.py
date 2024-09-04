@@ -485,8 +485,8 @@ class ControlPlaneServer(BaseControlPlane):
         Returns:
             Dict[str, dict]: A dict of message queue name -> config dict
         """
-        queue_name = self._message_queue.__class__.__name__
-        return {queue_name: self._message_queue.as_config().model_dump()}
+        queue_config = self._message_queue.as_config()
+        return {queue_config.__class__.__name__: queue_config.model_dump()}
 
     async def register_to_message_queue(self) -> StartConsumingCallable:
         return await self.message_queue.register_consumer(self.as_consumer(remote=True))
