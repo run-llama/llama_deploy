@@ -1,4 +1,3 @@
-version: "3"
 services:
   rabbitmq:
     image: rabbitmq:3.13-management
@@ -16,14 +15,14 @@ services:
       timeout: 10s
       retries: 5
   control_plane:
-    image: multi_workflows_rabbitmq:latest
-    command: sh -c "python -m multi_workflows_rabbitmq.deployment.core"
+    image: multi_workflows_app:latest
+    command: sh -c "python -m multi_workflows_app.deployment.core"
     env_file:
       - ./.env.docker
     ports:
       - "8000:8000"
     volumes:
-      - ./multi-workflows-rabbitmq/multi_workflows_rabbitmq:/app/multi_workflows_rabbitmq # load local code change to container without the need of rebuild
+      - ./multi-workflows-app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
       - ./logging.ini:/app/logging.ini
     depends_on:
       rabbitmq:
@@ -31,7 +30,7 @@ services:
     platform: linux/amd64
     build:
       context: .
-      dockerfile: ./multi-workflows-rabbitmq/Dockerfile
+      dockerfile: ./Dockerfile
     healthcheck:
       test: wget --no-verbose --tries=1 http://0.0.0.0:8000/ || exit 1
       interval: 30s
@@ -39,14 +38,14 @@ services:
       start_period: 20s
       timeout: 10s
   funny_joke_workflow:
-    image: multi_workflows_rabbitmq:latest
-    command: sh -c "python -m multi_workflows_rabbitmq.deployment.workflow_funny_joke"
+    image: multi_workflows_app:latest
+    command: sh -c "python -m multi_workflows_app.deployment.workflow_funny_joke"
     env_file:
       - ./.env.docker
     ports:
       - "8001:8001"
     volumes:
-      - ./multi-workflows-rabbitmq/multi_workflows_rabbitmq:/app/multi_workflows_rabbitmq # load local code change to container without the need of rebuild
+      - ./multi-workflows-app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
       - ./logging.ini:/app/logging.ini
     platform: linux/amd64
     depends_on:
@@ -56,7 +55,7 @@ services:
         condition: service_healthy
     build:
       context: .
-      dockerfile: ./multi-workflows-rabbitmq/Dockerfile
+      dockerfile: ./Dockerfile
     healthcheck:
       test: wget --no-verbose --tries=1 http://0.0.0.0:8001/ || exit 1
       interval: 30s

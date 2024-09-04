@@ -3,7 +3,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "multi-workflows-rabbitmq"
+name = "multi-workflows-app"
 version = "0.1.0"
 description = ""
 authors = ["Andrei Fajardo <andrei@runllama.ai>"]
