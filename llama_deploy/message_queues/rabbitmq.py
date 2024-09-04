@@ -104,6 +104,7 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         self,
         url: str = DEFAULT_URL,
         exchange_name: str = DEFAULT_EXCHANGE_NAME,
+        **kwargs: Any,
     ) -> None:
         super().__init__(url=url, exchange_name=exchange_name)
 
