@@ -246,14 +246,12 @@ class ControlPlaneServer(BaseControlPlane):
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         if remote:
-            host = self.external_host or self.host
-            port = self.external_port or self.port
             return RemoteMessageConsumer(
                 id_=self.publisher_id,
                 url=(
-                    f"http://{host}:{port}/process_message"
-                    if port
-                    else f"http://{host}/process_message"
+                    f"http://{self.host}:{self.port}/process_message"
+                    if self.port
+                    else f"http://{self.host}/process_message"
                 ),
                 message_type="control_plane",
             )
@@ -265,14 +263,17 @@ class ControlPlaneServer(BaseControlPlane):
         )
 
     async def launch_server(self) -> None:
-        logger.info(f"Launching control plane server at {self.host}:{self.port}")
+        # give precedence to external settings
+        host = self.external_host or self.host
+        port = self.external_port or self.port
+        logger.info(f"Launching control plane server at {host}:{port}")
         # uvicorn.run(self.app, host=self.host, port=self.port)
 
         class CustomServer(uvicorn.Server):
             def install_signal_handlers(self) -> None:
                 pass
 
-        cfg = uvicorn.Config(self.app, host=self.host, port=self.port)
+        cfg = uvicorn.Config(self.app, host=host, port=port)
         server = CustomServer(cfg)
         await server.serve()
 
