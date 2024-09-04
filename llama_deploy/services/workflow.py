@@ -41,6 +41,8 @@ class WorkflowServiceConfig(BaseSettings):
 
     host: str
     port: int
+    external_host: Optional[str] = None
+    external_port: Optional[int] = None
     service_name: str
     description: str = "A service that wraps a llama-index workflow."
     running: bool = True
@@ -107,6 +109,8 @@ class WorkflowService(BaseService):
     step_interval: float = 0.1
     host: Optional[str] = None
     port: Optional[int] = None
+    external_host: Optional[str] = None
+    external_port: Optional[int] = None
     raise_exceptions: bool = False
 
     _message_queue: BaseMessageQueue = PrivateAttr()

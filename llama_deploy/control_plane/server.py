@@ -45,6 +45,8 @@ class ControlPlaneConfig(BaseSettings):
     step_interval: float = 0.1
     host: str = "127.0.0.1"
     port: Optional[int] = 8000
+    external_host: Optional[str] = None
+    external_port: Optional[int] = None
     running: bool = True
 
     @property
@@ -75,6 +77,8 @@ class ControlPlaneServer(BaseControlPlane):
         step_interval (float, optional): The interval in seconds to poll for tool call results. Defaults to 0.1s.
         host (str, optional): The host of the service. Defaults to "127.0.0.1".
         port (Optional[int], optional): The port of the service. Defaults to 8000.
+        external_host (Optional[str], optional): The host for external networking as in Docker-Compose or K8s.
+        external_port (Optional[int], optional): The port for external networking as in Docker-Compose or K8s.
         running (bool, optional): Whether the service is running. Defaults to True.
 
     Examples:
@@ -102,6 +106,8 @@ class ControlPlaneServer(BaseControlPlane):
         step_interval: float = 0.1,
         host: str = "127.0.0.1",
         port: Optional[int] = 8000,
+        external_host: Optional[str] = None,
+        external_port: Optional[int] = None,
         running: bool = True,
     ) -> None:
         self.orchestrator = orchestrator
@@ -110,6 +116,8 @@ class ControlPlaneServer(BaseControlPlane):
         self.running = running
         self.host = host
         self.port = port
+        self.external_host = external_host
+        self.external_port = external_port
 
         self.state_store = state_store or SimpleKVStore()
 
@@ -238,12 +246,14 @@ class ControlPlaneServer(BaseControlPlane):
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         if remote:
+            host = self.external_host or self.host
+            port = self.external_port or self.port
             return RemoteMessageConsumer(
                 id_=self.publisher_id,
                 url=(
-                    f"http://{self.host}:{self.port}/process_message"
-                    if self.port
-                    else f"http://{self.host}/process_message"
+                    f"http://{host}:{port}/process_message"
+                    if port
+                    else f"http://{host}/process_message"
                 ),
                 message_type="control_plane",
             )
