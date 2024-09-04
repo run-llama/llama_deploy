@@ -243,3 +243,16 @@ Next, open up a browser and visit http://127.0.0.1:8080/#/. Enter "guest" for
 both `user` and `password`.
 
 ![image](https://github.com/run-llama/llama-agents/assets/92402603/59a5278e-a80a-42d5-b49d-5c9708bc2d8f)
+
+```python
+from llama_deploy import LlamaDeployClient
+from llama_deploy.control_plane.server import ControlPlaneConfig
+
+control_plane_config = ControlPlaneConfig(host="0.0.0.0", port=8000)
+client = LlamaDeployClient(control_plane_config)
+session = client.create_session()
+result = session.run(
+    "funny_joke_workflow", input="A baby llama is called a cria."
+)
+print(result)
+```

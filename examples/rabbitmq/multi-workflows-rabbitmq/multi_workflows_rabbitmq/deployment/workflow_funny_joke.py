@@ -14,7 +14,7 @@ if __name__ == "__main__":
             workflow_config=WorkflowServiceConfig(
                 host="funny_joke_workflow",
                 port=8001,
-                external_host="127.0.0.1",
+                external_host="0.0.0.0",
                 external_port=8001,
                 service_name="funny_joke_workflow",
             ),
