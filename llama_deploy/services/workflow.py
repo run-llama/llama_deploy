@@ -41,6 +41,8 @@ class WorkflowServiceConfig(BaseSettings):
 
     host: str
     port: int
+    external_host: Optional[str] = None
+    external_port: Optional[int] = None
     service_name: str
     description: str = "A service that wraps a llama-index workflow."
     running: bool = True
@@ -107,6 +109,8 @@ class WorkflowService(BaseService):
     step_interval: float = 0.1
     host: Optional[str] = None
     port: Optional[int] = None
+    external_host: Optional[str] = None
+    external_port: Optional[int] = None
     raise_exceptions: bool = False
 
     _message_queue: BaseMessageQueue = PrivateAttr()
@@ -127,6 +131,8 @@ class WorkflowService(BaseService):
         step_interval: float = 0.1,
         host: Optional[str] = None,
         port: Optional[int] = None,
+        external_host: Optional[str] = None,
+        external_port: Optional[int] = None,
         raise_exceptions: bool = False,
     ) -> None:
         super().__init__(
@@ -137,6 +143,8 @@ class WorkflowService(BaseService):
             step_interval=step_interval,
             host=host,
             port=port,
+            external_host=external_host,
+            external_port=external_port,
             raise_exceptions=raise_exceptions,
         )
 
@@ -348,13 +356,14 @@ class WorkflowService(BaseService):
 
     async def launch_server(self) -> None:
         """Launch the service as a FastAPI server."""
-        logger.info(f"Launching {self.service_name} server at {self.host}:{self.port}")
-        # uvicorn.run(self._app, host=self.host, port=self.port)
+        host = self.external_host or self.host
+        port = self.external_port or self.port
+        logger.info(f"Launching {self.service_name} server at {host}:{port}")
 
         class CustomServer(uvicorn.Server):
             def install_signal_handlers(self) -> None:
                 pass
 
-        cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
+        cfg = uvicorn.Config(self._app, host=host, port=port)
         server = CustomServer(cfg)
         await server.serve()
