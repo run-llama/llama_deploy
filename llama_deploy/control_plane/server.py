@@ -246,12 +246,14 @@ class ControlPlaneServer(BaseControlPlane):
 
     def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
         if remote:
+            host = self.external_host or self.host
+            port = self.external_port or self.port
             return RemoteMessageConsumer(
                 id_=self.publisher_id,
                 url=(
-                    f"http://{self.host}:{self.port}/process_message"
-                    if self.port
-                    else f"http://{self.host}/process_message"
+                    f"http://{host}:{port}/process_message"
+                    if port
+                    else f"http://{host}/process_message"
                 ),
                 message_type="control_plane",
             )
