@@ -3,6 +3,7 @@ from llama_deploy import (
     deploy_core,
     ControlPlaneConfig,
 )
+from llama_deploy.message_queues.simple import SimpleMessageQueueConfig
 from llama_deploy.message_queues.rabbitmq import RabbitMQMessageQueueConfig
 
 
@@ -16,7 +17,8 @@ control_plane_config = ControlPlaneConfig(
 message_queue_configs = {
     "rabbitmq": RabbitMQMessageQueueConfig(
         username="guest", password="guest", host="rabbitmq", port=5672
-    )
+    ),
+    "simple": SimpleMessageQueueConfig(host="message_queue", port=8001),
 }
 
 
