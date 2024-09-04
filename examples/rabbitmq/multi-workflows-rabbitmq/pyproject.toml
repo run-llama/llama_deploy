@@ -11,7 +11,7 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-llama-deploy = {version = "^0.1.0b1", extras = ["rabbitmq"]}
 llama-index-llms-openai = "^0.2.1"
 llama-index-embeddings-openai = "^0.2.4"
 llama-index-agent-openai = "^0.3.0"
+llama-deploy = {path = "../../../../llama-agents", extras = ["rabbitmq"]}

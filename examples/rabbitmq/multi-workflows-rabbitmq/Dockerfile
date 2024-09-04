@@ -19,7 +19,7 @@ ENV POETRY_VIRTUALENVS_IN_PROJECT=true
 ENV POETRY_VIRTUALENVS_CREATE=true
 
 # Install dependencies
-COPY multi-agent-app-rabbitmq/poetry.lock multi-agent-app-rabbitmq/pyproject.toml ./
+COPY multi-workflows-rabbitmq/poetry.lock multi-workflows-rabbitmq/pyproject.toml ./
 
 RUN poetry install --no-cache --no-root
 
@@ -43,4 +43,4 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 # Copy source code
 COPY ./logging.ini ./logging.ini
-COPY ./multi-agent-app-rabbitmq/multi_agent_app_rabbitmq ./multi_agent_app_rabbitmq
+COPY ./multi-workflows-rabbitmq/multi_workflows_rabbitmq ./multi_workflows_rabbitmq
