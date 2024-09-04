@@ -1,114 +1,54 @@
-# Examples using RabbitMQ Work Queues as the MessageQueue
+# Example application using RabbitMQ Work Queues as the MessageQueue
 
-The examples contained in this subdirectory make use of the RabbitMQ integration
-within `llama-agents`.
+The example app contained in this subdirectory make use of the RabbitMQ integration
+within `llama-deploy`.
 
-To run these examples, you'll need to have the installed the `rabbitmq` extra:
+To run these example, you'll need to have the installed the `rabbitmq` extra:
 
 ```sh
 # using pip install
-pip install llama-agents[rabbitmq]
+pip install llama-deploy[rabbitmq]
 
 # using poetry
-poetry add llama-agents -E "rabbitmq"
+poetry add llama-deploy -E "rabbitmq"
 ```
 
 ## Usage Pattern
 
 ```python
-from llama_agents.message_queue.rabbitmq import RabbitMQMessageQueue
+from llama_deploy.message_queue.rabbitmq import RabbitMQMessageQueue
 
 message_queue = RabbitMQMessageQueue(
     url=...
 )  # if no url is supplied the default localhost is used
 ```
 
-## Examples
+## Deploying the example app
 
-### Simple Scripts
-
-A couple of scripts using `LocalLauncher` and a `LocalServer` with
-`RabbitMQMessageQueue` (rather than `SimpleMessageQueue`) are included in this
-subdirectory.
-
-Before running any of these scrtips we first need to have RabbitMQ server running.
-For a quick setup, we recommend using the official RabbitMQ community docker image:
+In this section, we deploy a system comprised of multiple workflows that collaborate
+to accomplish a task. The source code for the app is structured as follows:
 
 ```sh
-# latest RabbitMQ 3.13
-docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.13-management
+multi-workflows-rabbitmq
+├── Dockerfile
+├── README.md
+├── multi_workflows_rabbitmq
+│   ├── __init__.py
+│   ├── deployment
+│   └── workflows
+└── pyproject.toml
 ```
 
-With our RabbitMQ server running, we can now run our example scripts.
+All of the workflows are contained in the `multi_workflows_rabbitmq/workflows`
+subfolder, and all of the deployment related code is contained in `multi_workflows_rabbitmq/deployment`.
 
-```sh
-# using LocalLauncher
-python ./simple-scripts/local_launcher_example.py
-```
+Next, we will go through how to deploy your multi-workflow system using either
+Docker or Kubernetes as a means to orchestrate the `WorkflowService`'s.
 
-The script above will build a simple multi-agent app, connect it to the RabbitMQ
-message queue, and subsequently send the specified task.
+1. With Docker (i.e., using `docker-compose`)
+2. With Kubernetes (i.e., using `kubectl`)
 
-### Example App: `multi-agent-app` revisited
-
-In this section, we re-consider the `multi-agent-app` first found in the parent
-examples folder: `examples/docker-kubernetes`. We will go through this example
-as we did before, explaining how you could launch the `multi-agent-app` with three
-different launchers:
-
-1. Without Docker using `LocalLauncher`
-2. With Docker (i.e., using `docker-compose`)
-3. With Kubernetes (i.e., using `kubectl`)
-
-The main difference of course being that this time we will be using `RabbitMQMessageQueue`
-rather than `SimpleMessageQueue` as our message broker between the services/workers.
-
-#### Launching Without Docker
-
-As with running our example simple scripts above, we need to standup our RabbitMQ
-manually:
-
-```sh
-# latest RabbitMQ 3.13
-docker run -it --rm --name rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3.13-management
-```
-
-Next, in order to launch this multi-agent system, we first need to set the
-required environment variables. To do that fill in the provided
-`template.env.local` file found in the `multi-agent-app-rabbitmq/` folder. After filling
-in the file rename it to `.env.local` (i.e., remove "template" from the name)
-and the run the commands that follow.
-
-```sh
-# set environment variables
-set -a && source multi-agent-app-rabbitmq/.env.local
-
-# activate the project virtual env
-cd multi-agent-app-rabbitmq/ && poetry shell && poetry install && cd ../
-```
-
-Finally to launch the example multi-agent app:
-
-```sh
-python multi-agent-app-rabbitmq/multi_agent_app_rabbitmq/local_launcher.py
-```
-
-Once launched, we can send tasks to our multi-agent system using the
-`LlamaAgentsClient` (note: the code below introduce static delay to handle
-asynchronous call for quick test purpose only):
-
-```python
-from llama_agents import LlamaAgentsClient
-import time
-
-client = LlamaAgentsClient("http://0.0.0.0:8001")
-task_id = client.create_task("What is the secret fact?")
-time.sleep(10)
-task_result = client.get_task_result(task_id)
-print(task_result.result)
-```
-
-#### Launching With Docker
+### Deploying With Docker
 
 _Prerequisites_: Must have docker installed. (See
 [here](https://docs.docker.com/get-docker/) for how to install Docker Desktop
@@ -144,26 +84,24 @@ docker-compose up --build
 ```
 
 This command will start the servers in sequence: first the RabbitMQ service,
-then the control plane, followed by the agent services and the human consumer
-service. This sequencing is required since the later services depend must register
-to the message queue and control plane (and they need to be up and running before
-being able to do so).
+then the control plane, followed by the workflow services. This sequencing is required since the later services depend must register to the message queue and control plane (and they need to be up and running before being able to do so).
 
-Once all the services are up and running, we can send tasks to our multi-agent
-system:
+Once all the services are up and running, we can send tasks to our system:
 
 ```python
-from llama_agents import LlamaAgentsClient
-import time
+from llama_deploy import LlamaDeployClient
+from llama_deploy.control_plane.server import ControlPlaneConfig
 
-client = LlamaAgentsClient("http://0.0.0.0:8001")
-task_id = client.create_task("What is the secret fact?")
-time.sleep(10)
-task_result = client.get_task_result(task_id)
-print(task_result.result)
+control_plane_config = ControlPlaneConfig(host="0.0.0.0", port=8000)
+client = LlamaDeployClient(control_plane_config)
+session = client.create_session()
+result = session.run(
+    "funny_joke_workflow", input="A baby llama is called a cria."
+)
+print(result)
 ```
 
-#### Launching With Kubernetes
+### Deploying With Kubernetes
 
 _Prerequisites_: Must have `kubectl` and local Kubernetes cluster running. The
 recommended way is to install Docker Desktop which comes with a standalone
@@ -243,16 +181,3 @@ Next, open up a browser and visit http://127.0.0.1:8080/#/. Enter "guest" for
 both `user` and `password`.
 
 ![image](https://github.com/run-llama/llama-agents/assets/92402603/59a5278e-a80a-42d5-b49d-5c9708bc2d8f)
-
-```python
-from llama_deploy import LlamaDeployClient
-from llama_deploy.control_plane.server import ControlPlaneConfig
-
-control_plane_config = ControlPlaneConfig(host="0.0.0.0", port=8000)
-client = LlamaDeployClient(control_plane_config)
-session = client.create_session()
-result = session.run(
-    "funny_joke_workflow", input="A baby llama is called a cria."
-)
-print(result)
-```
