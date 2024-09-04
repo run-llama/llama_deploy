@@ -5,8 +5,15 @@ from llama_deploy import (
 from llama_deploy.message_queues.rabbitmq import RabbitMQMessageQueueConfig
 
 
-control_plane_config = ControlPlaneConfig()
-message_queue_config = RabbitMQMessageQueueConfig()
+control_plane_config = ControlPlaneConfig(
+    host="control_plane",
+    port=8000,
+    external_host="0.0.0.0",
+    external_port=8000,
+)
+message_queue_config = RabbitMQMessageQueueConfig(
+    username="guest", password="guest", host="rabbitmq", port=5672
+)
 
 if __name__ == "__main__":
     import asyncio
