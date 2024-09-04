@@ -38,7 +38,7 @@ class SimpleMessageQueueConfig(BaseSettings):
     host: str = "127.0.0.1"
     port: Optional[int] = 8001
     external_host: Optional[str] = None
-    external_port: Optional[str] = None
+    external_port: Optional[int] = None
 
 
 class SimpleRemoteClientMessageQueue(BaseMessageQueue):
