@@ -19,7 +19,7 @@ message_queue_configs = {
         username="guest", password="guest", host="rabbitmq", port=5672
     ),
     "simple": SimpleMessageQueueConfig(
-        host="message_queue", port=8001, external_host="0.0.0.0", external_port=8001
+        host="message_queue", port=8002, external_host="0.0.0.0", external_port=8002
     ),
 }
 
