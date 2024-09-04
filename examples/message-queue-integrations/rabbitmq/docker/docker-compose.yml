@@ -3,7 +3,7 @@ services:
     image: rabbitmq:3.13-management
     hostname: "rabbitmq"
     env_file:
-      - ./.env.docker
+      - ./rabbitmq/docker/.env.docker
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -18,7 +18,7 @@ services:
     image: multi_workflows_app:latest
     command: sh -c "python -m multi_workflows_app.deployment.core"
     env_file:
-      - ./.env.docker
+      - ./rabbitmq/docker/.env.docker
     ports:
       - "8000:8000"
     volumes:
@@ -41,7 +41,7 @@ services:
     image: multi_workflows_app:latest
     command: sh -c "python -m multi_workflows_app.deployment.workflow_funny_joke"
     env_file:
-      - ./.env.docker
+      - ./rabbitmq/docker/.env.docker
     ports:
       - "8001:8001"
     volumes:
