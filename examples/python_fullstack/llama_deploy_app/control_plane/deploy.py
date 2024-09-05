@@ -9,7 +9,7 @@ async def run_deploy():
         # All configs are optional.
         # In this case, the env vars in the docker-compose file are used.
         # control_plane_config=ControlPlaneConfig(),
-        # message_queue_config=SimpleMessageQueueConfig(),
+        disable_message_queue=True,
     )
 
 

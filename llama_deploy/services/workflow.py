@@ -235,28 +235,55 @@ class WorkflowService(BaseService):
         """
         logger.info("Processing initiated.")
         while True:
-            if not self.running:
+            try:
+                if not self.running:
+                    await asyncio.sleep(self.step_interval)
+                    continue
+
+                async with self.lock:
+                    current_calls = [(t, c) for t, c in self._outstanding_calls.items()]
+
+                for task_id, current_call in current_calls:
+                    # TODO: resume a workflow session?
+
+                    # load the state
+                    self.load_workflow_state(self.workflow, current_call)
+
+                    # run the workflow
+                    # TODO: How do we handle streaming? Websockets?
+                    result = await self.workflow.run(**current_call.run_kwargs)
+
+                    # dump the state
+                    updated_state = self.dump_workflow_state(
+                        self.workflow, current_call.run_kwargs
+                    )
+
+                    await self.message_queue.publish(
+                        QueueMessage(
+                            type=CONTROL_PLANE_NAME,
+                            action=ActionTypes.COMPLETED_TASK,
+                            data=TaskResult(
+                                task_id=task_id,
+                                history=[],
+                                result=str(result),
+                                data=updated_state.dict(),
+                            ).model_dump(),
+                        )
+                    )
+
+                    # clean up
+                    async with self.lock:
+                        self._outstanding_calls.pop(task_id, None)
+
                 await asyncio.sleep(self.step_interval)
-                continue
-
-            async with self.lock:
-                current_calls = [(t, c) for t, c in self._outstanding_calls.items()]
-
-            for task_id, current_call in current_calls:
-                # TODO: resume a workflow session?
-
-                # load the state
-                self.load_workflow_state(self.workflow, current_call)
-
-                # run the workflow
-                # TODO: How do we handle streaming? Websockets?
-                result = await self.workflow.run(**current_call.run_kwargs)
-
+            except Exception as e:
+                logger.error(f"Encountered error in processing loop! {str(e)}")
                 # dump the state
                 updated_state = self.dump_workflow_state(
                     self.workflow, current_call.run_kwargs
                 )
 
+                # return failure
                 await self.message_queue.publish(
                     QueueMessage(
                         type=CONTROL_PLANE_NAME,
@@ -264,7 +291,7 @@ class WorkflowService(BaseService):
                         data=TaskResult(
                             task_id=task_id,
                             history=[],
-                            result=str(result),
+                            result=str(e),
                             data=updated_state.dict(),
                         ).model_dump(),
                     )
@@ -273,8 +300,6 @@ class WorkflowService(BaseService):
                 # clean up
                 async with self.lock:
                     self._outstanding_calls.pop(task_id, None)
-
-            await asyncio.sleep(self.step_interval)
 
     async def process_message(self, message: QueueMessage) -> None:
         """Process a message received from the message queue."""

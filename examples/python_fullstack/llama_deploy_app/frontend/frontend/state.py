@@ -1,5 +1,8 @@
 import asyncio
 import reflex as rx
+import uuid
+
+from llama_deploy import AsyncLlamaDeployClient, ControlPlaneConfig
 
 
 class State(rx.State):
@@ -9,9 +12,30 @@ class State(rx.State):
     # Keep track of the chat history as a list of (question, answer) tuples.
     chat_history: list[tuple[str, str]]
 
+    user_id: str = str(uuid.uuid4())
+
     async def answer(self):
-        # Our chatbot is not very smart right now...
-        answer = "I don't know!"
+        # get a session from the control plane
+        client = AsyncLlamaDeployClient(ControlPlaneConfig())
+        session = await client.get_or_create_session(self.user_id, poll_interval=1.0)
+
+        # convert chat history to a list of dictionaries
+        chat_history_dicts = []
+        for chat_history_tuple in self.chat_history:
+            chat_history_dicts.append(
+                {"role": "user", "content": chat_history_tuple[0]}
+            )
+            chat_history_dicts.append(
+                {"role": "assistant", "content": chat_history_tuple[1]}
+            )
+
+        # call the agentic workflow
+        answer = await session.run(
+            "agentic_workflow",
+            chat_history_dicts=chat_history_dicts,
+            user_input=self.question,
+        )
+
         self.chat_history.append((self.question, ""))
 
         # Clear the question input.

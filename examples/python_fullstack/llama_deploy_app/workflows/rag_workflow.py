@@ -1,4 +1,5 @@
 import json
+from logging import getLogger
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
 from llama_index.core.node_parser import SemanticSplitterNodeParser, SentenceSplitter
 from llama_index.core.response_synthesizers import CompactAndRefine
@@ -16,6 +17,8 @@ from llama_index.llms.openai import OpenAI
 from llama_index.postprocessor.rankgpt_rerank import RankGPTRerank
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient, AsyncQdrantClient
+
+logger = getLogger(__name__)
 
 
 class RetrieverEvent(Event):
@@ -38,6 +41,7 @@ class RAGWorkflow(Workflow):
     @step
     async def retrieve(self, ctx: Context, ev: StartEvent) -> RetrieverEvent | None:
         "Entry point for RAG, triggered by a StartEvent with `query`."
+        logger.info(f"Retrieving nodes for query: {ev.get('query')}")
         query = ev.get("query")
         top_k = ev.get("top_k", 5)
         top_n = ev.get("top_n", 3)
@@ -79,6 +83,7 @@ class RAGWorkflow(Workflow):
             "response": str(response),
             "source_nodes": json.dumps([node.model_dump() for node in ev.nodes]),
         }
+        logger.info(f"Response: {result['response']}")
         return StopEvent(result=result)
 
 
@@ -112,4 +117,4 @@ def build_rag_workflow() -> RAGWorkflow:
 
         index.insert_nodes(nodes)
 
-    return RAGWorkflow(index=index)
+    return RAGWorkflow(index=index, timeout=120.0)
