@@ -62,9 +62,7 @@ Once the system is up and running, we can interact with it using the `LlamaDeplo
 from llama_deploy import LlamaDeployClient
 from llama_deploy.control_plane.server import ControlPlaneConfig
 
-control_plane_config = ControlPlaneConfig(
-    host="control-plane.127.0.0.1.nip.io", port=None
-)
+control_plane_config = ControlPlaneConfig(host="0.0.0.0", port=8000)
 client = LlamaDeployClient(control_plane_config)
 session = client.create_session()
 result = session.run(
