@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: control-plane
-  namespace: llama-agents-demo
+  namespace: llama-deploy-demo
 spec:
   replicas: 1
   selector:
@@ -17,16 +17,26 @@ spec:
       containers:
         - name: control-plane
           env:
-            - name: MESSAGE_QUEUE_HOST
+            - name: SIMPLE_MESSAGE_QUEUE_HOST
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: MESSAGE_QUEUE_HOST
-            - name: MESSAGE_QUEUE_PORT
+                  key: SIMPLE_MESSAGE_QUEUE_HOST
+            - name: SIMPLE_MESSAGE_QUEUE_PORT
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: MESSAGE_QUEUE_PORT
+                  key: SIMPLE_MESSAGE_QUEUE_PORT
+            - name: SIMPLE_MESSAGE_QUEUE_INTERNAL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: SIMPLE_MESSAGE_QUEUE_INTERNAL_HOST
+            - name: SIMPLE_MESSAGE_QUEUE_INTERNAL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: SIMPLE_MESSAGE_QUEUE_INTERNAL_PORT
             - name: CONTROL_PLANE_HOST
               valueFrom:
                 configMapKeyRef:
@@ -37,25 +47,23 @@ spec:
                 configMapKeyRef:
                   name: xcore-config
                   key: CONTROL_PLANE_PORT
-            - name: OPENAI_API_KEY
+            - name: CONTROL_PLANE_INTERNAL_HOST
               valueFrom:
-                secretKeyRef:
-                  name: xcore-secret
-                  key: OPENAI_API_KEY
-          image: multi_agent_app:latest
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_INTERNAL_HOST
+            - name: CONTROL_PLANE_INTERNAL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_INTERNAL_PORT
+          image: multi_workflows_app:latest
           imagePullPolicy: Never
           command:
             [
-              "uvicorn",
-              "multi_agent_app.core_services.control_plane:app",
-              "--host",
-              "0.0.0.0",
-              "--port",
-              "8000",
-              "--log-config",
-              "./logging.ini",
-              "--log-level",
-              "debug",
+              "sh",
+              "-c",
+              "python -m multi_workflows_app.deployment.core -q 'simple' --disable-message-queue",
             ]
           resources:
             requests:
@@ -74,7 +82,7 @@ metadata:
   labels:
     app: control-plane
   name: control-plane
-  namespace: llama-agents-demo
+  namespace: llama-deploy-demo
 spec:
   selector:
     app: control-plane
@@ -88,7 +96,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: control-plane
-  namespace: llama-agents-demo
+  namespace: llama-deploy-demo
 spec:
   rules:
     - host: control-plane.127.0.0.1.nip.io
