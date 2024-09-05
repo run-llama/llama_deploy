@@ -85,6 +85,8 @@ async def deploy_core(
     control_plane_config: Optional[ControlPlaneConfig] = None,
     message_queue_config: Optional[BaseSettings] = None,
     orchestrator_config: Optional[SimpleOrchestratorConfig] = None,
+    disable_message_queue: bool = False,
+    disable_control_plane: bool = False,
 ) -> None:
     """
     Deploy the core components of the llama_deploy system.
@@ -97,6 +99,8 @@ async def deploy_core(
         message_queue_config (Optional[BaseSettings]): Configuration for the message queue. Defaults to a local SimpleMessageQueue.
         orchestrator_config (Optional[SimpleOrchestratorConfig]): Configuration for the orchestrator.
             If not provided, a default SimpleOrchestratorConfig will be used.
+        disable_message_queue (bool): Whether to disable deploying the message queue. Defaults to False.
+        disable_control_plane (bool): Whether to disable deploying the control plane. Defaults to False.
 
     Raises:
         ValueError: If an unknown message queue type is specified in the config.
@@ -114,28 +118,40 @@ async def deploy_core(
         **control_plane_config.model_dump(),
     )
 
-    message_queue_task = None
-    if isinstance(message_queue_config, SimpleMessageQueueConfig):
+    if (
+        isinstance(message_queue_config, SimpleMessageQueueConfig)
+        and not disable_message_queue
+    ):
         message_queue_task = _deploy_local_message_queue(message_queue_config)
+    elif (
+        isinstance(message_queue_config, SimpleMessageQueueConfig)
+        and disable_message_queue
+    ):
+        # create a dummy task to keep the event loop running
+        message_queue_task = asyncio.create_task(asyncio.sleep(0))
+    else:
+        message_queue_task = asyncio.create_task(asyncio.sleep(0))
 
-    control_plane_task = asyncio.create_task(control_plane.launch_server())
+    if not disable_control_plane:
+        control_plane_task = asyncio.create_task(control_plane.launch_server())
 
-    # let services spin up
-    await asyncio.sleep(1)
+        # let services spin up
+        await asyncio.sleep(1)
 
-    # register the control plane as a consumer
-    control_plane_consumer_fn = await control_plane.register_to_message_queue()
+        # register the control plane as a consumer
+        control_plane_consumer_fn = await control_plane.register_to_message_queue()
 
-    consumer_task = asyncio.create_task(control_plane_consumer_fn())
+        consumer_task = asyncio.create_task(control_plane_consumer_fn())
+    else:
+        # create a dummy task to keep the event loop running
+        control_plane_task = asyncio.create_task(asyncio.sleep(0))
+        consumer_task = asyncio.create_task(asyncio.sleep(0))
 
     # let things sync up
     await asyncio.sleep(1)
 
     # let things run
-    if message_queue_task:
-        all_tasks = [control_plane_task, consumer_task, message_queue_task]
-    else:
-        all_tasks = [control_plane_task, consumer_task]
+    all_tasks = [control_plane_task, consumer_task, message_queue_task]
 
     shutdown_handler = _get_shutdown_handler(all_tasks)
     loop = asyncio.get_event_loop()
