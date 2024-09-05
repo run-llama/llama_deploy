@@ -54,6 +54,23 @@ NOTE: In a real-world app, you would only use one of these message queues. So, i
 building your application (i.e., see `_app/`) you would not need to include the
 other message queues in your source code as we've done here.
 
+### Interacting with the system
+
+Once the system is up and running, we can interact with it using the `LlamaDeployClient`:
+
+```python
+from llama_deploy import LlamaDeployClient
+from llama_deploy.control_plane.server import ControlPlaneConfig
+
+control_plane_config = ControlPlaneConfig(host="0.0.0.0", port=8000)
+client = LlamaDeployClient(control_plane_config)
+session = client.create_session()
+result = session.run(
+    "funny_joke_workflow", input="A baby llama is called a cria."
+)
+print(result)
+```
+
 ## Deploying with Kubernetes
 
 Some of the message queue folders contain a `/kubernetes` subfolder, where

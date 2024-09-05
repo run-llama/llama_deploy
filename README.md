@@ -506,6 +506,7 @@ async_client = AsyncLlamaDeployClient(ControlPlaneConfig())
 
 - `session.get_task_result(task_id)`: Gets the result of a task in the session if it has one.
   Example:
+
   ```python
   result = session.get_task_result("task_123")
   if result:
