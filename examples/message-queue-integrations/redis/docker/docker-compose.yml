@@ -1,6 +1,7 @@
 services:
   redis:
     image: redis:latest
+    hostname: redis
     env_file:
       - ./redis/docker/.env.docker
     ports:

@@ -21,7 +21,7 @@ message_queue_configs = {
     "rabbitmq": RabbitMQMessageQueueConfig(
         username="guest", password="guest", host="rabbitmq", port=5672
     ),
-    "redis": RedisMessageQueueConfig(host="redis"),
+    "redis": RedisMessageQueueConfig(host="redis", port=6379),
     "simple": SimpleMessageQueueConfig(
         host="message_queue", port=8002, internal_host="0.0.0.0", internal_port=8002
     ),
