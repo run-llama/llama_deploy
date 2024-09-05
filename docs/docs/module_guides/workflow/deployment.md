@@ -1,14 +1,10 @@
 # 🦙 `llama_deploy` 🤖
 
-`llama_deploy` (formerly `llama-agents`) is an async-first framework for deploying, scaling, and productionizing agentic multi-service systems based on [workflows from `llama_index`](https://docs.llamaindex.ai/en/stable/understanding/workflows/). With `llama_deploy`, you can build any number of workflows in `llama_index` and then bring them into `llama_deploy` for deployment.
+[`llama_deploy`](https://github.com/run-llama/llama_deploy) (formerly `llama-agents`) is an async-first framework for deploying, scaling, and productionizing agentic multi-service systems based on [workflows from `llama_index`](https://docs.llamaindex.ai/en/stable/understanding/workflows/). With `llama_deploy`, you can build any number of workflows in `llama_index` and then bring them into `llama_deploy` for deployment.
 
 In `llama_deploy`, each workflow is seen as a `service`, endlessly processing incoming tasks. Each workflow pulls and publishes messages to and from a `message queue`.
 
 At the top of a `llama_deploy` system is the `control plane`. The control plane handles ongoing tasks, manages state, keeps track of which services are in the network, and also decides which service should handle the next step of a task using an `orchestrator`. The default `orchestrator` is purely programmatic, handling failures, retries, and state-passing.
-
-The overall system layout is pictured below.
-
-![A basic system in llama_deploy](./system_diagram.png)
 
 ## Why `llama_deploy`?
 
@@ -511,3 +507,9 @@ async_client = AsyncLlamaDeployClient(ControlPlaneConfig())
   if result:
       print(result.result)
   ```
+
+## Examples
+
+We have many examples showing how to use various message queues, and different ways to scaffold your project for deployment with docker and kubernetes.
+
+You can find all examples in the [examples folder for the `llama-deploy` repository.](https://github.com/run-llama/llama_deploy/tree/main/examples)
