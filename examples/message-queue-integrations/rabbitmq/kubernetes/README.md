@@ -108,4 +108,4 @@ kubectl port-forward -n llama-deploy-demo rabbitmq-server-0 8080:15672
 Next, open up a browser and visit http://127.0.0.1:8080/#/. Enter "guest" for
 both `user` and `password`.
 
-![image](https://github.com/run-llama/llama-agents/assets/92402603/59a5278e-a80a-42d5-b49d-5c9708bc2d8f)
+<img width="960" alt="image" src="https://github.com/user-attachments/assets/8e6085d1-0545-4493-acd4-c8485bee953e">
