@@ -1,0 +1,111 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: control-plane
+  namespace: llama-deploy-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: control-plane
+  template:
+    metadata:
+      labels:
+        app: control-plane
+    spec:
+      containers:
+        - name: control-plane
+          env:
+            - name: RABBITMQ_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: RABBITMQ_HOST
+            - name: RABBITMQ_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: RABBITMQ_PORT
+            - name: RABBITMQ_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: RABBITMQ_USERNAME
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: RABBITMQ_PASSWORD
+            - name: CONTROL_PLANE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_HOST
+            - name: CONTROL_PLANE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_PORT
+            - name: CONTROL_PLANE_INTERNAL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_INTERNAL_HOST
+            - name: CONTROL_PLANE_INTERNAL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_INTERNAL_PORT
+          image: multi_workflows_app:latest
+          imagePullPolicy: Never
+          command:
+            [
+              "sh",
+              "-c",
+              "python -m multi_workflows_app.deployment.core -q 'rabbitmq'",
+            ]
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 8000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: control-plane
+  name: control-plane
+  namespace: llama-deploy-demo
+spec:
+  selector:
+    app: control-plane
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: control-plane
+  namespace: llama-deploy-demo
+spec:
+  rules:
+    - host: control-plane.127.0.0.1.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: control-plane
+                port:
+                  number: 8000

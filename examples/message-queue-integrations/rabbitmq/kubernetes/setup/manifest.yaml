@@ -1,0 +1,26 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  creationTimestamp: null
+  name: llama-deploy-demo
+
+---
+apiVersion: v1
+data:
+  RABBITMQ_HOST: "rabbitmq"
+  RABBITMQ_PORT: "5672"
+  RABBITMQ_PASSWORD: "guest"
+  RABBITMQ_USERNAME: "guest"
+  CONTROL_PLANE_HOST: "control-plane"
+  CONTROL_PLANE_PORT: "8000"
+  CONTROL_PLANE_INTERNAL_HOST: "0.0.0.0"
+  CONTROL_PLANE_INTERNAL_PORT: "8000"
+  WORKFLOW_SERVICE_HOST: "funny-joke-workflow"
+  WORKFLOW_SERVICE_PORT: "8000"
+  WORKFLOW_SERVICE_INTERNAL_HOST: "0.0.0.0"
+  WORKFLOW_SERVICE_INTERNAL_PORT: "8000"
+kind: ConfigMap
+metadata:
+  name: xcore-config
+  namespace: llama-deploy-demo

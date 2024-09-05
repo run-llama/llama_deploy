@@ -1,0 +1,136 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: funny-joke-workflow
+  namespace: llama-deploy-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: funny-joke-workflow
+  template:
+    metadata:
+      labels:
+        app: funny-joke-workflow
+    spec:
+      containers:
+        - name: funny-joke-workflow
+          env:
+            - name: RABBITMQ_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: RABBITMQ_HOST
+            - name: RABBITMQ_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: RABBITMQ_PORT
+            - name: RABBITMQ_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: RABBITMQ_USERNAME
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: RABBITMQ_PASSWORD
+            - name: CONTROL_PLANE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_HOST
+            - name: CONTROL_PLANE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_PORT
+            - name: CONTROL_PLANE_INTERNAL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_INTERNAL_HOST
+            - name: CONTROL_PLANE_INTERNAL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_INTERNAL_PORT
+            - name: WORKFLOW_SERVICE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: WORKFLOW_SERVICE_HOST
+            - name: WORKFLOW_SERVICE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: WORKFLOW_SERVICE_PORT
+            - name: WORKFLOW_SERVICE_INTERNAL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: WORKFLOW_SERVICE_INTERNAL_HOST
+            - name: WORKFLOW_SERVICE_INTERNAL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: WORKFLOW_SERVICE_INTERNAL_PORT
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: xcore-secret
+                  key: OPENAI_API_KEY
+          image: multi_workflows_app:latest
+          imagePullPolicy: Never
+          command:
+            [
+              "sh",
+              "-c",
+              "python -m multi_workflows_app.deployment.workflow_funny_joke",
+            ]
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 8000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: funny-joke-workflow
+  name: funny-joke-workflow
+  namespace: llama-deploy-demo
+spec:
+  selector:
+    app: funny-joke-workflow
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: funny-joke-workflow
+  namespace: llama-deploy-demo
+spec:
+  rules:
+    - host: funny-joke-workflow.127.0.0.1.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: funny-joke-workflow
+                port:
+                  number: 8000

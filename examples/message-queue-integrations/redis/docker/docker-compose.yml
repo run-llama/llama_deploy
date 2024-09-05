@@ -1,0 +1,69 @@
+services:
+  redis:
+    image: redis:latest
+    hostname: redis
+    env_file:
+      - ./redis/docker/.env.redis
+      - ./.env.docker
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis:/var/lib/redis/
+    healthcheck:
+      test: redis-cli --raw incr ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  control_plane:
+    image: multi_workflows_app:latest
+    command: sh -c "python -m multi_workflows_app.deployment.core -q 'redis' "
+    env_file:
+      - ./redis/docker/.env.redis
+      - ./.env.docker
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./_app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    depends_on:
+      redis:
+        condition: service_healthy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8000/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+  funny_joke_workflow:
+    image: multi_workflows_app:latest
+    command: sh -c "python -m multi_workflows_app.deployment.workflow_funny_joke"
+    env_file:
+      - ./redis/docker/.env.redis
+      - ./.env.docker
+      - ./.env.openai
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./_app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    platform: linux/amd64
+    depends_on:
+      redis:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8001/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+volumes:
+  redis:
