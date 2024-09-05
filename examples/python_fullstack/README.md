@@ -2,6 +2,8 @@
 
 This example demonstrates a fullstack application using llama-deploy to create and manage a RAG (Retrieval-Augmented Generation) and an Agentic workflow.
 
+![A sample of the deployed frontend.](./llama_deploy_frontend.png)
+
 ## Overview
 
 The application consists of two main workflows:
