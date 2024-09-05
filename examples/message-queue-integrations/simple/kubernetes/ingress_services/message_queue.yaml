@@ -1,0 +1,111 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: message-queue
+  namespace: llama-deploy-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: message-queue
+  template:
+    metadata:
+      labels:
+        app: message-queue
+    spec:
+      containers:
+        - name: message-queue
+          env:
+            - name: SIMPLE_MESSAGE_QUEUE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: SIMPLE_MESSAGE_QUEUE_HOST
+            - name: SIMPLE_MESSAGE_QUEUE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: SIMPLE_MESSAGE_QUEUE_PORT
+            - name: SIMPLE_MESSAGE_QUEUE_INTERNAL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: SIMPLE_MESSAGE_QUEUE_INTERNAL_HOST
+            - name: SIMPLE_MESSAGE_QUEUE_INTERNAL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: SIMPLE_MESSAGE_QUEUE_INTERNAL_PORT
+            - name: CONTROL_PLANE_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_HOST
+            - name: CONTROL_PLANE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_PORT
+            - name: CONTROL_PLANE_INTERNAL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_INTERNAL_HOST
+            - name: CONTROL_PLANE_INTERNAL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_INTERNAL_PORT
+          image: multi_workflows_app:latest
+          imagePullPolicy: Never
+          command:
+            [
+              "sh",
+              "-c",
+              "python -m multi_workflows_app.deployment.core -q 'simple' --disable-control-plane",
+            ]
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          ports:
+            - containerPort: 8000
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: message-queue
+  name: message-queue
+  namespace: llama-deploy-demo
+spec:
+  selector:
+    app: message-queue
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: message-queue
+  namespace: llama-deploy-demo
+spec:
+  rules:
+    - host: message-queue.127.0.0.1.nip.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: message-queue
+                port:
+                  number: 8000

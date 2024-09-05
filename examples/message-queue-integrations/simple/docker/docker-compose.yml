@@ -1,0 +1,73 @@
+services:
+  message_queue:
+    image: multi_workflows_app:latest
+    command: sh -c "python -m multi_workflows_app.deployment.core -q 'simple' --disable-control-plane"
+    env_file:
+      - ./simple/docker/.env.simple
+      - ./.env.docker
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./_app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8002/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+  control_plane:
+    image: multi_workflows_app:latest
+    command: sh -c "python -m multi_workflows_app.deployment.core -q 'simple' --disable-message-queue"
+    env_file:
+      - ./simple/docker/.env.simple
+      - ./.env.docker
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./_app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    depends_on:
+      message_queue:
+        condition: service_healthy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8000/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+  funny_joke_workflow:
+    image: multi_workflows_app:latest
+    command: sh -c "python -m multi_workflows_app.deployment.workflow_funny_joke"
+    env_file:
+      - ./simple/docker/.env.simple
+      - ./.env.docker
+      - ./.env.openai
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./_app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    platform: linux/amd64
+    depends_on:
+      message_queue:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8001/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s

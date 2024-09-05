@@ -1,0 +1,83 @@
+services:
+  kafka:
+    image: apache/kafka:3.7.1
+    hostname: kafka
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    env_file:
+      - ./kafka/docker/.env.kafka
+      - ./.env.docker
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT_HOST://localhost:9092,PLAINTEXT://kafka:19092"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
+      KAFKA_LISTENERS: "CONTROLLER://:29093,PLAINTEXT_HOST://:9092,PLAINTEXT://:19092"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
+    healthcheck:
+      test: nc -z localhost 9092 || exit -1
+      start_period: 15s
+      interval: 30s
+      timeout: 10s
+      retries: 5
+  control_plane:
+    image: multi_workflows_app:latest
+    command: sh -c "python -m multi_workflows_app.deployment.core -q 'kafka' "
+    env_file:
+      - ./kafka/docker/.env.kafka
+      - ./.env.docker
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./_app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    depends_on:
+      kafka:
+        condition: service_healthy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8000/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+  funny_joke_workflow:
+    image: multi_workflows_app:latest
+    command: sh -c "python -m multi_workflows_app.deployment.workflow_funny_joke"
+    env_file:
+      - ./kafka/docker/.env.kafka
+      - ./.env.docker
+      - ./.env.openai
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./_app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
+      - ./logging.ini:/app/logging.ini
+    platform: linux/amd64
+    depends_on:
+      kafka:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8001/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+volumes:
+  kafka:

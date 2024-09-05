@@ -8,9 +8,9 @@ from llama_index.core.agent.types import TaskStepOutput, TaskStep, Task
 from llama_index.core.tools import FunctionTool
 from llama_index.core.memory import ChatMemoryBuffer
 
-from llama_agents.message_queues.simple import SimpleMessageQueue
-from llama_agents.services.agent import AgentService
-from llama_agents.tools import ServiceAsTool
+from llama_deploy.message_queues.simple import SimpleMessageQueue
+from llama_deploy.services.agent import AgentService
+from llama_deploy.tools import ServiceAsTool
 
 
 @pytest.fixture()

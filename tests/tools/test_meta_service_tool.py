@@ -5,11 +5,11 @@ from typing import Any, Dict, List
 
 from llama_index.core.tools import FunctionTool, BaseTool
 
-from llama_agents.services import ToolService
-from llama_agents.message_queues.simple import SimpleMessageQueue
-from llama_agents.message_consumers.base import BaseMessageQueueConsumer
-from llama_agents.messages.base import QueueMessage
-from llama_agents.tools import MetaServiceTool
+from llama_deploy.services import ToolService
+from llama_deploy.message_queues.simple import SimpleMessageQueue
+from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
+from llama_deploy.messages.base import QueueMessage
+from llama_deploy.tools import MetaServiceTool
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):

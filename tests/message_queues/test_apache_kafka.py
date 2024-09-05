@@ -1,8 +1,8 @@
 import json
 import pytest
 from unittest.mock import patch, AsyncMock
-from llama_agents import QueueMessage
-from llama_agents.message_queues.apache_kafka import KafkaMessageQueue
+from llama_deploy import QueueMessage
+from llama_deploy.message_queues.apache_kafka import KafkaMessageQueue
 
 
 try:

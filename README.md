@@ -1,289 +1,548 @@
-# 🦙 `llama-agents` 🤖
+# 🦙 `llama_deploy` 🤖
 
-> [!IMPORTANT]  
-> Breaking changes are coming soon to the `llama-agents` codebase!
-> 
-> As [workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/?h=workflow) were recently introduced in the core `llama-index` library, we are working on a large refactor to pivot `llama-agents` to be the place you go to serve, deploy, and scale workflows that you built with `llama-index`. We recommend building workflows with the core `llama-index` library, and then coming here in the near future for deployment and scaling of those workflows as micro-services.
+`llama_deploy` (formerly `llama-agents`) is an async-first framework for deploying, scaling, and productionizing agentic multi-service systems based on [workflows from `llama_index`](https://docs.llamaindex.ai/en/stable/understanding/workflows/). With `llama_deploy`, you can build any number of workflows in `llama_index` and then bring them into `llama_deploy` for deployment.
 
-`llama-agents` is an async-first framework for building, iterating, and productionizing multi-agent systems, including multi-agent communication, distributed tool execution, human-in-the-loop, and more!
+In `llama_deploy`, each workflow is seen as a `service`, endlessly processing incoming tasks. Each workflow pulls and publishes messages to and from a `message queue`.
 
-In `llama-agents`, each agent is seen as a `service`, endlessly processing incoming tasks. Each agent pulls and publishes messages from a `message queue`.
-
-At the top of a `llama-agents` system is the `control plane`. The control plane keeps track of ongoing tasks, which services are in the network, and also decides which service should handle the next step of a task using an `orchestrator`.
+At the top of a `llama_deploy` system is the `control plane`. The control plane handles ongoing tasks, manages state, keeps track of which services are in the network, and also decides which service should handle the next step of a task using an `orchestrator`. The default `orchestrator` is purely programmatic, handling failures, retries, and state-passing.
 
 The overall system layout is pictured below.
 
-![A basic system in llama-agents](./system_diagram.png)
+![A basic system in llama_deploy](./system_diagram.png)
+
+## Why `llama_deploy`?
+
+1. **Seamless Deployment**: It bridges the gap between development and production, allowing you to deploy `llama_index` workflows with minimal changes to your code.
+
+2. **Scalability**: The microservices architecture enables easy scaling of individual components as your system grows.
+
+3. **Flexibility**: By using a hub-and-spoke architecture, you can easily swap out components (like message queues) or add new services without disrupting the entire system.
+
+4. **Fault Tolerance**: With built-in retry mechanisms and failure handling, `llama_deploy` ensures robustness in production environments.
+
+5. **State Management**: The control plane manages state across services, simplifying complex multi-step processes.
+
+6. **Async-First**: Designed for high-concurrency scenarios, making it suitable for real-time and high-throughput applications.
+
+## Wait, where is `llama-agents`?
+
+The introduction of [Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/#workflows) in `llama_index`produced the most intuitive way to develop agentic applications. The question then became: how can we close the gap between developing an agentic application as a workflow, and deploying it?
+
+With `llama_deploy`, the goal is to make it as 1:1 as possible between something that you built in a notebook, and something running on the cloud in a cluster. `llama_deploy` enables this by simply being able to pass in and deploy any workflow.
 
 ## Installation
 
-`llama-agents` can be installed with pip, and relies mainly on `llama-index-core`:
+`llama_deploy` can be installed with pip, and relies mainly on `llama_index_core`:
 
 ```bash
-pip install llama-agents
-```
-
-If you don't already have llama-index installed, to follow these examples, you'll also need
-
-```bash
-pip install llama-index-agent-openai llama-index-embeddings-openai
+pip install llama_deploy
 ```
 
 ## Getting Started
 
-The quickest way to get started is with an existing agent (or agents) and wrapping into launcher.
+### High-Level Deployment
 
-The example below shows a trivial example with two agents from `llama-index`.
+`llama_deploy` provides a simple way to deploy your workflows using configuration objects and helper functions.
 
-First, lets setup some agents and initial components for our `llama-agents` system:
+When deploying, generally you'll want to deploy the core services and workflows each from their own python scripts (or docker images, etc.).
 
-```python
-from llama_agents import (
-    AgentService,
-    AgentOrchestrator,
-    ControlPlaneServer,
-    SimpleMessageQueue,
-)
+Here's how you can deploy a core system and a workflow:
 
-from llama_index.core.agent import ReActAgent
-from llama_index.core.tools import FunctionTool
-from llama_index.llms.openai import OpenAI
+### Deploying the Core System
 
-
-# create an agent
-def get_the_secret_fact() -> str:
-    """Returns the secret fact."""
-    return "The secret fact is: A baby llama is called a 'Cria'."
-
-
-tool = FunctionTool.from_defaults(fn=get_the_secret_fact)
-
-agent1 = ReActAgent.from_tools([tool], llm=OpenAI())
-agent2 = ReActAgent.from_tools([], llm=OpenAI())
-
-# create our multi-agent framework components
-message_queue = SimpleMessageQueue(port=8000)
-control_plane = ControlPlaneServer(
-    message_queue=message_queue,
-    orchestrator=AgentOrchestrator(llm=OpenAI(model="gpt-4-turbo")),
-    port=8001,
-)
-agent_server_1 = AgentService(
-    agent=agent1,
-    message_queue=message_queue,
-    description="Useful for getting the secret fact.",
-    service_name="secret_fact_agent",
-    port=8002,
-)
-agent_server_2 = AgentService(
-    agent=agent2,
-    message_queue=message_queue,
-    description="Useful for getting random dumb facts.",
-    service_name="dumb_fact_agent",
-    port=8003,
-)
-```
-
-### Local / Notebook Flow
-
-Next, when working in a notebook or for faster iteration, we can launch our `llama-agents` system in a single-run setting, where one message is propagated through the network and returned.
+To deploy the core system (message queue, control plane, and orchestrator), you can use the `deploy_core` function:
 
 ```python
-from llama_agents import LocalLauncher
-import nest_asyncio
-
-# needed for running in a notebook
-nest_asyncio.apply()
-
-# launch it
-launcher = LocalLauncher(
-    [agent_server_1, agent_server_2],
-    control_plane,
-    message_queue,
+from llama_deploy import (
+    deploy_core,
+    ControlPlaneConfig,
+    SimpleMessageQueueConfig,
 )
-result = launcher.launch_single("What is the secret fact?")
 
-print(f"Result: {result}")
+
+async def main():
+    await deploy_core(
+        control_plane_config=ControlPlaneConfig(),
+        message_queue_config=SimpleMessageQueueConfig(),
+    )
+
+
+if name == "main":
+    import asyncio
+
+    asyncio.run(main())
 ```
 
-<!-- prettier-ignore -->
+This will set up the basic infrastructure for your `llama_deploy` system. You can customize the configs to adjust ports and basic settings, as well as swap in different message queue configs (Redis, Kafka, RabbiMQ, etc.).
+
+### Deploying a Workflow
+
+To deploy a workflow as a service, you can use the `deploy_workflow` function:
+
+```python
+python
+from llama_deploy import (
+    deploy_workflow,
+    WorkflowServiceConfig,
+    ControlPlaneConfig,
+    SimpleMessageQueueConfig,
+)
+from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
+
+
+# create a dummy workflow
+class MyWorkflow(Workflow):
+    @step()
+    async def run_step(self, ev: StartEvent) -> StopEvent:
+        # Your workflow logic here
+        arg1 = str(ev.get("arg1", ""))
+        result = arg1 + "_result"
+        return StopEvent(result=result)
+
+
+async def main():
+    await deploy_workflow(
+        workflow=MyWorkflow(),
+        workflow_config=WorkflowServiceConfig(
+            host="127.0.0.1", port=8002, service_name="my_workflow"
+        ),
+        control_plane_config=ControlPlaneConfig(),
+    )
+
+
+if name == "main":
+    import asyncio
+
+    asyncio.run(main())
+```
+
+This will deploy your workflow as a service within the `llama_deploy` system, and register the service with the existing control plane and message queue.
+
+### Interacting with your Deployment
+
+Once deployed, you can interact with your deployment using a client.
+
+```python
+from llama_deploy import LlamaDeployClient
+
+# points to deployed control plane
+client = LlamaDeployClient(ControlPlaneConfig())
+
+session = client.create_session()
+result = session.run("my_workflow", arg1="hello_world")
+print(result)
+# prints 'hello_world_result'
+```
+
+### Deploying Nested Workflows
+
+Every `Workflow` is capable of injecting and running nested workflows. For example
+
+```python
+from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
+
+
+class InnerWorkflow(Workflow):
+    @step()
+    async def run_step(self, ev: StartEvent) -> StopEvent:
+        arg1 = ev.get("arg1")
+        if not arg1:
+            raise ValueError("arg1 is required.")
+
+        return StopEvent(result=str(arg1) + "_result")
+
+
+class OuterWorkflow(Workflow):
+    @step()
+    async def run_step(
+        self, ev: StartEvent, inner: InnerWorkflow
+    ) -> StopEvent:
+        arg1 = ev.get("arg1")
+        if not arg1:
+            raise ValueError("arg1 is required.")
+
+        arg1 = await inner.run(arg1=arg1)
+
+        return StopEvent(result=str(arg1) + "_result")
+
+
+inner = InnerWorkflow()
+outer = OuterWorkflow()
+outer.add_workflows(inner=InnerWorkflow())
+```
+
+`llama_deploy` makes it dead simple to spin up each workflow above as a service, and run everything without any changes to your code!
+
+Just deploy each workflow:
+
 > [!NOTE]
-> `launcher.launch_single` creates a new asyncio event loop. Since Jupyter notebooks already have an event loop running, we need to use `nest_asyncio` to allow the creation of new event loops within the existing one.
-
-As with any agentic system, its important to consider how reliable the LLM is that you are using. In general, APIs that support function calling (OpenAI, Anthropic, Mistral, etc.) are the most reliable.
-
-### Server Flow
-
-Once you are happy with your system, we can launch all our services as independent processes, allowing for higher throughput and scalability.
-
-By default, all task results are published to a specific "human" queue, so we also define a consumer to handle this result as it comes in. (In the future, this final queue will be configurable!)
-
-To test this, you can use the server launcher in a script:
+> This code is launching both workflows from the same script, but these could easily be separate scripts, machines, or docker containers!
 
 ```python
-from llama_agents import ServerLauncher, CallableMessageConsumer
-
-
-# Additional human consumer
-def handle_result(message) -> None:
-    print(f"Got result:", message.data)
-
-
-human_consumer = CallableMessageConsumer(
-    handler=handle_result, message_type="human"
+import asyncio
+from llama_deploy import (
+    WorkflowServiceConfig,
+    ControlPlaneConfig,
+    deploy_workflow,
 )
 
-# Define Launcher
-launcher = ServerLauncher(
-    [agent_server_1, agent_server_2],
-    control_plane,
-    message_queue,
-    additional_consumers=[human_consumer],
-)
 
-# Launch it!
-launcher.launch_servers()
+async def main():
+    inner_task = asyncio.create_task(
+        deploy_workflow(
+            inner,
+            WorkflowServiceConfig(
+                host="127.0.0.1", port=8003, service_name="inner"
+            ),
+            ControlPlaneConfig(),
+        )
+    )
+
+    outer_task = asyncio.create_task(
+        deploy_workflow(
+            outer,
+            WorkflowServiceConfig(
+                host="127.0.0.1", port=8002, service_name="outer"
+            ),
+            ControlPlaneConfig(),
+        )
+    )
+
+    await asyncio.gather(inner_task, outer_task)
+
+
+if name == "main":
+    import asyncio
+
+    asyncio.run(main())
 ```
 
-Now, since everything is a server, you need API requests to interact with it. The easiest way is to use our client and the control plane URL:
+And then use it as before:
 
 ```python
-from llama_agents import LlamaAgentsClient, AsyncLlamaAgentsClient
+from llama_deploy import LlamaDeployClient
 
-client = LlamaAgentsClient("<control plane URL>")  # i.e. http://127.0.0.1:8001
-task_id = client.create_task("What is the secret fact?")
-# <Wait a few seconds>
-# returns TaskResult or None if not finished
-result = client.get_task_result(task_id)
+# points to deployed control plane
+client = LlamaDeployClient(ControlPlaneConfig())
+
+session = client.create_session()
+result = session.run("outer", arg1="hello_world")
+print(result)
+# prints 'hello_world_result_result'
 ```
 
-Rather than using a client or raw `curl` requests, you can also use a built-in CLI tool to monitor and interact with your services.
+## Components of a `llama_deploy` System
 
-In another terminal, you can run:
-
-```bash
-llama-agents monitor --control-plane-url http://127.0.0.1:8001
-```
-
-![The llama-agents monitor app](./llama_agents_monitor.png)
-
-## Examples
-
-You can find a host of examples in our examples folder:
-
-- [Agentic RAG + Tool Service](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_rag_toolservice.ipynb)
-- [Agentic Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_local_single.py)
-- [Agentic Orchestrator w/ Server Launcher](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_server.py)
-- [Agentic Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_human_local_single.py)
-- [Agentic Orchestrator w/ Tool Service](https://github.com/run-llama/llama-agents/blob/main/examples/agentic_toolservice_local_single.py)
-- [Pipeline Orchestrator w/ Local Launcher](https://github.com/run-llama/llama-agents/blob/main/examples/pipeline_local_single.py)
-- [Pipeline Orchestrator w/ Human in the Loop](https://github.com/run-llama/llama-agents/blob/main/examples/pipeline_human_local_single.py)
-- [Pipeline Orchestrator w/ Agent Server As Tool](https://github.com/run-llama/llama-agents/blob/main/examples/pipeline_agent_service_tool_local_single.py)
-- [Pipeline Orchestrator w/ Query Rewrite RAG](https://github.com/run-llama/llama-agents/blob/main/examples/query_rewrite_rag.ipynb)
-
-## Components of a `llama-agents` System
-
-In `llama-agents`, there are several key components that make up the overall system
+In `llama_deploy`, there are several key components that make up the overall system
 
 - `message queue` -- the message queue acts as a queue for all services and the `control plane`. It has methods for publishing methods to named queues, and delegates messages to consumers.
-- `control plane` -- the control plane is a the central gateway to the `llama-agents` system. It keeps track of current tasks, as well as the services that are registered to the system. It also holds the `orchestrator`.
-- `orchestrator` -- The module handles incoming tasks and decides what service to send it to, as well as how to handle results from services. An orchestrator can be agentic (with an LLM making decisions), explicit (with a query pipeline defining a flow), a mix of both, or something completely custom.
-- `services` -- Services are where the actual work happens. A services accepts some incoming task and context, processes it, and publishes a result
-  - A `tool service` is a special service used to off-load the compution of agent tools. Agents can instead be equipped with a meta-tool that calls the tool service.
+- `control plane` -- the control plane is a the central gateway to the `llama_deploy` system. It keeps track of current tasks and the services that are registered to the system. The `control plane` also performs state and session management and utilizes the `orchestrator`.
+- `orchestrator` -- The module handles incoming tasks and decides what service to send it to, as well as how to handle results from services. By default, the `orchestrator` is very simple, and assumes incoming tasks have a destination already specified. Beyond that, the default `orchestrator` handles retries, failures, and other nice-to-haves.
+- `services` -- Services are where the actual work happens. A services accepts some incoming task and context, processes it, and publishes a result. When you deploy a workflow, it becomes a service.
 
-## Low-Level API in `llama-agents`
+## Low-Level Deployment
 
-So far, you've seen how to define components and how to launch them. However in most production use-cases, you will need to launch services manually, as well as define your own consumers!
+For more control over the deployment process, you can use the lower-level API. Here's what's happening under the hood when you use `deploy_core` and `deploy_workflow`:
 
-So, here is a quick guide on exactly that!
+### deploy_core
 
-### Launching
-
-First, you will want to launch everything. This can be done in a single script, or you can launch things with multiple scripts per service, or on different machines, or even in docker images.
-
-In this example, we will assume launching from a single script.
+The `deploy_core` function sets up the message queue, control plane, and orchestrator. Here's what it does:
 
 ```python
-import asyncio
+async def deploy_core(
+    control_plane_config: ControlPlaneConfig,
+    message_queue_config: BaseSettings,
+    orchestrator_config: Optional[SimpleOrchestratorConfig] = None,
+) -> None:
+    orchestrator_config = orchestrator_config or SimpleOrchestratorConfig()
 
-# launch the message queue
-queue_task = asyncio.create_task(message_queue.launch_server())
+    message_queue_client = _get_message_queue_client(message_queue_config)
 
-# wait for the message queue to be ready
-await asyncio.sleep(1)
+    control_plane = ControlPlaneServer(
+        message_queue_client,
+        SimpleOrchestrator(**orchestrator_config.model_dump()),
+        **control_plane_config.model_dump(),
+    )
 
-# launch the control plane
-control_plane_task = asyncio.create_task(self.control_plane.launch_server())
+    message_queue_task = None
+    if isinstance(message_queue_config, SimpleMessageQueueConfig):
+        message_queue_task = _deploy_local_message_queue(message_queue_config)
 
-# wait for the control plane to be ready
-await asyncio.sleep(1)
+    control_plane_task = asyncio.create_task(control_plane.launch_server())
 
-# register the control plane as a consumer which returns a start_consuming_callable
-start_consuming_callable = await self.control_plane.register_to_message_queue()
-start_consuming_callables = [start_consuming_callable]
+    # let services spin up
+    await asyncio.sleep(1)
 
-# register the services
-control_plane_url = (
-    f"http://{self.control_plane.host}:{self.control_plane.port}"
-)
-service_tasks = []
-for service in self.services:
-    # first launch the service
-    service_tasks.append(asyncio.create_task(service.launch_server()))
+    # register the control plane as a consumer
+    control_plane_consumer_fn = await control_plane.register_to_message_queue()
 
-    # register the service to the message queue
-    start_consuming_callable = await service.register_to_message_queue()
-    start_consuming_callables.append(start_consuming_callable)
+    consumer_task = asyncio.create_task(control_plane_consumer_fn())
 
-    # register the service to the control plane
+    # let things sync up
+    await asyncio.sleep(1)
+
+    # let things run
+    if message_queue_task:
+        all_tasks = [control_plane_task, consumer_task, message_queue_task]
+    else:
+        all_tasks = [control_plane_task, consumer_task]
+
+    shutdown_handler = _get_shutdown_handler(all_tasks)
+    loop = asyncio.get_event_loop()
+    while loop.is_running():
+        await asyncio.sleep(0.1)
+        signal.signal(signal.SIGINT, shutdown_handler)
+
+        for task in all_tasks:
+            if task.done() and task.exception():  # type: ignore
+                raise task.exception()  # type: ignore
+```
+
+This function:
+
+1. Sets up the message queue client
+2. Creates the control plane server
+3. Launches the message queue (if using SimpleMessageQueue)
+4. Launches the control plane server
+5. Registers the control plane as a consumer
+6. Sets up a shutdown handler and keeps the event loop running
+
+### deploy_workflow
+
+The `deploy_workflow` function deploys a workflow as a service. Here's what it does:
+
+```python
+async def deploy_workflow(
+    workflow: Workflow,
+    workflow_config: WorkflowServiceConfig,
+    control_plane_config: ControlPlaneConfig,
+) -> None:
+    control_plane_url = control_plane_config.url
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{control_plane_url}/queue_config")
+        queue_config_dict = response.json()
+
+    message_queue_config = _get_message_queue_config(queue_config_dict)
+    message_queue_client = _get_message_queue_client(message_queue_config)
+
+    service = WorkflowService(
+        workflow=workflow,
+        message_queue=message_queue_client,
+        **workflow_config.model_dump(),
+    )
+
+    service_task = asyncio.create_task(service.launch_server())
+
+    # let service spin up
+    await asyncio.sleep(1)
+
+    # register to message queue
+    consumer_fn = await service.register_to_message_queue()
+
+    # register to control plane
+    control_plane_url = (
+        f"http://{control_plane_config.host}:{control_plane_config.port}"
+    )
     await service.register_to_control_plane(control_plane_url)
 
-# start consuming!
-start_consuming_tasks = []
-for start_consuming_callable in start_consuming_callables:
-    task = asyncio.create_task(start_consuming_callable())
-    start_consuming_tasks.append(task)
+    # create consumer task
+    consumer_task = asyncio.create_task(consumer_fn())
+
+    # let things sync up
+    await asyncio.sleep(1)
+
+    all_tasks = [consumer_task, service_task]
+
+    shutdown_handler = _get_shutdown_handler(all_tasks)
+    loop = asyncio.get_event_loop()
+    while loop.is_running():
+        await asyncio.sleep(0.1)
+        signal.signal(signal.SIGINT, shutdown_handler)
+
+        for task in all_tasks:
+            if task.done() and task.exception():  # type: ignore
+                raise task.exception()  # type: ignore
 ```
 
-With that done, you may want to define a consumer for the results of tasks.
+This function:
 
-By default, the results of tasks get published to a `human` message queue.
+1. Sets up the message queue client
+2. Creates a WorkflowService with the provided workflow
+3. Launches the service server
+4. Registers the service to the message queue
+5. Registers the service to the control plane
+6. Sets up a consumer task for the service
+7. Sets up a shutdown handler and keeps the event loop running
+
+## Using the `llama_deploy` client
+
+`llama_deploy` provides both a synchronous and an asynchronous client for interacting with a deployed system.
+
+Both clients have the same interface, but the asynchronous client is recommended for production use to enable concurrent operations.
+
+Generally, there is a top-level client for interacting with the control plane, and a session client for interacting with a specific session. The session client is created automatically for you by the top-level client and returned from specific methods.
+
+To create a client, you need to point it to a control plane.
 
 ```python
-from llama_agents import (
-    CallableMessageConsumer,
-    RemoteMessageConsumer,
-    QueueMessage,
-)
-import asyncio
-
-
-def handle_result(message: QueueMessage) -> None:
-    print(message.data)
-
-
-human_consumer = CallableMessageConsumer(
-    handler=handle_result, message_type="human"
+from llama_deploy import (
+    LlamaDeployClient,
+    AsyncLlamaDeployClient,
+    ControlPlaneConfig,
 )
 
-
-async def register_and_start_consuming():
-    start_consuming_callable = await message_queue.register_consumer(
-        human_consumer
-    )
-    await start_consuming_callable()
-
-
-if __name__ == "__main__":
-    asyncio.run(register_and_start_consuming())
-
-# or, you can send the message to any URL
-# human_consumer = RemoteMessageConsumer(url="some destination url")
-# message_queue.register_consumer(human_consumer)
+client = LlamaDeployClient(ControlPlaneConfig())
+async_client = AsyncLlamaDeployClient(ControlPlaneConfig())
 ```
 
-Or, if you don't want to define a consumer, you can just use the `monitor` to observe your system results
+### Client Methods
 
-```bash
-llama-agents monitor --control-plane-url http://127.0.0.1:8001
+- `client.create_session(poll_interval=DEFAULT_POLL_INTERVAL)`: Creates a new session for running workflows and returns a SessionClient for it. A session encapsulates the context and state for a single workflow run.
+  Example:
+
+  ```python
+  session = client.create_session()
+  ```
+
+- `client.list_sessions()`: Lists all sessions registered with the control plane.
+  Example:
+
+  ```python
+  sessions = client.list_sessions()
+  for session in sessions:
+      print(session.session_id)
+  ```
+
+- `client.get_session(session_id, poll_interval=DEFAULT_POLL_INTERVAL)`: Gets an existing session by ID and returns a SessionClient for it.
+  Example:
+
+  ```python
+  session = client.get_session("session_123")
+  ```
+
+- `client.get_or_create_session(session_id, poll_interval=DEFAULT_POLL_INTERVAL)`: Gets an existing session by ID, or creates a new one if it doesn't exist.
+  Example:
+
+  ```python
+  session = client.get_or_create_session("session_123")
+  ```
+
+- `client.get_service(service_name)`: Gets the definition of a service by name.
+  Example:
+
+  ```python
+  service = client.get_service("my_workflow")
+  print(service.service_name, service.host, service.port)
+  ```
+
+- `client.delete_session(session_id)`: Deletes a session by ID.
+  Example:
+
+  ```python
+  client.delete_session("session_123")
+  ```
+
+- `client.list_services()`: Lists all services registered with the control plane.
+  Example:
+
+  ```python
+  services = client.list_services()
+  for service in services:
+      print(service.service_name)
+  ```
+
+- `client.register_service(service_def)`: Registers a service with the control plane.
+  Example:
+
+  ```python
+  service_def = ServiceDefinition(
+      service_name="my_workflow", host="localhost", port=8000
+  )
+  client.register_service(service_def)
+  ```
+
+- `client.deregister_service(service_name)`: Deregisters a service from the control plane.
+  Example:
+
+  ```python
+  client.deregister_service("my_workflow")
+  ```
+
+### SessionClient Methods
+
+- `session.run(service_name, **run_kwargs)`: Implements the workflow-based run API for a session.
+  Example:
+
+  ```python
+  result = session.run("my_workflow", arg1="hello", arg2="world")
+  print(result)
+  ```
+
+- `session.create_task(task_def)`: Creates a new task in the session.
+  Example:
+
+  ```python
+  task_def = TaskDefinition(input='{"arg1": "hello"}', agent_id="my_workflow")
+  task_id = session.create_task(task_def)
+  ```
+
+- `session.get_tasks()`: Gets all tasks in the session.
+  Example:
+
+  ```python
+  tasks = session.get_tasks()
+  for task in tasks:
+      print(task.task_id, task.status)
+  ```
+
+- `session.get_current_task()`: Gets the current (most recent) task in the session.
+  Example:
+
+  ```python
+  current_task = session.get_current_task()
+  if current_task:
+      print(current_task.task_id, current_task.status)
+  ```
+
+- `session.get_task_result(task_id)`: Gets the result of a task in the session if it has one.
+  Example:
+
+  ```python
+  result = session.get_task_result("task_123")
+  if result:
+      print(result.result)
+  ```
+
+### Message Queue Integrations
+
+In addition to `SimpleMessageQueue`, we provide integrations for various
+message queue providers, such as RabbitMQ, Redis, etc. The general usage pattern
+for any of these message queues is the same as that for `SimpleMessageQueue`,
+however the appropriate extra would need to be installed along with `llama-deploy`.
+
+For example, for `RabbitMQMessageQueue`, we need to install the "rabbitmq" extra:
+
+```sh
+# using pip install
+pip install llama-agents[rabbitmq]
+
+# using poetry
+poetry add llama-agents -E "rabbitmq"
 ```
+
+Using the `RabbitMQMessageQueue` is then done as follows:
+
+```python
+from llama_agents.message_queue.rabbitmq import (
+    RabbitMQMessageQueueConfig,
+    RabbitMQMessageQueue,
+)
+
+message_queue_config = (
+    RabbitMQMessageQueueConfig()
+)  # loads params from environment vars
+message_queue = RabbitMQMessageQueue(**message_queue_config)
+```
+
+NOTE: `RabbitMQMessageQueueConfig` can load its params from environment variables.
