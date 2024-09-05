@@ -6,6 +6,7 @@ from llama_deploy import (
 from llama_deploy.message_queues.apache_kafka import KafkaMessageQueueConfig
 from llama_deploy.message_queues.simple import SimpleMessageQueueConfig
 from llama_deploy.message_queues.rabbitmq import RabbitMQMessageQueueConfig
+from llama_deploy.message_queues.redis import RedisMessageQueueConfig
 
 
 control_plane_config = ControlPlaneConfig(
@@ -20,6 +21,7 @@ message_queue_configs = {
     "rabbitmq": RabbitMQMessageQueueConfig(
         username="guest", password="guest", host="rabbitmq", port=5672
     ),
+    "redis": RedisMessageQueueConfig(host="redis"),
     "simple": SimpleMessageQueueConfig(
         host="message_queue", port=8002, internal_host="0.0.0.0", internal_port=8002
     ),
