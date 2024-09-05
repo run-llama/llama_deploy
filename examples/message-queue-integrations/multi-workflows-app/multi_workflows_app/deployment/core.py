@@ -3,6 +3,7 @@ from llama_deploy import (
     deploy_core,
     ControlPlaneConfig,
 )
+from llama_deploy.message_queues.apache_kafka import KafkaMessageQueueConfig
 from llama_deploy.message_queues.simple import SimpleMessageQueueConfig
 from llama_deploy.message_queues.rabbitmq import RabbitMQMessageQueueConfig
 
@@ -15,6 +16,7 @@ control_plane_config = ControlPlaneConfig(
 )
 
 message_queue_configs = {
+    "kafka": KafkaMessageQueueConfig(host="kafka", port=19092),
     "rabbitmq": RabbitMQMessageQueueConfig(
         username="guest", password="guest", host="rabbitmq", port=5672
     ),
