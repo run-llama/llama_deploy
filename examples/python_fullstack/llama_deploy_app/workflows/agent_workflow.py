@@ -1,3 +1,4 @@
+from logging import getLogger
 from typing import List
 
 from llama_index.core.llms import ChatMessage
@@ -7,6 +8,8 @@ from llama_index.llms.openai import OpenAI
 from llama_index.core.tools import FunctionTool
 
 from rag_workflow import RAGWorkflow
+
+logger = getLogger(__name__)
 
 
 class ChatEvent(Event):
@@ -18,6 +21,7 @@ class AgenticWorkflow(Workflow):
 
     @step
     def prepare_chat_history(self, ev: StartEvent) -> ChatEvent:
+        logger.info(f"Preparing chat history: {ev}")
         chat_history_dicts = ev.get("chat_history_dicts", [])
         chat_history = [
             ChatMessage(**chat_history_dict) for chat_history_dict in chat_history_dicts
@@ -55,11 +59,12 @@ class AgenticWorkflow(Workflow):
             chat_history=chat_history,
         )
 
+        logger.info(f"Response: {response}")
         return StopEvent(response=response.response)
 
 
 def build_agentic_workflow(rag_workflow: RAGWorkflow) -> AgenticWorkflow:
-    agentic_workflow = AgenticWorkflow()
+    agentic_workflow = AgenticWorkflow(timeout=120.0)
 
     # add the rag workflow as a subworkflow
     agentic_workflow.add_workflows(rag_workflow=rag_workflow)

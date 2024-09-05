@@ -2,7 +2,7 @@ import asyncio
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Literal
 
-from llama_deploy import deploy_workflow, ControlPlaneConfig, WorkflowServiceConfig
+from llama_deploy import deploy_workflow, WorkflowServiceConfig
 
 from rag_workflow import build_rag_workflow
 from agent_workflow import build_agentic_workflow
@@ -57,9 +57,6 @@ async def deploy_rag_workflow():
 if __name__ == "__main__":
     # reads from env vars, specifically DEPLOY_SETTINGS_NAME
     deployment = DeployConfig()
-    control_plane_config = ControlPlaneConfig()
-
-    print(control_plane_config, flush=True)
 
     if deployment.name == "agentic":
         asyncio.run(deploy_agentic_workflow())

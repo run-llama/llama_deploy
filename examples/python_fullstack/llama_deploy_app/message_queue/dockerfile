@@ -1,7 +1,6 @@
 FROM python:3.10-slim
 
-EXPOSE 8002
-EXPOSE 8003
+EXPOSE 8001
 
 WORKDIR /app
 

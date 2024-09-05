@@ -9,32 +9,52 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
-  core_services:
+  message_queue:
     build:
-      context: ./llama_deploy_app/core_serivces
+      context: ./llama_deploy_app/message_queue
       dockerfile: dockerfile
     environment:
-      CONTROL_PLANE_HOST: 0.0.0.0
-      CONTROL_PLANE_PORT: 8000
-      CONTROL_PLANE_EXTERNAL_HOST: core_services
-      CONTROL_PLANE_EXTERNAL_PORT: 8000
-      SIMPLE_MESSAGE_QUEUE_HOST: 0.0.0.0
+      SIMPLE_MESSAGE_QUEUE_HOST: message_queue
       SIMPLE_MESSAGE_QUEUE_PORT: 8001
-      SIMPLE_MESSAGE_QUEUE_EXTERNAL_HOST: core_services
-      SIMPLE_MESSAGE_QUEUE_EXTERNAL_PORT: 8001
+      SIMPLE_MESSAGE_QUEUE_INTERNAL_HOST: 0.0.0.0
+      SIMPLE_MESSAGE_QUEUE_INTERNAL_PORT: 8001
     ports:
-      - "8000:8000"
       - "8001:8001"
     volumes:
-      - ./llama_deploy_app/core_serivces:/app
+      - ./llama_deploy_app/message_queue:/app
     depends_on:
       - qdrant
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8001/"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 2s
+
+  control_plane:
+    build:
+      context: ./llama_deploy_app/control_plane
+      dockerfile: dockerfile
+    environment:
+      CONTROL_PLANE_HOST: control_plane
+      CONTROL_PLANE_PORT: 8000
+      CONTROL_PLANE_INTERNAL_HOST: 0.0.0.0
+      CONTROL_PLANE_INTERNAL_PORT: 8000
+      SIMPLE_MESSAGE_QUEUE_HOST: message_queue
+      SIMPLE_MESSAGE_QUEUE_PORT: 8001
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./llama_deploy_app/control_plane:/app
+    depends_on:
+      message_queue:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 2s
 
   rag_workflow:
     build:
@@ -45,20 +65,21 @@ services:
     volumes:
       - ./llama_deploy_app/workflows:/app
     depends_on:
-      - core_services
+      control_plane:
+        condition: service_healthy
     environment:
       DEPLOY_SETTINGS_NAME: rag
       OPENAI_API_KEY: $OPENAI_API_KEY
-      CONTROL_PLANE_EXTERNAL_HOST: core_services
-      CONTROL_PLANE_EXTERNAL_PORT: 8000
+      CONTROL_PLANE_HOST: control_plane
+      CONTROL_PLANE_PORT: 8000
     deploy:
       replicas: 1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8002/"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 2s
 
   agentic_workflow:
     build:
@@ -69,32 +90,39 @@ services:
     volumes:
       - ./llama_deploy_app/workflows:/app
     depends_on:
-      - rag_workflow
+      rag_workflow:
+        condition: service_healthy
     environment:
       DEPLOY_SETTINGS_NAME: agentic
       OPENAI_API_KEY: $OPENAI_API_KEY
-      CONTROL_PLANE_EXTERNAL_HOST: core_services
-      CONTROL_PLANE_EXTERNAL_PORT: 8000
+      CONTROL_PLANE_HOST: control_plane
+      CONTROL_PLANE_PORT: 8000
     deploy:
       replicas: 1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8003/"]
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8003/"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 2s
+
   frontend:
     build:
       context: ./llama_deploy_app/frontend
       dockerfile: dockerfile
+    environment:
+      CONTROL_PLANE_HOST: control_plane
+      CONTROL_PLANE_PORT: 8000
     ports:
       - "3000:3000"
       - "9000:8000"
     volumes:
       - ./llama_deploy_app/frontend:/app
     depends_on:
-      - rag_workflow
-      - agentic_workflow
+      rag_workflow:
+        condition: service_healthy
+      agentic_workflow:
+        condition: service_healthy
 
 volumes:
   qdrant_data:
