@@ -60,13 +60,13 @@ kubectl apply -f kubernetes/ingress_controller
 kubectl apply -f kubernetes/ingress_services
 ```
 
-To view the status of the services and pods
+To view the status of the services and pods, use the follwoing command:
 
 ```sh
 kubectl -n llama-deploy-demo get pods
 ```
 
-A successful launch should yield something like this
+A successful launch should yield something like this:
 
 ```sh
 NAME                                   READY   STATUS    RESTARTS   AGE
@@ -97,6 +97,8 @@ the following hosts:
 
 - `control-plane`: <http://control-plane.127.0.0.1.nip.io>
 - `funny-joke-workflow`: <http://funny-joke-workflow.127.0.0.1.nip.io>
+
+## Viewing RabbitMQ Console
 
 To view the RabbitMQ dashboard, we need to port forward the UI so we can access
 it externally:
