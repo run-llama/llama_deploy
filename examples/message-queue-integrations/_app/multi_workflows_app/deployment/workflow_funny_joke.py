@@ -6,8 +6,6 @@ from multi_workflows_app.workflows.funny_joke import FunnyJokeWorkflow
 if __name__ == "__main__":
     import asyncio
 
-    print(f"CONTROL_PLANE_URL: {control_plane_config.url}", flush=True)
-
     asyncio.run(
         deploy_workflow(
             workflow=FunnyJokeWorkflow(),
