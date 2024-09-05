@@ -29,23 +29,25 @@ class State(rx.State):
                 {"role": "assistant", "content": chat_history_tuple[1]}
             )
 
+        self.chat_history.append((self.question, ""))
+
+        # Clear the question input.
+        question = self.question
+        self.question = ""
+
+        # Yield here to clear the frontend input before continuing.
+        yield
+
         # call the agentic workflow
         answer = await session.run(
             "agentic_workflow",
             chat_history_dicts=chat_history_dicts,
-            user_input=self.question,
+            user_input=question,
         )
-
-        self.chat_history.append((self.question, ""))
-
-        # Clear the question input.
-        self.question = ""
-        # Yield here to clear the frontend input before continuing.
-        yield
 
         for i in range(len(answer)):
             # Pause to show the streaming effect.
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.01)
             # Add one letter at a time to the output.
             self.chat_history[-1] = (
                 self.chat_history[-1][0],

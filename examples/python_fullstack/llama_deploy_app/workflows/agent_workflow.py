@@ -2,7 +2,7 @@ from logging import getLogger
 from typing import List
 
 from llama_index.core.llms import ChatMessage
-from llama_index.core.memory import ChatSummaryMemoryBuffer
+from llama_index.core.memory import ChatMemoryBuffer
 from llama_index.core.workflow import Event, Workflow, StartEvent, StopEvent, step
 from llama_index.llms.openai import OpenAI
 from llama_index.core.tools import FunctionTool
@@ -33,7 +33,7 @@ class AgenticWorkflow(Workflow):
 
         chat_history.append(ChatMessage(role="user", content=newest_msg))
 
-        memory = ChatSummaryMemoryBuffer.from_defaults(
+        memory = ChatMemoryBuffer.from_defaults(
             chat_history=chat_history,
             llm=OpenAI(model="gpt-4o-mini"),
         )
@@ -44,23 +44,33 @@ class AgenticWorkflow(Workflow):
 
     @step
     async def chat(self, ev: ChatEvent, rag_workflow: RAGWorkflow) -> StopEvent:
-        chat_history = ev.get("chat_history")
+        chat_history = ev.chat_history
 
         async def run_query(query: str) -> str:
-            """Useful for running a natural language query against a knowledge base."""
+            """
+            Useful for running a natural language query against a general knowledge base containing the paper "Attention is all your need".
+            If the user asks anything about a paper, use this tool to query it.
+            The query input should be a senetence or question related to what the user wants.
+            """
             response = await rag_workflow.run(query=query)
-            return response["response"]
+            return str(response)
 
-        tool = FunctionTool.from_defaults(async_fn=run_query)
+        async def return_response(response: str) -> str:
+            """Useful for returning a direct response to the user."""
+            return response
+
+        query_tool = FunctionTool.from_defaults(async_fn=run_query)
+        response_tool = FunctionTool.from_defaults(async_fn=return_response)
 
         # responds using the tool or the LLM directly
         response = await self.llm.apredict_and_call(
-            [tool],
+            [query_tool, response_tool],
             chat_history=chat_history,
+            error_on_no_tool_call=False,
         )
 
-        logger.info(f"Response: {response}")
-        return StopEvent(response=response.response)
+        logger.info(f"Response: {response.response}")
+        return StopEvent(result=response.response)
 
 
 def build_agentic_workflow(rag_workflow: RAGWorkflow) -> AgenticWorkflow:

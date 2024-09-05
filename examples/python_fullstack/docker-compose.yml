@@ -26,10 +26,10 @@ services:
       - qdrant
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8001/"]
-      interval: 30s
+      interval: 60s
       timeout: 5s
       retries: 3
-      start_period: 2s
+      start_period: 20s
 
   control_plane:
     build:
@@ -48,13 +48,13 @@ services:
       - ./llama_deploy_app/control_plane:/app
     depends_on:
       message_queue:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/"]
-      interval: 30s
+      interval: 60s
       timeout: 5s
       retries: 3
-      start_period: 2s
+      start_period: 20s
 
   rag_workflow:
     build:
@@ -66,9 +66,9 @@ services:
       - ./llama_deploy_app/workflows:/app
     depends_on:
       control_plane:
-        condition: service_healthy
+        condition: service_started
     environment:
-      DEPLOY_SETTINGS_NAME: rag
+      DEPLOY_SETTINGS_NAME: rag_workflow
       OPENAI_API_KEY: $OPENAI_API_KEY
       CONTROL_PLANE_HOST: control_plane
       CONTROL_PLANE_PORT: 8000
@@ -76,10 +76,10 @@ services:
       replicas: 1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8002/"]
-      interval: 30s
+      interval: 60s
       timeout: 5s
       retries: 3
-      start_period: 2s
+      start_period: 20s
 
   agentic_workflow:
     build:
@@ -90,10 +90,10 @@ services:
     volumes:
       - ./llama_deploy_app/workflows:/app
     depends_on:
-      rag_workflow:
-        condition: service_healthy
+      control_plane:
+        condition: service_started
     environment:
-      DEPLOY_SETTINGS_NAME: agentic
+      DEPLOY_SETTINGS_NAME: agentic_workflow
       OPENAI_API_KEY: $OPENAI_API_KEY
       CONTROL_PLANE_HOST: control_plane
       CONTROL_PLANE_PORT: 8000
@@ -101,10 +101,10 @@ services:
       replicas: 1
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8003/"]
-      interval: 30s
+      interval: 60s
       timeout: 5s
       retries: 3
-      start_period: 2s
+      start_period: 20s
 
   frontend:
     build:
@@ -120,9 +120,9 @@ services:
       - ./llama_deploy_app/frontend:/app
     depends_on:
       rag_workflow:
-        condition: service_healthy
+        condition: service_started
       agentic_workflow:
-        condition: service_healthy
+        condition: service_started
 
 volumes:
   qdrant_data:
