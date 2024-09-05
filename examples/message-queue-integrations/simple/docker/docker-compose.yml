@@ -1,7 +1,7 @@
 services:
   message_queue:
     image: multi_workflows_app:latest
-    command: sh -c "python -m multi_workflows_app.deployment.core -q 'simple'"
+    command: sh -c "python -m multi_workflows_app.deployment.core -q 'simple' --disable-control-plane"
     env_file:
       - ./simple/docker/.env.docker
     ports:
@@ -21,7 +21,7 @@ services:
       timeout: 10s
   control_plane:
     image: multi_workflows_app:latest
-    command: sh -c "python -m multi_workflows_app.deployment.core -q 'simple' "
+    command: sh -c "python -m multi_workflows_app.deployment.core -q 'simple' --disable-message-queue"
     env_file:
       - ./simple/docker/.env.docker
     ports:
