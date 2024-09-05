@@ -51,13 +51,10 @@ class ControlPlaneConfig(BaseSettings):
 
     @property
     def url(self) -> str:
-        host = self.internal_host or self.host
-        port = self.internal_port or self.port
-
-        if port:
-            return f"http://{host}:{port}"
+        if self.port:
+            return f"http://{self.host}:{self.port}"
         else:
-            return f"http://{host}"
+            return f"http://{self.host}"
 
 
 class ControlPlaneServer(BaseControlPlane):

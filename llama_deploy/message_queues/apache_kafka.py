@@ -69,6 +69,7 @@ class KafkaMessageQueue(BaseMessageQueue):
     def __init__(
         self,
         url: str = DEFAULT_URL,
+        **kwargs: Any,
     ) -> None:
         super().__init__(url=url)
 
