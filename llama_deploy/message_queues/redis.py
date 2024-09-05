@@ -87,6 +87,7 @@ class RedisMessageQueue(BaseMessageQueue):
         self,
         url: str = DEFAULT_URL,
         redis: Optional["redis.Redis"] = None,
+        **kwargs: Any,
     ) -> None:
         super().__init__(url=url)
         self._redis = redis
