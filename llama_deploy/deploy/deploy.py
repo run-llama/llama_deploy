@@ -123,8 +123,13 @@ async def deploy_core(
         and not disable_message_queue
     ):
         message_queue_task = _deploy_local_message_queue(message_queue_config)
-    else:
+    elif (
+        isinstance(message_queue_config, SimpleMessageQueueConfig)
+        and disable_message_queue
+    ):
         # create a dummy task to keep the event loop running
+        message_queue_task = asyncio.create_task(asyncio.sleep(0))
+    else:
         message_queue_task = asyncio.create_task(asyncio.sleep(0))
 
     if not disable_control_plane:
