@@ -45,16 +45,19 @@ class ControlPlaneConfig(BaseSettings):
     step_interval: float = 0.1
     host: str = "127.0.0.1"
     port: Optional[int] = 8000
-    external_host: Optional[str] = None
-    external_port: Optional[int] = None
+    internal_host: Optional[str] = None
+    internal_port: Optional[int] = None
     running: bool = True
 
     @property
     def url(self) -> str:
-        if self.port:
-            return f"http://{self.host}:{self.port}"
+        host = self.internal_host or self.host
+        port = self.internal_port or self.port
+
+        if port:
+            return f"http://{host}:{port}"
         else:
-            return f"http://{self.host}"
+            return f"http://{host}"
 
 
 class ControlPlaneServer(BaseControlPlane):
@@ -77,8 +80,8 @@ class ControlPlaneServer(BaseControlPlane):
         step_interval (float, optional): The interval in seconds to poll for tool call results. Defaults to 0.1s.
         host (str, optional): The host of the service. Defaults to "127.0.0.1".
         port (Optional[int], optional): The port of the service. Defaults to 8000.
-        external_host (Optional[str], optional): The host for external networking as in Docker-Compose or K8s.
-        external_port (Optional[int], optional): The port for external networking as in Docker-Compose or K8s.
+        internal_host (Optional[str], optional): The host for external networking as in Docker-Compose or K8s.
+        internal_port (Optional[int], optional): The port for external networking as in Docker-Compose or K8s.
         running (bool, optional): Whether the service is running. Defaults to True.
 
     Examples:
@@ -106,8 +109,8 @@ class ControlPlaneServer(BaseControlPlane):
         step_interval: float = 0.1,
         host: str = "127.0.0.1",
         port: Optional[int] = 8000,
-        external_host: Optional[str] = None,
-        external_port: Optional[int] = None,
+        internal_host: Optional[str] = None,
+        internal_port: Optional[int] = None,
         running: bool = True,
     ) -> None:
         self.orchestrator = orchestrator
@@ -116,8 +119,8 @@ class ControlPlaneServer(BaseControlPlane):
         self.running = running
         self.host = host
         self.port = port
-        self.external_host = external_host
-        self.external_port = external_port
+        self.internal_host = internal_host
+        self.internal_port = internal_port
 
         self.state_store = state_store or SimpleKVStore()
 
@@ -264,8 +267,8 @@ class ControlPlaneServer(BaseControlPlane):
 
     async def launch_server(self) -> None:
         # give precedence to external settings
-        host = self.external_host or self.host
-        port = self.external_port or self.port
+        host = self.internal_host or self.host
+        port = self.internal_port or self.port
         logger.info(f"Launching control plane server at {host}:{port}")
         # uvicorn.run(self.app, host=self.host, port=self.port)
 

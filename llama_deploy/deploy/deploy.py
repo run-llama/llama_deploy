@@ -82,8 +82,8 @@ def _get_shutdown_handler(tasks: List[asyncio.Task]) -> Callable:
 
 
 async def deploy_core(
-    control_plane_config: ControlPlaneConfig,
-    message_queue_config: BaseSettings,
+    control_plane_config: Optional[ControlPlaneConfig] = None,
+    message_queue_config: Optional[BaseSettings] = None,
     orchestrator_config: Optional[SimpleOrchestratorConfig] = None,
 ) -> None:
     """
@@ -93,8 +93,8 @@ async def deploy_core(
     It handles the initialization and connection of these core components.
 
     Args:
-        control_plane_config (ControlPlaneConfig): Configuration for the control plane.
-        message_queue_config (BaseSettings): Configuration for the message queue.
+        control_plane_config (Optional[ControlPlaneConfig]): Configuration for the control plane.
+        message_queue_config (Optional[BaseSettings]): Configuration for the message queue. Defaults to a local SimpleMessageQueue.
         orchestrator_config (Optional[SimpleOrchestratorConfig]): Configuration for the orchestrator.
             If not provided, a default SimpleOrchestratorConfig will be used.
 
@@ -102,6 +102,8 @@ async def deploy_core(
         ValueError: If an unknown message queue type is specified in the config.
         Exception: If any of the launched tasks encounter an error.
     """
+    control_plane_config = control_plane_config or ControlPlaneConfig()
+    message_queue_config = message_queue_config or SimpleMessageQueueConfig()
     orchestrator_config = orchestrator_config or SimpleOrchestratorConfig()
 
     message_queue_client = _get_message_queue_client(message_queue_config)
@@ -149,7 +151,7 @@ async def deploy_core(
 async def deploy_workflow(
     workflow: Workflow,
     workflow_config: WorkflowServiceConfig,
-    control_plane_config: ControlPlaneConfig,
+    control_plane_config: Optional[ControlPlaneConfig] = None,
 ) -> None:
     """
     Deploy a workflow as a service within the llama_deploy system.
@@ -160,13 +162,14 @@ async def deploy_workflow(
     Args:
         workflow (Workflow): The workflow to be deployed as a service.
         workflow_config (WorkflowServiceConfig): Configuration for the workflow service.
-        control_plane_config (ControlPlaneConfig): Configuration for the control plane.
+        control_plane_config (Optional[ControlPlaneConfig]): Configuration for the control plane.
 
     Raises:
         httpx.HTTPError: If there's an error communicating with the control plane.
         ValueError: If an invalid message queue config is encountered.
         Exception: If any of the launched tasks encounter an error.
     """
+    control_plane_config = control_plane_config or ControlPlaneConfig()
     control_plane_url = control_plane_config.url
 
     async with httpx.AsyncClient() as client:

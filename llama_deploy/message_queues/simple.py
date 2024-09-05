@@ -37,8 +37,8 @@ class SimpleMessageQueueConfig(BaseSettings):
 
     host: str = "127.0.0.1"
     port: Optional[int] = 8001
-    external_host: Optional[str] = None
-    external_port: Optional[int] = None
+    internal_host: Optional[str] = None
+    internal_port: Optional[int] = None
 
 
 class SimpleRemoteClientMessageQueue(BaseMessageQueue):
@@ -176,8 +176,8 @@ class SimpleMessageQueue(BaseMessageQueue):
     running: bool = True
     port: Optional[int] = 8001
     host: str = "127.0.0.1"
-    external_host: Optional[str] = None
-    external_port: Optional[int] = None
+    internal_host: Optional[str] = None
+    internal_port: Optional[int] = None
 
     _app: FastAPI = PrivateAttr()
 
@@ -187,16 +187,16 @@ class SimpleMessageQueue(BaseMessageQueue):
         queues: Dict[str, deque] = {},
         host: str = "127.0.0.1",
         port: Optional[int] = 8001,
-        external_host: Optional[str] = None,
-        external_port: Optional[int] = None,
+        internal_host: Optional[str] = None,
+        internal_port: Optional[int] = None,
     ):
         super().__init__(
             consumers=consumers,
             queues=queues,
             host=host,
             port=port,
-            external_host=external_host,
-            external_port=external_port,
+            internal_host=internal_host,
+            internal_port=internal_port,
         )
 
         self._app = FastAPI(lifespan=self.lifespan)
@@ -236,11 +236,14 @@ class SimpleMessageQueue(BaseMessageQueue):
     @property
     def client(self) -> BaseMessageQueue:
         """Returns a client for the message queue server."""
-        base_url = (
-            f"http://{self.host}:{self.port}" if self.port else f"http://{self.host}"
-        )
+        host = self.internal_host or self.host
+        port = self.internal_port or self.port
+
+        base_url = f"http://{host}:{port}" if port else f"http://{host}"
         return SimpleRemoteClientMessageQueue(
-            base_url=base_url, host=self.host, port=self.port
+            base_url=base_url,
+            host=host,
+            port=port,
         )
 
     def _select_consumer(self, message: QueueMessage) -> BaseMessageQueueConsumer:
@@ -406,8 +409,8 @@ class SimpleMessageQueue(BaseMessageQueue):
 
     async def launch_server(self) -> None:
         """Launch the message queue as a FastAPI server."""
-        host = self.external_host or self.host
-        port = self.external_port or self.port
+        host = self.internal_host or self.host
+        port = self.internal_port or self.port
         logger.info(f"Launching message queue server at {host}:{port}")
 
         # uvicorn.run(self._app, host=self.host, port=self.port)
