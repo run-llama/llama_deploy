@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import copy
 import json
 import pickle
 import os
@@ -200,9 +199,7 @@ class WorkflowService(BaseService):
     def load_workflow_state(self, workflow: Workflow, state: WorkflowState) -> Workflow:
         """Fork the workflow with the given state.
 
-        TODO: Workflows should have a more explicit way to insert state.
-        TODO: This is a bit of a hack.
-        If the context was limited to seriazbale types, this would be easier.
+        TODO: Support managing the workflow state.
         """
         context_hash = state.hash
         context_str = state.state
@@ -213,10 +210,6 @@ class WorkflowService(BaseService):
             raise ValueError("Context hash does not match. Possible data corruption.")
 
         # only load context once it's been verified(?)
-        # convert str to bytes
-        context_bytes = base64.b64decode(context_str)
-        context = pickle.loads(context_bytes)
-        workflow._root_context = context
 
         return workflow
 
@@ -225,11 +218,9 @@ class WorkflowService(BaseService):
     ) -> WorkflowState:
         """Dump the workflow state.
 
-        TODO: This is a bit of a hack.
-        If the context was limited to seriazbale types, this would be easier.
+        TODO: Support managing the workflow state.
         """
-        context = workflow._root_context
-        context_bytes = pickle.dumps(context)
+        context_bytes = pickle.dumps({})
         context_str = base64.b64encode(context_bytes).decode("ascii")
         context_hash = hash(context_str + hash_secret)
 
@@ -252,23 +243,18 @@ class WorkflowService(BaseService):
                 current_calls = [(t, c) for t, c in self._outstanding_calls.items()]
 
             for task_id, current_call in current_calls:
-                # "fork" the workflow, clear its state
-                self.workflow._queues = {}
-                self.workflow._root_context = {}
-                self.workflow._tasks = set()
-                self.workflow._step_to_context = {}
-                workflow = copy.deepcopy(self.workflow)
+                # TODO: resume a workflow session?
 
                 # load the state
-                workflow = self.load_workflow_state(workflow, current_call)
+                self.load_workflow_state(self.workflow, current_call)
 
                 # run the workflow
                 # TODO: How do we handle streaming? Websockets?
-                result = await workflow.run(**current_call.run_kwargs)
+                result = await self.workflow.run(**current_call.run_kwargs)
 
                 # dump the state
                 updated_state = self.dump_workflow_state(
-                    workflow, current_call.run_kwargs
+                    self.workflow, current_call.run_kwargs
                 )
 
                 await self.message_queue.publish(
