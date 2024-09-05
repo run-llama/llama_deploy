@@ -3,7 +3,8 @@ services:
     image: redis:latest
     hostname: redis
     env_file:
-      - ./redis/docker/.env.docker
+      - ./redis/docker/.env.redis
+      - ./.env.docker
     ports:
       - "6379:6379"
     volumes:
@@ -17,7 +18,8 @@ services:
     image: multi_workflows_app:latest
     command: sh -c "python -m multi_workflows_app.deployment.core -q 'redis' "
     env_file:
-      - ./redis/docker/.env.docker
+      - ./redis/docker/.env.redis
+      - ./.env.docker
     ports:
       - "8000:8000"
     volumes:
@@ -40,7 +42,8 @@ services:
     image: multi_workflows_app:latest
     command: sh -c "python -m multi_workflows_app.deployment.workflow_funny_joke"
     env_file:
-      - ./redis/docker/.env.docker
+      - ./redis/docker/.env.redis
+      - ./.env.docker
     ports:
       - "8001:8001"
     volumes:

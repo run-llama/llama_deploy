@@ -7,7 +7,7 @@ class FunnyJokeWorkflow(Workflow):
     async def add_funny_joke_step(self, ev: StartEvent) -> StopEvent:
         # Your workflow logic here
         input = str(ev.get("input", ""))
-        llm = OpenAI("gpt-4o-mini")
+        llm = OpenAI("gpt-4o-mini", temperature=0.1)
         response = await llm.acomplete("Tell a funny data joke.")
         result = input + "\n\nAnd here is a funny joke:\n\n" + response.text
         return StopEvent(result=result)

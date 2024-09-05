@@ -6,7 +6,8 @@ services:
     ports:
       - "9092:9092"
     env_file:
-      - ./kafka/docker/.env.docker
+      - ./kafka/docker/.env.kafka
+      - ./.env.docker
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
@@ -31,7 +32,8 @@ services:
     image: multi_workflows_app:latest
     command: sh -c "python -m multi_workflows_app.deployment.core -q 'kafka' "
     env_file:
-      - ./kafka/docker/.env.docker
+      - ./kafka/docker/.env.kafka
+      - ./.env.docker
     ports:
       - "8000:8000"
     volumes:
@@ -54,7 +56,8 @@ services:
     image: multi_workflows_app:latest
     command: sh -c "python -m multi_workflows_app.deployment.workflow_funny_joke"
     env_file:
-      - ./kafka/docker/.env.docker
+      - ./kafka/docker/.env.kafka
+      - ./.env.docker
     ports:
       - "8001:8001"
     volumes:

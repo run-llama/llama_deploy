@@ -9,22 +9,13 @@ from llama_deploy.message_queues.rabbitmq import RabbitMQMessageQueueConfig
 from llama_deploy.message_queues.redis import RedisMessageQueueConfig
 
 
-control_plane_config = ControlPlaneConfig(
-    host="control_plane",
-    port=8000,
-    internal_host="0.0.0.0",
-    internal_port=8000,
-)
+control_plane_config = ControlPlaneConfig()
 
 message_queue_configs = {
-    "kafka": KafkaMessageQueueConfig(host="kafka", port=19092),
-    "rabbitmq": RabbitMQMessageQueueConfig(
-        username="guest", password="guest", host="rabbitmq", port=5672
-    ),
-    "redis": RedisMessageQueueConfig(host="redis", port=6379),
-    "simple": SimpleMessageQueueConfig(
-        host="message_queue", port=8002, internal_host="0.0.0.0", internal_port=8002
-    ),
+    "kafka": KafkaMessageQueueConfig(),
+    "rabbitmq": RabbitMQMessageQueueConfig(),
+    "redis": RedisMessageQueueConfig(),
+    "simple": SimpleMessageQueueConfig(),
 }
 
 
