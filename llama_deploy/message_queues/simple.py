@@ -434,7 +434,12 @@ class SimpleMessageQueue(BaseMessageQueue):
         pass
 
     def as_config(self) -> BaseModel:
-        return SimpleMessageQueueConfig(host=self.host, port=self.port)
+        return SimpleMessageQueueConfig(
+            host=self.host,
+            port=self.port,
+            internal_host=self.internal_host,
+            internal_port=self.internal_port,
+        )
 
 
 if __name__ == "__main__":
