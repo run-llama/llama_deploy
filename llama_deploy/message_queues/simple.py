@@ -37,6 +37,8 @@ class SimpleMessageQueueConfig(BaseSettings):
 
     host: str = "127.0.0.1"
     port: Optional[int] = 8001
+    external_host: Optional[str] = None
+    external_port: Optional[int] = None
 
 
 class SimpleRemoteClientMessageQueue(BaseMessageQueue):
@@ -174,6 +176,8 @@ class SimpleMessageQueue(BaseMessageQueue):
     running: bool = True
     port: Optional[int] = 8001
     host: str = "127.0.0.1"
+    external_host: Optional[str] = None
+    external_port: Optional[int] = None
 
     _app: FastAPI = PrivateAttr()
 
@@ -183,8 +187,17 @@ class SimpleMessageQueue(BaseMessageQueue):
         queues: Dict[str, deque] = {},
         host: str = "127.0.0.1",
         port: Optional[int] = 8001,
+        external_host: Optional[str] = None,
+        external_port: Optional[int] = None,
     ):
-        super().__init__(consumers=consumers, queues=queues, host=host, port=port)
+        super().__init__(
+            consumers=consumers,
+            queues=queues,
+            host=host,
+            port=port,
+            external_host=external_host,
+            external_port=external_port,
+        )
 
         self._app = FastAPI(lifespan=self.lifespan)
 
@@ -393,14 +406,16 @@ class SimpleMessageQueue(BaseMessageQueue):
 
     async def launch_server(self) -> None:
         """Launch the message queue as a FastAPI server."""
-        logger.info(f"Launching message queue server at {self.host}:{self.port}")
+        host = self.external_host or self.host
+        port = self.external_port or self.port
+        logger.info(f"Launching message queue server at {host}:{port}")
 
         # uvicorn.run(self._app, host=self.host, port=self.port)
         class CustomServer(uvicorn.Server):
             def install_signal_handlers(self) -> None:
                 pass
 
-        cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
+        cfg = uvicorn.Config(self._app, host=host, port=port)
         server = CustomServer(cfg)
         await server.serve()
 

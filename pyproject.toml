@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "llama-deploy"
-version = "0.1.0b4"
+version = "0.1.0b6"
 description = ""
 authors = ["Logan Markewich <logan.markewich@live.com>", "Andrei Fajardo <andrei@runllama.ai>"]
 maintainers = [
