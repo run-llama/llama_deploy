@@ -1,4 +1,6 @@
 import asyncio
+import time
+
 from llama_deploy import (
     deploy_core,
 )
@@ -14,4 +16,7 @@ async def run_deploy():
 
 
 if __name__ == "__main__":
+    # allow time for the messsage queue to spin up
+    time.sleep(3)
+
     asyncio.run(run_deploy())

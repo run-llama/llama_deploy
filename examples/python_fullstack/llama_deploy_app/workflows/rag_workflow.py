@@ -1,4 +1,3 @@
-import json
 from logging import getLogger
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
 from llama_index.core.node_parser import SemanticSplitterNodeParser, SentenceSplitter
@@ -66,7 +65,11 @@ class RAGWorkflow(Workflow):
 
         ranker = RankGPTRerank(top_n=top_n, llm=OpenAI(model="gpt-4o"))
 
-        new_nodes = ranker.postprocess_nodes(ev.nodes, query_str=query)
+        try:
+            new_nodes = ranker.postprocess_nodes(ev.nodes, query_str=query)
+        except Exception:
+            # Handle errors in the LLM response
+            new_nodes = ev.nodes
         return RerankEvent(nodes=new_nodes)
 
     @step
@@ -78,16 +81,11 @@ class RAGWorkflow(Workflow):
 
         response = await synthesizer.asynthesize(query, nodes=ev.nodes)
 
-        # create a serialized version of the response and the source nodes
-        result = {
-            "response": str(response),
-            "source_nodes": json.dumps([node.model_dump() for node in ev.nodes]),
-        }
-        logger.info(f"Response: {result['response']}")
-        return StopEvent(result=result)
+        return StopEvent(result=str(response))
 
 
 def build_rag_workflow() -> RAGWorkflow:
+    # host points to qdrant in docker-compose.yml
     client = QdrantClient(host="qdrant", port=6333)
     aclient = AsyncQdrantClient(host="qdrant", port=6333)
     vector_store = QdrantVectorStore(
