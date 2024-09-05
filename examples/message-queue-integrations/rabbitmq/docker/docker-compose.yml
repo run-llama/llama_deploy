@@ -24,7 +24,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./multi-workflows-app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
+      - ./_app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
       - ./logging.ini:/app/logging.ini
     depends_on:
       rabbitmq:
@@ -49,7 +49,7 @@ services:
     ports:
       - "8001:8001"
     volumes:
-      - ./multi-workflows-app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
+      - ./_app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
       - ./logging.ini:/app/logging.ini
     platform: linux/amd64
     depends_on:

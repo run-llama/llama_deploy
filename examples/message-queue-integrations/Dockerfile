@@ -19,7 +19,7 @@ ENV POETRY_VIRTUALENVS_IN_PROJECT=true
 ENV POETRY_VIRTUALENVS_CREATE=true
 
 # Install dependencies
-COPY multi-workflows-app/poetry.lock multi-workflows-app/pyproject.toml ./
+COPY _app/poetry.lock _app/pyproject.toml ./
 
 RUN poetry install --no-cache --no-root
 
@@ -43,4 +43,4 @@ ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 # Copy source code
 COPY ./logging.ini ./logging.ini
-COPY ./multi-workflows-app/multi_workflows_app ./multi_workflows_app
+COPY ./_app/multi_workflows_app ./multi_workflows_app

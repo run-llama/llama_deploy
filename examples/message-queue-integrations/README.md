@@ -29,7 +29,7 @@ In this section, we deploy a system comprised of multiple workflows that collabo
 to accomplish a task. The source code for the app is structured as follows:
 
 ```sh
-multi-workflows-app
+_app
 ├── Dockerfile
 ├── README.md
 ├── multi_workflows_app
@@ -110,7 +110,7 @@ Kubernetes server & client (see
 
 To launch with Kubernetes, we'll make use of `kubectl` command line tool and
 "apply" our k8s manifests. For this example to run, it assumes the docker image
-`multi-workflows-app` has already been built, which would be the case if your
+`_app` has already been built, which would be the case if your
 continuining along from the previous launch with Docker example. If not, then
 simply execute the below command to build the necessary docker image:
 
