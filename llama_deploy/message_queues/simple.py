@@ -236,14 +236,13 @@ class SimpleMessageQueue(BaseMessageQueue):
     @property
     def client(self) -> BaseMessageQueue:
         """Returns a client for the message queue server."""
-        host = self.internal_host or self.host
-        port = self.internal_port or self.port
-
-        base_url = f"http://{host}:{port}" if port else f"http://{host}"
+        base_url = (
+            f"http://{self.host}:{self.port}" if self.port else f"http://{self.host}"
+        )
         return SimpleRemoteClientMessageQueue(
             base_url=base_url,
-            host=host,
-            port=port,
+            host=self.host,
+            port=self.port,
         )
 
     def _select_consumer(self, message: QueueMessage) -> BaseMessageQueueConsumer:
