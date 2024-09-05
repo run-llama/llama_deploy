@@ -464,6 +464,7 @@ async_client = AsyncLlamaDeployClient(ControlPlaneConfig())
 
 - `client.deregister_service(service_name)`: Deregisters a service from the control plane.
   Example:
+
   ```python
   client.deregister_service("my_workflow")
   ```
