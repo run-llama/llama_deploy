@@ -13,6 +13,15 @@ services:
     build:
       context: ./llama_deploy_app/core_serivces
       dockerfile: dockerfile
+    environment:
+      CONTROL_PLANE_HOST: 0.0.0.0
+      CONTROL_PLANE_PORT: 8000
+      CONTROL_PLANE_EXTERNAL_HOST: core_services
+      CONTROL_PLANE_EXTERNAL_PORT: 8000
+      SIMPLE_MESSAGE_QUEUE_HOST: 0.0.0.0
+      SIMPLE_MESSAGE_QUEUE_PORT: 8001
+      SIMPLE_MESSAGE_QUEUE_EXTERNAL_HOST: core_services
+      SIMPLE_MESSAGE_QUEUE_EXTERNAL_PORT: 8001
     ports:
       - "8000:8000"
       - "8001:8001"
@@ -40,6 +49,8 @@ services:
     environment:
       DEPLOY_SETTINGS_NAME: rag
       OPENAI_API_KEY: $OPENAI_API_KEY
+      CONTROL_PLANE_EXTERNAL_HOST: core_services
+      CONTROL_PLANE_EXTERNAL_PORT: 8000
     deploy:
       replicas: 1
     healthcheck:
@@ -63,6 +74,7 @@ services:
       DEPLOY_SETTINGS_NAME: agentic
       OPENAI_API_KEY: $OPENAI_API_KEY
       CONTROL_PLANE_EXTERNAL_HOST: core_services
+      CONTROL_PLANE_EXTERNAL_PORT: 8000
     deploy:
       replicas: 1
     healthcheck:

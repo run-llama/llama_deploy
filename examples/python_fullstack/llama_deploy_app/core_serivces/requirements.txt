@@ -1,1 +1,1 @@
-llama-deploy>=0.1.0b3
+llama-deploy>=0.1.0b8

@@ -9,6 +9,12 @@ from agent_workflow import build_agentic_workflow
 
 
 class DeployConfig(BaseSettings):
+    """
+    Controls which workflow is deployed.
+
+    Configured with env var DEPLOY_SETTINGS_NAME.
+    """
+
     model_config = SettingsConfigDict(env_prefix="DEPLOY_SETTINGS_")
 
     name: Literal["agentic", "rag"] = "agentic"
@@ -27,7 +33,7 @@ async def deploy_agentic_workflow():
             description="Agentic workflow",
         ),
         # config controlled by env vars
-        control_plane_config=ControlPlaneConfig(),
+        # control_plane_config=ControlPlaneConfig(),
     )
 
 
@@ -44,13 +50,16 @@ async def deploy_rag_workflow():
             description="RAG workflow",
         ),
         # Config controlled by env vars
-        control_plane_config=ControlPlaneConfig(),
+        # control_plane_config=ControlPlaneConfig(),
     )
 
 
 if __name__ == "__main__":
     # reads from env vars, specifically DEPLOY_SETTINGS_NAME
     deployment = DeployConfig()
+    control_plane_config = ControlPlaneConfig()
+
+    print(control_plane_config, flush=True)
 
     if deployment.name == "agentic":
         asyncio.run(deploy_agentic_workflow())

@@ -1,4 +1,4 @@
-llama-deploy>=0.1.0b3
+llama-deploy>=0.1.0b8
 llama-index-postprocessor-rankgpt-rerank>=0.2.0
 llama-index-vector-stores-qdrant>=0.3.0
 llama-index-llms-openai>=0.2.2
