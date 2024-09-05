@@ -113,11 +113,7 @@ class LlamaDeployClient:
     ):
         self.control_plane_config = control_plane_config
         # TODO: add scheme to config (http, https, ..)
-        self.control_plane_url = (
-            f"http://{control_plane_config.host}:{control_plane_config.port}"
-            if control_plane_config.port
-            else f"http://{control_plane_config.host}"
-        )
+        self.control_plane_url = control_plane_config.url
         self.timeout = timeout
 
     def create_session(
