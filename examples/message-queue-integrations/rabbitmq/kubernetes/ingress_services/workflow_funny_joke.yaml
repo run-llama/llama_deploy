@@ -2,50 +2,41 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: secret-agent
-  namespace: llama-agents-demo
+  name: funny-joke-workflow
+  namespace: llama-deploy-demo
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: secret-agent
+      app: funny-joke-workflow
   template:
     metadata:
       labels:
-        app: secret-agent
+        app: funny-joke-workflow
     spec:
-      initContainers:
-        - name: wait-for-control-plane
-          image: busybox:1.36
-          command:
-            [
-              "sh",
-              "-c",
-              "until nslookup control-plane.$(cat /var/run/secrets/kubernetes.io/serviceaccount/namespace).svc.cluster.local; do echo waiting for myservice; sleep 2; done",
-            ]
       containers:
-        - name: secret-agent
+        - name: funny-joke-workflow
           env:
             - name: RABBITMQ_HOST
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
                   key: RABBITMQ_HOST
-            - name: RABBITMQ_NODE_PORT
+            - name: RABBITMQ_PORT
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: RABBITMQ_NODE_PORT
-            - name: RABBITMQ_DEFAULT_USER
+                  key: RABBITMQ_PORT
+            - name: RABBITMQ_USERNAME
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: RABBITMQ_DEFAULT_USER
-            - name: RABBITMQ_DEFAULT_PASS
+                  key: RABBITMQ_USERNAME
+            - name: RABBITMQ_PASSWORD
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: RABBITMQ_DEFAULT_PASS
+                  key: RABBITMQ_PASSWORD
             - name: CONTROL_PLANE_HOST
               valueFrom:
                 configMapKeyRef:
@@ -56,33 +47,48 @@ spec:
                 configMapKeyRef:
                   name: xcore-config
                   key: CONTROL_PLANE_PORT
-            - name: SECRET_AGENT_HOST
+            - name: CONTROL_PLANE_INTERNAL_HOST
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: SECRET_AGENT_HOST
-            - name: SECRET_AGENT_PORT
+                  key: CONTROL_PLANE_INTERNAL_HOST
+            - name: CONTROL_PLANE_INTERNAL_PORT
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: SECRET_AGENT_PORT
-            - name: LOCALHOST
+                  key: CONTROL_PLANE_INTERNAL_PORT
+            - name: WORKFLOW_SERVICE_HOST
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: LOCALHOST
+                  key: WORKFLOW_SERVICE_HOST
+            - name: WORKFLOW_SERVICE_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: WORKFLOW_SERVICE_PORT
+            - name: WORKFLOW_SERVICE_INTERNAL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: WORKFLOW_SERVICE_INTERNAL_HOST
+            - name: WORKFLOW_SERVICE_INTERNAL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: xcore-config
+                  key: WORKFLOW_SERVICE_INTERNAL_PORT
             - name: OPENAI_API_KEY
               valueFrom:
                 secretKeyRef:
                   name: xcore-secret
                   key: OPENAI_API_KEY
-          image: multi_agent_app_rabbitmq:latest
+          image: multi_workflows_app:latest
           imagePullPolicy: Never
           command:
             [
               "sh",
               "-c",
-              "python -m multi_agent_app_rabbitmq.agent_services.secret_agent",
+              "python -m multi_workflows_app.deployment.workflow_funny_joke",
             ]
           resources:
             requests:
@@ -99,12 +105,12 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: secret-agent
-  name: secret-agent
-  namespace: llama-agents-demo
+    app: funny-joke-workflow
+  name: funny-joke-workflow
+  namespace: llama-deploy-demo
 spec:
   selector:
-    app: secret-agent
+    app: funny-joke-workflow
   ports:
     - protocol: TCP
       port: 8000
@@ -114,17 +120,17 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: secret-agent
-  namespace: llama-agents-demo
+  name: funny-joke-workflow
+  namespace: llama-deploy-demo
 spec:
   rules:
-    - host: secret-agent.127.0.0.1.nip.io
+    - host: funny-joke-workflow.127.0.0.1.nip.io
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: secret-agent
+                name: funny-joke-workflow
                 port:
                   number: 8000

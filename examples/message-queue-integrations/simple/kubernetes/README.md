@@ -32,6 +32,7 @@ file. After doing so, rename the file to `secrets.yaml`.
 To launch the services we use the below commands:
 
 ```sh
+cd ./simple
 kubectl apply -f kubernetes/setup
 kubectl apply -f kubernetes/ingress_controller
 kubectl apply -f kubernetes/ingress_services

@@ -3,7 +3,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: control-plane
-  namespace: llama-agents-demo
+  namespace: llama-deploy-demo
 spec:
   replicas: 1
   selector:
@@ -22,21 +22,21 @@ spec:
                 configMapKeyRef:
                   name: xcore-config
                   key: RABBITMQ_HOST
-            - name: RABBITMQ_NODE_PORT
+            - name: RABBITMQ_PORT
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: RABBITMQ_NODE_PORT
-            - name: RABBITMQ_DEFAULT_USER
+                  key: RABBITMQ_PORT
+            - name: RABBITMQ_USERNAME
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: RABBITMQ_DEFAULT_USER
-            - name: RABBITMQ_DEFAULT_PASS
+                  key: RABBITMQ_USERNAME
+            - name: RABBITMQ_PASSWORD
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: RABBITMQ_DEFAULT_PASS
+                  key: RABBITMQ_PASSWORD
             - name: CONTROL_PLANE_HOST
               valueFrom:
                 configMapKeyRef:
@@ -47,23 +47,23 @@ spec:
                 configMapKeyRef:
                   name: xcore-config
                   key: CONTROL_PLANE_PORT
-            - name: LOCALHOST
+            - name: CONTROL_PLANE_INTERNAL_HOST
               valueFrom:
                 configMapKeyRef:
                   name: xcore-config
-                  key: LOCALHOST
-            - name: OPENAI_API_KEY
+                  key: CONTROL_PLANE_INTERNAL_HOST
+            - name: CONTROL_PLANE_INTERNAL_PORT
               valueFrom:
-                secretKeyRef:
-                  name: xcore-secret
-                  key: OPENAI_API_KEY
-          image: multi_agent_app_rabbitmq:latest
+                configMapKeyRef:
+                  name: xcore-config
+                  key: CONTROL_PLANE_INTERNAL_PORT
+          image: multi_workflows_app:latest
           imagePullPolicy: Never
           command:
             [
               "sh",
               "-c",
-              "python -m multi_agent_app_rabbitmq.core_services.control_plane",
+              "python -m multi_workflows_app.deployment.core -q 'rabbitmq'",
             ]
           resources:
             requests:
@@ -82,7 +82,7 @@ metadata:
   labels:
     app: control-plane
   name: control-plane
-  namespace: llama-agents-demo
+  namespace: llama-deploy-demo
 spec:
   selector:
     app: control-plane
@@ -96,7 +96,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: control-plane
-  namespace: llama-agents-demo
+  namespace: llama-deploy-demo
 spec:
   rules:
     - host: control-plane.127.0.0.1.nip.io
