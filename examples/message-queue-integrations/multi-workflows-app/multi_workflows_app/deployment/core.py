@@ -10,8 +10,8 @@ from llama_deploy.message_queues.rabbitmq import RabbitMQMessageQueueConfig
 control_plane_config = ControlPlaneConfig(
     host="control_plane",
     port=8000,
-    external_host="0.0.0.0",
-    external_port=8000,
+    internal_host="0.0.0.0",
+    internal_port=8000,
 )
 
 message_queue_configs = {
@@ -19,7 +19,7 @@ message_queue_configs = {
         username="guest", password="guest", host="rabbitmq", port=5672
     ),
     "simple": SimpleMessageQueueConfig(
-        host="message_queue", port=8002, external_host="0.0.0.0", external_port=8002
+        host="message_queue", port=8002, internal_host="0.0.0.0", internal_port=8002
     ),
 }
 
