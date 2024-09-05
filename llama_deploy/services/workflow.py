@@ -41,8 +41,8 @@ class WorkflowServiceConfig(BaseSettings):
 
     host: str
     port: int
-    external_host: Optional[str] = None
-    external_port: Optional[int] = None
+    internal_host: Optional[str] = None
+    internal_port: Optional[int] = None
     service_name: str
     description: str = "A service that wraps a llama-index workflow."
     running: bool = True
@@ -109,8 +109,8 @@ class WorkflowService(BaseService):
     step_interval: float = 0.1
     host: Optional[str] = None
     port: Optional[int] = None
-    external_host: Optional[str] = None
-    external_port: Optional[int] = None
+    internal_host: Optional[str] = None
+    internal_port: Optional[int] = None
     raise_exceptions: bool = False
 
     _message_queue: BaseMessageQueue = PrivateAttr()
@@ -131,8 +131,8 @@ class WorkflowService(BaseService):
         step_interval: float = 0.1,
         host: Optional[str] = None,
         port: Optional[int] = None,
-        external_host: Optional[str] = None,
-        external_port: Optional[int] = None,
+        internal_host: Optional[str] = None,
+        internal_port: Optional[int] = None,
         raise_exceptions: bool = False,
     ) -> None:
         super().__init__(
@@ -143,8 +143,8 @@ class WorkflowService(BaseService):
             step_interval=step_interval,
             host=host,
             port=port,
-            external_host=external_host,
-            external_port=external_port,
+            internal_host=internal_host,
+            internal_port=internal_port,
             raise_exceptions=raise_exceptions,
         )
 
@@ -356,8 +356,8 @@ class WorkflowService(BaseService):
 
     async def launch_server(self) -> None:
         """Launch the service as a FastAPI server."""
-        host = self.external_host or self.host
-        port = self.external_port or self.port
+        host = self.internal_host or self.host
+        port = self.internal_port or self.port
         logger.info(f"Launching {self.service_name} server at {host}:{port}")
 
         class CustomServer(uvicorn.Server):
