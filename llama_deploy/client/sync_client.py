@@ -24,9 +24,7 @@ class SessionClient:
         poll_interval: float = DEFAULT_POLL_INTERVAL,
     ):
         # TODO: add scheme to config (http, https, ..)
-        self.control_plane_url = (
-            f"http://{control_plane_config.host}:{control_plane_config.port}"
-        )
+        self.control_plane_url = control_plane_config.url
         self.session_id = session_id
         self.timeout = timeout
         self.poll_interval = poll_interval
