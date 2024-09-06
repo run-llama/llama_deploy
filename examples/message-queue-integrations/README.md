@@ -16,6 +16,7 @@ Before we can deploy the app, we need to first install it. To do so, we use `poe
 cd _app
 poetry shell
 poetry install
+cd ../
 ```
 
 The above command builds the application and creates the `poetry.lock` file which
@@ -33,8 +34,8 @@ Now, to deploy the app we need a single `docker compose` command. (All of the me
 queues have their own `docker-compose.yaml` file contained in their respective
 subfolders.)
 
-Using any one of the commands below will spin the example app using the associated
-message queue.
+Using any one of the commands (while in the parent `/message-queue-integrations` folder)
+below will spin the example app using the associated message queue.
 
 ```sh
 # simple message queue
