@@ -545,4 +545,7 @@ message_queue_config = (
 message_queue = RabbitMQMessageQueue(**message_queue_config)
 ```
 
-> [!NOTE] > `RabbitMQMessageQueueConfig` can load its params from environment variables.
+<!-- prettier-ignore-start -->
+> [!NOTE]
+> `RabbitMQMessageQueueConfig` can load its params from environment variables.
+<!-- prettier-ignore-end -->
