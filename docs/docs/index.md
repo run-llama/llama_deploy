@@ -53,7 +53,7 @@ async def main():
     )
 
 
-if name == "main":
+if __name__ == "__main__":
     import asyncio
 
     asyncio.run(main())
@@ -66,7 +66,6 @@ This will set up the basic infrastructure for your `llama_deploy` system. You ca
 To deploy a workflow as a service, you can use the `deploy_workflow` function:
 
 ```python
-python
 from llama_deploy import (
     deploy_workflow,
     WorkflowServiceConfig,
@@ -96,7 +95,7 @@ async def main():
     )
 
 
-if name == "main":
+if __name__ == "__main__":
     import asyncio
 
     asyncio.run(main())
@@ -109,7 +108,7 @@ This will deploy your workflow as a service within the `llama_deploy` system, an
 Once deployed, you can interact with your deployment using a client.
 
 ```python
-from llama_deploy import LlamaDeployClient
+from llama_deploy import LlamaDeployClient, ControlPlaneConfig
 
 # points to deployed control plane
 client = LlamaDeployClient(ControlPlaneConfig())
@@ -197,7 +196,7 @@ async def main():
     await asyncio.gather(inner_task, outer_task)
 
 
-if name == "main":
+if __name__ == "__main__":
     import asyncio
 
     asyncio.run(main())
