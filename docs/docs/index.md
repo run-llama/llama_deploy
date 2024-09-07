@@ -8,7 +8,7 @@ At the top of a `llama_deploy` system is the `control plane`. The control plane 
 
 The overall system layout is pictured below.
 
-![A basic system in llama_deploy](./system_diagram.png)
+![A basic system in llama_deploy](../../system_diagram.png)
 
 ## Wait, where is `llama-agents`?
 
