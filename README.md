@@ -545,4 +545,4 @@ message_queue_config = (
 message_queue = RabbitMQMessageQueue(**message_queue_config)
 ```
 
-NOTE: `RabbitMQMessageQueueConfig` can load its params from environment variables.
+> [!NOTE] > `RabbitMQMessageQueueConfig` can load its params from environment variables.
