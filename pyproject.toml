@@ -33,6 +33,7 @@ types-aiobotocore = {version = "^2.14.0", optional = true, extras = ["sqs", "sns
 kafka = ["aiokafka", "kafka-python-ng"]
 rabbitmq = ["aio-pika"]
 redis = ["redis"]
+awssqs = ["aiobotocore", "types-aiobotocore"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
