@@ -4,7 +4,7 @@ from llama_deploy import (
 )
 
 
-async def run_deploy():
+async def run_deploy() -> None:
     await deploy_core(
         # All configs are optional.
         # In this case, the env vars in the docker-compose file are used.

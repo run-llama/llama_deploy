@@ -6,7 +6,7 @@ from llama_deploy import (
 )
 
 
-async def run_deploy():
+async def run_deploy() -> None:
     await deploy_core(
         # All configs are optional.
         # In this case, the env vars in the docker-compose file are used.
@@ -16,7 +16,7 @@ async def run_deploy():
 
 
 if __name__ == "__main__":
-    # allow time for the messsage queue to spin up
+    # allow time for the message queue to spin up
     time.sleep(3)
 
     asyncio.run(run_deploy())
