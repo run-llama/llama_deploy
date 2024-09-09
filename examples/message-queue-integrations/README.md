@@ -41,6 +41,9 @@ below will spin the example app using the associated message queue.
 # simple message queue
 docker compose -f ./simple/docker/docker-compose.yml --project-directory ./ up --build
 
+# aws
+docker compose -f ./aws/docker/docker-compose.yml --project-directory ./ up --build
+
 # kafka
 docker compose -f ./kafka/docker/docker-compose.yml --project-directory ./ up --build
 
