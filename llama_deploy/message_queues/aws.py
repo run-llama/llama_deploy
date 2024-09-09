@@ -59,6 +59,13 @@ class AWSMessageQueueConfig(BaseSettings):
         if not self.aws_region:
             raise ValueError("AWS region must be provided.")
 
+    def get_credentials(self) -> Dict[str, Optional[str]]:
+        """Returns the AWS credentials, defaulting to environment-based credentials if not provided."""
+        return {
+            "aws_access_key_id": self.aws_access_key_id,
+            "aws_secret_access_key": self.aws_secret_access_key,
+        }
+
 
 class AWSMessageQueue(BaseMessageQueue):
     """AWS SQS integration with aiobotocore client.
