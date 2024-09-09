@@ -2825,6 +2825,7 @@ idna = ">=2.0"
 multidict = ">=4.0"
 
 [extras]
+awssqs = ["aiobotocore", "types-aiobotocore"]
 kafka = ["aiokafka", "kafka-python-ng"]
 rabbitmq = ["aio-pika"]
 redis = ["redis"]
