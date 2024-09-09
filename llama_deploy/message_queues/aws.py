@@ -6,7 +6,7 @@ from logging import getLogger
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from botocore.exceptions import ClientError
 from botocore.config import Config
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, PrivateAttr, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llama_deploy.message_queues.base import BaseMessageQueue
@@ -54,17 +54,12 @@ class AWSMessageQueueConfig(BaseSettings):
     aws_region: str
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
+    topics: List[Topic] = []
+    queues: List[Queue] = []
 
     def model_post_init(self, __context: Any) -> None:
         if not self.aws_region:
             raise ValueError("AWS region must be provided.")
-
-    def get_credentials(self) -> Dict[str, Optional[str]]:
-        """Returns the AWS credentials, defaulting to environment-based credentials if not provided."""
-        return {
-            "aws_access_key_id": self.aws_access_key_id,
-            "aws_secret_access_key": self.aws_secret_access_key,
-        }
 
 
 class AWSMessageQueue(BaseMessageQueue):
@@ -77,17 +72,34 @@ class AWSMessageQueue(BaseMessageQueue):
         aws_region (str): The AWS region where the SNS topics and SQS queues are located.
     """
 
-    config: AWSMessageQueueConfig
+    aws_region: str
+    aws_access_key_id: Optional[SecretStr]
+    aws_secret_access_key: Optional[SecretStr]
     topics: List["Topic"] = []
     queues: List["Queue"] = []
     subscriptions: List["Subscription"] = []
+
     _aio_session: Optional["AioSession"] = PrivateAttr(None)
 
-    def __init__(self, config: AWSMessageQueueConfig) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         """Initialize AWSMessageQueue with config."""
-        super().__init__()
-        self.config = config
+        super().__init__(**kwargs)
         self._aio_session = None
+
+    def get_credentials(self) -> Dict[str, Optional[str]]:
+        """Returns the AWS credentials, defaulting to environment-based credentials if not provided."""
+        return {
+            "aws_access_key_id": (
+                self.aws_access_key_id.get_secret_value()
+                if self.aws_access_key_id
+                else ""
+            ),
+            "aws_secret_access_key": (
+                self.aws_secret_access_key.get_secret_value()
+                if self.aws_secret_access_key
+                else ""
+            ),
+        }
 
     def _get_aio_session(self) -> "AioSession":
         if self._aio_session is None:
@@ -111,11 +123,11 @@ class AWSMessageQueue(BaseMessageQueue):
     async def _create_sns_topic(self, topic_name: str) -> "Topic":
         """Create AWS SNS topic or return existing one."""
         session = self._get_aio_session()
-        credentials = self.config.get_credentials()
+        credentials = self.get_credentials()
 
         async with session.create_client(
             "sns",
-            region_name=self.config.aws_region,
+            region_name=self.aws_region,
             config=RETRY_CONFIG,
             **credentials,
         ) as client:
@@ -142,11 +154,11 @@ class AWSMessageQueue(BaseMessageQueue):
     async def _create_sqs_queue(self, queue_name: str) -> "Queue":
         """Create AWS SQS Fifo queue or return existing one."""
         session = self._get_aio_session()
-        credentials = self.config.get_credentials()
+        credentials = self.get_credentials()
 
         async with session.create_client(
             "sqs",
-            region_name=self.config.aws_region,
+            region_name=self.aws_region,
             config=RETRY_CONFIG,
             **credentials,
         ) as client:
@@ -179,11 +191,11 @@ class AWSMessageQueue(BaseMessageQueue):
     async def _update_queue_policy(self, queue: "Queue", topic: "Topic") -> None:
         """Update SQS queue policy to allow SNS topic to send messages."""
         session = self._get_aio_session()
-        credentials = self.config.get_credentials()
+        credentials = self.get_credentials()
 
         async with session.create_client(
             "sqs",
-            region_name=self.config.aws_region,
+            region_name=self.aws_region,
             config=RETRY_CONFIG,
             **credentials,
         ) as client:
@@ -210,11 +222,11 @@ class AWSMessageQueue(BaseMessageQueue):
     ) -> "Subscription":
         """Subscribe SQS queue to the SNS topic and apply the queue policy."""
         session = self._get_aio_session()
-        credentials = self.config.get_credentials()
+        credentials = self.get_credentials()
 
         async with session.create_client(
             "sns",
-            region_name=self.config.aws_region,
+            region_name=self.aws_region,
             config=RETRY_CONFIG,
             **credentials,
         ) as client:
@@ -241,12 +253,12 @@ class AWSMessageQueue(BaseMessageQueue):
         message_body = json.dumps(message.model_dump())
         topic = self.get_topic_by_name(message.type)
         session = self._get_aio_session()
-        credentials = self.config.get_credentials()
+        credentials = self.get_credentials()
 
         try:
             async with session.create_client(
                 "sns",
-                region_name=self.config.aws_region,
+                region_name=self.aws_region,
                 config=RETRY_CONFIG,
                 **credentials,
             ) as client:
@@ -268,16 +280,16 @@ class AWSMessageQueue(BaseMessageQueue):
     ) -> None:
         """Perform cleanup of queues and topics."""
         session = self._get_aio_session()
-        credentials = self.config.get_credentials()
+        credentials = self.get_credentials()
 
         async with session.create_client(
             "sqs",
-            region_name=self.config.aws_region,
+            region_name=self.aws_region,
             config=RETRY_CONFIG,
             **credentials,
         ) as sqs_client, session.create_client(
             "sns",
-            region_name=self.config.aws_region,
+            region_name=self.aws_region,
             config=RETRY_CONFIG,
             **credentials,
         ) as sns_client:
@@ -310,11 +322,11 @@ class AWSMessageQueue(BaseMessageQueue):
             """Start consuming messages."""
             while True:
                 session = self._get_aio_session()
-                credentials = self.config.get_credentials()
+                credentials = self.get_credentials()
 
                 async with session.create_client(
                     "sqs",
-                    region_name=self.config.aws_region,
+                    region_name=self.aws_region,
                     config=RETRY_CONFIG,
                     **credentials,
                 ) as client:
@@ -341,7 +353,9 @@ class AWSMessageQueue(BaseMessageQueue):
         return start_consuming_callable
 
     def as_config(self) -> BaseModel:
-        return self.config
+        return AWSMessageQueueConfig(
+            topics=self.topics, queues=self.queues, aws_region=self.aws_region
+        )
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         """Deregister a consumer.
