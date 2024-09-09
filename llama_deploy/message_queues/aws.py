@@ -52,8 +52,8 @@ class AWSMessageQueueConfig(BaseSettings):
     model_config = SettingsConfigDict()
 
     aws_region: str
-    aws_access_key_id: Optional[str] = None
-    aws_secret_access_key: Optional[str] = None
+    aws_access_key_id: Optional[SecretStr] = None
+    aws_secret_access_key: Optional[SecretStr] = None
 
     def model_post_init(self, __context: Any) -> None:
         if not self.aws_region:
@@ -90,12 +90,12 @@ class AWSMessageQueue(BaseMessageQueue):
             "aws_access_key_id": (
                 self.aws_access_key_id.get_secret_value()
                 if self.aws_access_key_id
-                else ""
+                else None
             ),
             "aws_secret_access_key": (
                 self.aws_secret_access_key.get_secret_value()
                 if self.aws_secret_access_key
-                else ""
+                else None
             ),
         }
 

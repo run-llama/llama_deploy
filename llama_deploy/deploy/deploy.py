@@ -60,7 +60,19 @@ def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
         queue = SimpleMessageQueue(**config.model_dump())
         return queue.client
     elif isinstance(config, AWSMessageQueueConfig):
-        return AWSMessageQueue(**config.model_dump())
+        # get secrets
+        params = config.model_dump()
+        params["aws_access_key_id"] = (
+            config.aws_access_key_id.get_secret_value()
+            if config.aws_access_key_id
+            else ""
+        )
+        params["aws_secret_access_key"] = (
+            config.aws_secret_access_key.get_secret_value()
+            if config.aws_secret_access_key
+            else ""
+        )
+        return AWSMessageQueue(**params)
     elif isinstance(config, KafkaMessageQueueConfig):
         return KafkaMessageQueue(
             **config.model_dump(),
