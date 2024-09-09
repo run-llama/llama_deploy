@@ -112,13 +112,29 @@ class AWSMessageQueue(BaseMessageQueue):
             self._aio_session = get_session()
         return self._aio_session
 
-    def get_topic_by_name(self, topic_name: str) -> "Topic":
+    async def get_topic_by_name(self, topic_name: str) -> "Topic":
         """Get topic by name."""
-        try:
-            topic = next(t for t in self.topics if t.name == topic_name)
-        except StopIteration:
-            raise ValueError(f"Could not find topic {topic_name}.")
-        return topic
+        session = self._get_aio_session()
+        credentials = self.get_credentials()
+
+        async with session.create_client(
+            "sns",
+            region_name=self.aws_region,
+            config=RETRY_CONFIG,
+            **credentials,
+        ) as client:
+            try:
+                # First, check if the topic exists
+                response = await client.list_topics()
+                for topic in response.get("Topics", []):
+                    if f"{topic_name}.fifo" in topic["TopicArn"]:
+                        logger.info(f"SNS topic {topic_name} already exists.")
+                        return Topic(arn=topic["TopicArn"], name=topic_name)
+
+                # didn't find topic
+                raise ValueError(f"Could not find topic {topic_name}.")
+            except ClientError:
+                raise
 
     async def _create_sns_topic(self, topic_name: str) -> "Topic":
         """Create AWS SNS topic or return existing one."""
@@ -251,7 +267,7 @@ class AWSMessageQueue(BaseMessageQueue):
     async def _publish(self, message: QueueMessage) -> Any:
         """Publish message to the SQS queue."""
         message_body = json.dumps(message.model_dump())
-        topic = self.get_topic_by_name(message.type)
+        topic = await self.get_topic_by_name(message.type)
         session = self._get_aio_session()
         credentials = self.get_credentials()
 
