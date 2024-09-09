@@ -31,17 +31,23 @@ RETRY_CONFIG = Config(
 
 class AWSMessageQueueConfig(BaseSettings):
     """AWS SNS and SQS message queue configuration."""
-    
+
     model_config = SettingsConfigDict(env_prefix="AWS_")
 
-    aws_access_key_id: str
-    aws_secret_access_key: str
     aws_region: str
+    aws_access_key_id: Optional[str] = None
+    aws_secret_access_key: Optional[str] = None
 
     def model_post_init(self, __context: Any) -> None:
-        if not self.aws_access_key_id or not self.aws_secret_access_key:
-            raise ValueError("AWS credentials (access key and secret key) must be provided.")
+        if not self.aws_region:
+            raise ValueError("AWS region must be provided.")
 
+    def get_credentials(self) -> Dict[str, Optional[str]]:
+        """Returns the AWS credentials, defaulting to environment-based credentials if not provided."""
+        return {
+            "aws_access_key_id": self.aws_access_key_id,
+            "aws_secret_access_key": self.aws_secret_access_key,
+        }
 
 class AWSMessageQueue(BaseMessageQueue):
     """AWS SQS integration with aiobotocore client.
@@ -87,25 +93,29 @@ class AWSMessageQueue(BaseMessageQueue):
     async def _create_sns_topic(self, topic_name: str) -> "Topic":
         """Create AWS SNS topic or return existing one."""
         session = self._get_aio_session()
+        credentials = self.config.get_credentials()
+
         async with session.create_client(
             "sns", 
             region_name=self.config.aws_region, 
-            config=RETRY_CONFIG, 
-            aws_access_key_id=self.config.aws_access_key_id,
-            aws_secret_access_key=self.config.aws_secret_access_key
+            config=RETRY_CONFIG,
+            **credentials
         ) as client:
             try:
+                # First, check if the topic exists
+                response = await client.list_topics()
+                for topic in response.get("Topics", []):
+                    if topic_name in topic["TopicArn"]:
+                        logger.info(f"SNS topic {topic_name} already exists.")
+                        return Topic(arn=topic["TopicArn"], name=topic_name)
+
+                # If not found, create the topic
                 response = await client.create_topic(
                     Name=f"{topic_name}.fifo", Attributes={"FifoTopic": "true"}
                 )
             except ClientError as e:
-                if e.response["Error"]["Code"] == "ResourceInUseException":
-                    logger.info(f"SNS topic {topic_name} already exists.")
-                    response = await client.get_topic_attributes(
-                        TopicArn=f"arn:aws:sns:{self.config.aws_region}:{topic_name}.fifo"
-                    )
-                else:
-                    raise
+                raise
+
         topic = Topic(arn=response["TopicArn"], name=topic_name)
         if topic.arn not in [t.arn for t in self.topics]:
             self.topics.append(topic)
@@ -114,46 +124,106 @@ class AWSMessageQueue(BaseMessageQueue):
     async def _create_sqs_queue(self, queue_name: str) -> "Queue":
         """Create AWS SQS Fifo queue or return existing one."""
         session = self._get_aio_session()
+        credentials = self.config.get_credentials()
+
         async with session.create_client(
             "sqs", 
             region_name=self.config.aws_region, 
             config=RETRY_CONFIG,
-            aws_access_key_id=self.config.aws_access_key_id,
-            aws_secret_access_key=self.config.aws_secret_access_key
+            **credentials
         ) as client:
             try:
-                response = await client.create_queue(
-                    QueueName=f"{queue_name}.fifo", Attributes={"FifoQueue": "true"}
+                # Check if queue exists
+                response = await client.list_queues(QueueNamePrefix=queue_name)
+                if response.get("QueueUrls"):
+                    logger.info(f"SQS queue {queue_name} already exists.")
+                    queue_url = response["QueueUrls"][0]
+                else:
+                    # If not, create the queue
+                    response = await client.create_queue(
+                        QueueName=f"{queue_name}.fifo", Attributes={"FifoQueue": "true"}
+                    )
+                    queue_url = response["QueueUrl"]
+
+                # Get queue ARN
+                response = await client.get_queue_attributes(
+                    QueueUrl=queue_url, AttributeNames=["QueueArn"]
+                )
+                queue_arn = response["Attributes"]["QueueArn"]
+            except ClientError as e:
+                raise
+
+        queue = Queue(arn=queue_arn, url=queue_url, name=queue_name)
+        if queue.arn not in [q.arn for q in self.queues]:
+            self.queues.append(queue)
+        return queue
+
+    async def _update_queue_policy(self, queue: "Queue", topic: "Topic") -> None:
+        """Update SQS queue policy to allow SNS topic to send messages."""
+        session = self._get_aio_session()
+        credentials = self.config.get_credentials()
+
+        async with session.create_client(
+            "sqs", 
+            region_name=self.config.aws_region, 
+            config=RETRY_CONFIG,
+            **credentials
+        ) as client:
+            policy = json.dumps({
+                "Version": "2012-10-17",
+                "Statement": [{
+                    "Effect": "Allow",
+                    "Principal": {"AWS": "*"},
+                    "Action": "SQS:SendMessage",
+                    "Resource": queue.arn,
+                    "Condition": {"ArnLike": {"aws:SourceArn": topic.arn}}
+                }]
+            })
+            await client.set_queue_attributes(
+                QueueUrl=queue.url, 
+                Attributes={"Policy": policy}
+            )
+
+    async def _subscribe_queue_to_topic(self, topic: "Topic", queue: "Queue") -> "Subscription":
+        """Subscribe SQS queue to the SNS topic and apply the queue policy."""
+        session = self._get_aio_session()
+        credentials = self.config.get_credentials()
+
+        async with session.create_client(
+            "sns", 
+            region_name=self.config.aws_region, 
+            config=RETRY_CONFIG,
+            **credentials
+        ) as client:
+            try:
+                response = await client.subscribe(
+                    TopicArn=topic.arn, Protocol="sqs", Endpoint=queue.arn
                 )
             except ClientError as e:
-                if e.response["Error"]["Code"] == "QueueAlreadyExists":
-                    logger.info(f"SQS queue {queue_name} already exists.")
-                    response = await client.get_queue_url(QueueName=f"{queue_name}.fifo")
-                else:
-                    raise
+                logger.error(f"Could not subscribe SQS queue {queue.name} to SNS topic {topic.name}: {e}")
+                raise
+        subscription = Subscription(arn=response["SubscriptionArn"])
+        if subscription.arn not in [s.arn for s in self.subscriptions]:
+            self.subscriptions.append(subscription)
 
-            queue_url = response["QueueUrl"]
-            response = await client.get_queue_attributes(
-                QueueUrl=queue_url, AttributeNames=["QueueArn"]
-            )
-            queue_arn = response["Attributes"]["QueueArn"]
-            queue = Queue(arn=queue_arn, url=queue_url, name=queue_name)
-            if queue.arn not in [q.arn for q in self.queues]:
-                self.queues.append(queue)
-            return queue
+        # Update the SQS queue policy to allow SNS topic to send messages
+        await self._update_queue_policy(queue, topic)
+
+        return subscription
 
     async def _publish(self, message: QueueMessage) -> Any:
         """Publish message to the SQS queue."""
         message_body = json.dumps(message.model_dump())
         topic = self.get_topic_by_name(message.type)
         session = self._get_aio_session()
+        credentials = self.config.get_credentials()
+
         try:
             async with session.create_client(
                 "sns", 
                 region_name=self.config.aws_region, 
                 config=RETRY_CONFIG,
-                aws_access_key_id=self.config.aws_access_key_id,
-                aws_secret_access_key=self.config.aws_secret_access_key
+                **credentials
             ) as client:
                 response = await client.publish(
                     TopicArn=topic.arn,
@@ -167,6 +237,81 @@ class AWSMessageQueue(BaseMessageQueue):
         except ClientError as e:
             logger.error(f"Could not publish message to SQS queue: {e}")
             raise
+
+    async def cleanup_local(self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]) -> None:
+        """Perform cleanup of queues and topics."""
+        session = self._get_aio_session()
+        credentials = self.config.get_credentials()
+
+        async with session.create_client(
+            "sqs", 
+            region_name=self.config.aws_region, 
+            config=RETRY_CONFIG,
+            **credentials
+        ) as sqs_client, session.create_client(
+            "sns", 
+            region_name=self.config.aws_region, 
+            config=RETRY_CONFIG,
+            **credentials
+        ) as sns_client:
+            # Delete all SQS queues
+            for queue in self.queues:
+                try:
+                    await sqs_client.delete_queue(QueueUrl=queue.url)
+                    logger.info(f"Deleted SQS queue {queue.name}")
+                except ClientError as e:
+                    logger.error(f"Could not delete SQS queue {queue.name}: {e}")
+
+            # Delete all SNS topics
+            for topic in self.topics:
+                try:
+                    await sns_client.delete_topic(TopicArn=topic.arn)
+                    logger.info(f"Deleted SNS topic {topic.name}")
+                except ClientError as e:
+                    logger.error(f"Could not delete SNS topic {topic.name}: {e}")
+
+    async def register_consumer(
+        self, consumer: BaseMessageQueueConsumer
+    ) -> StartConsumingCallable:
+        """Register a new consumer."""
+        topic = await self._create_sns_topic(topic_name=consumer.message_type)
+        queue = await self._create_sqs_queue(queue_name=consumer.message_type)
+        await self._subscribe_queue_to_topic(queue=queue, topic=topic)
+        logger.info(f"Registered consumer {consumer.id_}: {consumer.message_type}")
+
+        async def start_consuming_callable() -> None:
+            """Start consuming messages."""
+            while True:
+                session = self._get_aio_session()
+                credentials = self.config.get_credentials()
+
+                async with session.create_client(
+                    "sqs", 
+                    region_name=self.config.aws_region, 
+                    config=RETRY_CONFIG,
+                    **credentials
+                ) as client:
+                    try:
+                        response = await client.receive_message(
+                            QueueUrl=queue.url,
+                            WaitTimeSeconds=2,
+                        )
+                        messages = response.get("Messages", [])
+                        for msg in messages:
+                            receipt_handle = msg["ReceiptHandle"]
+                            message_body = json.loads(msg["Body"])
+                            queue_message_data = json.loads(message_body["Message"])
+                            queue_message = QueueMessage.model_validate(
+                                queue_message_data
+                            )
+                            await consumer.process_message(queue_message)
+                            await client.delete_message(
+                                QueueUrl=queue.url, ReceiptHandle=receipt_handle
+                            )
+                    except ClientError as e:
+                        logger.error(f"Error receiving messages from SQS queue: {e}")
+
+        return start_consuming_callable
 
     def as_config(self) -> BaseModel:
         return self.config
