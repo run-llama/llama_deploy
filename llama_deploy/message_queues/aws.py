@@ -54,8 +54,6 @@ class AWSMessageQueueConfig(BaseSettings):
     aws_region: str
     aws_access_key_id: Optional[str] = None
     aws_secret_access_key: Optional[str] = None
-    topics: List[Topic] = []
-    queues: List[Queue] = []
 
     def model_post_init(self, __context: Any) -> None:
         if not self.aws_region:
@@ -369,9 +367,7 @@ class AWSMessageQueue(BaseMessageQueue):
         return start_consuming_callable
 
     def as_config(self) -> BaseModel:
-        return AWSMessageQueueConfig(
-            topics=self.topics, queues=self.queues, aws_region=self.aws_region
-        )
+        return AWSMessageQueueConfig(aws_region=self.aws_region)
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         """Deregister a consumer.
