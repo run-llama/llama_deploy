@@ -6,7 +6,7 @@ from logging import getLogger
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
 from botocore.exceptions import ClientError
 from botocore.config import Config
-from pydantic import BaseModel, PrivateAttr, SecretStr
+from pydantic import BaseModel, PrivateAttr, SecretStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llama_deploy.message_queues.base import BaseMessageQueue
@@ -52,8 +52,8 @@ class AWSMessageQueueConfig(BaseSettings):
     model_config = SettingsConfigDict()
 
     aws_region: str
-    aws_access_key_id: Optional[str] = None
-    aws_secret_access_key: Optional[str] = None
+    aws_access_key_id: Optional[str] = Field(default=None, exclude=True)
+    aws_secret_access_key: Optional[str] = Field(default=None, exclude=True)
 
     def model_post_init(self, __context: Any) -> None:
         if not self.aws_region:
