@@ -367,7 +367,11 @@ class AWSMessageQueue(BaseMessageQueue):
         return start_consuming_callable
 
     def as_config(self) -> BaseModel:
-        return AWSMessageQueueConfig(aws_region=self.aws_region)
+        return AWSMessageQueueConfig(
+            aws_region=self.aws_region,
+            aws_access_key_id=None,  # don't provide secrets
+            aws_secret_access_key=None,
+        )
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         """Deregister a consumer.
