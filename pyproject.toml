@@ -26,6 +26,8 @@ pytest-mock = "^3.14.0"
 aiokafka = {version = "^0.11.0", optional = true}
 kafka-python-ng = {version = "^2.2.2", optional = true}
 pydantic-settings = ">=2.0,<3.0"
+aiobotocore = {version = "^2.14.0", optional = true}
+types-aiobotocore = {version = "^2.14.0", optional = true, extras = ["sqs", "sns"]}
 
 [tool.poetry.extras]
 kafka = ["aiokafka", "kafka-python-ng"]
@@ -42,3 +44,5 @@ pytest-cov = "^5.0.0"
 coverage = "^7.6.0"
 aiokafka = "^0.11.0"
 kafka-python-ng = "^2.2.2"
+aiobotocore = "^2.14.0"
+types-aiobotocore = {version = "^2.14.0", extras = ["sqs", "sns"]}
