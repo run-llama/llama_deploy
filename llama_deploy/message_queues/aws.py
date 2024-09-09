@@ -48,7 +48,7 @@ class Subscription(BaseAWSResource):
 class AWSMessageQueueConfig(BaseSettings):
     """AWS SNS and SQS message queue configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="AWS_")
+    model_config = SettingsConfigDict()
 
     aws_region: str
     aws_access_key_id: Optional[str] = None
