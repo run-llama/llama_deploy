@@ -1,5 +1,6 @@
 """AWS SNS and SQS Message Queue."""
 
+import asyncio
 import json
 from logging import getLogger
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
@@ -341,3 +342,31 @@ class AWSMessageQueue(BaseMessageQueue):
 
     def as_config(self) -> BaseModel:
         return self.config
+
+    async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
+        """Deregister a consumer.
+
+        Not implemented for this integration, as SQS does not maintain persistent consumers.
+        """
+        pass
+
+    async def processing_loop(self) -> None:
+        """A loop for getting messages from queues and sending to consumer.
+
+        Not relevant for this class.
+        """
+        pass
+
+    async def launch_local(self) -> asyncio.Task:
+        """Launch the message queue locally, in-process.
+
+        Launches a dummy task.
+        """
+        return asyncio.create_task(self.processing_loop())
+
+    async def launch_server(self) -> None:
+        """Launch the message queue server.
+
+        Not relevant for this class. AWS SQS server should already be available.
+        """
+        pass
