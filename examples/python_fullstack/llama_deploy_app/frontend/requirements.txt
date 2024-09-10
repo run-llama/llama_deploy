@@ -1,2 +1,3 @@
 llama_deploy>=0.1.0b20
 reflex==0.5.10
+botocore==1.35.15
