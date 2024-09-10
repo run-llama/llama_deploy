@@ -4,8 +4,6 @@ import asyncio
 import json
 from logging import getLogger
 from typing import Any, Dict, List, Optional, TYPE_CHECKING
-from botocore.exceptions import ClientError
-from botocore.config import Config
 from pydantic import BaseModel, PrivateAttr, SecretStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -18,11 +16,9 @@ from llama_deploy.message_consumers.base import (
 
 if TYPE_CHECKING:
     from aiobotocore.session import AioSession
+    from botocore.config import Config
 
 logger = getLogger(__name__)
-
-# AWS retry configuration with exponential backoff
-RETRY_CONFIG = Config(retries={"max_attempts": 5, "mode": "adaptive"})
 
 
 class BaseAWSResource(BaseModel):
@@ -85,11 +81,15 @@ class AWSMessageQueue(BaseMessageQueue):
     subscriptions: List["Subscription"] = []
 
     _aio_session: Optional["AioSession"] = PrivateAttr(None)
+    _retry_config: "Config" = PrivateAttr()
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize AWSMessageQueue with config."""
         super().__init__(**kwargs)
         self._aio_session = None
+
+        # AWS retry configuration with exponential backoff
+        self._retry_config = Config(retries={"max_attempts": 5, "mode": "adaptive"})
 
     def get_credentials(self) -> Dict[str, Optional[str]]:
         """Returns the AWS credentials, defaulting to environment-based credentials if not provided."""
@@ -119,13 +119,15 @@ class AWSMessageQueue(BaseMessageQueue):
 
     async def get_topic_by_name(self, topic_name: str) -> "Topic":
         """Get topic by name."""
+        from botocore.exceptions import ClientError
+
         session = self._get_aio_session()
         credentials = self.get_credentials()
 
         async with session.create_client(
             "sns",
             region_name=self.aws_region,
-            config=RETRY_CONFIG,
+            config=self._retry_config,
             **credentials,
         ) as client:
             try:
@@ -143,13 +145,15 @@ class AWSMessageQueue(BaseMessageQueue):
 
     async def _create_sns_topic(self, topic_name: str) -> "Topic":
         """Create AWS SNS topic or return existing one."""
+        from botocore.exceptions import ClientError
+
         session = self._get_aio_session()
         credentials = self.get_credentials()
 
         async with session.create_client(
             "sns",
             region_name=self.aws_region,
-            config=RETRY_CONFIG,
+            config=self._retry_config,
             **credentials,
         ) as client:
             try:
@@ -174,13 +178,15 @@ class AWSMessageQueue(BaseMessageQueue):
 
     async def _create_sqs_queue(self, queue_name: str) -> "Queue":
         """Create AWS SQS Fifo queue or return existing one."""
+        from botocore.exceptions import ClientError
+
         session = self._get_aio_session()
         credentials = self.get_credentials()
 
         async with session.create_client(
             "sqs",
             region_name=self.aws_region,
-            config=RETRY_CONFIG,
+            config=self._retry_config,
             **credentials,
         ) as client:
             try:
@@ -217,7 +223,7 @@ class AWSMessageQueue(BaseMessageQueue):
         async with session.create_client(
             "sqs",
             region_name=self.aws_region,
-            config=RETRY_CONFIG,
+            config=self._retry_config,
             **credentials,
         ) as client:
             policy = json.dumps(
@@ -242,13 +248,15 @@ class AWSMessageQueue(BaseMessageQueue):
         self, topic: "Topic", queue: "Queue"
     ) -> "Subscription":
         """Subscribe SQS queue to the SNS topic and apply the queue policy."""
+        from botocore.exceptions import ClientError
+
         session = self._get_aio_session()
         credentials = self.get_credentials()
 
         async with session.create_client(
             "sns",
             region_name=self.aws_region,
-            config=RETRY_CONFIG,
+            config=self._retry_config,
             **credentials,
         ) as client:
             try:
@@ -271,6 +279,8 @@ class AWSMessageQueue(BaseMessageQueue):
 
     async def _publish(self, message: QueueMessage) -> Any:
         """Publish message to the SQS queue."""
+        from botocore.exceptions import ClientError
+
         message_body = json.dumps(message.model_dump())
         topic = await self.get_topic_by_name(message.type)
         session = self._get_aio_session()
@@ -280,7 +290,7 @@ class AWSMessageQueue(BaseMessageQueue):
             async with session.create_client(
                 "sns",
                 region_name=self.aws_region,
-                config=RETRY_CONFIG,
+                config=self._retry_config,
                 **credentials,
             ) as client:
                 response = await client.publish(
@@ -300,18 +310,20 @@ class AWSMessageQueue(BaseMessageQueue):
         self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
     ) -> None:
         """Perform cleanup of queues and topics."""
+        from botocore.exceptions import ClientError
+
         session = self._get_aio_session()
         credentials = self.get_credentials()
 
         async with session.create_client(
             "sqs",
             region_name=self.aws_region,
-            config=RETRY_CONFIG,
+            config=self._retry_config,
             **credentials,
         ) as sqs_client, session.create_client(
             "sns",
             region_name=self.aws_region,
-            config=RETRY_CONFIG,
+            config=self._retry_config,
             **credentials,
         ) as sns_client:
             # Delete all SQS queues
@@ -334,6 +346,8 @@ class AWSMessageQueue(BaseMessageQueue):
         self, consumer: BaseMessageQueueConsumer
     ) -> StartConsumingCallable:
         """Register a new consumer."""
+        from botocore.exceptions import ClientError
+
         topic = await self._create_sns_topic(topic_name=consumer.message_type)
         queue = await self._create_sqs_queue(queue_name=consumer.message_type)
         await self._subscribe_queue_to_topic(queue=queue, topic=topic)
@@ -348,7 +362,7 @@ class AWSMessageQueue(BaseMessageQueue):
                 async with session.create_client(
                     "sqs",
                     region_name=self.aws_region,
-                    config=RETRY_CONFIG,
+                    config=self._retry_config,
                     **credentials,
                 ) as client:
                     try:
