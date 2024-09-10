@@ -18,7 +18,7 @@ CONFIGS = {
 
 async def run_deploy() -> None:
     await deploy_core(
-        message_queue_config=os.environ.get("MESSAGE_QUEUE_CONFIG", "simple"),
+        message_queue_config=CONFIGS[os.environ.get("MESSAGE_QUEUE_CONFIG", "simple")],
         disable_control_plane=True,
     )
 
