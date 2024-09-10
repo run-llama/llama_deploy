@@ -40,6 +40,7 @@ target "control_plane" {
     args = {
         entrypoint_script = "control_plane.py"
         exposed_port = 8000
+        llama_deploy_extras = "[rabbitmq, kafka, redis]"
     }
 }
 

@@ -1,2 +1,2 @@
-llama_deploy>=0.1.0b20
+llama-deploy[redis]==0.1.1
 reflex==0.5.10
