@@ -8,8 +8,8 @@ class FunnyJokeWorkflow(Workflow):
         # Your workflow logic here
         input = str(ev.get("input", ""))
         llm = OpenAI("gpt-4o-mini", temperature=0.1)
-        response = await llm.acomplete("Tell a funny data joke.")
-        result = input + "\n\nAnd here is a funny joke:\n\n" + response.text
+        response = await llm.acomplete("Tell a funny, light-hearted joke about " + input)
+        result = "\n\nAnd here is a funny joke about " + input + ":\n\n" + response.text
         return StopEvent(result=result)
 
 
