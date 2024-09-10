@@ -7,7 +7,7 @@ services:
   control_plane:
     extends:
       file: ../../docker/docker-compose.yml
-      service: message_queue
+      service: control_plane
 
   qdrant:
     image: qdrant/qdrant:latest
