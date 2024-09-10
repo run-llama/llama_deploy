@@ -46,6 +46,7 @@ class WorkflowServiceConfig(BaseSettings):
     description: str = "A service that wraps a llama-index workflow."
     running: bool = True
     step_interval: float = 0.1
+    max_concurrent_tasks: int = 8
     raise_exceptions: bool = False
 
 
@@ -82,6 +83,7 @@ class WorkflowService(BaseService):
         description (str): The description of the service.
         running (bool): Whether the service is running.
         step_interval (float): The interval in seconds to poll for tool call results. Defaults to 0.1s.
+        max_concurrent_tasks (int): The number of tasks that the service can process at a given time.
         host (Optional[str]): The host of the service.
         port (Optional[int]): The port of the service.
         raise_exceptions (bool): Whether to raise exceptions.
@@ -106,6 +108,7 @@ class WorkflowService(BaseService):
     description: str = "Workflow service."
     running: bool = True
     step_interval: float = 0.1
+    max_concurrent_tasks: int = 8
     host: Optional[str] = None
     port: Optional[int] = None
     internal_host: Optional[str] = None
@@ -128,6 +131,7 @@ class WorkflowService(BaseService):
         service_name: str = "default_workflow_service",
         publish_callback: Optional[PublishCallback] = None,
         step_interval: float = 0.1,
+        max_concurrent_tasks: int = 8,
         host: Optional[str] = None,
         port: Optional[int] = None,
         internal_host: Optional[str] = None,
@@ -140,6 +144,7 @@ class WorkflowService(BaseService):
             description=description,
             service_name=service_name,
             step_interval=step_interval,
+            max_concurrent_tasks=max_concurrent_tasks,
             host=host,
             port=port,
             internal_host=internal_host,
@@ -153,6 +158,7 @@ class WorkflowService(BaseService):
         self._publish_callback = publish_callback
 
         self._outstanding_calls: Dict[str, WorkflowState] = {}
+        self._ongoing_tasks: Dict[str, asyncio.Task] = {}
 
         self._app = FastAPI(lifespan=self.lifespan)
 
@@ -228,78 +234,103 @@ class WorkflowService(BaseService):
             hash=context_hash, state=context_str, run_kwargs=run_kawrgs
         )
 
-    async def processing_loop(self) -> None:
-        """The processing loop for the service.
+    async def process_call(self, task_id: str, current_call: WorkflowState) -> None:
+        try:
+            # load the state
+            self.load_workflow_state(self.workflow, current_call)
 
-        TODO: How do we handle any errors that occur during processing?
-        """
-        logger.info("Processing initiated.")
+            # run the workflow
+            result = await self.workflow.run(**current_call.run_kwargs)
+
+            # dump the state
+            updated_state = self.dump_workflow_state(
+                self.workflow, current_call.run_kwargs
+            )
+
+            await self.message_queue.publish(
+                QueueMessage(
+                    type=CONTROL_PLANE_NAME,
+                    action=ActionTypes.COMPLETED_TASK,
+                    data=TaskResult(
+                        task_id=task_id,
+                        history=[],
+                        result=str(result),
+                        data=updated_state.dict(),
+                    ).model_dump(),
+                )
+            )
+        except Exception as e:
+            logger.error(f"Encountered error in task {task_id}! {str(e)}")
+            # dump the state
+            updated_state = self.dump_workflow_state(
+                self.workflow, current_call.run_kwargs
+            )
+
+            # return failure
+            await self.message_queue.publish(
+                QueueMessage(
+                    type=CONTROL_PLANE_NAME,
+                    action=ActionTypes.COMPLETED_TASK,
+                    data=TaskResult(
+                        task_id=task_id,
+                        history=[],
+                        result=str(e),
+                        data=updated_state.dict(),
+                    ).model_dump(),
+                )
+            )
+        finally:
+            # clean up
+            async with self.lock:
+                self._outstanding_calls.pop(task_id, None)
+            self._ongoing_tasks.pop(task_id, None)
+
+    async def manage_tasks(self) -> None:
         while True:
-            try:
-                if not self.running:
-                    await asyncio.sleep(self.step_interval)
-                    continue
-
-                async with self.lock:
-                    current_calls = [(t, c) for t, c in self._outstanding_calls.items()]
-
-                for task_id, current_call in current_calls:
-                    # TODO: resume a workflow session?
-
-                    # load the state
-                    self.load_workflow_state(self.workflow, current_call)
-
-                    # run the workflow
-                    # TODO: How do we handle streaming? Websockets?
-                    result = await self.workflow.run(**current_call.run_kwargs)
-
-                    # dump the state
-                    updated_state = self.dump_workflow_state(
-                        self.workflow, current_call.run_kwargs
-                    )
-
-                    await self.message_queue.publish(
-                        QueueMessage(
-                            type=CONTROL_PLANE_NAME,
-                            action=ActionTypes.COMPLETED_TASK,
-                            data=TaskResult(
-                                task_id=task_id,
-                                history=[],
-                                result=str(result),
-                                data=updated_state.dict(),
-                            ).model_dump(),
-                        )
-                    )
-
-                    # clean up
-                    async with self.lock:
-                        self._outstanding_calls.pop(task_id, None)
-
+            if not self.running:
                 await asyncio.sleep(self.step_interval)
-            except Exception as e:
-                logger.error(f"Encountered error in processing loop! {str(e)}")
-                # dump the state
-                updated_state = self.dump_workflow_state(
-                    self.workflow, current_call.run_kwargs
-                )
+                continue
 
-                # return failure
-                await self.message_queue.publish(
-                    QueueMessage(
-                        type=CONTROL_PLANE_NAME,
-                        action=ActionTypes.COMPLETED_TASK,
-                        data=TaskResult(
-                            task_id=task_id,
-                            history=[],
-                            result=str(e),
-                            data=updated_state.dict(),
-                        ).model_dump(),
-                    )
-                )
+            # Check for completed tasks
+            completed_tasks = [
+                task for task in self._ongoing_tasks.values() if task.done()
+            ]
+            for task in completed_tasks:
+                task_id = next(k for k, v in self._ongoing_tasks.items() if v == task)
+                self._ongoing_tasks.pop(task_id, None)
 
-                # clean up
-                async with self.lock:
-                    self._outstanding_calls.pop(task_id, None)
+            # Start new tasks
+            async with self.lock:
+                new_calls = [
+                    (t, c)
+                    for t, c in self._outstanding_calls.items()
+                    if t not in self._ongoing_tasks
+                ]
+
+            for task_id, current_call in new_calls:
+                if len(self._ongoing_tasks) >= self.max_concurrent_tasks:
+                    break
+                task = asyncio.create_task(self.process_call(task_id, current_call))
+                self._ongoing_tasks[task_id] = task
+
+            await asyncio.sleep(0.1)  # Small sleep to prevent busy-waiting
+
+    async def processing_loop(self) -> None:
+        """The processing loop for the service with non-blocking concurrent task execution."""
+        logger.info("Processing initiated.")
+
+        while True:
+            if not self.running:
+                await asyncio.sleep(self.step_interval)
+                continue
+
+            task_manager = asyncio.create_task(self.manage_tasks())
+
+            try:
+                await task_manager
+            finally:
+                task_manager.cancel()
+                await asyncio.gather(task_manager, return_exceptions=True)
 
     async def process_message(self, message: QueueMessage) -> None:
         """Process a message received from the message queue."""
