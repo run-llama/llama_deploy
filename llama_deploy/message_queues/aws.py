@@ -85,6 +85,13 @@ class AWSMessageQueue(BaseMessageQueue):
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize AWSMessageQueue with config."""
+        try:
+            from botocore.config import Config
+        except ImportError:
+            raise ValueError(
+                "Missing `botocore` package. Please install by running `pip install llama-deploy[aws]`."
+            )
+
         super().__init__(**kwargs)
         self._aio_session = None
 
