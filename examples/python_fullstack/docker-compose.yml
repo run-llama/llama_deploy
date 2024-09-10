@@ -1,14 +1,7 @@
+include:
+  - path: ../../docker/docker-compose-simple.yml
+
 services:
-  message_queue:
-    extends:
-      file: ../../docker/docker-compose.yml
-      service: message_queue
-
-  control_plane:
-    extends:
-      file: ../../docker/docker-compose.yml
-      service: control_plane
-
   qdrant:
     image: qdrant/qdrant:latest
     ports:
