@@ -4,6 +4,7 @@ ARG dist_image
 FROM $build_image AS build-image
 
 ARG llama_deploy_version
+ARG llama_deploy_extras=""
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -20,7 +21,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Install llama_deploy
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir .
+    pip install --no-cache-dir ".$llama_deploy_extras"
 
 FROM $dist_image AS final
 

@@ -49,5 +49,6 @@ target "message_queue" {
     args = {
         entrypoint_script = "message_queue.py"
         exposed_port = 8000
+        llama_deploy_extras = "[rabbitmq, kafka, redis]"
     }
 }
