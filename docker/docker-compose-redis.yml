@@ -1,0 +1,49 @@
+services:
+  redis:
+    image: redis:latest
+    hostname: redis
+    volumes:
+      - redis_data:/var/lib/redis/
+    healthcheck:
+      test: redis-cli --raw incr ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  message_queue:
+    image: llamaindex/llama-deploy:message-queue-local
+    environment:
+      MESSAGE_QUEUE_CONFIG: redis
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8001/"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  control_plane:
+    image: llamaindex/llama-deploy:control-plane-local
+    environment:
+      CONTROL_PLANE_HOST: control_plane
+      CONTROL_PLANE_PORT: 8000
+      CONTROL_PLANE_INTERNAL_HOST: 0.0.0.0
+      CONTROL_PLANE_INTERNAL_PORT: 8000
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    ports:
+      - "8000:8000"
+    depends_on:
+      message_queue:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+volumes:
+  redis_data:
