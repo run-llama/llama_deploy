@@ -235,6 +235,17 @@ class WorkflowService(BaseService):
         )
 
     async def process_call(self, task_id: str, current_call: WorkflowState) -> None:
+        """Processes a given task, and writes a response to the message queue.
+
+        Handles errors with a generic try/except, and publishes the error message
+        as the result.
+
+        Args:
+            task_id (str):
+                The task ID being processed
+            current_call (WorkflowState):
+                The state of the current task, including run_kwargs and other session state.
+        """
         try:
             # load the state
             self.load_workflow_state(self.workflow, current_call)
@@ -286,6 +297,13 @@ class WorkflowService(BaseService):
             self._ongoing_tasks.pop(task_id, None)
 
     async def manage_tasks(self) -> None:
+        """Acts as a manager to process outstanding tasks from a queue.
+
+        Limits number of tasks in progress to `self.max_concurrent_tasks`.
+
+        If the number of ongoing tasks is greater than or equal to `self.max_concurrent_tasks`,
+        they are buffered until there is room to run it.
+        """
         while True:
             if not self.running:
                 await asyncio.sleep(self.step_interval)
