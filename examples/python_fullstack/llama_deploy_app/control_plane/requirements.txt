@@ -1,1 +1,2 @@
 llama-deploy>=0.1.0b20
+botocore==1.35.15
