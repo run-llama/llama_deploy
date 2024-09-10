@@ -4,11 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "llama-deploy"
-<<<<<<< HEAD
 version = "0.1.2"
-=======
-version = "0.1.2a1"
->>>>>>> ade5eda (delay imports of optional deps in aws.py)
 description = ""
 authors = ["Logan Markewich <logan.markewich@live.com>", "Andrei Fajardo <andrei@runllama.ai>"]
 maintainers = [
