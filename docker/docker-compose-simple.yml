@@ -1,12 +1,13 @@
 services:
   message_queue:
-    image: llamaindex/llama-deploy:message-queue-local
+    image: llamaindex/llama-deploy:local
     environment:
-      MESSAGE_QUEUE_CONFIG: simple
       SIMPLE_MESSAGE_QUEUE_HOST: message_queue
       SIMPLE_MESSAGE_QUEUE_PORT: 8001
       SIMPLE_MESSAGE_QUEUE_INTERNAL_HOST: 0.0.0.0
       SIMPLE_MESSAGE_QUEUE_INTERNAL_PORT: 8001
+      MESSAGE_QUEUE_CONFIG: simple
+      RUN_CONTROL_PLANE: false
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:8001/"]
       interval: 60s
@@ -15,7 +16,7 @@ services:
       start_period: 20s
 
   control_plane:
-    image: llamaindex/llama-deploy:control-plane-local
+    image: llamaindex/llama-deploy:local
     environment:
       CONTROL_PLANE_HOST: control_plane
       CONTROL_PLANE_PORT: 8000
@@ -23,6 +24,8 @@ services:
       CONTROL_PLANE_INTERNAL_PORT: 8000
       SIMPLE_MESSAGE_QUEUE_HOST: message_queue
       SIMPLE_MESSAGE_QUEUE_PORT: 8001
+      MESSAGE_QUEUE_CONFIG: simple
+      RUN_MESSAGE_QUEUE: false
     ports:
       - "8000:8000"
     depends_on:

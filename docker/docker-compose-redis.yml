@@ -13,7 +13,7 @@ services:
       retries: 5
 
   control_plane:
-    image: llamaindex/llama-deploy:control-plane-local
+    image: llamaindex/llama-deploy:local
     environment:
       CONTROL_PLANE_HOST: control_plane
       CONTROL_PLANE_PORT: 8000
@@ -22,6 +22,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       MESSAGE_QUEUE_CONFIG: redis
+      RUN_MESSAGE_QUEUE: false
     ports:
       - "8000:8000"
     depends_on:
