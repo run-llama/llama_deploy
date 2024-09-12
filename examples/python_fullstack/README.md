@@ -19,10 +19,6 @@ Then, a simple frontend is built using [reflex](https://reflex.dev/) to allow yo
 
 Let's walk through the important files and folders:
 
-- `message_queue/`: The deployment code for the message queue
-  - `message_queue/deploy.py`: The entrypoint for the dockerfile, which is used to deploy the message queue.
-- `control_plane/`: The deployment code for the control plane.
-  - `control_plane/deploy.py`: The entrypoint for the dockerfile, which is used to deploy the control plane.
 - `frontend/`: A simple frontend built using [reflex](https://reflex.dev/) to allow you to chat with the deployed RAG workflow and the agentic workflow.
   - `frontend/frontend/frontend.py`: The `reflex` app definition. Builds a basic chat UI.
   - `frontend/frontend/state.py`: The state management for the frontend. This is where we actually connect to the llama-deploy api to chat with the workflows.
@@ -31,6 +27,14 @@ Let's walk through the important files and folders:
   - `workflows/agent_workflow.py`: The agentic workflow that uses the RAG workflow.
   - `workflows/rag_workflow.py`: The RAG workflow. This includes indexing with a qdrant vector store, retrieval, reranking with RankGPT, and a response synthesis step.
   - `workflows/deploy.py`: The entrypoint for the dockerfile, which is used to deploy the workflows. The `DEPLOY_SETTINGS_NAME` environment variable is used to determine which workflow to deploy.
+
+To orchestrate the core components of `llama_deploy` all you have to do is to include in your `docker-compose.py` one
+of the pre-built compose files from this repository, like this:
+
+```yaml
+include:
+  - path: ../../docker/docker-compose-redis.yml
+```
 
 ### Dependencies
 
@@ -53,10 +57,6 @@ The project relies on several key libraries:
 
   - Port: 8000
 
-- Message Queue:
-
-  - Port: 8001
-
 - RAG Workflow Service:
 
   - Port: 8002
@@ -73,6 +73,13 @@ The project relies on several key libraries:
 
 - Qdrant:
   - Port: 6333
+
+The message queue service can be different, depending on the backend of choice. In this example, Redis is used, so
+you would also see this service running:
+
+- Redis
+
+  - Port: 6379
 
 ## Extensibility
 
