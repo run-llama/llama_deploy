@@ -132,7 +132,9 @@ class AWSMessageQueue(BaseMessageQueue):
                 }
             )
         else:
-            logger.info("Using default AWS credential provider chain (IAM Role or environment variables).")
+            logger.info(
+                "Using default AWS credential provider chain (IAM Role or environment variables)."
+            )
 
         return session.create_client(service_name, **client_kwargs)
 
