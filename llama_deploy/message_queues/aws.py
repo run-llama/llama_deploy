@@ -15,8 +15,7 @@ from llama_deploy.message_consumers.base import (
 )
 
 if TYPE_CHECKING:
-    from aiobotocore.session import AioSession
-    from aiobotocore.client import AioBaseClient
+    from aiobotocore.session import AioSession, ClientCreatorContext
     from botocore.config import Config
 
 logger = getLogger(__name__)
@@ -123,7 +122,8 @@ class AWSMessageQueue(BaseMessageQueue):
             self._aio_session = get_session()
         return self._aio_session
 
-    async def _get_client(self, service_name: str) -> "AioBaseClient":
+    def _get_client(self, service_name: str) -> "ClientCreatorContext":
+        """Returns a client context manager."""
         session = self._get_aio_session()
         client_kwargs = {
             "region_name": self.aws_region,
@@ -140,13 +140,13 @@ class AWSMessageQueue(BaseMessageQueue):
                 }
             )
 
-        return await session.create_client(service_name, **client_kwargs)
+        return session.create_client(service_name, **client_kwargs)
 
     async def get_topic_by_name(self, topic_name: str) -> "Topic":
         """Get topic by name."""
         from botocore.exceptions import ClientError
 
-        async with await self._get_client("sns") as client:
+        async with self._get_client("sns") as client:
             try:
                 # First, check if the topic exists
                 response = await client.list_topics()
@@ -164,7 +164,7 @@ class AWSMessageQueue(BaseMessageQueue):
         """Create AWS SNS topic or return existing one."""
         from botocore.exceptions import ClientError
 
-        async with await self._get_client("sns") as client:
+        async with self._get_client("sns") as client:
             try:
                 # First, check if the topic exists
                 response = await client.list_topics()
@@ -189,7 +189,7 @@ class AWSMessageQueue(BaseMessageQueue):
         """Create AWS SQS Fifo queue or return existing one."""
         from botocore.exceptions import ClientError
 
-        async with await self._get_client("sqs") as client:
+        async with self._get_client("sqs") as client:
             try:
                 # Check if queue exists
                 response = await client.list_queues(QueueNamePrefix=queue_name)
@@ -218,7 +218,7 @@ class AWSMessageQueue(BaseMessageQueue):
 
     async def _update_queue_policy(self, queue: "Queue", topic: "Topic") -> None:
         """Update SQS queue policy to allow SNS topic to send messages."""
-        async with await self._get_client("sqs") as client:
+        async with self._get_client("sqs") as client:
             policy = json.dumps(
                 {
                     "Version": "2012-10-17",
@@ -243,7 +243,7 @@ class AWSMessageQueue(BaseMessageQueue):
         """Subscribe SQS queue to the SNS topic and apply the queue policy."""
         from botocore.exceptions import ClientError
 
-        async with await self._get_client("sns") as client:
+        async with self._get_client("sns") as client:
             try:
                 response = await client.subscribe(
                     TopicArn=topic.arn, Protocol="sqs", Endpoint=queue.arn
@@ -270,7 +270,7 @@ class AWSMessageQueue(BaseMessageQueue):
         topic = await self.get_topic_by_name(message.type)
 
         try:
-            async with await self._get_client("sns") as client:
+            async with self._get_client("sns") as client:
                 response = await client.publish(
                     TopicArn=topic.arn,
                     Message=message_body,
@@ -290,7 +290,7 @@ class AWSMessageQueue(BaseMessageQueue):
         """Perform cleanup of queues and topics."""
         from botocore.exceptions import ClientError
 
-        async with await self._get_client("sqs") as sqs_client, await self._get_client(
+        async with self._get_client("sqs") as sqs_client, self._get_client(
             "sns"
         ) as sns_client:
             # Delete all SQS queues
@@ -323,7 +323,7 @@ class AWSMessageQueue(BaseMessageQueue):
         async def start_consuming_callable() -> None:
             """Start consuming messages."""
             while True:
-                async with await self._get_client("sqs") as client:
+                async with self._get_client("sqs") as client:
                     try:
                         response = await client.receive_message(
                             QueueUrl=queue.url,
