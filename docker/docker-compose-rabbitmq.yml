@@ -1,0 +1,46 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    hostname: "rabbitmq"
+    environment:
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq:/var/lib/rabbitmq/
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 10s
+      timeout: 10s
+      retries: 5
+
+  control_plane:
+    image: llamaindex/llama-deploy:local
+    environment:
+      CONTROL_PLANE_HOST: control_plane
+      CONTROL_PLANE_PORT: 8000
+      CONTROL_PLANE_INTERNAL_HOST: 0.0.0.0
+      CONTROL_PLANE_INTERNAL_PORT: 8000
+      MESSAGE_QUEUE_CONFIG: rabbitmq
+      RUN_MESSAGE_QUEUE: false
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USERNAME: guest
+      RABBITMQ_PASSWORD: guest
+    ports:
+      - "8000:8000"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  rabbitmq:
