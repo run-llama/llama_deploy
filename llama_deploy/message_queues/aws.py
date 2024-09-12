@@ -48,20 +48,9 @@ class AWSMessageQueueConfig(BaseSettings):
     model_config = SettingsConfigDict()
 
     aws_region: str
+    aws_profile: Optional[str] = Field(default=None, exclude=True)
     aws_access_key_id: Optional[str] = Field(default=None, exclude=True)
     aws_secret_access_key: Optional[str] = Field(default=None, exclude=True)
-
-    def model_post_init(self, __context: Any) -> None:
-        if not self.aws_region:
-            raise ValueError("AWS region must be provided.")
-
-    def get_credentials(self) -> Dict[str, Optional[str]]:
-        """Returns the AWS credentials, defaulting to environment-based credentials if not provided."""
-        return {
-            "aws_access_key_id": self.aws_access_key_id,
-            "aws_secret_access_key": self.aws_secret_access_key,
-        }
-
 
 class AWSMessageQueue(BaseMessageQueue):
     """AWS SQS integration with aiobotocore client.
@@ -69,17 +58,37 @@ class AWSMessageQueue(BaseMessageQueue):
     This class creates and interacts with SNS topics and SQS queues. It includes methods
     for publishing messages to the queue and registering consumers to process messages.
 
+    Authentication:
+    The class attempts authentication methods in the following order:
+    1. AWS CLI named profile: Specified via aws_profile attribute.
+    2. Explicit credentials: Provided via aws_access_key_id and aws_secret_access_key attributes.
+    3. Default credential chain:
+       - Environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+       - Shared credential file (~/.aws/credentials)
+       - IAM Role: Automatically used when deployed on AWS infrastructure (EC2, ECS, etc.)
+
+    Region selection:
+    - aws_region must be provided.
+
+    IAM Roles are strongly recommended for production deployments on AWS infrastructure (EC2, ECS).
+    For local development, environment variables or the shared credential file are preferred.
+    Explicit credentials should be avoided in production due to security risks.
+
     Attributes:
-        aws_region (str): The AWS region where the SNS topics and SQS queues are located.
+        aws_region (str): The AWS region for SNS topics and SQS queues.
+        aws_profile (Optional[str]): AWS CLI profile name for credentials.
+        aws_access_key_id (Optional[SecretStr]): AWS access key ID (not recommended).
+        aws_secret_access_key (Optional[SecretStr]): AWS secret access key (not recommended).
     """
 
     aws_region: str
-    aws_access_key_id: Optional[SecretStr]
-    aws_secret_access_key: Optional[SecretStr]
+    aws_profile: Optional[str] = None
+    aws_access_key_id: Optional[SecretStr] = None
+    aws_secret_access_key: Optional[SecretStr] = None
     topics: List["Topic"] = []
     queues: List["Queue"] = []
     subscriptions: List["Subscription"] = []
-
+    
     _aio_session: Optional["AioSession"] = PrivateAttr(None)
     _retry_config: "Config" = PrivateAttr()
 
@@ -97,21 +106,9 @@ class AWSMessageQueue(BaseMessageQueue):
 
         # AWS retry configuration with exponential backoff
         self._retry_config = Config(retries={"max_attempts": 5, "mode": "adaptive"})
-
-    def get_credentials(self) -> Dict[str, Optional[str]]:
-        """Returns the AWS credentials, defaulting to environment-based credentials if not provided."""
-        return {
-            "aws_access_key_id": (
-                self.aws_access_key_id.get_secret_value()
-                if self.aws_access_key_id
-                else ""
-            ),
-            "aws_secret_access_key": (
-                self.aws_secret_access_key.get_secret_value()
-                if self.aws_secret_access_key
-                else ""
-            ),
-        }
+        
+        if not self.aws_region:
+            raise ValueError("AWS region must be provided.")
 
     def _get_aio_session(self) -> "AioSession":
         if self._aio_session is None:
@@ -124,19 +121,28 @@ class AWSMessageQueue(BaseMessageQueue):
             self._aio_session = get_session()
         return self._aio_session
 
+    async def _get_client(self, service_name: str):
+        session = self._get_aio_session()
+        client_kwargs = {
+            "region_name": self.aws_region,
+            "config": self._retry_config,
+        }
+
+        if self.aws_profile:
+            client_kwargs["profile"] = self.aws_profile
+        elif self.aws_access_key_id and self.aws_secret_access_key:
+            client_kwargs.update({
+                "aws_access_key_id": self.aws_access_key_id.get_secret_value(),
+                "aws_secret_access_key": self.aws_secret_access_key.get_secret_value(),
+            })
+
+        return await session.create_client(service_name, **client_kwargs)
+
     async def get_topic_by_name(self, topic_name: str) -> "Topic":
         """Get topic by name."""
         from botocore.exceptions import ClientError
 
-        session = self._get_aio_session()
-        credentials = self.get_credentials()
-
-        async with session.create_client(
-            "sns",
-            region_name=self.aws_region,
-            config=self._retry_config,
-            **credentials,
-        ) as client:
+        async with await self._get_client("sns") as client:
             try:
                 # First, check if the topic exists
                 response = await client.list_topics()
@@ -154,15 +160,7 @@ class AWSMessageQueue(BaseMessageQueue):
         """Create AWS SNS topic or return existing one."""
         from botocore.exceptions import ClientError
 
-        session = self._get_aio_session()
-        credentials = self.get_credentials()
-
-        async with session.create_client(
-            "sns",
-            region_name=self.aws_region,
-            config=self._retry_config,
-            **credentials,
-        ) as client:
+        async with await self._get_client("sns") as client:
             try:
                 # First, check if the topic exists
                 response = await client.list_topics()
@@ -187,15 +185,7 @@ class AWSMessageQueue(BaseMessageQueue):
         """Create AWS SQS Fifo queue or return existing one."""
         from botocore.exceptions import ClientError
 
-        session = self._get_aio_session()
-        credentials = self.get_credentials()
-
-        async with session.create_client(
-            "sqs",
-            region_name=self.aws_region,
-            config=self._retry_config,
-            **credentials,
-        ) as client:
+        async with await self._get_client("sqs") as client:
             try:
                 # Check if queue exists
                 response = await client.list_queues(QueueNamePrefix=queue_name)
@@ -224,15 +214,7 @@ class AWSMessageQueue(BaseMessageQueue):
 
     async def _update_queue_policy(self, queue: "Queue", topic: "Topic") -> None:
         """Update SQS queue policy to allow SNS topic to send messages."""
-        session = self._get_aio_session()
-        credentials = self.get_credentials()
-
-        async with session.create_client(
-            "sqs",
-            region_name=self.aws_region,
-            config=self._retry_config,
-            **credentials,
-        ) as client:
+        async with await self._get_client("sqs") as client:
             policy = json.dumps(
                 {
                     "Version": "2012-10-17",
@@ -257,15 +239,7 @@ class AWSMessageQueue(BaseMessageQueue):
         """Subscribe SQS queue to the SNS topic and apply the queue policy."""
         from botocore.exceptions import ClientError
 
-        session = self._get_aio_session()
-        credentials = self.get_credentials()
-
-        async with session.create_client(
-            "sns",
-            region_name=self.aws_region,
-            config=self._retry_config,
-            **credentials,
-        ) as client:
+        async with await self._get_client("sns") as client:
             try:
                 response = await client.subscribe(
                     TopicArn=topic.arn, Protocol="sqs", Endpoint=queue.arn
@@ -290,16 +264,9 @@ class AWSMessageQueue(BaseMessageQueue):
 
         message_body = json.dumps(message.model_dump())
         topic = await self.get_topic_by_name(message.type)
-        session = self._get_aio_session()
-        credentials = self.get_credentials()
 
         try:
-            async with session.create_client(
-                "sns",
-                region_name=self.aws_region,
-                config=self._retry_config,
-                **credentials,
-            ) as client:
+            async with await self._get_client("sns") as client:
                 response = await client.publish(
                     TopicArn=topic.arn,
                     Message=message_body,
@@ -319,20 +286,7 @@ class AWSMessageQueue(BaseMessageQueue):
         """Perform cleanup of queues and topics."""
         from botocore.exceptions import ClientError
 
-        session = self._get_aio_session()
-        credentials = self.get_credentials()
-
-        async with session.create_client(
-            "sqs",
-            region_name=self.aws_region,
-            config=self._retry_config,
-            **credentials,
-        ) as sqs_client, session.create_client(
-            "sns",
-            region_name=self.aws_region,
-            config=self._retry_config,
-            **credentials,
-        ) as sns_client:
+        async with await self._get_client("sqs") as sqs_client, await self._get_client("sns") as sns_client:
             # Delete all SQS queues
             for queue in self.queues:
                 try:
@@ -363,15 +317,7 @@ class AWSMessageQueue(BaseMessageQueue):
         async def start_consuming_callable() -> None:
             """Start consuming messages."""
             while True:
-                session = self._get_aio_session()
-                credentials = self.get_credentials()
-
-                async with session.create_client(
-                    "sqs",
-                    region_name=self.aws_region,
-                    config=self._retry_config,
-                    **credentials,
-                ) as client:
+                async with await self._get_client("sqs") as client:
                     try:
                         response = await client.receive_message(
                             QueueUrl=queue.url,
@@ -395,7 +341,11 @@ class AWSMessageQueue(BaseMessageQueue):
         return start_consuming_callable
 
     def as_config(self) -> BaseModel:
-        return AWSMessageQueueConfig(aws_region=self.aws_region)
+        """Return the current configuration as an AWSMessageQueueConfig object."""
+        config = AWSMessageQueueConfig(aws_region=self.aws_region)
+        if self.aws_profile:
+            config.aws_profile = self.aws_profile
+        return config
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         """Deregister a consumer.
@@ -424,3 +374,11 @@ class AWSMessageQueue(BaseMessageQueue):
         Not relevant for this class. AWS SQS server should already be available.
         """
         pass
+
+    async def publish(self, message: QueueMessage) -> None:
+        """Publish a message to the queue."""
+        await self._publish(message)
+
+    async def cleanup(self, message_types: List[str]) -> None:
+        """Clean up resources associated with the given message types."""
+        await self.cleanup_local(message_types)

@@ -60,10 +60,7 @@ def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
         queue = SimpleMessageQueue(**config.model_dump())
         return queue.client
     elif isinstance(config, AWSMessageQueueConfig):
-        params = config.model_dump()
-        # add secrets
-        params.update(config.get_credentials())
-        return AWSMessageQueue(**params)
+        return AWSMessageQueue(**config.model_dump())
     elif isinstance(config, KafkaMessageQueueConfig):
         return KafkaMessageQueue(
             **config.model_dump(),
