@@ -10,6 +10,7 @@ services:
     volumes:
       - ./_app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
       - ./logging.ini:/app/logging.ini
+      # - ~/.aws/credentials:/home/appuser/.aws/credentials:ro  # use if want to load creds from /.aws/credentials NOTE: must also set AWS_REGION
     platform: linux/amd64
     build:
       context: .
@@ -32,6 +33,7 @@ services:
     volumes:
       - ./_app/multi_workflows_app:/app/multi_workflows_app # load local code change to container without the need of rebuild
       - ./logging.ini:/app/logging.ini
+      # - ~/.aws/credentials:/home/appuser/.aws/credentials:ro  # use if want to load creds from /.aws/credentials
     platform: linux/amd64
     depends_on:
       control_plane:

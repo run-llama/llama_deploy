@@ -104,6 +104,11 @@ class AWSMessageQueue(BaseMessageQueue):
         if not self.aws_region:
             raise ValueError("AWS region must be provided.")
 
+        if not self.aws_access_key_id and not self.aws_secret_access_key:
+            logger.info(
+                "Using default AWS credential provider chain (IAM Role or environment variables)."
+            )
+
     def _get_aio_session(self) -> "AioSession":
         if self._aio_session is None:
             try:
@@ -130,10 +135,6 @@ class AWSMessageQueue(BaseMessageQueue):
                     "aws_access_key_id": self.aws_access_key_id.get_secret_value(),
                     "aws_secret_access_key": self.aws_secret_access_key.get_secret_value(),
                 }
-            )
-        else:
-            logger.info(
-                "Using default AWS credential provider chain (IAM Role or environment variables)."
             )
 
         return session.create_client(service_name, **client_kwargs)
