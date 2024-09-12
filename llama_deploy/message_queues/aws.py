@@ -48,7 +48,6 @@ class AWSMessageQueueConfig(BaseSettings):
     model_config = SettingsConfigDict()
 
     aws_region: str
-    aws_profile: Optional[str] = Field(default=None, exclude=True)
     aws_access_key_id: Optional[str] = Field(default=None, exclude=True)
     aws_secret_access_key: Optional[str] = Field(default=None, exclude=True)
 
@@ -61,29 +60,23 @@ class AWSMessageQueue(BaseMessageQueue):
 
     Authentication:
     The class attempts authentication methods in the following order:
-    1. AWS CLI named profile: Specified via aws_profile attribute.
-    2. Explicit credentials: Provided via aws_access_key_id and aws_secret_access_key attributes.
-    3. Default credential chain:
-       - Environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
-       - Shared credential file (~/.aws/credentials)
-       - IAM Role: Automatically used when deployed on AWS infrastructure (EC2, ECS, etc.)
+    1. IAM Role: Automatically used when deployed on AWS infrastructure (EC2, ECS, etc.).
+    2. Environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY (fallback).
 
     Region selection:
     - aws_region must be provided.
 
     IAM Roles are strongly recommended for production deployments on AWS infrastructure (EC2, ECS).
-    For local development, environment variables or the shared credential file are preferred.
-    Explicit credentials should be avoided in production due to security risks.
+    For local development, environment variables can be used. Explicit credentials should be avoided
+    in production due to security risks.
 
     Attributes:
         aws_region (str): The AWS region for SNS topics and SQS queues.
-        aws_profile (Optional[str]): AWS CLI profile name for credentials.
-        aws_access_key_id (Optional[SecretStr]): AWS access key ID (not recommended).
-        aws_secret_access_key (Optional[SecretStr]): AWS secret access key (not recommended).
+        aws_access_key_id (Optional[SecretStr]): AWS access key ID (fallback to environment variables).
+        aws_secret_access_key (Optional[SecretStr]): AWS secret access key (fallback to environment variables).
     """
 
     aws_region: str
-    aws_profile: Optional[str] = None
     aws_access_key_id: Optional[SecretStr] = None
     aws_secret_access_key: Optional[SecretStr] = None
     topics: List["Topic"] = []
@@ -130,15 +123,16 @@ class AWSMessageQueue(BaseMessageQueue):
             "config": self._retry_config,
         }
 
-        if self.aws_profile:
-            client_kwargs["profile"] = self.aws_profile
-        elif self.aws_access_key_id and self.aws_secret_access_key:
+        # IAM Role or environment variable fallback
+        if self.aws_access_key_id and self.aws_secret_access_key:
             client_kwargs.update(
                 {
                     "aws_access_key_id": self.aws_access_key_id.get_secret_value(),
                     "aws_secret_access_key": self.aws_secret_access_key.get_secret_value(),
                 }
             )
+        else:
+            logger.info("Using default AWS credential provider chain (IAM Role or environment variables).")
 
         return session.create_client(service_name, **client_kwargs)
 
@@ -349,8 +343,6 @@ class AWSMessageQueue(BaseMessageQueue):
     def as_config(self) -> BaseModel:
         """Return the current configuration as an AWSMessageQueueConfig object."""
         config = AWSMessageQueueConfig(aws_region=self.aws_region)
-        if self.aws_profile:
-            config.aws_profile = self.aws_profile
         return config
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
