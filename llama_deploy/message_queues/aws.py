@@ -16,6 +16,7 @@ from llama_deploy.message_consumers.base import (
 
 if TYPE_CHECKING:
     from aiobotocore.session import AioSession
+    from aiobotocore.client import AioBaseClient
     from botocore.config import Config
 
 logger = getLogger(__name__)
@@ -51,6 +52,7 @@ class AWSMessageQueueConfig(BaseSettings):
     aws_profile: Optional[str] = Field(default=None, exclude=True)
     aws_access_key_id: Optional[str] = Field(default=None, exclude=True)
     aws_secret_access_key: Optional[str] = Field(default=None, exclude=True)
+
 
 class AWSMessageQueue(BaseMessageQueue):
     """AWS SQS integration with aiobotocore client.
@@ -88,7 +90,7 @@ class AWSMessageQueue(BaseMessageQueue):
     topics: List["Topic"] = []
     queues: List["Queue"] = []
     subscriptions: List["Subscription"] = []
-    
+
     _aio_session: Optional["AioSession"] = PrivateAttr(None)
     _retry_config: "Config" = PrivateAttr()
 
@@ -106,7 +108,7 @@ class AWSMessageQueue(BaseMessageQueue):
 
         # AWS retry configuration with exponential backoff
         self._retry_config = Config(retries={"max_attempts": 5, "mode": "adaptive"})
-        
+
         if not self.aws_region:
             raise ValueError("AWS region must be provided.")
 
@@ -121,7 +123,7 @@ class AWSMessageQueue(BaseMessageQueue):
             self._aio_session = get_session()
         return self._aio_session
 
-    async def _get_client(self, service_name: str):
+    async def _get_client(self, service_name: str) -> "AioBaseClient":
         session = self._get_aio_session()
         client_kwargs = {
             "region_name": self.aws_region,
@@ -131,10 +133,12 @@ class AWSMessageQueue(BaseMessageQueue):
         if self.aws_profile:
             client_kwargs["profile"] = self.aws_profile
         elif self.aws_access_key_id and self.aws_secret_access_key:
-            client_kwargs.update({
-                "aws_access_key_id": self.aws_access_key_id.get_secret_value(),
-                "aws_secret_access_key": self.aws_secret_access_key.get_secret_value(),
-            })
+            client_kwargs.update(
+                {
+                    "aws_access_key_id": self.aws_access_key_id.get_secret_value(),
+                    "aws_secret_access_key": self.aws_secret_access_key.get_secret_value(),
+                }
+            )
 
         return await session.create_client(service_name, **client_kwargs)
 
@@ -286,7 +290,9 @@ class AWSMessageQueue(BaseMessageQueue):
         """Perform cleanup of queues and topics."""
         from botocore.exceptions import ClientError
 
-        async with await self._get_client("sqs") as sqs_client, await self._get_client("sns") as sns_client:
+        async with await self._get_client("sqs") as sqs_client, await self._get_client(
+            "sns"
+        ) as sns_client:
             # Delete all SQS queues
             for queue in self.queues:
                 try:
@@ -374,10 +380,6 @@ class AWSMessageQueue(BaseMessageQueue):
         Not relevant for this class. AWS SQS server should already be available.
         """
         pass
-
-    async def publish(self, message: QueueMessage) -> None:
-        """Publish a message to the queue."""
-        await self._publish(message)
 
     async def cleanup(self, message_types: List[str]) -> None:
         """Clean up resources associated with the given message types."""

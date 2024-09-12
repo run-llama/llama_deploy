@@ -74,9 +74,7 @@ client = LlamaDeployClient(control_plane_config)
 
 # Start a session and run the funny joke workflow
 session = client.create_session()
-result = session.run(
-    "funny_joke_workflow", input="llamas"
-)
+result = session.run("funny_joke_workflow", input="llamas")
 
 # Print the result
 print(result)
