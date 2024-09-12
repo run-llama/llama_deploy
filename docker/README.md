@@ -38,8 +38,11 @@ multiple platforms feature is currently not supported for docker driver. Please 
 (eg. “docker buildx create --use”)
 ```
 
-To work around this problem, one solution is to override the `platform` option and
-limit local builds to the same architecture as your computer's. For example, on an Apple M1 you can limit the builds to ARM only by invoking `bake` like this:
+Make sure `containerd` image store is enabled, following the instruction in the [Docker documentation](https://docs.docker.com/build/building/multi-platform/#enable-the-containerd-image-store).
+
+If the problem persists, one solution is to override the `platform` option and
+limit local builds to the same architecture as your computer's. For example, on an Apple M1 you can limit the builds
+to ARM only by invoking `bake` like this:
 
 ```sh
 docker buildx bake control_plane --set "*.platform=linux/arm64"
