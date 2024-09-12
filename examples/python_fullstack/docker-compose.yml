@@ -1,4 +1,5 @@
-version: "3.8"
+include:
+  - path: ../../docker/docker-compose-redis.yml
 
 services:
   qdrant:
@@ -9,61 +10,14 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
-  message_queue:
-    build:
-      context: ./llama_deploy_app/message_queue
-      dockerfile: dockerfile
-    environment:
-      SIMPLE_MESSAGE_QUEUE_HOST: message_queue
-      SIMPLE_MESSAGE_QUEUE_PORT: 8001
-      SIMPLE_MESSAGE_QUEUE_INTERNAL_HOST: 0.0.0.0
-      SIMPLE_MESSAGE_QUEUE_INTERNAL_PORT: 8001
-    ports:
-      - "8001:8001"
-    volumes:
-      - ./llama_deploy_app/message_queue:/app
-    depends_on:
-      - qdrant
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8001/"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
-  control_plane:
-    build:
-      context: ./llama_deploy_app/control_plane
-      dockerfile: dockerfile
-    environment:
-      CONTROL_PLANE_HOST: control_plane
-      CONTROL_PLANE_PORT: 8000
-      CONTROL_PLANE_INTERNAL_HOST: 0.0.0.0
-      CONTROL_PLANE_INTERNAL_PORT: 8000
-      SIMPLE_MESSAGE_QUEUE_HOST: message_queue
-      SIMPLE_MESSAGE_QUEUE_PORT: 8001
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./llama_deploy_app/control_plane:/app
-    depends_on:
-      message_queue:
-        condition: service_started
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
   rag_workflow:
     build:
-      context: ./llama_deploy_app/workflows
+      context: ./workflows
       dockerfile: dockerfile
     ports:
       - "8002:8002"
     volumes:
-      - ./llama_deploy_app/workflows:/app
+      - ./workflows:/app
     depends_on:
       control_plane:
         condition: service_started
@@ -83,12 +37,12 @@ services:
 
   agentic_workflow:
     build:
-      context: ./llama_deploy_app/workflows
+      context: ./workflows
       dockerfile: dockerfile
     ports:
       - "8003:8003"
     volumes:
-      - ./llama_deploy_app/workflows:/app
+      - ./workflows:/app
     depends_on:
       control_plane:
         condition: service_started
@@ -108,7 +62,7 @@ services:
 
   frontend:
     build:
-      context: ./llama_deploy_app/frontend
+      context: ./frontend
       dockerfile: dockerfile
     environment:
       CONTROL_PLANE_HOST: control_plane
@@ -117,7 +71,7 @@ services:
       - "3000:3000"
       - "9000:8000"
     volumes:
-      - ./llama_deploy_app/frontend:/app
+      - ./frontend:/app
     depends_on:
       rag_workflow:
         condition: service_started

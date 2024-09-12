@@ -1,0 +1,39 @@
+ARG build_image
+ARG dist_image
+
+FROM $build_image AS build-image
+
+ARG llama_deploy_version
+ARG llama_deploy_extras=""
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    git
+
+# Shallow clone the repo, we install from git
+RUN git clone --depth=1 --branch=${llama_deploy_version} https://github.com/run-llama/llama_deploy.git /opt/llama_deploy
+WORKDIR /opt/llama_deploy
+
+# Use a virtualenv we can copy over the next build stage
+RUN python3 -m venv --system-site-packages /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install llama_deploy
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir ".$llama_deploy_extras"
+
+FROM $dist_image AS final
+
+ARG entrypoint_script
+ARG exposed_port
+
+EXPOSE ${exposed_port}
+
+COPY --from=build-image /opt/venv /opt/venv
+COPY ./$entrypoint_script /opt/${entrypoint_script}
+
+ENV PATH="/opt/venv/bin:$PATH"
+ENV ENTRYPOINT_SCRIPT=${entrypoint_script}
+
+ENTRYPOINT ["sh", "-c", "python /opt/${ENTRYPOINT_SCRIPT}"]
