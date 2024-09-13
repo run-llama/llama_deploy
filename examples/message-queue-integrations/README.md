@@ -39,16 +39,19 @@ below will spin the example app using the associated message queue.
 
 ```sh
 # simple message queue
-docker compose -f ./simple/docker/docker-compose.yml --project-directory ./ up --build
+docker compose -f ./simple/docker/docker-compose.yml --project-directory ./ up --build -d
+
+# aws
+docker compose -f ./aws/docker/docker-compose.yml --project-directory ./ up --build -d
 
 # kafka
-docker compose -f ./kafka/docker/docker-compose.yml --project-directory ./ up --build
+docker compose -f ./kafka/docker/docker-compose.yml --project-directory ./ up --build -d
 
 # rabbitmq
-docker compose -f ./rabbitmq/docker/docker-compose.yml --project-directory ./ up --build
+docker compose -f ./rabbitmq/docker/docker-compose.yml --project-directory ./ up --build -d
 
 # redis
-docker compose -f ./redis/docker/docker-compose.yml --project-directory ./ up --build
+docker compose -f ./redis/docker/docker-compose.yml --project-directory ./ up --build -d
 ```
 
 NOTE: In a real-world app, you would only use one of these message queues. So, in
@@ -63,12 +66,17 @@ Once the system is up and running, we can interact with it using the `LlamaDeplo
 from llama_deploy import LlamaDeployClient
 from llama_deploy.control_plane.server import ControlPlaneConfig
 
+# Set up control plane configuration
 control_plane_config = ControlPlaneConfig(host="0.0.0.0", port=8000)
+
+# Create a client to interact with the deployed system
 client = LlamaDeployClient(control_plane_config)
+
+# Start a session and run the funny joke workflow
 session = client.create_session()
-result = session.run(
-    "funny_joke_workflow", input="A baby llama is called a cria."
-)
+result = session.run("funny_joke_workflow", input="llamas")
+
+# Print the result
 print(result)
 ```
 

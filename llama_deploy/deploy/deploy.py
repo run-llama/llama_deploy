@@ -20,6 +20,8 @@ from llama_deploy.message_queues import (
     RedisMessageQueueConfig,
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
+    AWSMessageQueue,
+    AWSMessageQueueConfig,
 )
 from llama_deploy.orchestrators.simple import (
     SimpleOrchestrator,
@@ -41,6 +43,8 @@ def _get_message_queue_config(config_dict: dict) -> BaseSettings:
         return SimpleMessageQueueConfig(**config_dict[key])
     elif key == SimpleRemoteClientMessageQueue.__name__:
         return SimpleMessageQueueConfig(**config_dict[key])
+    elif key == AWSMessageQueueConfig.__name__:
+        return AWSMessageQueueConfig(**config_dict[key])
     elif key == KafkaMessageQueueConfig.__name__:
         return KafkaMessageQueueConfig(**config_dict[key])
     elif key == RabbitMQMessageQueueConfig.__name__:
@@ -55,6 +59,8 @@ def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
     if isinstance(config, SimpleMessageQueueConfig):
         queue = SimpleMessageQueue(**config.model_dump())
         return queue.client
+    elif isinstance(config, AWSMessageQueueConfig):
+        return AWSMessageQueue(**config.model_dump())
     elif isinstance(config, KafkaMessageQueueConfig):
         return KafkaMessageQueue(
             **config.model_dump(),

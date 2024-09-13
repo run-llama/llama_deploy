@@ -13,7 +13,7 @@ from llama_deploy.message_queues.simple import (
     SimpleMessageQueueConfig,
     SimpleRemoteClientMessageQueue,
 )
-
+from llama_deploy.message_queues.aws import AWSMessageQueue, AWSMessageQueueConfig
 
 __all__ = [
     "BaseMessageQueue",
@@ -26,4 +26,6 @@ __all__ = [
     "SimpleMessageQueue",
     "SimpleMessageQueueConfig",
     "SimpleRemoteClientMessageQueue",
+    "AWSMessageQueue",
+    "AWSMessageQueueConfig",
 ]

@@ -7,6 +7,7 @@ from llama_deploy.message_queues.apache_kafka import KafkaMessageQueueConfig
 from llama_deploy.message_queues.simple import SimpleMessageQueueConfig
 from llama_deploy.message_queues.rabbitmq import RabbitMQMessageQueueConfig
 from llama_deploy.message_queues.redis import RedisMessageQueueConfig
+from llama_deploy.message_queues.aws import AWSMessageQueueConfig
 
 
 control_plane_config = ControlPlaneConfig()
@@ -15,6 +16,7 @@ message_queue_configs = {
     "kafka": KafkaMessageQueueConfig(),
     "rabbitmq": RabbitMQMessageQueueConfig(),
     "redis": RedisMessageQueueConfig(),
+    "aws": AWSMessageQueueConfig(),
     "simple": SimpleMessageQueueConfig(),
 }
 
@@ -26,7 +28,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-q",
         "--message-queue",
-        choices=["rabbitmq", "simple", "kafka", "redis"],
+        choices=["rabbitmq", "simple", "kafka", "redis", "aws"],
         default="simple",
         type=str,
         help="The message queue to use.",
