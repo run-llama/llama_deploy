@@ -25,7 +25,7 @@ target "default" {
         build_image = "${BUILD_IMAGE}"
         dist_image = "${DIST_IMAGE}"
         llama_deploy_version = "${LLAMA_DEPLOY_VERSION}"
-        llama_deploy_extras = "[rabbitmq, kafka, redis]"
+        llama_deploy_extras = "[awssqs, rabbitmq, kafka, redis]"
         entrypoint_script = "entrypoint.py"
     }
     platforms = ["linux/amd64", "linux/arm64"]

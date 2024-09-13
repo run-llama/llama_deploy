@@ -6,9 +6,11 @@ from llama_deploy.message_queues.simple import SimpleMessageQueueConfig
 from llama_deploy.message_queues.apache_kafka import KafkaMessageQueueConfig
 from llama_deploy.message_queues.rabbitmq import RabbitMQMessageQueueConfig
 from llama_deploy.message_queues.redis import RedisMessageQueueConfig
+from llama_deploy.message_queues.aws import AWSMessageQueueConfig
 
 
 CONFIGS = {
+    "awssqs": AWSMessageQueueConfig(),
     "kafka": KafkaMessageQueueConfig(),
     "rabbitmq": RabbitMQMessageQueueConfig(),
     "redis": RedisMessageQueueConfig(),
