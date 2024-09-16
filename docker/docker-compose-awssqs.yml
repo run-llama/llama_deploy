@@ -1,0 +1,23 @@
+services:
+  control_plane:
+    image: llamaindex/llama-deploy:0.1.3
+    environment:
+      CONTROL_PLANE_HOST: control_plane
+      CONTROL_PLANE_PORT: 8000
+      CONTROL_PLANE_INTERNAL_HOST: 0.0.0.0
+      CONTROL_PLANE_INTERNAL_PORT: 8000
+      MESSAGE_QUEUE_CONFIG: awssqs
+      AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+      AWS_REGION: $AWS_REGION
+      RUN_MESSAGE_QUEUE: false
+    ports:
+      - "8000:8000"
+    volumes:
+      - ~/.aws/credentials:/root/.aws/credentials:ro # load creds from local
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8000/"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
