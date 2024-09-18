@@ -47,7 +47,7 @@ repos:
           [
             --disallow-untyped-defs,
             --ignore-missing-imports,
-            --python-version=3.8,
+            --python-version=3.11,
           ]
         exclude: examples/
   - repo: https://github.com/adamchainz/blacken-docs

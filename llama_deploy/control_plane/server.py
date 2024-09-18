@@ -1,10 +1,12 @@
+import asyncio
 import json
 import uuid
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from logging import getLogger
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Dict, List, Optional
+from typing import AsyncGenerator, Dict, List, Optional, Any
 
 from llama_index.core.storage.kvstore.types import BaseKVStore
 from llama_index.core.storage.kvstore import SimpleKVStore
@@ -217,6 +219,12 @@ class ControlPlaneServer(BaseControlPlane):
             methods=["GET"],
             tags=["Sessions"],
         )
+        self.app.add_api_route(
+            "/sessions/{session_id}/tasks/{task_id}/result_stream",
+            self.get_task_result_stream,
+            methods=["GET"],
+            tags=["Sessions"],
+        )
 
     @property
     def message_queue(self) -> BaseMessageQueue:
@@ -426,12 +434,13 @@ class ControlPlaneServer(BaseControlPlane):
             collection=self.session_store_key,
         )
 
-        # generate and send new tasks (if any)
-        task_def = await self.send_task_to_service(task_def)
+        # generate and send new tasks when needed
+        if task_result.is_last:
+            task_def = await self.send_task_to_service(task_def)
 
-        await self.state_store.aput(
-            task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
-        )
+            await self.state_store.aput(
+                task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
+            )
 
     async def get_task(self, task_id: str) -> TaskDefinition:
         state_dict = await self.state_store.aget(
@@ -460,23 +469,91 @@ class ControlPlaneServer(BaseControlPlane):
         if result_key not in session.state:
             return None
 
-        result = session.state[result_key]
-        if not isinstance(result, TaskResult):
-            if isinstance(result, dict):
-                result = TaskResult(**result)
-            elif isinstance(result, str):
-                result = TaskResult(**json.loads(result))
+        results = session.state[result_key]
+        last_result = results[-1]
+        if not isinstance(last_result, TaskResult):
+            if isinstance(last_result, dict):
+                last_result = TaskResult(**last_result)
+            elif isinstance(last_result, str):
+                last_result = TaskResult(**json.loads(last_result))
             else:
                 raise HTTPException(status_code=500, detail="Unexpected result type")
 
         # sanity check
-        if result.task_id != task_id:
+        if last_result.task_id != task_id:
             logger.debug(
-                f"Retrieved result did not match requested task_id: {str(result)}"
+                f"Retrieved result did not match requested task_id: {str(last_result)}"
             )
             return None
 
-        return result
+        if not last_result.is_last:
+            return None
+
+        return last_result
+
+    async def get_task_result_stream(
+        self, session_id: str, task_id: str
+    ) -> StreamingResponse:
+        session = await self.get_session(session_id)
+
+        result_key = get_result_key(task_id)
+        if result_key not in session.state:
+            raise HTTPException(status_code=404, detail="Task result not found")
+
+        async def event_generator(
+            session: SessionDefinition, result_key: str
+        ) -> AsyncGenerator[str | dict[str, Any], None]:
+            try:
+                results = session.state[result_key]
+                results = sorted(results, key=lambda x: x["index"])
+                for result in results:
+                    if not isinstance(result, TaskResult):
+                        if isinstance(result, dict):
+                            result = TaskResult(**result)
+                        elif isinstance(result, str):
+                            result = TaskResult(**json.loads(result))
+                        else:
+                            raise ValueError("Unexpected result type")
+
+                    yield json.dumps(result.model_dump()) + "\n"
+
+                    if result.is_last:
+                        return
+
+                # Continue to check for new results
+                while True:
+                    await asyncio.sleep(
+                        self.step_interval
+                    )  # Small delay to prevent tight loop
+                    session = await self.get_session(session_id)
+                    new_results = session.state[result_key][len(results) :]
+                    new_results = sorted(new_results, key=lambda x: x["index"])
+
+                    for result in new_results:
+                        if not isinstance(result, TaskResult):
+                            if isinstance(result, dict):
+                                result = TaskResult(**result)
+                            elif isinstance(result, str):
+                                result = TaskResult(**json.loads(result))
+                            else:
+                                raise ValueError("Unexpected result type")
+
+                        yield json.dumps(result.model_dump()) + "\n"
+
+                        if result.is_last:
+                            return
+
+                    # update results list used for indexing
+                    results.extend(new_results)
+            except Exception as e:
+                logger.error(
+                    f"Error in event stream for session {session_id}, task {task_id}: {str(e)}"
+                )
+                yield json.dumps({"error": str(e)}) + "\n"
+
+        return StreamingResponse(
+            event_generator(session, result_key), media_type="application/x-ndjson"
+        )
 
     async def get_message_queue_config(self) -> Dict[str, dict]:
         """
@@ -493,7 +570,6 @@ class ControlPlaneServer(BaseControlPlane):
 
 
 if __name__ == "__main__":
-    import asyncio
     from llama_deploy import SimpleMessageQueue, SimpleOrchestrator
 
     control_plane = ControlPlaneServer(SimpleMessageQueue(), SimpleOrchestrator())

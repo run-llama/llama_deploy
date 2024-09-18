@@ -146,12 +146,18 @@ class TaskResult(BaseModel):
             The task result.
         data (dict):
             Additional data about the task or result.
+        is_last (bool):
+            If not true, there are more results to be streamed.
+        index (int):
+            The index of the task in the session.
     """
 
     task_id: str
     history: List[ChatMessage]
     result: str
     data: dict = Field(default_factory=dict)
+    is_last: bool = False
+    index: int = 0
 
 
 class ToolCallBundle(BaseModel):

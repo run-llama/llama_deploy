@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import AsyncGenerator, Dict, Optional, Any
 
-from llama_index.core.workflow import Workflow
+from llama_index.core.workflow import Context, Workflow
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
@@ -48,6 +48,7 @@ class WorkflowServiceConfig(BaseSettings):
     step_interval: float = 0.1
     max_concurrent_tasks: int = 8
     raise_exceptions: bool = False
+    streaming: bool = False
 
 
 class WorkflowState(BaseModel):
@@ -114,6 +115,7 @@ class WorkflowService(BaseService):
     internal_host: Optional[str] = None
     internal_port: Optional[int] = None
     raise_exceptions: bool = False
+    streaming: bool = False
 
     _message_queue: BaseMessageQueue = PrivateAttr()
     _app: FastAPI = PrivateAttr()
@@ -137,6 +139,7 @@ class WorkflowService(BaseService):
         internal_host: Optional[str] = None,
         internal_port: Optional[int] = None,
         raise_exceptions: bool = False,
+        streaming: bool = False,
     ) -> None:
         super().__init__(
             workflow=workflow,
@@ -150,6 +153,7 @@ class WorkflowService(BaseService):
             internal_host=internal_host,
             internal_port=internal_port,
             raise_exceptions=raise_exceptions,
+            streaming=streaming,
         )
 
         self._lock = asyncio.Lock()
@@ -202,29 +206,17 @@ class WorkflowService(BaseService):
     def lock(self) -> asyncio.Lock:
         return self._lock
 
-    def load_workflow_state(self, workflow: Workflow, state: WorkflowState) -> Workflow:
-        """Fork the workflow with the given state.
+    def load_workflow_state(self, state: WorkflowState) -> Optional[Context]:
+        """Load the existing context from the workflow state.
 
-        TODO: Support managing the workflow state.
+        TODO: Support managing the workflow state?
         """
-        context_hash = state.hash
-        context_str = state.state
-        if not context_str:
-            return workflow
+        return None
 
-        if hash(context_str + hash_secret) != context_hash:
-            raise ValueError("Context hash does not match. Possible data corruption.")
-
-        # only load context once it's been verified(?)
-
-        return workflow
-
-    def dump_workflow_state(
-        self, workflow: Workflow, run_kawrgs: dict
-    ) -> WorkflowState:
+    def dump_workflow_state(self, ctx: Context, run_kawrgs: dict) -> WorkflowState:
         """Dump the workflow state.
 
-        TODO: Support managing the workflow state.
+        TODO: Support managing the workflow state?
         """
         context_bytes = pickle.dumps({})
         context_str = base64.b64encode(context_bytes).decode("ascii")
@@ -248,33 +240,83 @@ class WorkflowService(BaseService):
         """
         try:
             # load the state
-            self.load_workflow_state(self.workflow, current_call)
+            ctx = self.load_workflow_state(current_call)
 
             # run the workflow
-            result = await self.workflow.run(**current_call.run_kwargs)
+            handler = self.workflow.run(ctx=ctx, **current_call.run_kwargs)
+            result = await handler
 
-            # dump the state
-            updated_state = self.dump_workflow_state(
-                self.workflow, current_call.run_kwargs
-            )
+            index = 0
+            if self.streaming:
+                async for ev in handler.stream_events():
+                    logger.debug(f"Publishing event: {ev}")
 
-            await self.message_queue.publish(
-                QueueMessage(
-                    type=CONTROL_PLANE_NAME,
-                    action=ActionTypes.COMPLETED_TASK,
-                    data=TaskResult(
-                        task_id=task_id,
-                        history=[],
-                        result=str(result),
-                        data=updated_state.dict(),
-                    ).model_dump(),
+                    await self.message_queue.publish(
+                        QueueMessage(
+                            type=CONTROL_PLANE_NAME,
+                            action=ActionTypes.COMPLETED_TASK,
+                            data=TaskResult(
+                                task_id=task_id,
+                                history=[],
+                                result=ev.model_dump_json(),
+                                data={},
+                                is_last=False,
+                                index=index,
+                            ).model_dump(),
+                        )
+                    )
+                    index += 1
+                final_result = await handler
+
+                # dump the state # dump the state
+                updated_state = self.dump_workflow_state(
+                    handler.ctx, current_call.run_kwargs
                 )
-            )
+
+                logger.debug(f"Publishing final result: {final_result}")
+                await self.message_queue.publish(
+                    QueueMessage(
+                        type=CONTROL_PLANE_NAME,
+                        action=ActionTypes.COMPLETED_TASK,
+                        data=TaskResult(
+                            task_id=task_id,
+                            history=[],
+                            result=str(final_result),
+                            data=updated_state.model_dump(),
+                            is_last=True,
+                            index=index,
+                        ).model_dump(),
+                    )
+                )
+            else:
+                # dump the state # dump the state
+                updated_state = self.dump_workflow_state(
+                    handler.ctx, current_call.run_kwargs
+                )
+
+                await self.message_queue.publish(
+                    QueueMessage(
+                        type=CONTROL_PLANE_NAME,
+                        action=ActionTypes.COMPLETED_TASK,
+                        data=TaskResult(
+                            task_id=task_id,
+                            history=[],
+                            result=str(result),
+                            data=updated_state.model_dump(),
+                            is_last=True,
+                            index=index,
+                        ).model_dump(),
+                    )
+                )
+
         except Exception as e:
+            if self.raise_exceptions:
+                raise e
+
             logger.error(f"Encountered error in task {task_id}! {str(e)}")
             # dump the state
             updated_state = self.dump_workflow_state(
-                self.workflow, current_call.run_kwargs
+                handler.ctx, current_call.run_kwargs
             )
 
             # return failure
@@ -286,7 +328,9 @@ class WorkflowService(BaseService):
                         task_id=task_id,
                         history=[],
                         result=str(e),
-                        data=updated_state.dict(),
+                        data=updated_state.model_dump(),
+                        is_last=True,
+                        index=index,
                     ).model_dump(),
                 )
             )
