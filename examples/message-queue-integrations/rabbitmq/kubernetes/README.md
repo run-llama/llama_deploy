@@ -60,7 +60,7 @@ kubectl apply -f kubernetes/ingress_controller
 kubectl apply -f kubernetes/ingress_services
 ```
 
-To view the status of the services and pods, use the follwoing command:
+To view the status of the services and pods, use the following command:
 
 ```sh
 kubectl -n llama-deploy-demo get pods

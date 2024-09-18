@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.codespell]
 ignore-words-list = "LITS"
-skip = "poetry.lock,./examples"
+skip = "poetry.lock,./examples,*/algolia.js"
 
 [tool.poetry]
 name = "llama-deploy"
