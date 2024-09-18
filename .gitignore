@@ -1,5 +1,16 @@
-__pycache__
-*.pyc
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+
+# Unit test / coverage reports
+.coverage
+.coverage.*
+.pytest_cache/
+
+# Project related
 .tool-versions
+
+# IDEs
 .idea
 .DS_Store
+.vscode
