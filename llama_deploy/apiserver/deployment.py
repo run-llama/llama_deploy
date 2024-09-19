@@ -27,54 +27,17 @@ class Deployment:
         self._name = config.name
         self._path = root_path / config.name
         self._thread: threading.Thread | None = None
-        self._workflow_services: list[WorkflowService] = []
-
         self._queue = SimpleMessageQueue(**SimpleMessageQueueConfig().model_dump())
         self._control_plane = ControlPlaneServer(
             self._queue.client,
             SimpleOrchestrator(**SimpleOrchestratorConfig().model_dump()),
             **config.control_plane.model_dump(),
         )
+        self._workflow_services: list[WorkflowService] = self._load_services(config)
 
-        for service_id, service_config in config.services.items():
-            source = service_config.source
-            if source is None:
-                # this is a default service, skip for now
-                # TODO: check the service name is valid and supported
-                # TODO: possibly start the default service if not running already
-                continue
-
-            # Sync the service source
-            destination = self._path / service_id
-            source_manager = SOURCE_MANAGERS[source.type]
-            source_manager.sync(source.name, str(destination.resolve()))
-
-            # FIXME: Momentarily assuming everything is a workflow
-            if service_config.path is None:
-                msg = "path field in service definition must be set"
-                raise ValueError(msg)
-
-            # Search for a workflow instance in the service path
-            pythonpath = (destination / service_config.path).parent.resolve()
-            print(pythonpath)
-            sys.path.append(str(pythonpath))
-            module_name, workflow_name = Path(service_config.path).name.split(":")
-            module = importlib.import_module(module_name)
-            workflow = getattr(module, workflow_name)
-            workflow_config = WorkflowServiceConfig(
-                host="workflow",
-                port=8002,
-                internal_host="0.0.0.0",
-                internal_port=8002,
-                service_name=workflow_name,
-            )
-            self._workflow_services.append(
-                WorkflowService(
-                    workflow=workflow,
-                    message_queue=self._queue.client,
-                    **workflow_config.model_dump(),
-                )
-            )
+    @property
+    def name(self) -> str:
+        return self._name
 
     @property
     def path(self) -> Path:
@@ -112,6 +75,50 @@ class Deployment:
         self._thread = threading.Thread(target=asyncio.run, args=(_start(),))
         self._thread.start()
         return self._thread
+
+    def _load_services(self, config: Config) -> list[WorkflowService]:
+        workflow_services = []
+        for service_id, service_config in config.services.items():
+            source = service_config.source
+            if source is None:
+                # this is a default service, skip for now
+                # TODO: check the service name is valid and supported
+                # TODO: possibly start the default service if not running already
+                continue
+
+            # FIXME: Momentarily assuming everything is a workflow
+            if service_config.path is None:
+                msg = "path field in service definition must be set"
+                raise ValueError(msg)
+
+            # Sync the service source
+            destination = self._path / service_id
+            source_manager = SOURCE_MANAGERS[source.type]
+            source_manager.sync(source.name, str(destination.resolve()))
+
+            # Search for a workflow instance in the service path
+            pythonpath = (destination / service_config.path).parent.resolve()
+            print(pythonpath)
+            sys.path.append(str(pythonpath))
+            module_name, workflow_name = Path(service_config.path).name.split(":")
+            module = importlib.import_module(module_name)
+            workflow = getattr(module, workflow_name)
+            workflow_config = WorkflowServiceConfig(
+                host="workflow",
+                port=8002,
+                internal_host="0.0.0.0",
+                internal_port=8002,
+                service_name=workflow_name,
+            )
+            workflow_services.append(
+                WorkflowService(
+                    workflow=workflow,
+                    message_queue=self._queue.client,
+                    **workflow_config.model_dump(),
+                )
+            )
+
+        return workflow_services
 
 
 class Manager:
