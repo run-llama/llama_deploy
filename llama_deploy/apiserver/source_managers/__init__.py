@@ -6,5 +6,7 @@ __all__ = ["GitSourceManager"]
 
 
 class SourceManager(Protocol):
-    def sync(self, source: str, destination: str | None = None) -> None:
+    def sync(
+        self, source: str, destination: str | None = None
+    ) -> None:  # pragma: no cover
         ...
