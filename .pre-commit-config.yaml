@@ -66,17 +66,10 @@ repos:
       - id: prettier
         exclude: poetry.lock
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.6
+    rev: v2.3.0
     hooks:
       - id: codespell
         additional_dependencies: [tomli]
-        exclude: ^(poetry.lock|examples|example_scripts)
-        args:
-          [
-            "--skip=*/algolia.js",
-            "--ignore-words-list",
-            "astroid,gallary,momento,narl,ot,rouge,nin,gere,te,inh,vor",
-          ]
   - repo: https://github.com/srstevenson/nb-clean
     rev: 3.1.0
     hooks:
