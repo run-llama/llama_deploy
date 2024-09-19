@@ -6,6 +6,6 @@ for test_dir in */; do
     echo "Running tests in $test_dir"
 
     cd $test_dir
-    poetry run sh ./run.sh
+    sh ./run.sh
     cd ..
 done
