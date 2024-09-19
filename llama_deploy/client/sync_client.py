@@ -202,7 +202,9 @@ class LlamaDeployClient:
         """
         with httpx.Client(timeout=self.timeout) as client:
             response = client.get(f"{self.control_plane_url}/sessions")
-            return [SessionDefinition(**session) for session in response.json()]
+            return [
+                SessionDefinition(**session) for session in response.json().values()
+            ]
 
     def get_session(
         self, session_id: str, poll_interval: float = DEFAULT_POLL_INTERVAL
