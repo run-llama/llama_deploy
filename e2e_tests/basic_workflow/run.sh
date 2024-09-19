@@ -11,12 +11,11 @@ set -e
 
 echo "Launching core"
 python ./launch_core.py &
-sleep 2
+sleep 5
 
 echo "Launching workflow"
 python ./launch_workflow.py &
-sleep 2
+sleep 5
 
 echo "Running client tests"
 python ./test_run_client.py
-sleep 2
