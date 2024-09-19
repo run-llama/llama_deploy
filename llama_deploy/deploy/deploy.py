@@ -32,9 +32,14 @@ from llama_deploy.services.workflow import WorkflowServiceConfig, WorkflowServic
 DEFAULT_TIMEOUT = 120.0
 
 
-def _deploy_local_message_queue(config: SimpleMessageQueueConfig) -> asyncio.Task:
+async def _deploy_local_message_queue(config: SimpleMessageQueueConfig) -> asyncio.Task:
     queue = SimpleMessageQueue(**config.model_dump())
-    return asyncio.create_task(queue.launch_server())
+    task = asyncio.create_task(queue.launch_server())
+
+    # let message queue boot up
+    await asyncio.sleep(2)
+
+    return task
 
 
 def _get_message_queue_config(config_dict: dict) -> BaseSettings:
@@ -128,7 +133,7 @@ async def deploy_core(
         isinstance(message_queue_config, SimpleMessageQueueConfig)
         and not disable_message_queue
     ):
-        message_queue_task = _deploy_local_message_queue(message_queue_config)
+        message_queue_task = await _deploy_local_message_queue(message_queue_config)
     elif (
         isinstance(message_queue_config, SimpleMessageQueueConfig)
         and disable_message_queue
