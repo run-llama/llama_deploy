@@ -36,4 +36,4 @@ jobs:
         env:
           CI: true
         shell: bash
-        run: cd e2e_tests && sh run_all_e2e_tests.sh
+        run: cd e2e_tests && poetry run sh run_all_e2e_tests.sh

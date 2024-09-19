@@ -10,13 +10,13 @@ sleep 2
 set -e
 
 echo "Launching core"
-python ./launch_core.py &
+poetry run python ./launch_core.py &
 sleep 2
 
 echo "Launching workflow"
-python ./launch_workflow.py &
+poetry run python ./launch_workflow.py &
 sleep 2
 
 echo "Running client tests"
-python ./test_run_client.py
+poetry run python ./test_run_client.py
 sleep 2
