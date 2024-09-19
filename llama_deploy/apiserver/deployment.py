@@ -55,7 +55,8 @@ class Deployment:
                 raise ValueError(msg)
 
             # Search for a workflow instance in the service path
-            pythonpath = destination.parent.resolve()
+            pythonpath = (destination / service_config.path).parent.resolve()
+            print(pythonpath)
             sys.path.append(str(pythonpath))
             module_name, workflow_name = Path(service_config.path).name.split(":")
             module = importlib.import_module(module_name)
