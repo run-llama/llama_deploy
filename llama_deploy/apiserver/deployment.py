@@ -23,7 +23,19 @@ SOURCE_MANAGERS = {SourceType.git: GitSourceManager()}
 
 
 class Deployment:
+    """A Deployment consists of running services and core component instances.
+
+    Every Deployment is self contained, running a dedicated instance of the control plane
+    and the message queue along with any service defined in the configuration object.
+    """
+
     def __init__(self, *, config: Config, root_path: Path) -> None:
+        """Creates a Deployment instance
+
+        Args:
+            config: The configuration object defining this deployment
+            root_path: The path on the filesystem used to store deployment data
+        """
         self._name = config.name
         self._path = root_path / config.name
         self._thread: threading.Thread | None = None
@@ -37,17 +49,31 @@ class Deployment:
 
     @property
     def name(self) -> str:
+        """Returns the name of this deployment"""
         return self._name
 
     @property
     def path(self) -> Path:
-        return self._path
+        """Returns the absolute path to the root of this deployment"""
+        return self._path.resolve()
 
     @property
     def thread(self) -> threading.Thread | None:
+        """Returns the thread running the asyncio loop for this deployment"""
+        return self._thread
+
+    def start(self) -> threading.Thread:
+        """Spawns the thread running the asyncio loop for this deployment"""
+        self._thread = threading.Thread(target=asyncio.run, args=(self._start(),))
+        self._thread.start()
         return self._thread
 
     async def _start(self) -> None:
+        """The task that will be launched in this deployment asyncio loop.
+
+        This task is responsible for launching asyncio tasks for the core components and the services.
+        All the tasks are gathered before returning.
+        """
         tasks = []
         # Core components
         tasks.append(asyncio.create_task(self._queue.launch_server()))
@@ -73,12 +99,8 @@ class Deployment:
         # Run allthethings
         await asyncio.gather(*tasks)
 
-    def start(self) -> threading.Thread:
-        self._thread = threading.Thread(target=asyncio.run, args=(self._start(),))
-        self._thread.start()
-        return self._thread
-
     def _load_services(self, config: Config) -> list[WorkflowService]:
+        """Create WorkflowService instances according to the configuration object"""
         workflow_services = []
         for service_id, service_config in config.services.items():
             source = service_config.source
@@ -123,23 +145,39 @@ class Deployment:
 
 
 class Manager:
-    """The manager orchestrates deployments and their runtime.
+    """The Manager orchestrates deployments and their runtime.
 
-    Usage:
+    Usage example:
+        ```python
         config = Config.from_yaml(data_path / "git_service.yaml")
         manager = Manager(tmp_path)
         manager.deploy(config).join()
+        ```
     """
 
     def __init__(self, deployments_path: Path = Path(".deployments")) -> None:
+        """Creates a Manager instance.
+
+        Args:
+            deployments_path: the filesystem path where deployments will create their root path
+        """
         self._deployments: dict[str, Any] = {}
         self._deployments_path = deployments_path
 
     def deploy(self, config: Config) -> None:
+        """Create a Deployment instance and starts the relative runtime.
+
+        Args:
+            config: The deployment configuration.
+
+        Raises:
+            ValueError: If a deployment with the same name already exists
+        """
         if config.name in self._deployments:
             msg = f"Deployment already exists: {config.name}"
             raise ValueError(msg)
 
         deployment = Deployment(config=config, root_path=self._deployments_path)
         self._deployments[config.name] = deployment
+        # FIXME: this method will eventually return the deployment thread, so it can be joined by the caller
         deployment.start().join()
