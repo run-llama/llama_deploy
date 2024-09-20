@@ -5,18 +5,12 @@ from unittest import mock
 import pytest
 
 from llama_deploy.apiserver.config_parser import Config
-from llama_deploy.apiserver.deployment import Deployment
+from llama_deploy.apiserver.deployment import Deployment, Manager
 from llama_deploy.message_queues import SimpleMessageQueue
 from llama_deploy.control_plane import ControlPlaneServer
 
-# def test_deploy_git(data_path: Path, tmp_path: Path) -> None:
-#     print(tmp_path)
-#     config = Config.from_yaml(data_path / "git_service.yaml")
-#     manager = Manager(tmp_path)
-#     manager.deploy(config)
 
-
-def test_deploy_ctor(data_path: Path) -> None:
+def test_deployment_ctor(data_path: Path) -> None:
     config = Config.from_yaml(data_path / "git_service.yaml")
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         sm_dict["git"] = mock.MagicMock()
@@ -31,7 +25,7 @@ def test_deploy_ctor(data_path: Path) -> None:
         assert len(d._workflow_services) == 1
 
 
-def test_deploy_ctor_malformed_config(data_path: Path) -> None:
+def test_deployment_ctor_malformed_config(data_path: Path) -> None:
     config = Config.from_yaml(data_path / "git_service.yaml")
     config.services["test-workflow"].path = None
     with pytest.raises(
@@ -40,7 +34,7 @@ def test_deploy_ctor_malformed_config(data_path: Path) -> None:
         Deployment(config=config, root_path=Path("."))
 
 
-def test_deploy_ctor_skip_default_service(data_path: Path) -> None:
+def test_deployment_ctor_skip_default_service(data_path: Path) -> None:
     config = Config.from_yaml(data_path / "git_service.yaml")
     config.services["test-workflow2"] = deepcopy(config.services["test-workflow"])
     config.services["test-workflow2"].source = None
@@ -49,3 +43,43 @@ def test_deploy_ctor_skip_default_service(data_path: Path) -> None:
         sm_dict["git"] = mock.MagicMock()
         d = Deployment(config=config, root_path=Path("."))
         assert len(d._workflow_services) == 1
+
+
+@pytest.mark.asyncio()
+async def test_deployment_start(data_path: Path) -> None:
+    config = Config.from_yaml(data_path / "git_service.yaml")
+    with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
+        sm_dict["git"] = mock.MagicMock()
+        d = Deployment(config=config, root_path=Path("."))
+        d._start = mock.AsyncMock()  # type: ignore
+        d.start()
+        d._start.assert_called_once()
+
+
+def test_manager_ctor() -> None:
+    m = Manager()
+    assert str(m._deployments_path) == ".deployments"
+    assert len(m._deployments) == 0
+    m = Manager(deployments_path=Path("foo"))
+    assert str(m._deployments_path) == "foo"
+    assert len(m._deployments) == 0
+
+
+def test_manager_deploy_duplicate(data_path: Path) -> None:
+    config = Config.from_yaml(data_path / "git_service.yaml")
+
+    m = Manager()
+    m._deployments["TestDeployment"] = mock.MagicMock()
+
+    with pytest.raises(ValueError, match="Deployment already exists: TestDeployment"):
+        m.deploy(config)
+
+
+def test_manager_deploy(data_path: Path) -> None:
+    config = Config.from_yaml(data_path / "git_service.yaml")
+    with mock.patch(
+        "llama_deploy.apiserver.deployment.Deployment"
+    ) as mocked_deployment:
+        m = Manager()
+        m.deploy(config)
+        mocked_deployment.assert_called_once()

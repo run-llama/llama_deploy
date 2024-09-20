@@ -47,32 +47,34 @@ class Deployment:
     def thread(self) -> threading.Thread | None:
         return self._thread
 
-    def start(self) -> threading.Thread:
-        async def _start() -> None:
-            tasks = []
-            # Core components
-            tasks.append(asyncio.create_task(self._queue.launch_server()))
-            await asyncio.sleep(1)
-            cp_consumer_fn = await self._control_plane.register_to_message_queue()
-            tasks.append(asyncio.create_task(self._control_plane.launch_server()))
-            await asyncio.sleep(1)
-            tasks.append(asyncio.create_task(cp_consumer_fn()))
-            await asyncio.sleep(1)
-            # Services
-            for wfs in self._workflow_services:
-                service_task = asyncio.create_task(wfs.launch_server())
-                tasks.append(service_task)
-                consumer_fn = await wfs.register_to_message_queue()
-                control_plane_url = (
-                    f"http://{self._control_plane.host}:{self._control_plane.port}"
-                )
-                await wfs.register_to_control_plane(control_plane_url)
-                consumer_task = asyncio.create_task(consumer_fn())
-                tasks.append(consumer_task)
-            # Run allthethings
-            await asyncio.gather(*tasks)
+    async def _start(self) -> None:
+        tasks = []
+        # Core components
+        tasks.append(asyncio.create_task(self._queue.launch_server()))
+        # the other components need the queue to run in order to start, give the queue some time to start
+        # FIXME: this is very brittle, we should rethink the bootstrap process
+        await asyncio.sleep(1)
+        cp_consumer_fn = await self._control_plane.register_to_message_queue()
+        tasks.append(asyncio.create_task(self._control_plane.launch_server()))
+        tasks.append(asyncio.create_task(cp_consumer_fn()))
 
-        self._thread = threading.Thread(target=asyncio.run, args=(_start(),))
+        # Services
+        for wfs in self._workflow_services:
+            service_task = asyncio.create_task(wfs.launch_server())
+            tasks.append(service_task)
+            consumer_fn = await wfs.register_to_message_queue()
+            control_plane_url = (
+                f"http://{self._control_plane.host}:{self._control_plane.port}"
+            )
+            await wfs.register_to_control_plane(control_plane_url)
+            consumer_task = asyncio.create_task(consumer_fn())
+            tasks.append(consumer_task)
+
+        # Run allthethings
+        await asyncio.gather(*tasks)
+
+    def start(self) -> threading.Thread:
+        self._thread = threading.Thread(target=asyncio.run, args=(self._start(),))
         self._thread.start()
         return self._thread
 
@@ -98,7 +100,6 @@ class Deployment:
 
             # Search for a workflow instance in the service path
             pythonpath = (destination / service_config.path).parent.resolve()
-            print(pythonpath)
             sys.path.append(str(pythonpath))
             module_name, workflow_name = Path(service_config.path).name.split(":")
             module = importlib.import_module(module_name)
@@ -122,6 +123,14 @@ class Deployment:
 
 
 class Manager:
+    """The manager orchestrates deployments and their runtime.
+
+    Usage:
+        config = Config.from_yaml(data_path / "git_service.yaml")
+        manager = Manager(tmp_path)
+        manager.deploy(config).join()
+    """
+
     def __init__(self, deployments_path: Path = Path(".deployments")) -> None:
         self._deployments: dict[str, Any] = {}
         self._deployments_path = deployments_path
