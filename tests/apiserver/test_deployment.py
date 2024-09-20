@@ -18,7 +18,7 @@ def test_deployment_ctor(data_path: Path) -> None:
 
         sm_dict["git"].sync.assert_called_once()
         assert d.name == "TestDeployment"
-        assert str(d.path) == "TestDeployment"
+        assert d.path.name == "TestDeployment"
         assert d.thread is None
         assert type(d._queue) is SimpleMessageQueue
         assert type(d._control_plane) is ControlPlaneServer
