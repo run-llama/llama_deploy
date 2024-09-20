@@ -78,7 +78,7 @@ class Deployment:
         # Core components
         tasks.append(asyncio.create_task(self._queue.launch_server()))
         # the other components need the queue to run in order to start, give the queue some time to start
-        # FIXME: this is very brittle, we should rethink the bootstrap process
+        # FIXME: having to await a magic number of seconds is very brittle, we should rethink the bootstrap process
         await asyncio.sleep(1)
         cp_consumer_fn = await self._control_plane.register_to_message_queue()
         tasks.append(asyncio.create_task(self._control_plane.launch_server()))
@@ -100,7 +100,7 @@ class Deployment:
         await asyncio.gather(*tasks)
 
     def _load_services(self, config: Config) -> list[WorkflowService]:
-        """Create WorkflowService instances according to the configuration object"""
+        """Creates WorkflowService instances according to the configuration object"""
         workflow_services = []
         for service_id, service_config in config.services.items():
             source = service_config.source
@@ -165,7 +165,7 @@ class Manager:
         self._deployments_path = deployments_path
 
     def deploy(self, config: Config) -> None:
-        """Create a Deployment instance and starts the relative runtime.
+        """Creates a Deployment instance and starts the relative runtime.
 
         Args:
             config: The deployment configuration.
