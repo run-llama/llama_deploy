@@ -1,7 +1,6 @@
 import asyncio
 import importlib
 import sys
-import threading
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import Any
@@ -39,7 +38,6 @@ class Deployment:
         """
         self._name = config.name
         self._path = root_path / config.name
-        self._thread: threading.Thread | None = None
         self._queue = SimpleMessageQueue(**SimpleMessageQueueConfig().model_dump())
         self._control_plane = ControlPlaneServer(
             self._queue.client,
@@ -58,18 +56,7 @@ class Deployment:
         """Returns the absolute path to the root of this deployment."""
         return self._path.resolve()
 
-    @property
-    def thread(self) -> threading.Thread | None:
-        """Returns the thread running the asyncio loop for this deployment."""
-        return self._thread
-
-    def start(self) -> threading.Thread:
-        """Spawns the thread running the asyncio loop for this deployment."""
-        self._thread = threading.Thread(target=asyncio.run, args=(self._start(),))
-        self._thread.start()
-        return self._thread
-
-    async def _start(self) -> None:
+    async def start(self) -> None:
         """The task that will be launched in this deployment asyncio loop.
 
         This task is responsible for launching asyncio tasks for the core components and the services.
@@ -201,4 +188,4 @@ class Manager:
 
         deployment = Deployment(config=config, root_path=self._deployments_path)
         self._deployments[config.name] = deployment
-        self._pool.apply_async(func=asyncio.run, args=(deployment._start(),))
+        self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))

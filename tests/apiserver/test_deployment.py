@@ -20,7 +20,6 @@ def test_deployment_ctor(data_path: Path) -> None:
         sm_dict["git"].sync.assert_called_once()
         assert d.name == "TestDeployment"
         assert d.path.name == "TestDeployment"
-        assert d.thread is None
         assert type(d._queue) is SimpleMessageQueue
         assert type(d._control_plane) is ControlPlaneServer
         assert len(d._workflow_services) == 1
@@ -44,17 +43,6 @@ def test_deployment_ctor_skip_default_service(data_path: Path) -> None:
         sm_dict["git"] = mock.MagicMock()
         d = Deployment(config=config, root_path=Path("."))
         assert len(d._workflow_services) == 1
-
-
-@pytest.mark.asyncio()
-async def test_deployment_start(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "git_service.yaml")
-    with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
-        sm_dict["git"] = mock.MagicMock()
-        d = Deployment(config=config, root_path=Path("."))
-        d._start = mock.AsyncMock()  # type: ignore
-        d.start()
-        d._start.assert_called_once()
 
 
 def test_manager_ctor() -> None:
