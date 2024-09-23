@@ -8,14 +8,14 @@ from typing import Any
 from llama_deploy import (
     ControlPlaneServer,
     SimpleMessageQueue,
-    SimpleMessageQueueConfig,
     SimpleOrchestratorConfig,
     SimpleOrchestrator,
     WorkflowService,
     WorkflowServiceConfig,
 )
+from llama_deploy.message_queues import BaseMessageQueue
 
-from .config_parser import Config, SourceType
+from .config_parser import Config, SourceType, MessageQueueType, MessageQueueConfig
 from .source_managers import GitSourceManager
 
 
@@ -39,9 +39,10 @@ class Deployment:
         self._name = config.name
         self._path = root_path / config.name
         self._thread: threading.Thread | None = None
-        self._queue = SimpleMessageQueue(**SimpleMessageQueueConfig().model_dump())
+        self._simple_message_queue_task: SimpleMessageQueue | None = None
+        self._queue = self._load_message_queue(config.message_queue)
         self._control_plane = ControlPlaneServer(
-            self._queue.client,
+            self._queue,
             SimpleOrchestrator(**SimpleOrchestratorConfig().model_dump()),
             **config.control_plane.model_dump(),
         )
@@ -75,11 +76,16 @@ class Deployment:
         All the tasks are gathered before returning.
         """
         tasks = []
-        # Core components
-        tasks.append(asyncio.create_task(self._queue.launch_server()))
-        # the other components need the queue to run in order to start, give the queue some time to start
-        # FIXME: having to await a magic number of seconds is very brittle, we should rethink the bootstrap process
-        await asyncio.sleep(1)
+
+        # Spawn SimpleMessageQueue if needed
+        if self._simple_message_queue_task:
+            # If SimpleMessageQueue was selected in the config file we take care of running the task
+            tasks.append(asyncio.create_task(self._queue.launch_server()))
+            # the other components need the queue to run in order to start, give the queue some time to start
+            # FIXME: having to await a magic number of seconds is very brittle, we should rethink the bootstrap process
+            await asyncio.sleep(1)
+
+        # Control Plane
         cp_consumer_fn = await self._control_plane.register_to_message_queue()
         tasks.append(asyncio.create_task(self._control_plane.launch_server()))
         tasks.append(asyncio.create_task(cp_consumer_fn()))
@@ -142,6 +148,24 @@ class Deployment:
             )
 
         return workflow_services
+
+    def _load_message_queue(self, cfg: MessageQueueConfig) -> BaseMessageQueue:
+        # if cfg.type == MessageQueueType.aws:
+        #     pass
+        # elif cfg.type == MessageQueueType.kafka:
+        #     pass
+        # elif cfg.type == MessageQueueType.rabbit:
+        #     pass
+        # elif cfg.type == MessageQueueType.redis:
+        #     pass
+        if cfg.type == MessageQueueType.simple:
+            self._simple_message_queue_task = SimpleMessageQueue(
+                cfg.config.model_dump()
+            )
+            return self._simple_message_queue_task.client
+        else:
+            msg = f"Unsupported message queue: {cfg.type}"
+            raise ValueError(msg)
 
 
 class Manager:
