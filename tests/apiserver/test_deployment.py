@@ -1,3 +1,4 @@
+import asyncio
 from copy import deepcopy
 from pathlib import Path
 from unittest import mock
@@ -75,6 +76,19 @@ def test_manager_deploy_duplicate(data_path: Path) -> None:
         m.deploy(config)
 
 
+def test_manager_deploy_maximum_reached(data_path: Path) -> None:
+    config = Config.from_yaml(data_path / "git_service.yaml")
+
+    m = Manager(max_deployments=1)
+    m._deployments["AnotherDeployment"] = mock.MagicMock()
+
+    with pytest.raises(
+        ValueError,
+        match="Reached the maximum number of deployments, cannot schedule more",
+    ):
+        m.deploy(config)
+
+
 def test_manager_deploy(data_path: Path) -> None:
     config = Config.from_yaml(data_path / "git_service.yaml")
     with mock.patch(
@@ -83,3 +97,20 @@ def test_manager_deploy(data_path: Path) -> None:
         m = Manager()
         m.deploy(config)
         mocked_deployment.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_manager_serve_loop() -> None:
+    m = Manager()
+    serve_task = asyncio.create_task(m.serve())
+    # Allow the serve task to start
+    await asyncio.sleep(0)
+
+    # Check that the task is still running
+    assert not serve_task.done()
+
+    # Cancel the task
+    serve_task.cancel()
+    await serve_task
+    assert serve_task.done()
+    assert serve_task.exception() is None

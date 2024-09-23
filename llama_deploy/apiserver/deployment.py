@@ -2,6 +2,7 @@ import asyncio
 import importlib
 import sys
 import threading
+from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import Any
 
@@ -151,18 +152,35 @@ class Manager:
         ```python
         config = Config.from_yaml(data_path / "git_service.yaml")
         manager = Manager(tmp_path)
-        manager.deploy(config).join()
+        t = threading.Thread(target=asyncio.run, args=(manager.serve(),))
+        t.start()
+        manager.deploy(config)
+        t.join()
         ```
     """
 
-    def __init__(self, deployments_path: Path = Path(".deployments")) -> None:
+    def __init__(
+        self, deployments_path: Path = Path(".deployments"), max_deployments: int = 10
+    ) -> None:
         """Creates a Manager instance.
 
         Args:
-            deployments_path: the filesystem path where deployments will create their root path
+            deployments_path: The filesystem path where deployments will create their root path.
+            max_deployments: The maximum number of deployments supported by this manager.
         """
         self._deployments: dict[str, Any] = {}
         self._deployments_path = deployments_path
+        self._max_deployments = max_deployments
+        self._pool = ThreadPool(processes=max_deployments)
+
+    async def serve(self) -> None:
+        """The server loop, it keeps the manager running."""
+        event = asyncio.Event()
+        try:
+            # Waits indefinitely since `event` will never be set
+            await event.wait()
+        except asyncio.CancelledError:
+            pass
 
     def deploy(self, config: Config) -> None:
         """Creates a Deployment instance and starts the relative runtime.
@@ -177,7 +195,10 @@ class Manager:
             msg = f"Deployment already exists: {config.name}"
             raise ValueError(msg)
 
+        if len(self._deployments) == self._max_deployments:
+            msg = "Reached the maximum number of deployments, cannot schedule more"
+            raise ValueError(msg)
+
         deployment = Deployment(config=config, root_path=self._deployments_path)
         self._deployments[config.name] = deployment
-        # FIXME: this method will eventually return the deployment thread, so it can be joined by the caller
-        deployment.start().join()
+        self._pool.apply_async(func=asyncio.run, args=(deployment._start(),))
