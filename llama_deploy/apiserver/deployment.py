@@ -164,7 +164,13 @@ class Deployment:
     def _load_message_queue(self, cfg: MessageQueueConfig | None) -> BaseMessageQueue:
         # Use the SimpleMessageQueue as the default
         if cfg is None:
-            cfg = MessageQueueConfigSimple(config=SimpleMessageQueueConfig())
+            # we use model_validate instead of __init__ to avoid static checkers complaining over field aliases
+            cfg = MessageQueueConfigSimple.model_validate(
+                {
+                    "queue-type": "simple",
+                    "config": SimpleMessageQueueConfig(),
+                }
+            )
 
         if cfg.queue_type == "aws":
             return AWSMessageQueue(**cfg.model_dump())
