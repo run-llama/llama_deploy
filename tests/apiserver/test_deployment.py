@@ -6,7 +6,6 @@ import pytest
 
 from llama_deploy.apiserver.config_parser import Config
 from llama_deploy.apiserver.deployment import Deployment, Manager
-from llama_deploy.message_queues import SimpleMessageQueue
 from llama_deploy.control_plane import ControlPlaneServer
 
 
@@ -20,7 +19,7 @@ def test_deployment_ctor(data_path: Path) -> None:
         assert d.name == "TestDeployment"
         assert d.path.name == "TestDeployment"
         assert d.thread is None
-        assert type(d._queue) is SimpleMessageQueue
+        assert d._simple_message_queue_task is not None
         assert type(d._control_plane) is ControlPlaneServer
         assert len(d._workflow_services) == 1
 

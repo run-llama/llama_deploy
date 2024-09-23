@@ -9,6 +9,9 @@ def test_load_config_file(data_path: Path) -> None:
 
     assert config.control_plane.port == 8000
 
+    assert config.message_queue is not None
+    assert config.message_queue.queue_type == "simple"
+
     wf_config = config.services["myworkflow"]
     assert wf_config.name == "My Python Workflow"
     assert wf_config.source

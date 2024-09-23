@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Self, TypeAlias
+from typing import Self, Annotated, Union, Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -14,28 +14,42 @@ from llama_deploy.message_queues import (
     RabbitMQMessageQueueConfig,
 )
 
-MessageQueueConfigType: TypeAlias = (
-    AWSMessageQueueConfig
-    | KafkaMessageQueueConfig
-    | RedisMessageQueueConfig
-    | SimpleMessageQueueConfig
-    | RabbitMQMessageQueueConfig
-)
+
+class MessageQueueConfigAWS(BaseModel):
+    queue_type: Literal["aws"] = Field("aws", alias="queue-type")
+    config: AWSMessageQueueConfig
 
 
-class MessageQueueType(str, Enum):
-    """Supported types of message queues"""
-
-    aws = "aws"
-    kafka = "kafka"
-    redis = "redis"
-    simple = "simple"
-    rabbit = "rabbit"
+class MessageQueueConfigKafka(BaseModel):
+    queue_type: Literal["kafka"] = Field("kafka", alias="queue-type")
+    config: KafkaMessageQueueConfig
 
 
-class MessageQueueConfig(BaseModel):
-    type: MessageQueueType
-    config: MessageQueueConfigType
+class MessageQueueConfigRabbitMQ(BaseModel):
+    queue_type: Literal["rabbitmq"] = Field("rabbitmq", alias="queue-type")
+    config: RabbitMQMessageQueueConfig
+
+
+class MessageQueueConfigRedis(BaseModel):
+    queue_type: Literal["redis"] = Field("redis", alias="queue-type")
+    config: RedisMessageQueueConfig
+
+
+class MessageQueueConfigSimple(BaseModel):
+    queue_type: Literal["simple"] = Field("simple", alias="queue-type")
+    config: SimpleMessageQueueConfig
+
+
+MessageQueueConfig = Annotated[
+    Union[
+        MessageQueueConfigAWS,
+        MessageQueueConfigKafka,
+        MessageQueueConfigRabbitMQ,
+        MessageQueueConfigRedis,
+        MessageQueueConfigSimple,
+    ],
+    Field(discriminator="queue_type"),
+]
 
 
 class SourceType(str, Enum):
@@ -68,7 +82,7 @@ class Config(BaseModel):
 
     name: str
     control_plane: ControlPlaneConfig = Field(alias="control-plane")
-    message_queue: MessageQueueConfig = Field(alias="message-queue")
+    message_queue: MessageQueueConfig | None = Field(None, alias="message-queue")
     services: dict[str, Service]
 
     @classmethod

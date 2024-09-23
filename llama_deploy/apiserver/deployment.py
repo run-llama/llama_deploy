@@ -13,9 +13,21 @@ from llama_deploy import (
     WorkflowService,
     WorkflowServiceConfig,
 )
-from llama_deploy.message_queues import BaseMessageQueue
+from llama_deploy.message_queues import (
+    BaseMessageQueue,
+    SimpleMessageQueueConfig,
+    AWSMessageQueue,
+    KafkaMessageQueue,
+    RabbitMQMessageQueue,
+    RedisMessageQueue,
+)
 
-from .config_parser import Config, SourceType, MessageQueueType, MessageQueueConfig
+from .config_parser import (
+    Config,
+    SourceType,
+    MessageQueueConfigSimple,
+    MessageQueueConfig,
+)
 from .source_managers import GitSourceManager
 
 
@@ -142,29 +154,33 @@ class Deployment:
             workflow_services.append(
                 WorkflowService(
                     workflow=workflow,
-                    message_queue=self._queue.client,
+                    message_queue=self._queue,
                     **workflow_config.model_dump(),
                 )
             )
 
         return workflow_services
 
-    def _load_message_queue(self, cfg: MessageQueueConfig) -> BaseMessageQueue:
-        # if cfg.type == MessageQueueType.aws:
-        #     pass
-        # elif cfg.type == MessageQueueType.kafka:
-        #     pass
-        # elif cfg.type == MessageQueueType.rabbit:
-        #     pass
-        # elif cfg.type == MessageQueueType.redis:
-        #     pass
-        if cfg.type == MessageQueueType.simple:
+    def _load_message_queue(self, cfg: MessageQueueConfig | None) -> BaseMessageQueue:
+        # Use the SimpleMessageQueue as the default
+        if cfg is None:
+            cfg = MessageQueueConfigSimple(config=SimpleMessageQueueConfig())
+
+        if cfg.queue_type == "aws":
+            return AWSMessageQueue(**cfg.model_dump())
+        elif cfg.queue_type == "kafka":
+            return KafkaMessageQueue(**cfg.model_dump())
+        elif cfg.queue_type == "rabbitmq":
+            return RabbitMQMessageQueue(**cfg.model_dump())
+        elif cfg.queue_type == "redis":
+            return RedisMessageQueue(**cfg.model_dump())
+        elif cfg.queue_type == "simple":
             self._simple_message_queue_task = SimpleMessageQueue(
-                cfg.config.model_dump()
+                **cfg.config.model_dump()
             )
             return self._simple_message_queue_task.client
         else:
-            msg = f"Unsupported message queue: {cfg.type}"
+            msg = f"Unsupported message queue: {cfg.queue_type}"
             raise ValueError(msg)
 
 
