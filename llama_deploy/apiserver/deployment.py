@@ -1,7 +1,7 @@
 import asyncio
 import importlib
 import sys
-import threading
+from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import Any
 
@@ -50,9 +50,7 @@ class Deployment:
         """
         self._name = config.name
         self._path = root_path / config.name
-        self._thread: threading.Thread | None = None
-        self._simple_message_queue_task: SimpleMessageQueue | None = None
-        self._queue = self._load_message_queue(config.message_queue)
+        self._queue = SimpleMessageQueue(**SimpleMessageQueueConfig().model_dump())
         self._control_plane = ControlPlaneServer(
             self._queue,
             SimpleOrchestrator(**SimpleOrchestratorConfig().model_dump()),
@@ -70,18 +68,7 @@ class Deployment:
         """Returns the absolute path to the root of this deployment."""
         return self._path.resolve()
 
-    @property
-    def thread(self) -> threading.Thread | None:
-        """Returns the thread running the asyncio loop for this deployment."""
-        return self._thread
-
-    def start(self) -> threading.Thread:
-        """Spawns the thread running the asyncio loop for this deployment."""
-        self._thread = threading.Thread(target=asyncio.run, args=(self._start(),))
-        self._thread.start()
-        return self._thread
-
-    async def _start(self) -> None:
+    async def start(self) -> None:
         """The task that will be launched in this deployment asyncio loop.
 
         This task is responsible for launching asyncio tasks for the core components and the services.
@@ -197,18 +184,35 @@ class Manager:
         ```python
         config = Config.from_yaml(data_path / "git_service.yaml")
         manager = Manager(tmp_path)
-        manager.deploy(config).join()
+        t = threading.Thread(target=asyncio.run, args=(manager.serve(),))
+        t.start()
+        manager.deploy(config)
+        t.join()
         ```
     """
 
-    def __init__(self, deployments_path: Path = Path(".deployments")) -> None:
+    def __init__(
+        self, deployments_path: Path = Path(".deployments"), max_deployments: int = 10
+    ) -> None:
         """Creates a Manager instance.
 
         Args:
-            deployments_path: the filesystem path where deployments will create their root path
+            deployments_path: The filesystem path where deployments will create their root path.
+            max_deployments: The maximum number of deployments supported by this manager.
         """
         self._deployments: dict[str, Any] = {}
         self._deployments_path = deployments_path
+        self._max_deployments = max_deployments
+        self._pool = ThreadPool(processes=max_deployments)
+
+    async def serve(self) -> None:
+        """The server loop, it keeps the manager running."""
+        event = asyncio.Event()
+        try:
+            # Waits indefinitely since `event` will never be set
+            await event.wait()
+        except asyncio.CancelledError:
+            pass
 
     def deploy(self, config: Config) -> None:
         """Creates a Deployment instance and starts the relative runtime.
@@ -223,7 +227,10 @@ class Manager:
             msg = f"Deployment already exists: {config.name}"
             raise ValueError(msg)
 
+        if len(self._deployments) == self._max_deployments:
+            msg = "Reached the maximum number of deployments, cannot schedule more"
+            raise ValueError(msg)
+
         deployment = Deployment(config=config, root_path=self._deployments_path)
         self._deployments[config.name] = deployment
-        # FIXME: this method will eventually return the deployment thread, so it can be joined by the caller
-        deployment.start().join()
+        self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
