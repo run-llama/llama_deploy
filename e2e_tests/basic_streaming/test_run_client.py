@@ -11,8 +11,11 @@ def test_run_client():
     # test streaming
     session = client.create_session()
 
+    # kick off run
+    task_id = session.run_nowait("streaming_workflow", arg1="hello_world")
+
     num_events = 0
-    for event in session.stream_run("streaming_workflow", arg1="hello_world"):
+    for event in session.get_task_result_stream(task_id):
         if "progress" in event:
             num_events += 1
             if num_events == 1:
@@ -21,10 +24,12 @@ def test_run_client():
                 assert event["progress"] == 0.6, "Second progress event is not 0.6"
             elif num_events == 3:
                 assert event["progress"] == 0.9, "Third progress event is not 0.9"
-        else:
-            assert (
-                event == "hello_world_result_result_result"
-            ), "Final event is not 'hello_world_result_result_result'"
+
+    # get final result
+    final_result = session.get_task_result(task_id)
+    assert (
+        final_result.result == "hello_world_result_result_result"
+    ), "Final result is not 'hello_world_result_result_result'"
 
     # delete everything
     client.delete_session(session.session_id)
@@ -42,8 +47,11 @@ async def test_run_client_async():
     # test streaming
     session = await client.create_session()
 
+    # kick off run
+    task_id = await session.run_nowait("streaming_workflow", arg1="hello_world")
+
     num_events = 0
-    async for event in session.stream_run("streaming_workflow", arg1="hello_world"):
+    async for event in session.get_task_result_stream(task_id):
         if "progress" in event:
             num_events += 1
             if num_events == 1:
@@ -52,10 +60,11 @@ async def test_run_client_async():
                 assert event["progress"] == 0.6, "Second progress event is not 0.6"
             elif num_events == 3:
                 assert event["progress"] == 0.9, "Third progress event is not 0.9"
-        else:
-            assert (
-                event == "hello_world_result_result_result"
-            ), "Final event is not 'hello_world_result_result_result'"
+
+    final_result = await session.get_task_result(task_id)
+    assert (
+        final_result.result == "hello_world_result_result_result"
+    ), "Final result is not 'hello_world_result_result_result'"
 
     # delete everything
     await client.delete_session(session.session_id)

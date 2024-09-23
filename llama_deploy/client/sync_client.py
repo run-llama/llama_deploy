@@ -45,15 +45,14 @@ class SessionClient:
 
         raise TimeoutError(f"Task {task_id} timed out after {self.timeout} seconds")
 
-    def stream_run(
-        self, service_name: str, **run_kwargs: Any
-    ) -> Generator[str | dict[str, Any], None, None]:
-        """Implements the workflow-based run API for a session for streaming."""
+    def run_nowait(self, service_name: str, **run_kwargs: Any) -> str:
+        """Implements the workflow-based run API for a session, but does not wait for the task to complete."""
+
         task_input = json.dumps(run_kwargs)
         task_def = TaskDefinition(input=task_input, agent_id=service_name)
         task_id = self.create_task(task_def)
 
-        return self.get_task_result_stream(task_id)
+        return task_id
 
     def create_task(self, task_def: TaskDefinition) -> str:
         """Create a new task in this session.
@@ -131,7 +130,7 @@ class SessionClient:
             TimeoutError: If the result is not available after max_retries.
         """
         start_time = time.time()
-        with httpx.Client(timeout=self.timeout) as client:
+        with httpx.Client() as client:
             while True:
                 try:
                     response = client.get(
@@ -140,22 +139,8 @@ class SessionClient:
                     response.raise_for_status()
                     for line in response.iter_lines():
                         json_line = json.loads(line)
-
-                        # it may be an intermediate result or the final result
-                        if (
-                            isinstance(json_line, dict)
-                            and "result" in json_line
-                            and isinstance(json_line["result"], str)
-                        ):
-                            try:
-                                yield json.loads(json_line["result"])
-                            except json.JSONDecodeError:
-                                yield json_line["result"]
-                        elif isinstance(json_line, dict) and "result" in json_line:
-                            yield json_line["result"]
-                        else:
-                            yield json_line
-                    return  # Exit the function if successful
+                        yield json_line
+                    break  # Exit the function if successful
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code != 404:
                         raise  # Re-raise if it's not a 404 error

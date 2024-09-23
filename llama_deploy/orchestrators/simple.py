@@ -48,25 +48,16 @@ class SimpleOrchestrator(BaseOrchestrator):
 
         result_key = get_result_key(task_def.task_id)
         if state.get(result_key, None) is not None:
-            if not isinstance(state[result_key], list):
-                raise ValueError(
-                    f"Result key {result_key} must be a list, not {type(state[result_key])}"
-                )
-
-            results = state[result_key]
-
-            latest_result = results[-1]
-            if not isinstance(latest_result, TaskResult):
-                if isinstance(latest_result, str):
-                    latest_result = TaskResult(**json.loads(latest_result))
-                elif isinstance(latest_result, dict):
-                    latest_result = TaskResult(**latest_result)
+            result = state[result_key]
+            if not isinstance(result, TaskResult):
+                if isinstance(result, str):
+                    result = TaskResult(**json.loads(result))
+                elif isinstance(result, dict):
+                    result = TaskResult(**result)
                 else:
-                    raise ValueError(
-                        f"Result must be a TaskResult, not {type(latest_result)}"
-                    )
+                    raise ValueError(f"Result must be a TaskResult, not {type(result)}")
 
-            assert isinstance(latest_result, TaskResult), "Result must be a TaskResult"
+            assert isinstance(result, TaskResult), "Result must be a TaskResult"
 
             if self.final_message_type is not None:
                 destination = self.final_message_type
@@ -75,7 +66,7 @@ class SimpleOrchestrator(BaseOrchestrator):
                     QueueMessage(
                         type=destination,
                         action=ActionTypes.COMPLETED_TASK,
-                        data=latest_result.model_dump(),
+                        data=result.model_dump(),
                     )
                 ]
         else:
@@ -101,9 +92,7 @@ class SimpleOrchestrator(BaseOrchestrator):
         cur_retries = state.get("retries", -1) + 1
         state["retries"] = cur_retries
 
-        result_key = get_result_key(result.task_id)
-        existing_results = state.get(result_key, [])
-        existing_results.append(result)
-        state[result_key] = existing_results
+        # add result to state
+        state[get_result_key(result.task_id)] = result
 
         return state

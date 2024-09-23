@@ -25,7 +25,9 @@ async def main():
         deploy_workflow(
             outer,
             WorkflowServiceConfig(
-                host="127.0.0.1", port=8002, service_name="outer", streaming=True
+                host="127.0.0.1",
+                port=8002,
+                service_name="outer",
             ),
             ControlPlaneConfig(),
         )

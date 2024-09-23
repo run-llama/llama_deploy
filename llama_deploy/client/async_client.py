@@ -46,16 +46,14 @@ class AsyncSessionClient:
 
         return await asyncio.wait_for(_get_result(), timeout=self.timeout)
 
-    async def stream_run(
-        self, service_name: str, **run_kwargs: Any
-    ) -> AsyncGenerator[str | dict[str, Any], None]:
-        """Implements the workflow-based run API for a session."""
+    async def run_nowait(self, service_name: str, **run_kwargs: Any) -> str:
+        """Implements the workflow-based run API for a session, but does not wait for the task to complete."""
+
         task_input = json.dumps(run_kwargs)
         task_def = TaskDefinition(input=task_input, agent_id=service_name)
         task_id = await self.create_task(task_def)
 
-        async for ev in self.get_task_result_stream(task_id):
-            yield ev
+        return task_id
 
     async def create_task(self, task_def: TaskDefinition) -> str:
         """Create a new task in this session.
@@ -118,7 +116,7 @@ class AsyncSessionClient:
 
     async def get_task_result_stream(
         self, task_id: str
-    ) -> AsyncGenerator[str | dict[str, Any], None]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Get the result of a task in this session if it has one.
 
         Args:
@@ -128,31 +126,18 @@ class AsyncSessionClient:
             AsyncGenerator[str, None, None]: A generator that yields the result of the task.
         """
         start_time = time.time()
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async with httpx.AsyncClient() as client:
             while True:
                 try:
                     response = await client.get(
                         f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/result_stream"
                     )
+                    print("Got response: ", response)
                     response.raise_for_status()
                     async for line in response.aiter_lines():
                         json_line = json.loads(line)
-
-                        # it may be an intermediate result or the final result
-                        if (
-                            isinstance(json_line, dict)
-                            and "result" in json_line
-                            and isinstance(json_line["result"], str)
-                        ):
-                            try:
-                                yield json.loads(json_line["result"])
-                            except json.JSONDecodeError:
-                                yield json_line["result"]
-                        elif isinstance(json_line, dict) and "result" in json_line:
-                            yield json_line["result"]
-                        else:
-                            yield json_line
-                    return  # Exit the function if successful
+                        yield json_line
+                    break  # Exit the function if successful
                 except httpx.HTTPStatusError as e:
                     if e.response.status_code != 404:
                         raise  # Re-raise if it's not a 404 error
