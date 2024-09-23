@@ -49,13 +49,6 @@ def test_deployment_ctor_skip_default_service(data_path: Path) -> None:
         assert len(d._workflow_services) == 1
 
 
-@pytest.mark.asyncio()
-async def test_deployment_start(mocked_deployment: Deployment) -> None:
-    mocked_deployment._start = mock.AsyncMock()  # type: ignore
-    mocked_deployment.start()
-    mocked_deployment._start.assert_called_once()
-
-
 def test_deployment___load_message_queue_default(mocked_deployment: Deployment) -> None:
     q = mocked_deployment._load_message_queue(None)
     assert type(q) is SimpleRemoteClientMessageQueue

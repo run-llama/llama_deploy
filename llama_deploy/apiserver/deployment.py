@@ -50,7 +50,8 @@ class Deployment:
         """
         self._name = config.name
         self._path = root_path / config.name
-        self._queue = SimpleMessageQueue(**SimpleMessageQueueConfig().model_dump())
+        self._simple_message_queue_task: SimpleMessageQueue | None = None
+        self._queue = self._load_message_queue(config.message_queue)
         self._control_plane = ControlPlaneServer(
             self._queue,
             SimpleOrchestrator(**SimpleOrchestratorConfig().model_dump()),
