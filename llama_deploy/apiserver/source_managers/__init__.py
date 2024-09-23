@@ -6,7 +6,7 @@ __all__ = ["GitSourceManager"]
 
 
 class SourceManager(Protocol):
-    """Protocol to be implemented by classes responsible for managing Deployment sources"""
+    """Protocol to be implemented by classes responsible for managing Deployment sources."""
 
     def sync(
         self, source: str, destination: str | None = None

@@ -30,7 +30,7 @@ class Deployment:
     """
 
     def __init__(self, *, config: Config, root_path: Path) -> None:
-        """Creates a Deployment instance
+        """Creates a Deployment instance.
 
         Args:
             config: The configuration object defining this deployment
@@ -49,21 +49,21 @@ class Deployment:
 
     @property
     def name(self) -> str:
-        """Returns the name of this deployment"""
+        """Returns the name of this deployment."""
         return self._name
 
     @property
     def path(self) -> Path:
-        """Returns the absolute path to the root of this deployment"""
+        """Returns the absolute path to the root of this deployment."""
         return self._path.resolve()
 
     @property
     def thread(self) -> threading.Thread | None:
-        """Returns the thread running the asyncio loop for this deployment"""
+        """Returns the thread running the asyncio loop for this deployment."""
         return self._thread
 
     def start(self) -> threading.Thread:
-        """Spawns the thread running the asyncio loop for this deployment"""
+        """Spawns the thread running the asyncio loop for this deployment."""
         self._thread = threading.Thread(target=asyncio.run, args=(self._start(),))
         self._thread.start()
         return self._thread
@@ -100,7 +100,7 @@ class Deployment:
         await asyncio.gather(*tasks)
 
     def _load_services(self, config: Config) -> list[WorkflowService]:
-        """Creates WorkflowService instances according to the configuration object"""
+        """Creates WorkflowService instances according to the configuration object."""
         workflow_services = []
         for service_id, service_config in config.services.items():
             source = service_config.source
