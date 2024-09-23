@@ -25,7 +25,6 @@ from llama_deploy.message_queues import (
 from .config_parser import (
     Config,
     SourceType,
-    MessageQueueConfigSimple,
     MessageQueueConfig,
 )
 from .source_managers import GitSourceManager
@@ -153,28 +152,21 @@ class Deployment:
         # Use the SimpleMessageQueue as the default
         if cfg is None:
             # we use model_validate instead of __init__ to avoid static checkers complaining over field aliases
-            cfg = MessageQueueConfigSimple.model_validate(
-                {
-                    "queue-type": "simple",
-                    "config": SimpleMessageQueueConfig(),
-                }
-            )
+            cfg = SimpleMessageQueueConfig()
 
-        if cfg.queue_type == "aws":
+        if cfg.type == "aws":
             return AWSMessageQueue(**cfg.model_dump())
-        elif cfg.queue_type == "kafka":
+        elif cfg.type == "kafka":
             return KafkaMessageQueue(**cfg.model_dump())
-        elif cfg.queue_type == "rabbitmq":
+        elif cfg.type == "rabbitmq":
             return RabbitMQMessageQueue(**cfg.model_dump())
-        elif cfg.queue_type == "redis":
+        elif cfg.type == "redis":
             return RedisMessageQueue(**cfg.model_dump())
-        elif cfg.queue_type == "simple":
-            self._simple_message_queue_task = SimpleMessageQueue(
-                **cfg.config.model_dump()
-            )
+        elif cfg.type == "simple":
+            self._simple_message_queue_task = SimpleMessageQueue(**cfg.model_dump())
             return self._simple_message_queue_task.client
         else:
-            msg = f"Unsupported message queue: {cfg.queue_type}"
+            msg = f"Unsupported message queue: {cfg.type}"
             raise ValueError(msg)
 
 

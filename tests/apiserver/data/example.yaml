@@ -4,10 +4,9 @@ control-plane:
   port: 8000
 
 message-queue:
-  queue-type: simple
-  config:
-    host: "127.0.0.1"
-    port: 8001
+  type: simple
+  host: "127.0.0.1"
+  port: 8001
 
 services:
   myworkflow:

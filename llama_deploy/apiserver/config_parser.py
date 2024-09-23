@@ -1,6 +1,6 @@
 from enum import Enum
 from pathlib import Path
-from typing import Self, Annotated, Union, Literal
+from typing import Self, Annotated, Union
 
 import yaml
 from pydantic import BaseModel, Field
@@ -15,40 +15,15 @@ from llama_deploy.message_queues import (
 )
 
 
-class MessageQueueConfigAWS(BaseModel):
-    queue_type: Literal["aws"] = Field("aws", alias="queue-type")
-    config: AWSMessageQueueConfig
-
-
-class MessageQueueConfigKafka(BaseModel):
-    queue_type: Literal["kafka"] = Field("kafka", alias="queue-type")
-    config: KafkaMessageQueueConfig
-
-
-class MessageQueueConfigRabbitMQ(BaseModel):
-    queue_type: Literal["rabbitmq"] = Field("rabbitmq", alias="queue-type")
-    config: RabbitMQMessageQueueConfig
-
-
-class MessageQueueConfigRedis(BaseModel):
-    queue_type: Literal["redis"] = Field("redis", alias="queue-type")
-    config: RedisMessageQueueConfig
-
-
-class MessageQueueConfigSimple(BaseModel):
-    queue_type: Literal["simple"] = Field("simple", alias="queue-type")
-    config: SimpleMessageQueueConfig
-
-
 MessageQueueConfig = Annotated[
     Union[
-        MessageQueueConfigAWS,
-        MessageQueueConfigKafka,
-        MessageQueueConfigRabbitMQ,
-        MessageQueueConfigRedis,
-        MessageQueueConfigSimple,
+        AWSMessageQueueConfig,
+        KafkaMessageQueueConfig,
+        RabbitMQMessageQueueConfig,
+        RedisMessageQueueConfig,
+        SimpleMessageQueueConfig,
     ],
-    Field(discriminator="queue_type"),
+    Field(discriminator="type"),
 ]
 
 

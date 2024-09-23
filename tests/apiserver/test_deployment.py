@@ -66,25 +66,25 @@ def test_deployment___load_message_queue_not_supported(
 
 def test_deployment__load_message_queues(mocked_deployment: Deployment) -> None:
     with mock.patch("llama_deploy.apiserver.deployment.AWSMessageQueue") as m:
-        mocked_config = mock.MagicMock(queue_type="aws")
+        mocked_config = mock.MagicMock(type="aws")
         mocked_config.model_dump.return_value = {"foo": "aws"}
         mocked_deployment._load_message_queue(mocked_config)
         m.assert_called_with(**{"foo": "aws"})
 
     with mock.patch("llama_deploy.apiserver.deployment.KafkaMessageQueue") as m:
-        mocked_config = mock.MagicMock(queue_type="kafka")
+        mocked_config = mock.MagicMock(type="kafka")
         mocked_config.model_dump.return_value = {"foo": "kafka"}
         mocked_deployment._load_message_queue(mocked_config)
         m.assert_called_with(**{"foo": "kafka"})
 
     with mock.patch("llama_deploy.apiserver.deployment.RabbitMQMessageQueue") as m:
-        mocked_config = mock.MagicMock(queue_type="rabbitmq")
+        mocked_config = mock.MagicMock(type="rabbitmq")
         mocked_config.model_dump.return_value = {"foo": "rabbitmq"}
         mocked_deployment._load_message_queue(mocked_config)
         m.assert_called_with(**{"foo": "rabbitmq"})
 
     with mock.patch("llama_deploy.apiserver.deployment.RedisMessageQueue") as m:
-        mocked_config = mock.MagicMock(queue_type="redis")
+        mocked_config = mock.MagicMock(type="redis")
         mocked_config.model_dump.return_value = {"foo": "redis"}
         mocked_deployment._load_message_queue(mocked_config)
         m.assert_called_with(**{"foo": "redis"})

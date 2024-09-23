@@ -2,10 +2,12 @@
 
 import asyncio
 import json
-from pydantic import PrivateAttr, BaseModel
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from logging import getLogger
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, Literal
+
+from pydantic import PrivateAttr, BaseModel, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 from llama_deploy.message_queues.base import BaseMessageQueue
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.message_consumers.base import (
@@ -26,6 +28,7 @@ class RedisMessageQueueConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="REDIS_")
 
+    type: Literal["redis"] = Field(default="redis", exclude=True)
     url: str = DEFAULT_URL
     host: Optional[str] = None
     port: Optional[int] = None
