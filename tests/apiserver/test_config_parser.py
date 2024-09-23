@@ -1,13 +1,6 @@
 from pathlib import Path
 
-import pytest
-
 from llama_deploy.apiserver.config_parser import Config
-
-
-@pytest.fixture
-def data_path() -> Path:
-    return Path(__file__).parent / "data"
 
 
 def test_load_config_file(data_path: Path) -> None:
@@ -15,6 +8,9 @@ def test_load_config_file(data_path: Path) -> None:
     assert config.name == "MyDeployment"
 
     assert config.control_plane.port == 8000
+
+    assert config.message_queue is not None
+    assert config.message_queue.type == "simple"
 
     wf_config = config.services["myworkflow"]
     assert wf_config.name == "My Python Workflow"
