@@ -4,15 +4,15 @@ import asyncio
 import httpx
 import random
 import uvicorn
-
 from collections import deque
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, status
 from logging import getLogger
+from typing import Any, AsyncGenerator, Dict, List, Optional, Literal
+from urllib.parse import urljoin
+
+from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Any, AsyncGenerator, Dict, List, Optional
-from urllib.parse import urljoin
 
 from llama_deploy.message_queues.base import BaseMessageQueue
 from llama_deploy.messages.base import QueueMessage
@@ -35,6 +35,7 @@ class SimpleMessageQueueConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="SIMPLE_MESSAGE_QUEUE_")
 
+    type: Literal["simple"] = Field(default="simple", exclude=True)
     host: str = "127.0.0.1"
     port: Optional[int] = 8001
     internal_host: Optional[str] = None

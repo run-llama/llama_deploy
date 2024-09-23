@@ -3,9 +3,11 @@
 import asyncio
 import json
 from logging import getLogger
-from pydantic import BaseModel
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, Literal
+
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+
 from llama_deploy.message_queues.base import (
     BaseMessageQueue,
 )
@@ -30,6 +32,7 @@ class RabbitMQMessageQueueConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="RABBITMQ_")
 
+    type: Literal["rabbitmq"] = Field(default="rabbitmq", exclude=True)
     url: str = DEFAULT_URL
     exchange_name: str = DEFAULT_EXCHANGE_NAME
     username: Optional[str] = None

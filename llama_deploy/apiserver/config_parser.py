@@ -1,15 +1,34 @@
 from enum import Enum
 from pathlib import Path
-from typing import Self
+from typing import Self, Annotated, Union
 
 import yaml
 from pydantic import BaseModel, Field
 
 from llama_deploy.control_plane.server import ControlPlaneConfig
+from llama_deploy.message_queues import (
+    AWSMessageQueueConfig,
+    KafkaMessageQueueConfig,
+    RedisMessageQueueConfig,
+    SimpleMessageQueueConfig,
+    RabbitMQMessageQueueConfig,
+)
+
+
+MessageQueueConfig = Annotated[
+    Union[
+        AWSMessageQueueConfig,
+        KafkaMessageQueueConfig,
+        RabbitMQMessageQueueConfig,
+        RedisMessageQueueConfig,
+        SimpleMessageQueueConfig,
+    ],
+    Field(discriminator="type"),
+]
 
 
 class SourceType(str, Enum):
-    """Supported types for the `source parameter."""
+    """Supported types for the `Service.source` parameter."""
 
     git = "git"
     docker = "docker"
@@ -38,6 +57,7 @@ class Config(BaseModel):
 
     name: str
     control_plane: ControlPlaneConfig = Field(alias="control-plane")
+    message_queue: MessageQueueConfig | None = Field(None, alias="message-queue")
     services: dict[str, Service]
 
     @classmethod

@@ -3,6 +3,11 @@ name: MyDeployment
 control-plane:
   port: 8000
 
+message-queue:
+  type: simple
+  host: "127.0.0.1"
+  port: 8001
+
 services:
   myworkflow:
     # A python workflow available in a git repo

@@ -3,7 +3,8 @@
 import asyncio
 import json
 from logging import getLogger
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, Literal
+
 from pydantic import BaseModel, PrivateAttr, SecretStr, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -47,6 +48,7 @@ class AWSMessageQueueConfig(BaseSettings):
 
     model_config = SettingsConfigDict()
 
+    type: Literal["aws"] = Field(default="aws", exclude=True)
     aws_region: str
     aws_access_key_id: Optional[str] = Field(default=None, exclude=True)
     aws_secret_access_key: Optional[str] = Field(default=None, exclude=True)

@@ -3,16 +3,14 @@
 import asyncio
 import json
 from logging import getLogger
-from pydantic import BaseModel, model_validator
+from typing import Any, Callable, Coroutine, Dict, List, Optional, Literal
+
+from pydantic import BaseModel, model_validator, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Any, Callable, Coroutine, Dict, List, Optional
+
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
-from llama_deploy.message_queues.base import (
-    BaseMessageQueue,
-)
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-)
+from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.messages.base import QueueMessage
 
 import logging
@@ -32,6 +30,7 @@ class KafkaMessageQueueConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="KAFKA_")
 
+    type: Literal["kafka"] = Field(default="kafka", exclude=True)
     url: str = DEFAULT_URL
     host: Optional[str] = None
     port: Optional[int] = None
