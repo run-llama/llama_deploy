@@ -1,13 +1,6 @@
 from pathlib import Path
 
-import pytest
-
 from llama_deploy.apiserver.config_parser import Config
-
-
-@pytest.fixture
-def data_path() -> Path:
-    return Path(__file__).parent / "data"
 
 
 def test_load_config_file(data_path: Path) -> None:

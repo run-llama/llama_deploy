@@ -31,6 +31,7 @@ aio-pika = {version = "^9.4.2", optional = true}
 kafka-python-ng = {version = "^2.2.2", optional = true}
 redis = {version = "^5.0.7", optional = true}
 types-aiobotocore = {version = "^2.14.0", optional = true, extras = ["sqs", "sns"]}
+gitpython = "^3.1.43"
 
 [tool.poetry.extras]
 kafka = ["aiokafka", "kafka-python-ng"]

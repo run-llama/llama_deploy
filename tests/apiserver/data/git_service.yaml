@@ -1,0 +1,11 @@
+name: TestDeployment
+
+control-plane: {}
+
+services:
+  test-workflow:
+    name: Test Workflow
+    source:
+      type: git
+      name: https://github.com/run-llama/llama_deploy.git@massi/deploy
+    path: tests/apiserver/data/workflow:my_workflow
