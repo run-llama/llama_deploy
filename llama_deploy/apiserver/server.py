@@ -1,4 +1,5 @@
 import logging
+import os
 import shutil
 import tempfile
 from contextlib import asynccontextmanager
@@ -21,4 +22,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
     t = manager.serve()
     yield
     t.close()
-    shutil.rmtree(manager._deployments_path.resolve())
+    # Clean up deployments folder
+    if os.path.exists(manager._deployments_path.resolve()):
+        shutil.rmtree(manager._deployments_path.resolve())
