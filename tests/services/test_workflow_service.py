@@ -62,7 +62,7 @@ async def test_workflow_service(
     # pass a task to the service
     task = TaskDefinition(
         input=json.dumps({"arg1": "test_arg1"}),
-        state=WorkflowState().dict(),
+        state=WorkflowState(task_id="test_task_id").model_dump(),
     )
 
     await workflow_service.process_message(

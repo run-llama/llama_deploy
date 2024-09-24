@@ -69,11 +69,8 @@ async def test_add_result_to_state() -> None:
     assert new_state["retries"] == 0
 
     assert get_result_key(TASK_DEF.task_id) in new_state
-    results = new_state[get_result_key(TASK_DEF.task_id)]
-    assert isinstance(results, list)
-    assert len(results) == 1
+    result = new_state[get_result_key(TASK_DEF.task_id)]
 
-    result = results[0]
     assert isinstance(result, TaskResult)
     assert result.task_id == TASK_DEF.task_id
     assert result.result == "The secret fact is: A Cria is a baby llama."
