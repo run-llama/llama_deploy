@@ -561,10 +561,10 @@ class ControlPlaneServer(BaseControlPlane):
 
                         yield json.dumps(result.data) + "\n"
 
-                        # check if there is a final result
-                        final_result = await self.get_task_result(task_id, session_id)
-                        if final_result is not None:
-                            return
+                    # check if there is a final result
+                    final_result = await self.get_task_result(task_id, session_id)
+                    if final_result is not None:
+                        return
 
                     # update results list used for indexing
                     stream_results.extend(new_results)

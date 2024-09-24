@@ -132,7 +132,6 @@ class AsyncSessionClient:
                     response = await client.get(
                         f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/result_stream"
                     )
-                    print("Got response: ", response)
                     response.raise_for_status()
                     async for line in response.aiter_lines():
                         json_line = json.loads(line)
