@@ -92,6 +92,7 @@ class SimpleOrchestrator(BaseOrchestrator):
         cur_retries = state.get("retries", -1) + 1
         state["retries"] = cur_retries
 
+        # add result to state
         state[get_result_key(result.task_id)] = result
 
         return state

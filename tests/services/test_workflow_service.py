@@ -62,7 +62,7 @@ async def test_workflow_service(
     # pass a task to the service
     task = TaskDefinition(
         input=json.dumps({"arg1": "test_arg1"}),
-        state=WorkflowState().dict(),
+        state=WorkflowState(task_id="test_task_id").model_dump(),
     )
 
     await workflow_service.process_message(
@@ -78,6 +78,6 @@ async def test_workflow_service(
     server_task.cancel()
 
     # check the result
-    result = human_output_consumer.processed_messages[0]
+    result = human_output_consumer.processed_messages[-1]
     assert result.action == ActionTypes.COMPLETED_TASK
     assert result.data["result"] == "test_arg1_result"

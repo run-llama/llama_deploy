@@ -1,10 +1,12 @@
+import asyncio
 import json
 import uuid
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 from logging import getLogger
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Dict, List, Optional
+from typing import AsyncGenerator, Dict, List, Optional, Any
 
 from llama_index.core.storage.kvstore.types import BaseKVStore
 from llama_index.core.storage.kvstore import SimpleKVStore
@@ -19,13 +21,14 @@ from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import BaseMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.orchestrators.base import BaseOrchestrator
-from llama_deploy.orchestrators.utils import get_result_key
+from llama_deploy.orchestrators.utils import get_result_key, get_stream_key
 from llama_deploy.types import (
     ActionTypes,
     SessionDefinition,
     ServiceDefinition,
     TaskDefinition,
     TaskResult,
+    TaskStream,
 )
 
 logger = getLogger(__name__)
@@ -217,6 +220,12 @@ class ControlPlaneServer(BaseControlPlane):
             methods=["GET"],
             tags=["Sessions"],
         )
+        self.app.add_api_route(
+            "/sessions/{session_id}/tasks/{task_id}/result_stream",
+            self.get_task_result_stream,
+            methods=["GET"],
+            tags=["Sessions"],
+        )
 
     @property
     def message_queue(self) -> BaseMessageQueue:
@@ -241,6 +250,8 @@ class ControlPlaneServer(BaseControlPlane):
             await self.add_task_to_session(task_def.session_id, task_def)
         elif action == ActionTypes.COMPLETED_TASK and message.data is not None:
             await self.handle_service_completion(TaskResult(**message.data))
+        elif action == ActionTypes.TASK_STREAM and message.data is not None:
+            await self.add_stream_to_session(TaskStream(**message.data))
         else:
             raise ValueError(f"Action {action} not supported by control plane")
 
@@ -426,7 +437,7 @@ class ControlPlaneServer(BaseControlPlane):
             collection=self.session_store_key,
         )
 
-        # generate and send new tasks (if any)
+        # generate and send new tasks when needed
         task_def = await self.send_task_to_service(task_def)
 
         await self.state_store.aput(
@@ -478,6 +489,95 @@ class ControlPlaneServer(BaseControlPlane):
 
         return result
 
+    async def add_stream_to_session(self, task_stream: TaskStream) -> None:
+        # get session
+        if task_stream.session_id is None:
+            raise ValueError(
+                f"Task stream with id {task_stream.stream_id} has no session"
+            )
+
+        session = await self.get_session(task_stream.session_id)
+
+        # add new stream data to session state
+        existing_stream = session.state.get(get_stream_key(task_stream.task_id), [])
+        existing_stream.append(task_stream.model_dump())
+        session.state[get_stream_key(task_stream.task_id)] = existing_stream
+
+        # update session state in store
+        await self.state_store.aput(
+            task_stream.session_id,
+            session.model_dump(),
+            collection=self.session_store_key,
+        )
+
+    async def get_task_result_stream(
+        self, session_id: str, task_id: str
+    ) -> StreamingResponse:
+        session = await self.get_session(session_id)
+
+        stream_key = get_stream_key(task_id)
+        if stream_key not in session.state:
+            raise HTTPException(status_code=404, detail="Task stream not found")
+
+        async def event_generator(
+            session: SessionDefinition, stream_key: str
+        ) -> AsyncGenerator[str | dict[str, Any], None]:
+            try:
+                stream_results = session.state[stream_key]
+                stream_results = sorted(stream_results, key=lambda x: x["index"])
+                for result in stream_results:
+                    if not isinstance(result, TaskStream):
+                        if isinstance(result, dict):
+                            result = TaskStream(**result)
+                        elif isinstance(result, str):
+                            result = TaskStream(**json.loads(result))
+                        else:
+                            raise ValueError("Unexpected result type in stream")
+
+                    yield json.dumps(result.data) + "\n"
+
+                # check if there is a final result
+                final_result = await self.get_task_result(task_id, session_id)
+                if final_result is not None:
+                    return
+
+                # Continue to check for new results
+                while True:
+                    await asyncio.sleep(
+                        self.step_interval
+                    )  # Small delay to prevent tight loop
+                    session = await self.get_session(session_id)
+                    new_results = session.state[stream_key][len(stream_results) :]
+                    new_results = sorted(new_results, key=lambda x: x["index"])
+
+                    for result in new_results:
+                        if not isinstance(result, TaskStream):
+                            if isinstance(result, dict):
+                                result = TaskStream(**result)
+                            elif isinstance(result, str):
+                                result = TaskStream(**json.loads(result))
+                            else:
+                                raise ValueError("Unexpected result type")
+
+                        yield json.dumps(result.data) + "\n"
+
+                    # check if there is a final result
+                    final_result = await self.get_task_result(task_id, session_id)
+                    if final_result is not None:
+                        return
+
+                    # update results list used for indexing
+                    stream_results.extend(new_results)
+            except Exception as e:
+                logger.error(
+                    f"Error in event stream for session {session_id}, task {task_id}: {str(e)}"
+                )
+                yield json.dumps({"error": str(e)}) + "\n"
+
+        return StreamingResponse(
+            event_generator(session, stream_key), media_type="application/x-ndjson"
+        )
+
     async def get_message_queue_config(self) -> Dict[str, dict]:
         """
         Gets the config dict for the message queue being used.
@@ -493,7 +593,6 @@ class ControlPlaneServer(BaseControlPlane):
 
 
 if __name__ == "__main__":
-    import asyncio
     from llama_deploy import SimpleMessageQueue, SimpleOrchestrator
 
     control_plane = ControlPlaneServer(SimpleMessageQueue(), SimpleOrchestrator())

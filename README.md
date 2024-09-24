@@ -86,16 +86,33 @@ from llama_deploy import (
     ControlPlaneConfig,
     SimpleMessageQueueConfig,
 )
-from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
+from llama_index.core.workflow import (
+    Context,
+    Event,
+    Workflow,
+    StartEvent,
+    StopEvent,
+    step,
+)
+
+
+class ProgressEvent(Event):
+    progress: str
 
 
 # create a dummy workflow
 class MyWorkflow(Workflow):
     @step()
-    async def run_step(self, ev: StartEvent) -> StopEvent:
+    async def run_step(self, ctx: Context, ev: StartEvent) -> StopEvent:
         # Your workflow logic here
         arg1 = str(ev.get("arg1", ""))
         result = arg1 + "_result"
+
+        # stream events as steps run
+        ctx.write_event_to_stream(
+            ProgressEvent(progress="I am doing something!")
+        )
+
         return StopEvent(result=result)
 
 
@@ -129,6 +146,25 @@ client = LlamaDeployClient(ControlPlaneConfig())
 
 session = client.create_session()
 result = session.run("my_workflow", arg1="hello_world")
+print(result)
+# prints 'hello_world_result'
+```
+
+If you want to see the event stream as well, you can do:
+
+```python
+# create a session
+session = client.create_session()
+
+# kick off run
+task_id = session.run_nowait("streaming_workflow", arg1="hello_world")
+
+# stream events -- the will yield a dict representing each event
+for event in session.get_task_result_stream(task_id):
+    print(event)
+
+# get final result
+result = session.get_task_result(task_id)
 print(result)
 # prints 'hello_world_result'
 ```

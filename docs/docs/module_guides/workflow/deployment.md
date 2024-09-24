@@ -1,10 +1,14 @@
 # 🦙 `llama_deploy` 🤖
 
-[`llama_deploy`](https://github.com/run-llama/llama_deploy) (formerly `llama-agents`) is an async-first framework for deploying, scaling, and productionizing agentic multi-service systems based on [workflows from `llama_index`](https://docs.llamaindex.ai/en/stable/understanding/workflows/). With `llama_deploy`, you can build any number of workflows in `llama_index` and then bring them into `llama_deploy` for deployment.
+`llama_deploy` (formerly `llama-agents`) is an async-first framework for deploying, scaling, and productionizing agentic multi-service systems based on [workflows from `llama_index`](https://docs.llamaindex.ai/en/stable/understanding/workflows/). With `llama_deploy`, you can build any number of workflows in `llama_index` and then bring them into `llama_deploy` for deployment.
 
 In `llama_deploy`, each workflow is seen as a `service`, endlessly processing incoming tasks. Each workflow pulls and publishes messages to and from a `message queue`.
 
 At the top of a `llama_deploy` system is the `control plane`. The control plane handles ongoing tasks, manages state, keeps track of which services are in the network, and also decides which service should handle the next step of a task using an `orchestrator`. The default `orchestrator` is purely programmatic, handling failures, retries, and state-passing.
+
+The overall system layout is pictured below.
+
+![A basic system in llama_deploy](./system_diagram.png)
 
 ## Why `llama_deploy`?
 
@@ -63,7 +67,7 @@ async def main():
     )
 
 
-if name == "main":
+if __name__ == "__main__":
     import asyncio
 
     asyncio.run(main())
@@ -76,23 +80,39 @@ This will set up the basic infrastructure for your `llama_deploy` system. You ca
 To deploy a workflow as a service, you can use the `deploy_workflow` function:
 
 ```python
-python
 from llama_deploy import (
     deploy_workflow,
     WorkflowServiceConfig,
     ControlPlaneConfig,
     SimpleMessageQueueConfig,
 )
-from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
+from llama_index.core.workflow import (
+    Context,
+    Event,
+    Workflow,
+    StartEvent,
+    StopEvent,
+    step,
+)
+
+
+class ProgressEvent(Event):
+    progress: str
 
 
 # create a dummy workflow
 class MyWorkflow(Workflow):
     @step()
-    async def run_step(self, ev: StartEvent) -> StopEvent:
+    async def run_step(self, ctx: Context, ev: StartEvent) -> StopEvent:
         # Your workflow logic here
         arg1 = str(ev.get("arg1", ""))
         result = arg1 + "_result"
+
+        # stream events as steps run
+        ctx.write_event_to_stream(
+            ProgressEvent(progress="I am doing something!")
+        )
+
         return StopEvent(result=result)
 
 
@@ -106,7 +126,7 @@ async def main():
     )
 
 
-if name == "main":
+if __name__ == "__main__":
     import asyncio
 
     asyncio.run(main())
@@ -119,13 +139,32 @@ This will deploy your workflow as a service within the `llama_deploy` system, an
 Once deployed, you can interact with your deployment using a client.
 
 ```python
-from llama_deploy import LlamaDeployClient
+from llama_deploy import LlamaDeployClient, ControlPlaneConfig
 
 # points to deployed control plane
 client = LlamaDeployClient(ControlPlaneConfig())
 
 session = client.create_session()
 result = session.run("my_workflow", arg1="hello_world")
+print(result)
+# prints 'hello_world_result'
+```
+
+If you want to see the event stream as well, you can do:
+
+```python
+# create a session
+session = client.create_session()
+
+# kick off run
+task_id = session.run_nowait("streaming_workflow", arg1="hello_world")
+
+# stream events -- the will yield a dict representing each event
+for event in session.get_task_result_stream(task_id):
+    print(event)
+
+# get final result
+result = session.get_task_result(task_id)
 print(result)
 # prints 'hello_world_result'
 ```
@@ -207,7 +246,7 @@ async def main():
     await asyncio.gather(inner_task, outer_task)
 
 
-if name == "main":
+if __name__ == "__main__":
     import asyncio
 
     asyncio.run(main())
@@ -460,6 +499,7 @@ async_client = AsyncLlamaDeployClient(ControlPlaneConfig())
 
 - `client.deregister_service(service_name)`: Deregisters a service from the control plane.
   Example:
+
   ```python
   client.deregister_service("my_workflow")
   ```
@@ -502,14 +542,45 @@ async_client = AsyncLlamaDeployClient(ControlPlaneConfig())
 
 - `session.get_task_result(task_id)`: Gets the result of a task in the session if it has one.
   Example:
+
   ```python
   result = session.get_task_result("task_123")
   if result:
       print(result.result)
   ```
 
-## Examples
+### Message Queue Integrations
 
-We have many examples showing how to use various message queues, and different ways to scaffold your project for deployment with docker and kubernetes.
+In addition to `SimpleMessageQueue`, we provide integrations for various
+message queue providers, such as RabbitMQ, Redis, etc. The general usage pattern
+for any of these message queues is the same as that for `SimpleMessageQueue`,
+however the appropriate extra would need to be installed along with `llama-deploy`.
 
-You can find all examples in the [examples folder for the `llama-deploy` repository.](https://github.com/run-llama/llama_deploy/tree/main/examples)
+For example, for `RabbitMQMessageQueue`, we need to install the "rabbitmq" extra:
+
+```sh
+# using pip install
+pip install llama-agents[rabbitmq]
+
+# using poetry
+poetry add llama-agents -E "rabbitmq"
+```
+
+Using the `RabbitMQMessageQueue` is then done as follows:
+
+```python
+from llama_agents.message_queue.rabbitmq import (
+    RabbitMQMessageQueueConfig,
+    RabbitMQMessageQueue,
+)
+
+message_queue_config = (
+    RabbitMQMessageQueueConfig()
+)  # loads params from environment vars
+message_queue = RabbitMQMessageQueue(**message_queue_config)
+```
+
+<!-- prettier-ignore-start -->
+> [!NOTE]
+> `RabbitMQMessageQueueConfig` can load its params from environment variables.
+<!-- prettier-ignore-end -->

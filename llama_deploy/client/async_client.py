@@ -1,7 +1,8 @@
+import asyncio
 import httpx
 import json
-import asyncio
-from typing import Any, List, Optional
+import time
+from typing import Any, AsyncGenerator, List, Optional
 
 from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.types import (
@@ -12,7 +13,7 @@ from llama_deploy.types import (
 )
 
 DEFAULT_TIMEOUT = 120.0
-DEFAULT_POLL_INTERVAL = 0.1
+DEFAULT_POLL_INTERVAL = 0.5
 
 
 class AsyncSessionClient:
@@ -44,6 +45,15 @@ class AsyncSessionClient:
                 await asyncio.sleep(self.poll_interval)
 
         return await asyncio.wait_for(_get_result(), timeout=self.timeout)
+
+    async def run_nowait(self, service_name: str, **run_kwargs: Any) -> str:
+        """Implements the workflow-based run API for a session, but does not wait for the task to complete."""
+
+        task_input = json.dumps(run_kwargs)
+        task_def = TaskDefinition(input=task_input, agent_id=service_name)
+        task_id = await self.create_task(task_def)
+
+        return task_id
 
     async def create_task(self, task_def: TaskDefinition) -> str:
         """Create a new task in this session.
@@ -104,6 +114,39 @@ class AsyncSessionClient:
             data = response.json()
             return TaskResult(**data) if data else None
 
+    async def get_task_result_stream(
+        self, task_id: str
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Get the result of a task in this session if it has one.
+
+        Args:
+            task_id (str): The ID of the task to get the result for.
+
+        Returns:
+            AsyncGenerator[str, None, None]: A generator that yields the result of the task.
+        """
+        start_time = time.time()
+        async with httpx.AsyncClient() as client:
+            while True:
+                try:
+                    response = await client.get(
+                        f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/result_stream"
+                    )
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        json_line = json.loads(line)
+                        yield json_line
+                    break  # Exit the function if successful
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code != 404:
+                        raise  # Re-raise if it's not a 404 error
+                    if time.time() - start_time < self.timeout:
+                        await asyncio.sleep(self.poll_interval)
+                    else:
+                        raise TimeoutError(
+                            f"Task result not available after waiting for {self.timeout} seconds"
+                        )
+
 
 class AsyncLlamaDeployClient:
     def __init__(
@@ -140,7 +183,9 @@ class AsyncLlamaDeployClient:
         """
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(f"{self.control_plane_url}/sessions")
-            return [SessionDefinition(**session) for session in response.json()]
+            return [
+                SessionDefinition(**session) for session in response.json().values()
+            ]
 
     async def get_session(
         self, session_id: str, poll_interval: float = DEFAULT_POLL_INTERVAL
