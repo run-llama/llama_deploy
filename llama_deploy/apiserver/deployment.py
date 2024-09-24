@@ -79,7 +79,9 @@ class Deployment:
         # Spawn SimpleMessageQueue if needed
         if self._simple_message_queue_task:
             # If SimpleMessageQueue was selected in the config file we take care of running the task
-            tasks.append(asyncio.create_task(self._queue.launch_server()))
+            tasks.append(
+                asyncio.create_task(self._simple_message_queue_task.launch_server())
+            )
             # the other components need the queue to run in order to start, give the queue some time to start
             # FIXME: having to await a magic number of seconds is very brittle, we should rethink the bootstrap process
             await asyncio.sleep(1)
