@@ -78,6 +78,6 @@ async def test_workflow_service(
     server_task.cancel()
 
     # check the result
-    print(human_output_consumer.processed_messages)
-    result = human_output_consumer.processed_messages[0]
+    result = human_output_consumer.processed_messages[-1]
+    assert result.action == ActionTypes.COMPLETED_TASK
     assert result.data["result"] == "test_arg1_result"
