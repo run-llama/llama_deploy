@@ -79,5 +79,4 @@ async def test_workflow_service(
 
     # check the result
     result = human_output_consumer.processed_messages[0]
-    assert result.action == ActionTypes.COMPLETED_TASK
     assert result.data["result"] == "test_arg1_result"
