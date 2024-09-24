@@ -14,7 +14,7 @@ deploy_router = APIRouter(
 async def read_deployments() -> JSONResponse:
     return JSONResponse(
         {
-            "status": "List of deployments",
+            "deployments": list(manager._deployments.keys()),
         }
     )
 
@@ -23,7 +23,7 @@ async def read_deployments() -> JSONResponse:
 async def read_deployment(deployment_name: str) -> JSONResponse:
     return JSONResponse(
         {
-            "status": f"Details for {deployment_name}",
+            f"{deployment_name}": "Up!",
         }
     )
 
