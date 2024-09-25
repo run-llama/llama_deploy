@@ -1,0 +1,7 @@
+name: TestDeployment
+
+control-plane: {}
+
+services:
+  test-workflow:
+    name: Test Workflow
