@@ -200,6 +200,11 @@ class Manager:
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
 
+    @property
+    def deployment_names(self) -> list[str]:
+        """Return a list of names for the active deployments."""
+        return list(self._deployments.keys())
+
     async def serve(self) -> None:
         """The server loop, it keeps the manager running."""
         event = asyncio.Event()

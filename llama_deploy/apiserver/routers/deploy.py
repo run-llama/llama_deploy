@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 
 from llama_deploy.apiserver.server import manager
@@ -21,6 +21,10 @@ async def read_deployments() -> JSONResponse:
 
 @deploy_router.get("/{deployment_name}")
 async def read_deployment(deployment_name: str) -> JSONResponse:
+    print(manager.deployment_names)
+    if deployment_name not in manager.deployment_names:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
     return JSONResponse(
         {
             f"{deployment_name}": "Up!",
