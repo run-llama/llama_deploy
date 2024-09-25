@@ -70,9 +70,7 @@ async def test_publish(mock_connect: MagicMock) -> None:
     mq = RabbitMQMessageQueue()
     # mocks
     mock_exchange_publish = AsyncMock()
-    mock_connect.return_value.channel.return_value.declare_exchange.return_value.publish = (
-        mock_exchange_publish
-    )
+    mock_connect.return_value.channel.return_value.declare_exchange.return_value.publish = mock_exchange_publish
     # message types
     queue_message = QueueMessage(publisher_id="test", id_="1")
     message_body = json.dumps(queue_message.model_dump()).encode("utf-8")
