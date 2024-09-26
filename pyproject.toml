@@ -6,6 +6,11 @@ build-backend = "poetry.core.masonry.api"
 ignore-words-list = "LITS"
 skip = "poetry.lock,./examples,*/algolia.js"
 
+[tool.coverage.run]
+omit = [
+  "__main__.py"
+]
+
 [tool.poetry]
 name = "llama-deploy"
 version = "0.2.0"
@@ -32,6 +37,7 @@ kafka-python-ng = {version = "^2.2.2", optional = true}
 redis = {version = "^5.0.7", optional = true}
 types-aiobotocore = {version = "^2.14.0", optional = true, extras = ["sqs", "sns"]}
 gitpython = "^3.1.43"
+python-multipart = "^0.0.10"
 
 [tool.poetry.extras]
 kafka = ["aiokafka", "kafka-python-ng"]

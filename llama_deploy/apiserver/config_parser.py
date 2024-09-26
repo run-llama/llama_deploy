@@ -61,6 +61,12 @@ class Config(BaseModel):
     services: dict[str, Service]
 
     @classmethod
+    def from_yaml_bytes(cls, src: bytes) -> Self:
+        """Read config data from bytes containing yaml code."""
+        config = yaml.safe_load(src) or {}
+        return cls(**config)
+
+    @classmethod
     def from_yaml(cls, path: Path) -> Self:
         """Read config data from a yaml file."""
         with open(path, "r") as yaml_file:

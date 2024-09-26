@@ -49,10 +49,10 @@ class Deployment:
         """
         self._name = config.name
         self._path = root_path / config.name
-        self._simple_message_queue_task: SimpleMessageQueue | None = None
-        self._queue = self._load_message_queue(config.message_queue)
+        self._simple_message_queue: SimpleMessageQueue | None = None
+        self._queue_client = self._load_message_queue_client(config.message_queue)
         self._control_plane = ControlPlaneServer(
-            self._queue,
+            self._queue_client,
             SimpleOrchestrator(**SimpleOrchestratorConfig().model_dump()),
             **config.control_plane.model_dump(),
         )
@@ -77,9 +77,11 @@ class Deployment:
         tasks = []
 
         # Spawn SimpleMessageQueue if needed
-        if self._simple_message_queue_task:
+        if self._simple_message_queue:
             # If SimpleMessageQueue was selected in the config file we take care of running the task
-            tasks.append(asyncio.create_task(self._queue.launch_server()))
+            tasks.append(
+                asyncio.create_task(self._simple_message_queue.launch_server())
+            )
             # the other components need the queue to run in order to start, give the queue some time to start
             # FIXME: having to await a magic number of seconds is very brittle, we should rethink the bootstrap process
             await asyncio.sleep(1)
@@ -141,14 +143,16 @@ class Deployment:
             workflow_services.append(
                 WorkflowService(
                     workflow=workflow,
-                    message_queue=self._queue,
+                    message_queue=self._queue_client,
                     **workflow_config.model_dump(),
                 )
             )
 
         return workflow_services
 
-    def _load_message_queue(self, cfg: MessageQueueConfig | None) -> BaseMessageQueue:
+    def _load_message_queue_client(
+        self, cfg: MessageQueueConfig | None
+    ) -> BaseMessageQueue:
         # Use the SimpleMessageQueue as the default
         if cfg is None:
             # we use model_validate instead of __init__ to avoid static checkers complaining over field aliases
@@ -163,8 +167,8 @@ class Deployment:
         elif cfg.type == "redis":
             return RedisMessageQueue(**cfg.model_dump())
         elif cfg.type == "simple":
-            self._simple_message_queue_task = SimpleMessageQueue(**cfg.model_dump())
-            return self._simple_message_queue_task.client
+            self._simple_message_queue = SimpleMessageQueue(**cfg.model_dump())
+            return self._simple_message_queue.client
         else:
             msg = f"Unsupported message queue: {cfg.type}"
             raise ValueError(msg)
@@ -197,6 +201,11 @@ class Manager:
         self._deployments_path = deployments_path
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
+
+    @property
+    def deployment_names(self) -> list[str]:
+        """Return a list of names for the active deployments."""
+        return list(self._deployments.keys())
 
     async def serve(self) -> None:
         """The server loop, it keeps the manager running."""
