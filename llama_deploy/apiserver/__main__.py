@@ -2,4 +2,4 @@ import uvicorn
 
 
 if __name__ == "__main__":
-    uvicorn.run("apiserver:app", host="localhost", port=4501)
+    uvicorn.run("llama_deploy.apiserver:app", host="0.0.0.0", port=4501)

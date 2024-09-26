@@ -25,15 +25,17 @@ RUN pip install --upgrade pip && \
 
 FROM $dist_image AS final
 
-ARG entrypoint_script
-ARG exposed_port
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git
 
-EXPOSE ${exposed_port}
+ARG entrypoint_script
+ARG apiserver_port
+
+EXPOSE ${apiserver_port}
 
 COPY --from=build-image /opt/venv /opt/venv
 COPY ./$entrypoint_script /opt/${entrypoint_script}
 
 ENV PATH="/opt/venv/bin:$PATH"
-ENV ENTRYPOINT_SCRIPT=${entrypoint_script}
 
-ENTRYPOINT ["sh", "-c", "python /opt/${ENTRYPOINT_SCRIPT}"]
+ENTRYPOINT ["python", "-m", "llama_deploy.apiserver"]
