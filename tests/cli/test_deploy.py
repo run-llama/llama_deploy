@@ -9,15 +9,16 @@ from llama_deploy.cli import llamactl
 def test_deploy(runner: CliRunner, data_path: Path) -> None:
     test_config_file = data_path / "deployment.yaml"
     mocked_response = mock.MagicMock(status_code=200, json=lambda: {})
-    with mock.patch("llama_deploy.cli.deploy.httpx") as mocked_httpx:
-        mocked_httpx.post.return_value = mocked_response
+    with mock.patch("llama_deploy.cli.deploy.request") as mocked_httpx:
+        mocked_httpx.return_value = mocked_response
         result = runner.invoke(llamactl, ["deploy", str(test_config_file)])
 
         assert result.exit_code == 0
         with open(test_config_file, "rb") as f:
-            mocked_httpx.post.assert_called_with(
-                "http://localhost:4501/deployments/create",
-                files={"config_file": f.read()},
+            mocked_httpx.assert_called_with(
+                "POST",
+                "http://localhost:4501/deployments/create/",
+                files={"file": f.read()},
                 verify=True,
             )
 
@@ -27,8 +28,8 @@ def test_deploy_failed(runner: CliRunner, data_path: Path) -> None:
     mocked_response = mock.MagicMock(
         status_code=401, json=lambda: {"detail": "Unauthorized!"}
     )
-    with mock.patch("llama_deploy.cli.deploy.httpx") as mocked_httpx:
-        mocked_httpx.post.return_value = mocked_response
+    with mock.patch("llama_deploy.cli.deploy.request") as mocked_httpx:
+        mocked_httpx.return_value = mocked_response
         result = runner.invoke(llamactl, ["deploy", str(test_config_file)])
         assert result.exit_code == 1
         assert result.output == "Error: Unauthorized!\n"
