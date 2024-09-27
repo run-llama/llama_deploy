@@ -214,6 +214,9 @@ class Manager:
         """Return a list of names for the active deployments."""
         return list(self._deployments.keys())
 
+    def get_deployment(self, deployment_name: str) -> Deployment | None:
+        return self._deployments.get(deployment_name)
+
     async def serve(self) -> None:
         """The server loop, it keeps the manager running."""
         event = asyncio.Event()

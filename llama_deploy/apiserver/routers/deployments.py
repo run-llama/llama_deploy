@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 
 from llama_deploy.apiserver.server import manager
 from llama_deploy.apiserver.config_parser import Config
-
+from llama_deploy.types import TaskDefinition
 
 deployments_router = APIRouter(
     prefix="/deployments",
@@ -33,17 +33,20 @@ async def read_deployment(deployment_name: str) -> JSONResponse:
     )
 
 
-@deployments_router.get("/{deployment_name}/tasks")
-async def read_deployment_tasks(deployment_name: str) -> JSONResponse:
-    """Returns the details of a specific deployment."""
-    if deployment_name not in manager.deployment_names:
+@deployments_router.post("/{deployment_name}/tasks/create")
+async def create_deployment_task(
+    deployment_name: str, task_definition: TaskDefinition
+) -> JSONResponse:
+    """Create a task for the deployment."""
+    deployment = manager.get_deployment(deployment_name)
+    if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    return JSONResponse(
-        {
-            f"{deployment_name}": "Up!",
-        }
-    )
+    client = deployment.client
+    session = await client.create_session()
+    result = await session.get_task_result(await session.create_task(task_definition))
+
+    return JSONResponse(result.model_dump_json() if result else {})
 
 
 @deployments_router.post("/create/")
