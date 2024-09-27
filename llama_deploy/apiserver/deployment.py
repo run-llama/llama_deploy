@@ -12,6 +12,7 @@ from llama_deploy import (
     SimpleOrchestrator,
     WorkflowService,
     WorkflowServiceConfig,
+    AsyncLlamaDeployClient,
 )
 from llama_deploy.message_queues import (
     BaseMessageQueue,
@@ -57,6 +58,12 @@ class Deployment:
             **config.control_plane.model_dump(),
         )
         self._workflow_services: list[WorkflowService] = self._load_services(config)
+        self._client = AsyncLlamaDeployClient(**config.control_plane.model_dump())
+
+    @property
+    def client(self) -> AsyncLlamaDeployClient:
+        """Returns an async client to interact with this deployment."""
+        return self._client
 
     @property
     def name(self) -> str:

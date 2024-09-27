@@ -33,6 +33,19 @@ async def read_deployment(deployment_name: str) -> JSONResponse:
     )
 
 
+@deployments_router.get("/{deployment_name}/tasks")
+async def read_deployment_tasks(deployment_name: str) -> JSONResponse:
+    """Returns the details of a specific deployment."""
+    if deployment_name not in manager.deployment_names:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    return JSONResponse(
+        {
+            f"{deployment_name}": "Up!",
+        }
+    )
+
+
 @deployments_router.post("/create/")
 async def create_deployment(config_file: UploadFile = File(...)) -> JSONResponse:
     """Creates a new deployment by uploading a configuration file."""
