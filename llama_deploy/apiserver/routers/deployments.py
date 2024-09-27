@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -42,12 +44,12 @@ async def create_deployment_task(
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    client = deployment.client
-    session = await client.create_session()
-    task_id = await session.create_task(task_definition)
-    result = await session.get_task_result(task_id)
+    session = await deployment.client.create_session()
+    result = await session.run(
+        task_definition.agent_id or "", **json.loads(task_definition.input)
+    )
 
-    return JSONResponse(result.model_dump_json() if result else {})
+    return JSONResponse(result)
 
 
 @deployments_router.post("/create")

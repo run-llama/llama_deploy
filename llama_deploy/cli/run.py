@@ -27,11 +27,11 @@ def run(
 ) -> None:
     server_url, insecure = global_config
     deploy_url = f"{server_url}/deployments/{deployment}/tasks/create"
-    payload = {"input": json.dumps(dict(arg))}
+    payload = {"input": json.dumps(dict(arg)), "agent_id": "my_workflow"}
 
     resp = do_httpx("post", deploy_url, verify=not insecure, json=payload)
 
     if resp.status_code >= 400:
         raise click.ClickException(resp.json().get("detail"))
     else:
-        click.echo(resp)
+        click.echo(resp.json())
