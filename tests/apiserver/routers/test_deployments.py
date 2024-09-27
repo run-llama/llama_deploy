@@ -42,3 +42,54 @@ def test_create_deployment(http_client: TestClient, data_path: Path) -> None:
 
         assert response.status_code == 200
         mocked_manager.deploy.assert_called_with(actual_config)
+
+
+def test_create_deployment_task_not_found(
+    http_client: TestClient, data_path: Path
+) -> None:
+    with mock.patch(
+        "llama_deploy.apiserver.routers.deployments.manager"
+    ) as mocked_manager:
+        mocked_manager.get_deployment.return_value = None
+        response = http_client.post(
+            "/deployments/test-deployment/tasks/create/",
+            json={"input": "{}"},
+        )
+        assert response.status_code == 404
+
+
+def test_create_deployment_task_missing_service(
+    http_client: TestClient, data_path: Path
+) -> None:
+    with mock.patch(
+        "llama_deploy.apiserver.routers.deployments.manager"
+    ) as mocked_manager:
+        deployment = mock.AsyncMock()
+        deployment.default_service = None
+        mocked_manager.get_deployment.return_value = deployment
+        response = http_client.post(
+            "/deployments/test-deployment/tasks/create/",
+            json={"input": "{}"},
+        )
+        assert response.status_code == 400
+        assert (
+            response.json().get("detail")
+            == "Service is None and deployment has no default service"
+        )
+
+
+def test_create_deployment_task(http_client: TestClient, data_path: Path) -> None:
+    with mock.patch(
+        "llama_deploy.apiserver.routers.deployments.manager"
+    ) as mocked_manager:
+        deployment = mock.AsyncMock()
+        deployment.default_service = "TestService"
+        session = mock.AsyncMock()
+        deployment.client.create_session.return_value = session
+        session.run.return_value = {"result": "test_result"}
+        mocked_manager.get_deployment.return_value = deployment
+        response = http_client.post(
+            "/deployments/test-deployment/tasks/create/",
+            json={"input": "{}"},
+        )
+        assert response.status_code == 200
