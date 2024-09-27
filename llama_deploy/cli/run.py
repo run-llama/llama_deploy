@@ -1,8 +1,7 @@
 import json
 
 import click
-
-from .utils import do_httpx
+import httpx
 
 
 @click.command()
@@ -29,7 +28,7 @@ def run(
     deploy_url = f"{server_url}/deployments/{deployment}/tasks/create"
     payload = {"input": json.dumps(dict(arg)), "agent_id": "my_workflow"}
 
-    resp = do_httpx("post", deploy_url, verify=not insecure, json=payload)
+    resp = httpx.post(deploy_url, verify=not insecure, json=payload)
 
     if resp.status_code >= 400:
         raise click.ClickException(resp.json().get("detail"))

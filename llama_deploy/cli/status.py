@@ -1,6 +1,5 @@
 import click
-
-from .utils import do_httpx
+import httpx
 
 
 @click.command()
@@ -9,7 +8,12 @@ def status(global_config: tuple) -> None:
     server_url, disable_ssl = global_config
     status_url = f"{server_url}/status/"
 
-    r = do_httpx("get", status_url, verify=not disable_ssl)
+    try:
+        r = httpx.get(status_url, verify=not disable_ssl)
+    except httpx.ConnectError:
+        raise click.ClickException(
+            f"Llama Deploy is not responding, check the apiserver address {server_url} is correct and try again."
+        )
 
     if r.status_code >= 400:
         body = r.json()
