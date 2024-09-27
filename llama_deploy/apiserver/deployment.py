@@ -59,6 +59,11 @@ class Deployment:
         )
         self._workflow_services: list[WorkflowService] = self._load_services(config)
         self._client = AsyncLlamaDeployClient(config.control_plane)
+        self._default_service = config.default_service
+
+    @property
+    def default_service(self) -> str | None:
+        return self._default_service
 
     @property
     def client(self) -> AsyncLlamaDeployClient:

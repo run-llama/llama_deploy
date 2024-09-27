@@ -44,6 +44,14 @@ async def create_deployment_task(
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
+    if task_definition.agent_id is None:
+        if deployment.default_service is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Service is None and deployment has no default service",
+            )
+        task_definition.agent_id = deployment.default_service
+
     session = await deployment.client.create_session()
     result = await session.run(
         task_definition.agent_id or "", **json.loads(task_definition.input)

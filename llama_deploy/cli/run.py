@@ -17,16 +17,20 @@ import httpx
     type=(str, str),
     help="'key value' argument to pass to the task, e.g. '-a age 30'",
 )
+@click.option("-s", "--service", is_flag=False, help="Service name")
 @click.pass_context
 def run(
     ctx: click.Context,
     global_config: tuple,
     deployment: str,
     arg: tuple[tuple[str, str]],
+    service: str,
 ) -> None:
     server_url, insecure = global_config
     deploy_url = f"{server_url}/deployments/{deployment}/tasks/create"
-    payload = {"input": json.dumps(dict(arg)), "agent_id": "my_workflow"}
+    payload = {"input": json.dumps(dict(arg))}
+    if service:
+        payload["agent_id"] = service
 
     resp = httpx.post(deploy_url, verify=not insecure, json=payload)
 
