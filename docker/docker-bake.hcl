@@ -18,6 +18,10 @@ variable "DIST_IMAGE" {
     default = "python:3.12-slim"
 }
 
+variable "APISERVER_PORT" {
+    default = 4501
+}
+
 target "default" {
     dockerfile = "Dockerfile.base"
     tags = ["${IMAGE_NAME}:${IMAGE_TAG_SUFFIX}"]
@@ -26,7 +30,7 @@ target "default" {
         dist_image = "${DIST_IMAGE}"
         llama_deploy_version = "${LLAMA_DEPLOY_VERSION}"
         llama_deploy_extras = "[awssqs, rabbitmq, kafka, redis]"
-        entrypoint_script = "entrypoint.py"
+        apiserver_port = "${APISERVER_PORT}"
     }
     platforms = ["linux/amd64", "linux/arm64"]
 }

@@ -59,3 +59,6 @@ aiokafka = "^0.11.0"
 kafka-python-ng = "^2.2.2"
 aiobotocore = "^2.14.0"
 types-aiobotocore = {version = "^2.14.0", extras = ["sqs", "sns"]}
+
+[tool.poetry.scripts]
+llamactl = "llama_deploy.cli.__main__:main"
