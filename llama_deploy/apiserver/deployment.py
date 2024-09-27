@@ -58,7 +58,7 @@ class Deployment:
             **config.control_plane.model_dump(),
         )
         self._workflow_services: list[WorkflowService] = self._load_services(config)
-        self._client = AsyncLlamaDeployClient(**config.control_plane.model_dump())
+        self._client = AsyncLlamaDeployClient(config.control_plane)
 
     @property
     def client(self) -> AsyncLlamaDeployClient:

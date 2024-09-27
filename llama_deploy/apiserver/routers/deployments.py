@@ -49,7 +49,7 @@ async def create_deployment_task(
     return JSONResponse(result.model_dump_json() if result else {})
 
 
-@deployments_router.post("/create/")
+@deployments_router.post("/create")
 async def create_deployment(config_file: UploadFile = File(...)) -> JSONResponse:
     """Creates a new deployment by uploading a configuration file."""
     config = Config.from_yaml_bytes(await config_file.read())
