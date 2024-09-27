@@ -1,7 +1,8 @@
 from typing import IO
 
 import click
-import httpx
+
+from .utils import request
 
 
 @click.command()
@@ -12,7 +13,7 @@ def deploy(global_config: tuple, deployment_config_file: IO) -> None:
     deploy_url = f"{server_url}/deployments/create/"
 
     files = {"file": deployment_config_file.read()}
-    resp = httpx.post(deploy_url, files=files, verify=not disable_ssl)
+    resp = request("POST", deploy_url, files=files, verify=not disable_ssl)
 
     if resp.status_code >= 400:
         raise click.ClickException(resp.json().get("detail"))
