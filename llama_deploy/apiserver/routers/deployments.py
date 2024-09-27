@@ -44,7 +44,8 @@ async def create_deployment_task(
 
     client = deployment.client
     session = await client.create_session()
-    result = await session.get_task_result(await session.create_task(task_definition))
+    task_id = await session.create_task(task_definition)
+    result = await session.get_task_result(task_id)
 
     return JSONResponse(result.model_dump_json() if result else {})
 
