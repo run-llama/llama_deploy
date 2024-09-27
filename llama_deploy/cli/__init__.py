@@ -12,14 +12,14 @@ from .status import status
 @click.option("-s", "--server", default="http://localhost:4501", help="Apiserver URL")
 @click.option(
     "-k",
-    "--disable-ssl",
+    "--insecure",
     default=False,
     is_flag=True,
     help="Disable SSL certificate verification",
 )
 @click.pass_context
-def llamactl(ctx: click.Context, server: str, disable_ssl: bool) -> None:
-    ctx.obj = server, disable_ssl
+def llamactl(ctx: click.Context, server: str, insecure: bool) -> None:
+    ctx.obj = server, insecure
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())  # show the help if no subcommand was provided
 
