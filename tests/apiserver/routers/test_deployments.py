@@ -13,7 +13,9 @@ def test_read_deployments(http_client: TestClient) -> None:
 
 
 def test_read_deployment(http_client: TestClient) -> None:
-    with mock.patch("llama_deploy.apiserver.routers.deploy.manager") as mocked_manager:
+    with mock.patch(
+        "llama_deploy.apiserver.routers.deployments.manager"
+    ) as mocked_manager:
         mocked_manager.deployment_names = ["test-deployment"]
 
         response = http_client.get("/deployments/test-deployment")
@@ -26,7 +28,9 @@ def test_read_deployment(http_client: TestClient) -> None:
 
 
 def test_create_deployment(http_client: TestClient, data_path: Path) -> None:
-    with mock.patch("llama_deploy.apiserver.routers.deploy.manager") as mocked_manager:
+    with mock.patch(
+        "llama_deploy.apiserver.routers.deployments.manager"
+    ) as mocked_manager:
         config_file = data_path / "git_service.yaml"
 
         with open(config_file, "rb") as f:

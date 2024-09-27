@@ -16,8 +16,8 @@ def test_deploy(runner: CliRunner, data_path: Path) -> None:
         assert result.exit_code == 0
         with open(test_config_file, "rb") as f:
             mocked_httpx.post.assert_called_with(
-                "http://localhost:4501/deployments/create/",
-                files={"file": f.read()},
+                "http://localhost:4501/deployments/create",
+                files={"config_file": f.read()},
                 verify=True,
             )
 
