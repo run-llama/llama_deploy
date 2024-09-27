@@ -58,6 +58,7 @@ class Config(BaseModel):
     name: str
     control_plane: ControlPlaneConfig = Field(alias="control-plane")
     message_queue: MessageQueueConfig | None = Field(None, alias="message-queue")
+    default_service: str | None = Field(None, alias="default-service")
     services: dict[str, Service]
 
     @classmethod
