@@ -13,6 +13,6 @@ def request(
     except httpx.ConnectError:
         parsed_url = urlparse(str(url))
         raise click.ClickException(
-            "Llama Deploy is not responding, check the apiserver "
+            "Llama Deploy is not responding, check that the apiserver "
             f"is running at {parsed_url.scheme}://{parsed_url.netloc} and try again."
         )
