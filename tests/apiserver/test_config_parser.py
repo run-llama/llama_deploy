@@ -10,6 +10,7 @@ def do_assert(config: Config) -> None:
 
     assert config.message_queue is not None
     assert config.message_queue.type == "simple"
+    assert config.default_service == "myworkflow"
 
     wf_config = config.services["myworkflow"]
     assert wf_config.name == "My Python Workflow"

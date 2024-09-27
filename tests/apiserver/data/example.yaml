@@ -8,6 +8,8 @@ message-queue:
   host: "127.0.0.1"
   port: 8001
 
+default-service: myworkflow
+
 services:
   myworkflow:
     # A python workflow available in a git repo
