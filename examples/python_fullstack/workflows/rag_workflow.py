@@ -86,8 +86,8 @@ class RAGWorkflow(Workflow):
 
 def build_rag_workflow() -> RAGWorkflow:
     # host points to qdrant in docker-compose.yml
-    client = QdrantClient(host="qdrant", port=6333)
-    aclient = AsyncQdrantClient(host="qdrant", port=6333)
+    client = QdrantClient(host="localhost", port=6333)
+    aclient = AsyncQdrantClient(host="localhost", port=6333)
     vector_store = QdrantVectorStore(
         collection_name="papers",
         client=client,

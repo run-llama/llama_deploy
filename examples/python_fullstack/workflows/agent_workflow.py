@@ -7,7 +7,7 @@ from llama_index.core.workflow import Event, Workflow, StartEvent, StopEvent, st
 from llama_index.llms.openai import OpenAI
 from llama_index.core.tools import FunctionTool
 
-from rag_workflow import RAGWorkflow
+from .rag_workflow import RAGWorkflow
 
 logger = getLogger(__name__)
 
