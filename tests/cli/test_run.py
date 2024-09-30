@@ -16,7 +16,7 @@ def test_run(runner: CliRunner) -> None:
             "http://localhost:4501/deployments/deployment_name/tasks/create",
             verify=True,
             json={"input": "{}", "agent_id": "service_name"},
-            timeout=5.0,
+            timeout=None,
         )
         assert result.exit_code == 0
 
@@ -56,6 +56,6 @@ def test_run_args(runner: CliRunner) -> None:
             json={
                 "input": '{"first_arg": "first_value", "second_arg": "\\"second value with spaces\\""}',
             },
-            timeout=5.0,
+            timeout=None,
         )
         assert result.exit_code == 0
