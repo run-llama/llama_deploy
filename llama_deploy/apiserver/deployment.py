@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+import subprocess
 import sys
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
@@ -121,6 +122,7 @@ class Deployment:
     def _load_services(self, config: Config) -> list[WorkflowService]:
         """Creates WorkflowService instances according to the configuration object."""
         workflow_services = []
+        port = 8002
         for service_id, service_config in config.services.items():
             source = service_config.source
             if source is None:
@@ -139,6 +141,18 @@ class Deployment:
             source_manager = SOURCE_MANAGERS[source.type]
             source_manager.sync(source.name, str(destination.resolve()))
 
+            # Install dependencies
+            if service_config.python_dependencies:
+                subprocess.check_call(
+                    [
+                        sys.executable,
+                        "-m",
+                        "pip",
+                        "install",
+                        *service_config.python_dependencies,
+                    ]
+                )
+
             # Search for a workflow instance in the service path
             pythonpath = (destination / service_config.path).parent.resolve()
             sys.path.append(str(pythonpath))
@@ -147,9 +161,9 @@ class Deployment:
             workflow = getattr(module, workflow_name)
             workflow_config = WorkflowServiceConfig(
                 host="workflow",
-                port=8002,
+                port=port,
                 internal_host="0.0.0.0",
-                internal_port=8002,
+                internal_port=port,
                 service_name=workflow_name,
             )
             workflow_services.append(
@@ -159,6 +173,8 @@ class Deployment:
                     **workflow_config.model_dump(),
                 )
             )
+
+            port += 1
 
         return workflow_services
 
