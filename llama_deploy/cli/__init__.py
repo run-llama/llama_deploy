@@ -1,6 +1,7 @@
 import click
 
 from .deploy import deploy
+from .run import run
 from .status import status
 
 
@@ -25,4 +26,5 @@ def llamactl(ctx: click.Context, server: str, insecure: bool) -> None:
 
 
 llamactl.add_command(deploy)
+llamactl.add_command(run)
 llamactl.add_command(status)

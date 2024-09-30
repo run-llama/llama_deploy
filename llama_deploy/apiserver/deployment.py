@@ -12,6 +12,7 @@ from llama_deploy import (
     SimpleOrchestrator,
     WorkflowService,
     WorkflowServiceConfig,
+    AsyncLlamaDeployClient,
 )
 from llama_deploy.message_queues import (
     BaseMessageQueue,
@@ -57,6 +58,17 @@ class Deployment:
             **config.control_plane.model_dump(),
         )
         self._workflow_services: list[WorkflowService] = self._load_services(config)
+        self._client = AsyncLlamaDeployClient(config.control_plane)
+        self._default_service = config.default_service
+
+    @property
+    def default_service(self) -> str | None:
+        return self._default_service
+
+    @property
+    def client(self) -> AsyncLlamaDeployClient:
+        """Returns an async client to interact with this deployment."""
+        return self._client
 
     @property
     def name(self) -> str:
@@ -206,6 +218,9 @@ class Manager:
     def deployment_names(self) -> list[str]:
         """Return a list of names for the active deployments."""
         return list(self._deployments.keys())
+
+    def get_deployment(self, deployment_name: str) -> Deployment | None:
+        return self._deployments.get(deployment_name)
 
     async def serve(self) -> None:
         """The server loop, it keeps the manager running."""

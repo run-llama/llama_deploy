@@ -27,6 +27,8 @@ def test_deployment_ctor(data_path: Path) -> None:
         assert d._simple_message_queue is not None
         assert type(d._control_plane) is ControlPlaneServer
         assert len(d._workflow_services) == 1
+        assert d.client is not None
+        assert d.default_service is None
 
 
 def test_deployment_ctor_malformed_config(data_path: Path) -> None:
@@ -97,6 +99,8 @@ def test_manager_ctor() -> None:
     m = Manager(deployments_path=Path("foo"))
     assert str(m._deployments_path) == "foo"
     assert len(m._deployments) == 0
+    assert len(m.deployment_names) == 0
+    assert m.get_deployment("foo") is None
 
 
 def test_manager_deploy_duplicate(data_path: Path) -> None:
@@ -130,6 +134,8 @@ def test_manager_deploy(data_path: Path) -> None:
         m = Manager()
         m.deploy(config)
         mocked_deployment.assert_called_once()
+        assert m.deployment_names == ["TestDeployment"]
+        assert m.get_deployment("TestDeployment") is not None
 
 
 @pytest.mark.asyncio
