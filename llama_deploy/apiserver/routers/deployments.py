@@ -56,6 +56,7 @@ async def create_deployment_task(
     result = await session.run(
         task_definition.agent_id or "", **json.loads(task_definition.input)
     )
+    await deployment.client.delete_session(session.session_id)
 
     return JSONResponse(result)
 

@@ -87,9 +87,11 @@ def test_create_deployment_task(http_client: TestClient, data_path: Path) -> Non
         session = mock.AsyncMock()
         deployment.client.create_session.return_value = session
         session.run.return_value = {"result": "test_result"}
+        session.session_id = 42
         mocked_manager.get_deployment.return_value = deployment
         response = http_client.post(
             "/deployments/test-deployment/tasks/create/",
             json={"input": "{}"},
         )
         assert response.status_code == 200
+        deployment.client.delete_session.assert_called_with(42)
