@@ -6,8 +6,9 @@ from llama_deploy.cli import llamactl
 
 
 def test_status_server_down(runner: CliRunner) -> None:
-    result = runner.invoke(llamactl, ["status"])
+    result = runner.invoke(llamactl, ["-s", "https://test", "status"])
     assert result.exit_code == 1
+    print(result.output)
     assert "Error: Llama Deploy is not responding" in result.output
 
 
