@@ -26,13 +26,13 @@ def run(
     arg: tuple[tuple[str, str]],
     service: str,
 ) -> None:
-    server_url, insecure = global_config
+    server_url, disable_ssl, timeout = global_config
     deploy_url = f"{server_url}/deployments/{deployment}/tasks/create"
     payload = {"input": json.dumps(dict(arg))}
     if service:
         payload["agent_id"] = service
 
-    resp = httpx.post(deploy_url, verify=not insecure, json=payload)
+    resp = httpx.post(deploy_url, verify=not disable_ssl, json=payload, timeout=timeout)
 
     if resp.status_code >= 400:
         raise click.ClickException(resp.json().get("detail"))

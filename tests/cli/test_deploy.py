@@ -20,6 +20,7 @@ def test_deploy(runner: CliRunner, data_path: Path) -> None:
                 "http://localhost:4501/deployments/create",
                 files={"config_file": f.read()},
                 verify=True,
+                timeout=5.0,
             )
 
 

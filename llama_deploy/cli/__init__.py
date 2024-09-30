@@ -18,9 +18,10 @@ from .status import status
     is_flag=True,
     help="Disable SSL certificate verification",
 )
+@click.option("-t", "--timeout", default=5.0, help="Timeout on apiserver HTTP requests")
 @click.pass_context
-def llamactl(ctx: click.Context, server: str, insecure: bool) -> None:
-    ctx.obj = server, insecure
+def llamactl(ctx: click.Context, server: str, insecure: bool, timeout: float) -> None:
+    ctx.obj = server, insecure, timeout
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())  # show the help if no subcommand was provided
 

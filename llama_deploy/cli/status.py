@@ -7,10 +7,10 @@ from .utils import request
 @click.command()
 @click.pass_obj  # global_config
 def status(global_config: tuple) -> None:
-    server_url, disable_ssl = global_config
+    server_url, disable_ssl, timeout = global_config
     status_url = f"{server_url}/status/"
 
-    r = request("GET", status_url, verify=not disable_ssl)
+    r = request("GET", status_url, verify=not disable_ssl, timeout=timeout)
     if r.status_code >= 400:
         body = r.json()
         click.echo(
