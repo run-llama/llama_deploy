@@ -5,6 +5,7 @@ control-plane: {}
 services:
   test-workflow:
     name: Test Workflow
+    port: 8002
     source:
       type: git
       name: https://github.com/run-llama/llama_deploy.git

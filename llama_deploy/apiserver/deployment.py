@@ -134,6 +134,11 @@ class Deployment:
                 msg = "path field in service definition must be set"
                 raise ValueError(msg)
 
+            if service_config.port is None:
+                # This won't happen if we arrive here from Manager.deploy(), the manager will assign a port
+                msg = "port field in service definition must be set"
+                raise ValueError(msg)
+
             # Sync the service source
             destination = self._path / service_id
             source_manager = SOURCE_MANAGERS[source.type]
@@ -147,9 +152,9 @@ class Deployment:
             workflow = getattr(module, workflow_name)
             workflow_config = WorkflowServiceConfig(
                 host="workflow",
-                port=8002,
+                port=service_config.port,
                 internal_host="0.0.0.0",
-                internal_port=8002,
+                internal_port=service_config.port,
                 service_name=workflow_name,
             )
             workflow_services.append(
@@ -213,6 +218,7 @@ class Manager:
         self._deployments_path = deployments_path
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
+        self._control_plane_port = 8002
 
     @property
     def deployment_names(self) -> list[str]:
@@ -248,6 +254,14 @@ class Manager:
             msg = "Reached the maximum number of deployments, cannot schedule more"
             raise ValueError(msg)
 
+        self._assign_control_plane_port(config)
+
         deployment = Deployment(config=config, root_path=self._deployments_path)
         self._deployments[config.name] = deployment
         self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
+
+    def _assign_control_plane_port(self, config: Config) -> None:
+        for service in config.services.values():
+            if not service.port:
+                service.port = self._control_plane_port
+                self._control_plane_port += 1

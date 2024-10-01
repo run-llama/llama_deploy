@@ -1,0 +1,14 @@
+name: TestDeployment
+
+control-plane: {}
+
+services:
+  no-port:
+    name: No Port
+
+  has-port:
+    name: Has Port
+    port: 9999
+
+  no-port-again:
+    name: Again no Port
