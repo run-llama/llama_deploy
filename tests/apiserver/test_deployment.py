@@ -153,3 +153,12 @@ async def test_manager_serve_loop() -> None:
     await serve_task
     assert serve_task.done()
     assert serve_task.exception() is None
+
+
+def test_manager_assign_control_plane_port(data_path: Path) -> None:
+    m = Manager()
+    config = Config.from_yaml(data_path / "service_ports.yaml")
+    m._assign_control_plane_port(config)
+    assert config.services["no-port"].port == 8002
+    assert config.services["has-port"].port == 9999
+    assert config.services["no-port-again"].port == 8003
