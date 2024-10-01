@@ -121,13 +121,7 @@ class Deployment:
     def _load_services(self, config: Config) -> list[WorkflowService]:
         """Creates WorkflowService instances according to the configuration object."""
         workflow_services = []
-        default_port = 8002
         for service_id, service_config in config.services.items():
-            port = service_config.port
-            if not port:
-                port = default_port
-                default_port += 1
-
             source = service_config.source
             if source is None:
                 # this is a default service, skip for now
@@ -153,9 +147,9 @@ class Deployment:
             workflow = getattr(module, workflow_name)
             workflow_config = WorkflowServiceConfig(
                 host="workflow",
-                port=port,
+                port=service_config.port,  # type: ignore # (service_config.port is set by the Manager and can't be None)
                 internal_host="0.0.0.0",
-                internal_port=port,
+                internal_port=service_config.port,
                 service_name=workflow_name,
             )
             workflow_services.append(
@@ -219,6 +213,7 @@ class Manager:
         self._deployments_path = deployments_path
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
+        self._control_plane_port = 8002
 
     @property
     def deployment_names(self) -> list[str]:
@@ -254,6 +249,14 @@ class Manager:
             msg = "Reached the maximum number of deployments, cannot schedule more"
             raise ValueError(msg)
 
+        self._assign_control_plane_port(config)
+
         deployment = Deployment(config=config, root_path=self._deployments_path)
         self._deployments[config.name] = deployment
         self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
+
+    def _assign_control_plane_port(self, config: Config) -> None:
+        for service in config.services.values():
+            if not service.port:
+                service.port = self._control_plane_port
+                self._control_plane_port += 1
