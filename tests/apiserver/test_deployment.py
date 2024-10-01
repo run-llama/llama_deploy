@@ -1,4 +1,6 @@
 import asyncio
+import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 from unittest import mock
@@ -8,7 +10,7 @@ import pytest
 from llama_deploy.apiserver.config_parser import (
     Config,
 )
-from llama_deploy.apiserver.deployment import Deployment, Manager
+from llama_deploy.apiserver.deployment import Deployment, DeploymentError, Manager
 from llama_deploy.control_plane import ControlPlaneServer
 from llama_deploy.message_queues import (
     SimpleRemoteClientMessageQueue,
@@ -90,6 +92,46 @@ def test_deployment__load_message_queues(mocked_deployment: Deployment) -> None:
         mocked_config.model_dump.return_value = {"foo": "redis"}
         mocked_deployment._load_message_queue_client(mocked_config)
         m.assert_called_with(**{"foo": "redis"})
+
+
+def test__install_dependencies(data_path: Path) -> None:
+    config = Config.from_yaml(data_path / "python_dependencies.yaml")
+    service_config = config.services["myworkflow"]
+    with mock.patch("llama_deploy.apiserver.deployment.subprocess") as mocked_subp:
+        # Assert the sub process cmd receives the list of dependencies
+        Deployment._install_dependencies(service_config)
+        mocked_subp.check_call.assert_called_with(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "llama-index-core<1",
+                "llama-index-llms-openai",
+            ]
+        )
+
+        # Assert the method doesn't do anything if the list of dependencies is empty
+        mocked_subp.reset_mock()
+        service_config.python_dependencies = []
+        Deployment._install_dependencies(service_config)
+        mocked_subp.check_call.assert_not_called()
+
+
+def test__install_dependencies_raises(data_path: Path) -> None:
+    config = Config.from_yaml(data_path / "python_dependencies.yaml")
+    service_config = config.services["myworkflow"]
+    error_class = subprocess.CalledProcessError
+    error = error_class(1, "cmd", output=None, stderr="There was an error")
+    with mock.patch("llama_deploy.apiserver.deployment.subprocess") as mocked_subp:
+        # Assert the proper exception is raised if the sub process errors out
+        mocked_subp.CalledProcessError = error_class
+        mocked_subp.check_call.side_effect = error
+        with pytest.raises(
+            DeploymentError,
+            match="Unable to install service dependencies using command 'cmd': There was an error",
+        ):
+            Deployment._install_dependencies(service_config)
 
 
 def test_manager_ctor() -> None:

@@ -27,12 +27,17 @@ from llama_deploy.message_queues import (
 from .config_parser import (
     Config,
     SourceType,
+    Service,
     MessageQueueConfig,
 )
 from .source_managers import GitSourceManager
 
 
 SOURCE_MANAGERS = {SourceType.git: GitSourceManager()}
+
+
+class DeploymentError(Exception):
+    ...
 
 
 class Deployment:
@@ -122,8 +127,13 @@ class Deployment:
     def _load_services(self, config: Config) -> list[WorkflowService]:
         """Creates WorkflowService instances according to the configuration object."""
         workflow_services = []
-        port = 8002
+        default_port = 8002
         for service_id, service_config in config.services.items():
+            port = service_config.port
+            if not port:
+                port = default_port
+                default_port += 1
+
             source = service_config.source
             if source is None:
                 # this is a default service, skip for now
@@ -142,16 +152,7 @@ class Deployment:
             source_manager.sync(source.name, str(destination.resolve()))
 
             # Install dependencies
-            if service_config.python_dependencies:
-                subprocess.check_call(
-                    [
-                        sys.executable,
-                        "-m",
-                        "pip",
-                        "install",
-                        *service_config.python_dependencies,
-                    ]
-                )
+            self._install_dependencies(service_config)
 
             # Search for a workflow instance in the service path
             pythonpath = (destination / service_config.path).parent.resolve()
@@ -174,9 +175,27 @@ class Deployment:
                 )
             )
 
-            port += 1
-
         return workflow_services
+
+    @staticmethod
+    def _install_dependencies(service_config: Service) -> None:
+        """Runs `pip install` on the items listed under `python-dependencies` in the service configuration."""
+        if not service_config.python_dependencies:
+            return
+
+        try:
+            subprocess.check_call(
+                [
+                    sys.executable,
+                    "-m",
+                    "pip",
+                    "install",
+                    *service_config.python_dependencies,
+                ]
+            )
+        except subprocess.CalledProcessError as e:
+            msg = f"Unable to install service dependencies using command '{e.cmd}': {e.stderr}"
+            raise DeploymentError(msg) from None
 
     def _load_message_queue_client(
         self, cfg: MessageQueueConfig | None
@@ -254,7 +273,8 @@ class Manager:
             config: The deployment configuration.
 
         Raises:
-            ValueError: If a deployment with the same name already exists
+            ValueError: If a deployment with the same name already exists or the maximum number of deployment exceeded.
+            DeploymentError: If it wasn't possible to create a deployment.
         """
         if config.name in self._deployments:
             msg = f"Deployment already exists: {config.name}"
