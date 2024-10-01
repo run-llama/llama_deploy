@@ -121,7 +121,13 @@ class Deployment:
     def _load_services(self, config: Config) -> list[WorkflowService]:
         """Creates WorkflowService instances according to the configuration object."""
         workflow_services = []
+        default_port = 8002
         for service_id, service_config in config.services.items():
+            port = service_config.port
+            if not port:
+                port = default_port
+                default_port += 1
+
             source = service_config.source
             if source is None:
                 # this is a default service, skip for now
@@ -147,9 +153,9 @@ class Deployment:
             workflow = getattr(module, workflow_name)
             workflow_config = WorkflowServiceConfig(
                 host="workflow",
-                port=8002,
+                port=port,
                 internal_host="0.0.0.0",
-                internal_port=8002,
+                internal_port=port,
                 service_name=workflow_name,
             )
             workflow_services.append(
