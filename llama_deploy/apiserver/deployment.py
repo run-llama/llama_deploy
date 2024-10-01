@@ -134,6 +134,11 @@ class Deployment:
                 msg = "path field in service definition must be set"
                 raise ValueError(msg)
 
+            if service_config.port is None:
+                # This won't happen if we arrive here from Manager.deploy(), the manager will assign a port
+                msg = "port field in service definition must be set"
+                raise ValueError(msg)
+
             # Sync the service source
             destination = self._path / service_id
             source_manager = SOURCE_MANAGERS[source.type]
@@ -147,7 +152,7 @@ class Deployment:
             workflow = getattr(module, workflow_name)
             workflow_config = WorkflowServiceConfig(
                 host="workflow",
-                port=service_config.port,  # type: ignore # (service_config.port is set by the Manager and can't be None)
+                port=service_config.port,
                 internal_host="0.0.0.0",
                 internal_port=service_config.port,
                 service_name=workflow_name,
