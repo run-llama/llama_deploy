@@ -164,7 +164,7 @@ class Deployment:
                 port=service_config.port,
                 internal_host="0.0.0.0",
                 internal_port=service_config.port,
-                service_name=workflow_name,
+                service_name=service_id,
             )
             workflow_services.append(
                 WorkflowService(
