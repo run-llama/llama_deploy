@@ -22,6 +22,7 @@ services:
     image: llamaindex/llama-deploy:local
     environment:
       QDRANT_HOST: qdrant
+      OPENAI_API_KEY: $OPENAI_API_KEY
     ports:
       - "4501:4501"
     depends_on:
