@@ -1,5 +1,6 @@
 services:
   qdrant:
+    # Used by the RAG workflow
     image: qdrant/qdrant:latest
     ports:
       - "6333:6333"
@@ -8,6 +9,7 @@ services:
       - qdrant_data:/qdrant/storage
 
   redis:
+    # Llama Deploy message queue
     image: redis:latest
     hostname: redis
     ports:
@@ -19,6 +21,7 @@ services:
       retries: 5
 
   apiserver:
+    # Llama Deploy API server, will run the workflows
     image: llamaindex/llama-deploy:local
     environment:
       QDRANT_HOST: qdrant
@@ -35,6 +38,7 @@ services:
       retries: 5
 
   deploy_workflows:
+    # Init container, it deploys python_fullstack.yaml and exits
     image: llamaindex/llama-deploy:local
     volumes:
       - ./python_fullstack.yaml:/opt/python_fullstack.yaml
@@ -44,6 +48,7 @@ services:
     entrypoint: llamactl -s http://apiserver:4501 -t 20 deploy /opt/python_fullstack.yaml
 
   frontend:
+    # UI for this deployment, running at http://localhost:3000
     environment:
       APISERVER_URL: http://apiserver:4501
       DEPLOYMENT_NAME: MyDeployment
