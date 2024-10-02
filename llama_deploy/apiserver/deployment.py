@@ -145,6 +145,11 @@ class Deployment:
                 msg = "port field in service definition must be set"
                 raise ValueError(msg)
 
+            if service_config.host is None:
+                # This won't happen if we arrive here from Manager.deploy(), the manager will assign a host
+                msg = "host field in service definition must be set"
+                raise ValueError(msg)
+
             # Sync the service source
             destination = self._path / service_id
             source_manager = SOURCE_MANAGERS[source.type]
@@ -160,7 +165,7 @@ class Deployment:
             module = importlib.import_module(module_name)
             workflow = getattr(module, workflow_name)
             workflow_config = WorkflowServiceConfig(
-                host="workflow",
+                host=service_config.host,
                 port=service_config.port,
                 internal_host="0.0.0.0",
                 internal_port=service_config.port,
@@ -284,14 +289,16 @@ class Manager:
             msg = "Reached the maximum number of deployments, cannot schedule more"
             raise ValueError(msg)
 
-        self._assign_control_plane_port(config)
+        self._assign_control_plane_address(config)
 
         deployment = Deployment(config=config, root_path=self._deployments_path)
         self._deployments[config.name] = deployment
         self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
 
-    def _assign_control_plane_port(self, config: Config) -> None:
+    def _assign_control_plane_address(self, config: Config) -> None:
         for service in config.services.values():
             if not service.port:
                 service.port = self._control_plane_port
                 self._control_plane_port += 1
+            if not service.host:
+                service.host = "localhost"

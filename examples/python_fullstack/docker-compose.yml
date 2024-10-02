@@ -20,6 +20,8 @@ services:
 
   apiserver:
     image: llamaindex/llama-deploy:local
+    environment:
+      QDRANT_HOST: qdrant
     ports:
       - "4501:4501"
     depends_on:
@@ -41,12 +43,15 @@ services:
     entrypoint: llamactl -s http://apiserver:4501 -t 20 deploy /opt/python_fullstack.yaml
 
   frontend:
+    environment:
+      APISERVER_URL: http://apiserver:4501
+      DEPLOYMENT_NAME: MyDeployment
     build:
       context: ./frontend
       dockerfile: dockerfile
     ports:
       - "3000:3000"
-      - "9000:8000"
+      - "9000:9000"
     volumes:
       - ./frontend:/app
     depends_on:

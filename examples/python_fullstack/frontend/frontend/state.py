@@ -1,5 +1,6 @@
 import asyncio
 import json
+import os
 import uuid
 
 import httpx
@@ -42,8 +43,10 @@ class State(rx.State):
             "chat_history_dicts": chat_history_dicts,
             "user_input": question,
         }
+        deployment_name = os.environ.get("DEPLOYMENT_NAME", "MyDeployment")
+        apiserver_url = os.environ.get("APISERVER_URL", "http://localhost:4501")
         response = await client.post(
-            "http://localhost:4501/deployments/MyDeployment/tasks/create",
+            f"{apiserver_url}/deployments/{deployment_name}/tasks/create",
             json={"input": json.dumps(input_payload)},
             timeout=60,
         )
