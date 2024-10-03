@@ -1,8 +1,10 @@
 import asyncio
-import reflex as rx
+import json
+import os
 import uuid
 
-from llama_deploy import AsyncLlamaDeployClient, ControlPlaneConfig
+import httpx
+import reflex as rx
 
 
 class State(rx.State):
@@ -15,10 +17,6 @@ class State(rx.State):
     user_id: str = str(uuid.uuid4())
 
     async def answer(self):
-        # get a session from the control plane
-        client = AsyncLlamaDeployClient(ControlPlaneConfig())
-        session = await client.get_or_create_session(self.user_id, poll_interval=1.0)
-
         # convert chat history to a list of dictionaries
         chat_history_dicts = []
         for chat_history_tuple in self.chat_history:
@@ -38,12 +36,21 @@ class State(rx.State):
         # Yield here to clear the frontend input before continuing.
         yield
 
+        client = httpx.AsyncClient()
+
         # call the agentic workflow
-        answer = await session.run(
-            "agentic_workflow",
-            chat_history_dicts=chat_history_dicts,
-            user_input=question,
+        input_payload = {
+            "chat_history_dicts": chat_history_dicts,
+            "user_input": question,
+        }
+        deployment_name = os.environ.get("DEPLOYMENT_NAME", "MyDeployment")
+        apiserver_url = os.environ.get("APISERVER_URL", "http://localhost:4501")
+        response = await client.post(
+            f"{apiserver_url}/deployments/{deployment_name}/tasks/create",
+            json={"input": json.dumps(input_payload)},
+            timeout=60,
         )
+        answer = response.text
 
         for i in range(len(answer)):
             # Pause to show the streaming effect.

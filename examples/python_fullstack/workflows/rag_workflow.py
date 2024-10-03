@@ -1,4 +1,8 @@
+import os
 from logging import getLogger
+
+from qdrant_client import QdrantClient, AsyncQdrantClient
+
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
 from llama_index.core.node_parser import SemanticSplitterNodeParser, SentenceSplitter
 from llama_index.core.response_synthesizers import CompactAndRefine
@@ -15,7 +19,7 @@ from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.llms.openai import OpenAI
 from llama_index.postprocessor.rankgpt_rerank import RankGPTRerank
 from llama_index.vector_stores.qdrant import QdrantVectorStore
-from qdrant_client import QdrantClient, AsyncQdrantClient
+
 
 logger = getLogger(__name__)
 
@@ -86,8 +90,9 @@ class RAGWorkflow(Workflow):
 
 def build_rag_workflow() -> RAGWorkflow:
     # host points to qdrant in docker-compose.yml
-    client = QdrantClient(host="qdrant", port=6333)
-    aclient = AsyncQdrantClient(host="qdrant", port=6333)
+    qdrant_host = os.environ.get("QDRANT_HOST", "localhost")
+    client = QdrantClient(host=qdrant_host, port=6333)
+    aclient = AsyncQdrantClient(host=qdrant_host, port=6333)
     vector_store = QdrantVectorStore(
         collection_name="papers",
         client=client,

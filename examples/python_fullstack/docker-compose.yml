@@ -1,8 +1,6 @@
-include:
-  - path: ../../docker/docker-compose-redis.yml
-
 services:
   qdrant:
+    # Used by the RAG workflow
     image: qdrant/qdrant:latest
     ports:
       - "6333:6333"
@@ -10,73 +8,61 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
-  rag_workflow:
-    build:
-      context: ./workflows
-      dockerfile: dockerfile
+  redis:
+    # Llama Deploy message queue
+    image: redis:latest
+    hostname: redis
     ports:
-      - "8002:8002"
-    volumes:
-      - ./workflows:/app
-    depends_on:
-      control_plane:
-        condition: service_started
-    environment:
-      DEPLOY_SETTINGS_NAME: rag_workflow
-      OPENAI_API_KEY: $OPENAI_API_KEY
-      CONTROL_PLANE_HOST: control_plane
-      CONTROL_PLANE_PORT: 8000
-    deploy:
-      replicas: 1
+      - "6379:6379"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8002/"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
+      test: redis-cli --raw incr ping
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-  agentic_workflow:
-    build:
-      context: ./workflows
-      dockerfile: dockerfile
-    ports:
-      - "8003:8003"
-    volumes:
-      - ./workflows:/app
-    depends_on:
-      control_plane:
-        condition: service_started
+  apiserver:
+    # Llama Deploy API server, will run the workflows
+    image: llamaindex/llama-deploy:main
     environment:
-      DEPLOY_SETTINGS_NAME: agentic_workflow
+      QDRANT_HOST: qdrant
       OPENAI_API_KEY: $OPENAI_API_KEY
-      CONTROL_PLANE_HOST: control_plane
-      CONTROL_PLANE_PORT: 8000
-    deploy:
-      replicas: 1
+    ports:
+      - "4501:4501"
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:8003/"]
-      interval: 60s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
+      test: llamactl status
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  deploy_workflows:
+    # Init container, it deploys python_fullstack.yaml and exits
+    image: llamaindex/llama-deploy:local
+    volumes:
+      - ./python_fullstack.yaml:/opt/python_fullstack.yaml
+    depends_on:
+      apiserver:
+        condition: service_healthy
+    entrypoint: llamactl -s http://apiserver:4501 -t 20 deploy /opt/python_fullstack.yaml
 
   frontend:
+    # UI for this deployment, running at http://localhost:3000
+    environment:
+      APISERVER_URL: http://apiserver:4501
+      DEPLOYMENT_NAME: MyDeployment
     build:
       context: ./frontend
       dockerfile: dockerfile
-    environment:
-      CONTROL_PLANE_HOST: control_plane
-      CONTROL_PLANE_PORT: 8000
     ports:
       - "3000:3000"
-      - "9000:8000"
+      - "9000:9000"
     volumes:
       - ./frontend:/app
     depends_on:
-      rag_workflow:
-        condition: service_started
-      agentic_workflow:
-        condition: service_started
+      deploy_workflows:
+        condition: service_completed_successfully
 
 volumes:
   qdrant_data:
