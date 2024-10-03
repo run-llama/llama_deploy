@@ -15,12 +15,12 @@ of them.
 The goal of Llama Deploy is to easily transition something that you built in a notebook to something running on the
 cloud with the minimum amount of changes to the original code, possibly zero. In order to make this transition a
 pleasant one, the intrinsic complexity of running agents as services is managed by a component called _API Server_,
-the only one in LLama Deploy that's user facing. You can interact with the API Server in two ways:
+the only one in Llama Deploy that's user facing. You can interact with the API Server in two ways:
 
 - Using the `llamactl` CLI from a shell.
 - Through the _LLama Deploy SDK_ from a Python application or script.
 
-Both the SDK and the CLI are distributed with the LLama Deploy Python package, so batteries are included.
+Both the SDK and the CLI are distributed with the Llama Deploy Python package, so batteries are included.
 
 The overall system layout is pictured below.
 
@@ -56,7 +56,7 @@ pip install llama_deploy
 
 ## Getting Started
 
-Let's start with deploying a simple workflow on a local instance of Llama Deploy. After installing LLama Deploy, create
+Let's start with deploying a simple workflow on a local instance of Llama Deploy. After installing Llama Deploy, create
 a `src` folder add a `workflow.py` file to it containing the following Python code:
 
 ```python
