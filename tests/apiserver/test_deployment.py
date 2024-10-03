@@ -33,11 +33,29 @@ def test_deployment_ctor(data_path: Path) -> None:
         assert d.default_service is None
 
 
-def test_deployment_ctor_malformed_config(data_path: Path) -> None:
+def test_deployment_ctor_missing_service_path(data_path: Path) -> None:
     config = Config.from_yaml(data_path / "git_service.yaml")
     config.services["test-workflow"].path = None
     with pytest.raises(
         ValueError, match="path field in service definition must be set"
+    ):
+        Deployment(config=config, root_path=Path("."))
+
+
+def test_deployment_ctor_missing_service_port(data_path: Path) -> None:
+    config = Config.from_yaml(data_path / "git_service.yaml")
+    config.services["test-workflow"].port = None
+    with pytest.raises(
+        ValueError, match="port field in service definition must be set"
+    ):
+        Deployment(config=config, root_path=Path("."))
+
+
+def test_deployment_ctor_missing_service_host(data_path: Path) -> None:
+    config = Config.from_yaml(data_path / "git_service.yaml")
+    config.services["test-workflow"].host = None
+    with pytest.raises(
+        ValueError, match="host field in service definition must be set"
     ):
         Deployment(config=config, root_path=Path("."))
 
@@ -200,7 +218,7 @@ async def test_manager_serve_loop() -> None:
 def test_manager_assign_control_plane_port(data_path: Path) -> None:
     m = Manager()
     config = Config.from_yaml(data_path / "service_ports.yaml")
-    m._assign_control_plane_port(config)
+    m._assign_control_plane_address(config)
     assert config.services["no-port"].port == 8002
     assert config.services["has-port"].port == 9999
     assert config.services["no-port-again"].port == 8003
