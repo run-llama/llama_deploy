@@ -1,8 +1,9 @@
 from typing import Protocol
 
 from .git import GitSourceManager
+from .local import LocalSourceManager
 
-__all__ = ["GitSourceManager"]
+__all__ = ["GitSourceManager", "LocalSourceManager"]
 
 
 class SourceManager(Protocol):

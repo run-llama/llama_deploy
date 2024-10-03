@@ -32,6 +32,7 @@ class SourceType(str, Enum):
 
     git = "git"
     docker = "docker"
+    local = "local"
 
 
 class ServiceSource(BaseModel):
