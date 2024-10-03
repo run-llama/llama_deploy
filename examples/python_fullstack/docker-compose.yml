@@ -22,7 +22,7 @@ services:
 
   apiserver:
     # Llama Deploy API server, will run the workflows
-    image: llamaindex/llama-deploy:local
+    image: llamaindex/llama-deploy:main
     environment:
       QDRANT_HOST: qdrant
       OPENAI_API_KEY: $OPENAI_API_KEY
