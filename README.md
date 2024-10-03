@@ -163,17 +163,20 @@ INFO:     Uvicorn running on http://0.0.0.0:4501 (Press CTRL+C to quit)
 The API server will be available at `http://localhost:4501` on your host, so `llamactl` will work the same as if you
 run `python -m llama_deploy.apiserver`.
 
-### High-Level Deployment
+## Manual deployment without the API server
 
-`llama_deploy` provides a simple way to deploy your workflows using configuration objects and helper functions.
-
-When deploying, generally you'll want to deploy the core services and workflows each from their own python scripts (or docker images, etc.).
-
-Here's how you can deploy a core system and a workflow:
+Llama Deploy offers different abstraction layers for maximum flexibility. For example, if you don't need the API
+server, you can go down one layer and orchestrate the core components on your own. Llama Deploy provides a simple way
+to self-manage a deployment using configuration objects and helper functions.
 
 ### Deploying the Core System
 
-To deploy the core system (message queue, control plane, and orchestrator), you can use the `deploy_core` function:
+> [!NOTE]
+> When manually orchestrating a deployment, generally you'll want to deploy the core components and workflows services
+> each from their own python scripts (or docker images, etc.).
+
+To manually orchestrate a deployment, the first thing to do is to deploy the core system: message queue, control plane,
+and orchestrator. You can use the `deploy_core` function:
 
 ```python
 from llama_deploy import (
@@ -196,7 +199,8 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-This will set up the basic infrastructure for your `llama_deploy` system. You can customize the configs to adjust ports and basic settings, as well as swap in different message queue configs (Redis, Kafka, RabbiMQ, etc.).
+This will set up the basic infrastructure for your deployment. You can customize the configs to adjust ports and basic
+settings, as well as swap in different message queue configs (Redis, Kafka, RabbiMQ, etc.).
 
 ### Deploying a Workflow
 
@@ -255,7 +259,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-This will deploy your workflow as a service within the `llama_deploy` system, and register the service with the existing control plane and message queue.
+This will deploy your workflow as a service and register it with the existing control plane and message queue.
 
 ### Interacting with your Deployment
 
@@ -329,12 +333,14 @@ outer = OuterWorkflow()
 outer.add_workflows(inner=InnerWorkflow())
 ```
 
-`llama_deploy` makes it dead simple to spin up each workflow above as a service, and run everything without any changes to your code!
+Llama Deploy makes it dead simple to spin up each workflow above as a service, and run everything without any changes
+to your code!
 
 Just deploy each workflow:
 
 > [!NOTE]
-> This code is launching both workflows from the same script, but these could easily be separate scripts, machines, or docker containers!
+> This code is launching both workflows from the same script, but these could easily be separate scripts, machines,
+> or docker containers!
 
 ```python
 import asyncio
@@ -389,9 +395,10 @@ print(result)
 # prints 'hello_world_result_result'
 ```
 
-## Low-Level Deployment
+## Manual deployment using the lower level API
 
-For more control over the deployment process, you can use the lower-level API. Here's what's happening under the hood when you use `deploy_core` and `deploy_workflow`:
+For more control over the deployment process, you can use the lower-level API. Here's what's happening under the hood
+when you use `deploy_core` and `deploy_workflow`:
 
 ### deploy_core
 
@@ -524,13 +531,14 @@ This function:
 6. Sets up a consumer task for the service
 7. Sets up a shutdown handler and keeps the event loop running
 
-## Using the `llama_deploy` client
+## Using the Python SDK
 
-`llama_deploy` provides both a synchronous and an asynchronous client for interacting with a deployed system.
+Llama Deploy provides access to a deployed system through a synchronous and an asynchronous client. Both clients have
+the same interface, but the asynchronous client is recommended for production use to enable concurrent operations.
 
-Both clients have the same interface, but the asynchronous client is recommended for production use to enable concurrent operations.
-
-Generally, there is a top-level client for interacting with the control plane, and a session client for interacting with a specific session. The session client is created automatically for you by the top-level client and returned from specific methods.
+Generally, there is a top-level client for interacting with the control plane, and a session client for interacting
+with a specific session. The session client is created automatically for you by the top-level client and returned from
+specific methods.
 
 To create a client, you need to point it to a control plane.
 
@@ -663,7 +671,7 @@ async_client = AsyncLlamaDeployClient(ControlPlaneConfig())
       print(result.result)
   ```
 
-### Message Queue Integrations
+## Message Queue Integrations
 
 In addition to `SimpleMessageQueue`, we provide integrations for various
 message queue providers, such as RabbitMQ, Redis, etc. The general usage pattern
