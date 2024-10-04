@@ -30,10 +30,13 @@ from .config_parser import (
     Service,
     MessageQueueConfig,
 )
-from .source_managers import GitSourceManager
+from .source_managers import GitSourceManager, LocalSourceManager, SourceManager
 
 
-SOURCE_MANAGERS = {SourceType.git: GitSourceManager()}
+SOURCE_MANAGERS: dict[SourceType, SourceManager] = {
+    SourceType.git: GitSourceManager(),
+    SourceType.local: LocalSourceManager(),
+}
 
 
 class DeploymentError(Exception):

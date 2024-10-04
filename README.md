@@ -1,38 +1,54 @@
-# 🦙 `llama_deploy` 🤖
+# 🦙 Llama Deploy 🤖
 
-`llama_deploy` (formerly `llama-agents`) is an async-first framework for deploying, scaling, and productionizing agentic multi-service systems based on [workflows from `llama_index`](https://docs.llamaindex.ai/en/stable/understanding/workflows/). With `llama_deploy`, you can build any number of workflows in `llama_index` and then bring them into `llama_deploy` for deployment.
+Llama Deploy (formerly `llama-agents`) is an async-first framework for deploying, scaling, and productionizing agentic
+multi-service systems based on [workflows from `llama_index`](https://docs.llamaindex.ai/en/stable/understanding/workflows/).
+With Llama Deploy, you can build any number of workflows in `llama_index` and then run them as services, accessible
+through a HTTP API by a user interface or other services part of your system.
 
-In `llama_deploy`, each workflow is seen as a `service`, endlessly processing incoming tasks. Each workflow pulls and publishes messages to and from a `message queue`.
+In Llama Deploy each workflow is wrapped in a _Service_ object, endlessly processing incoming requests in form of
+_Task_ objects. Each service pulls and publishes messages to and from a _Message Queue_. An internal component called
+_Control Plane_ handles ongoing tasks, manages the internal state, keeps track of which services are available, and
+decides which service should handle the next step of a task using another internal component called _Orchestrator_.
+A well defined set of these components is called _Deployment_, and a single Llama Deploy instance can serve multiple
+of them.
 
-At the top of a `llama_deploy` system is the `control plane`. The control plane handles ongoing tasks, manages state, keeps track of which services are in the network, and also decides which service should handle the next step of a task using an `orchestrator`. The default `orchestrator` is purely programmatic, handling failures, retries, and state-passing.
+The goal of Llama Deploy is to easily transition something that you built in a notebook to something running on the
+cloud with the minimum amount of changes to the original code, possibly zero. In order to make this transition a
+pleasant one, the intrinsic complexity of running agents as services is managed by a component called _API Server_,
+the only one in Llama Deploy that's user facing. You can interact with the API Server in two ways:
+
+- Using the `llamactl` CLI from a shell.
+- Through the _LLama Deploy SDK_ from a Python application or script.
+
+Both the SDK and the CLI are distributed with the Llama Deploy Python package, so batteries are included.
 
 The overall system layout is pictured below.
 
 ![A basic system in llama_deploy](./system_diagram.png)
 
-## Why `llama_deploy`?
+## Why Llama Deploy?
 
-1. **Seamless Deployment**: It bridges the gap between development and production, allowing you to deploy `llama_index` workflows with minimal changes to your code.
-
+1. **Seamless Deployment**: It bridges the gap between development and production, allowing you to deploy `llama_index`
+   workflows with minimal changes to your code.
 2. **Scalability**: The microservices architecture enables easy scaling of individual components as your system grows.
-
-3. **Flexibility**: By using a hub-and-spoke architecture, you can easily swap out components (like message queues) or add new services without disrupting the entire system.
-
-4. **Fault Tolerance**: With built-in retry mechanisms and failure handling, `llama_deploy` ensures robustness in production environments.
-
+3. **Flexibility**: By using a hub-and-spoke architecture, you can easily swap out components (like message queues) or
+   add new services without disrupting the entire system.
+4. **Fault Tolerance**: With built-in retry mechanisms and failure handling, Llama Deploy adds robustness in
+   production environments.
 5. **State Management**: The control plane manages state across services, simplifying complex multi-step processes.
-
-6. **Async-First**: Designed for high-concurrency scenarios, making it suitable for real-time and high-throughput applications.
+6. **Async-First**: Designed for high-concurrency scenarios, making it suitable for real-time and high-throughput
+   applications.
 
 ## Wait, where is `llama-agents`?
 
-The introduction of [Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/#workflows) in `llama_index`produced the most intuitive way to develop agentic applications. The question then became: how can we close the gap between developing an agentic application as a workflow, and deploying it?
-
-With `llama_deploy`, the goal is to make it as 1:1 as possible between something that you built in a notebook, and something running on the cloud in a cluster. `llama_deploy` enables this by simply being able to pass in and deploy any workflow.
+The introduction of [Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/#workflows) in `llama_index`
+turned out to be the most intuitive way for our users to develop agentic applications. While we keep building more and
+more features to support agentic applications into `llama_index`, Llama Deploy focuses on closing the gap between local
+development and remote execution of agents as services.
 
 ## Installation
 
-`llama_deploy` can be installed with pip, and relies mainly on `llama_index_core`:
+`llama_deploy` can be installed with pip, and includes the API Server Python SDK and `llamactl`:
 
 ```bash
 pip install llama_deploy
@@ -40,17 +56,128 @@ pip install llama_deploy
 
 ## Getting Started
 
-### High-Level Deployment
+Let's start with deploying a simple workflow on a local instance of Llama Deploy. After installing Llama Deploy, create
+a `src` folder add a `workflow.py` file to it containing the following Python code:
 
-`llama_deploy` provides a simple way to deploy your workflows using configuration objects and helper functions.
+```python
+import asyncio
+from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 
-When deploying, generally you'll want to deploy the core services and workflows each from their own python scripts (or docker images, etc.).
 
-Here's how you can deploy a core system and a workflow:
+class EchoWorkflow(Workflow):
+    """A dummy workflow with only one step sending back the input given."""
+
+    @step()
+    async def run_step(self, ev: StartEvent) -> StopEvent:
+        message = str(ev.get("message", ""))
+        return StopEvent(result=f"Message received: {message}")
+
+
+# `echo_workflow` will be imported by Llama Deploy
+echo_workflow = EchoWorkflow()
+
+
+async def main():
+    print(await echo_workflow.run(message="Hello!"))
+
+
+# Make this script runnable from the shell so we can test the workflow execution
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+Test the workflow runs locally:
+
+```
+$ python src/workflow.py
+Message received: Hello!
+```
+
+Time to deploy that workflow! Create a file called `deployment.yml` containing the following YAML code:
+
+```yaml
+name: QuickStart
+
+control-plane:
+  port: 8000
+
+default-service: echo_workflow
+
+services:
+  echo_workflow:
+    name: Echo Workflow
+    # We tell Llama Deploy where to look for our workflow
+    source:
+      # In this case, we instruct Llama Deploy to look in the local filesystem
+      type: local
+      # The path in the local filesystem where to look. This assumes there's an src folder in the
+      # current working directory containing the file workflow.py we created previously
+      name: ./src
+    # This assumes the file workflow.py contains a variable called `echo_workflow` containing our workflow instance
+    path: workflow:echo_workflow
+```
+
+The YAML code above defines the deployment that Llama Deploy will create and run as a service. As you can
+see, this deployment has a name, some configuration for the control plane and one service to wrap our workflow. The
+service will look for a Python variable named `echo_workflow` in a Python module named `workflow` and run the workflow.
+
+At this point we have all we need to run this deployment. Ideally, we would have the API server already running
+somewhere in the cloud, but to get started let's start an instance locally. Run the following python script from a shell:
+
+```
+$ python -m llama_deploy.apiserver
+INFO:     Started server process [10842]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:4501 (Press CTRL+C to quit)
+```
+
+From another shell, use `llamactl` to create the deployment:
+
+```
+$ llamactl deploy deployment.yml
+Deployment successful: QuickStart
+```
+
+Our workflow is now part of the `QuickStart` deployment and ready to serve requests! We can use `llamactl` to interact
+with this deployment:
+
+```
+$ llamactl run --deployment QuickStart --arg message 'Hello from my shell!'
+Message received: Hello from my shell!
+```
+
+### Run the API server with Docker
+
+Llama Deploy comes with Docker images that can be used to run the API server without effort. In the previous example,
+if you have Docker installed, you can replace running the API server locally with `python -m llama_deploy.apiserver`
+with:
+
+```
+$ docker run -p 4501:4501 -v .:/opt/quickstart -w /opt/quickstart llamaindex/llama-deploy
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:4501 (Press CTRL+C to quit)
+```
+
+The API server will be available at `http://localhost:4501` on your host, so `llamactl` will work the same as if you
+run `python -m llama_deploy.apiserver`.
+
+## Manual deployment without the API server
+
+Llama Deploy offers different abstraction layers for maximum flexibility. For example, if you don't need the API
+server, you can go down one layer and orchestrate the core components on your own. Llama Deploy provides a simple way
+to self-manage a deployment using configuration objects and helper functions.
 
 ### Deploying the Core System
 
-To deploy the core system (message queue, control plane, and orchestrator), you can use the `deploy_core` function:
+> [!NOTE]
+> When manually orchestrating a deployment, generally you'll want to deploy the core components and workflows services
+> each from their own python scripts (or docker images, etc.).
+
+To manually orchestrate a deployment, the first thing to do is to deploy the core system: message queue, control plane,
+and orchestrator. You can use the `deploy_core` function:
 
 ```python
 from llama_deploy import (
@@ -73,7 +200,8 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-This will set up the basic infrastructure for your `llama_deploy` system. You can customize the configs to adjust ports and basic settings, as well as swap in different message queue configs (Redis, Kafka, RabbiMQ, etc.).
+This will set up the basic infrastructure for your deployment. You can customize the configs to adjust ports and basic
+settings, as well as swap in different message queue configs (Redis, Kafka, RabbiMQ, etc.).
 
 ### Deploying a Workflow
 
@@ -132,7 +260,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-This will deploy your workflow as a service within the `llama_deploy` system, and register the service with the existing control plane and message queue.
+This will deploy your workflow as a service and register it with the existing control plane and message queue.
 
 ### Interacting with your Deployment
 
@@ -206,12 +334,14 @@ outer = OuterWorkflow()
 outer.add_workflows(inner=InnerWorkflow())
 ```
 
-`llama_deploy` makes it dead simple to spin up each workflow above as a service, and run everything without any changes to your code!
+Llama Deploy makes it dead simple to spin up each workflow above as a service, and run everything without any changes
+to your code!
 
 Just deploy each workflow:
 
 > [!NOTE]
-> This code is launching both workflows from the same script, but these could easily be separate scripts, machines, or docker containers!
+> This code is launching both workflows from the same script, but these could easily be separate scripts, machines,
+> or docker containers!
 
 ```python
 import asyncio
@@ -266,18 +396,10 @@ print(result)
 # prints 'hello_world_result_result'
 ```
 
-## Components of a `llama_deploy` System
+## Manual deployment using the lower level API
 
-In `llama_deploy`, there are several key components that make up the overall system
-
-- `message queue` -- the message queue acts as a queue for all services and the `control plane`. It has methods for publishing methods to named queues, and delegates messages to consumers.
-- `control plane` -- the control plane is a the central gateway to the `llama_deploy` system. It keeps track of current tasks and the services that are registered to the system. The `control plane` also performs state and session management and utilizes the `orchestrator`.
-- `orchestrator` -- The module handles incoming tasks and decides what service to send it to, as well as how to handle results from services. By default, the `orchestrator` is very simple, and assumes incoming tasks have a destination already specified. Beyond that, the default `orchestrator` handles retries, failures, and other nice-to-haves.
-- `services` -- Services are where the actual work happens. A services accepts some incoming task and context, processes it, and publishes a result. When you deploy a workflow, it becomes a service.
-
-## Low-Level Deployment
-
-For more control over the deployment process, you can use the lower-level API. Here's what's happening under the hood when you use `deploy_core` and `deploy_workflow`:
+For more control over the deployment process, you can use the lower-level API. Here's what's happening under the hood
+when you use `deploy_core` and `deploy_workflow`:
 
 ### deploy_core
 
@@ -410,13 +532,14 @@ This function:
 6. Sets up a consumer task for the service
 7. Sets up a shutdown handler and keeps the event loop running
 
-## Using the `llama_deploy` client
+## Using the Python SDK
 
-`llama_deploy` provides both a synchronous and an asynchronous client for interacting with a deployed system.
+Llama Deploy provides access to a deployed system through a synchronous and an asynchronous client. Both clients have
+the same interface, but the asynchronous client is recommended for production use to enable concurrent operations.
 
-Both clients have the same interface, but the asynchronous client is recommended for production use to enable concurrent operations.
-
-Generally, there is a top-level client for interacting with the control plane, and a session client for interacting with a specific session. The session client is created automatically for you by the top-level client and returned from specific methods.
+Generally, there is a top-level client for interacting with the control plane, and a session client for interacting
+with a specific session. The session client is created automatically for you by the top-level client and returned from
+specific methods.
 
 To create a client, you need to point it to a control plane.
 
@@ -549,7 +672,7 @@ async_client = AsyncLlamaDeployClient(ControlPlaneConfig())
       print(result.result)
   ```
 
-### Message Queue Integrations
+## Message Queue Integrations
 
 In addition to `SimpleMessageQueue`, we provide integrations for various
 message queue providers, such as RabbitMQ, Redis, etc. The general usage pattern
