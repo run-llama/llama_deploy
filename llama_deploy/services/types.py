@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, cast
 
 from llama_index.core.agent.types import TaskStep, TaskStepOutput, Task
 from llama_index.core.agent.runner.base import AgentState, TaskState
@@ -44,10 +44,12 @@ class _TaskStep(BaseModel):
             input=task_step.input,
             step_state=_step_state,
             prev_steps=[
-                cls.from_task_step(prev_step) for prev_step in task_step.prev_steps
+                cls.from_task_step(cast(TaskStep, prev_step))
+                for prev_step in task_step.prev_steps
             ],
             next_steps=[
-                cls.from_task_step(next_step) for next_step in task_step.next_steps
+                cls.from_task_step(cast(TaskStep, next_step))
+                for next_step in task_step.next_steps
             ],
             is_ready=task_step.is_ready,
         )

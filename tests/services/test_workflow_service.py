@@ -8,7 +8,7 @@ from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 from llama_deploy.messages import QueueMessage
 from llama_deploy.message_consumers import BaseMessageQueueConsumer
 from llama_deploy.message_queues import SimpleMessageQueue
-from llama_deploy.services.workflow import WorkflowService, WorkflowState
+from llama_deploy.services.workflow import WorkflowService
 from llama_deploy.types import CONTROL_PLANE_NAME, ActionTypes, NewTask, TaskDefinition
 
 
@@ -53,6 +53,8 @@ async def test_workflow_service(
         message_queue,
         service_name="test_workflow",
         description="Test Workflow Service",
+        host="localhost",
+        port=8001,
     )
 
     # launch it
@@ -62,7 +64,6 @@ async def test_workflow_service(
     # pass a task to the service
     task = TaskDefinition(
         input=json.dumps({"arg1": "test_arg1"}),
-        state=WorkflowState(task_id="test_task_id").model_dump(),
     )
 
     await workflow_service.process_message(

@@ -15,6 +15,7 @@ from typing import (
     Optional,
     Protocol,
     TYPE_CHECKING,
+    Sequence,
 )
 
 from llama_deploy.messages.base import QueueMessage
@@ -50,6 +51,9 @@ class BaseMessageQueue(BaseModel, ABC):
     """Message broker interface between publisher and consumer."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
 
     @abstractmethod
     async def _publish(self, message: QueueMessage) -> Any:
@@ -91,7 +95,7 @@ class BaseMessageQueue(BaseModel, ABC):
     async def get_consumers(
         self,
         message_type: str,
-    ) -> List["BaseMessageQueueConsumer"]:
+    ) -> Sequence["BaseMessageQueueConsumer"]:
         """Gets list of consumers according to a message type."""
         raise NotImplementedError(
             "`get_consumers()` is not implemented for this class."

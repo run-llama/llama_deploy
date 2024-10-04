@@ -101,8 +101,8 @@ class HumanService(BaseService):
     human_input_prompt: str = (
         HELP_REQUEST_TEMPLATE_STR  # TODO: use PromptMixin, PromptTemplate
     )
-    host: Optional[str] = None
-    port: Optional[int] = None
+    host: str
+    port: int
 
     _outstanding_human_tasks: List["HumanTask"] = PrivateAttr()
     _message_queue: BaseMessageQueue = PrivateAttr()
@@ -296,7 +296,7 @@ class HumanService(BaseService):
             task_def = TaskDefinition(**message.data or {})
             tool_call_bundle = ToolCallBundle(
                 tool_name=self.tool_name,
-                tool_args=(),
+                tool_args=[],
                 tool_kwargs={"input": task_def.input},
             )
             task_as_tool_call = ToolCall(

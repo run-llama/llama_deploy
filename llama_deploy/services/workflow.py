@@ -114,8 +114,8 @@ class WorkflowService(BaseService):
     running: bool = True
     step_interval: float = 0.1
     max_concurrent_tasks: int = 8
-    host: Optional[str] = None
-    port: Optional[int] = None
+    host: str
+    port: int
     internal_host: Optional[str] = None
     internal_port: Optional[int] = None
     raise_exceptions: bool = False

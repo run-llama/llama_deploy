@@ -13,6 +13,8 @@ def test_init() -> None:
         running=False,
         description="Test Agent Server",
         step_interval=0.5,
+        host="localhost",
+        port=8001,
     )
 
     assert server.agent == agent

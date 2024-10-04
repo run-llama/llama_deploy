@@ -41,6 +41,8 @@ async def test_init() -> None:
         description="Test Human Service",
         service_name="Test Human Service",
         step_interval=0.5,
+        host="localhost",
+        port=8001,
     )
 
     # assert
@@ -53,7 +55,9 @@ async def test_init() -> None:
 def test_invalid_human_prompt_raises_validation_error() -> None:
     # arrange
     invalid_human_prompt_input_str = "{incorrect_param}"
-    human_service = HumanService(message_queue=SimpleMessageQueue())
+    human_service = HumanService(
+        message_queue=SimpleMessageQueue(), host="localhost", port=8001
+    )
 
     # act/assert
     with pytest.raises(ValidationError):
@@ -77,6 +81,8 @@ async def test_create_task(mock_uuid: MagicMock) -> None:
         description="Test Human Service",
         service_name="Test Human Service",
         step_interval=0.5,
+        host="localhost",
+        port=8001,
     )
     mock_uuid.uuid4.return_value = "mock_id"
     task = TaskDefinition(task_id="1", input="Mock human req.")
@@ -98,6 +104,8 @@ async def test_process_task(
     mq = SimpleMessageQueue()
     human_service = HumanService(
         message_queue=mq,
+        host="localhost",
+        port=8001,
     )
     await mq.register_consumer(human_output_consumer)
 
@@ -136,7 +144,9 @@ async def test_process_human_req_from_queue(
 ) -> None:
     # arrange
     mq = SimpleMessageQueue()
-    human_service = HumanService(message_queue=mq, service_name="test_human_service")
+    human_service = HumanService(
+        message_queue=mq, service_name="test_human_service", host="localhost", port=8001
+    )
     await mq.register_consumer(human_output_consumer)
     await mq.register_consumer(human_service.as_consumer())
 
@@ -183,6 +193,8 @@ async def test_process_task_with_custom_human_input_fn(
         message_queue=mq,
         fn_input=my_custom_human_input_fn,
         human_input_prompt="{input_str}",
+        host="localhost",
+        port=8001,
     )
     await mq.register_consumer(human_output_consumer)
 
@@ -216,7 +228,12 @@ async def test_process_task_as_tool_call(
 ) -> None:
     # arrange
     mq = SimpleMessageQueue()
-    human_service = HumanService(message_queue=mq, service_name="test_human_service")
+    human_service = HumanService(
+        message_queue=mq,
+        service_name="test_human_service",
+        host="localhost",
+        port=8001,
+    )
     output_consumer = MockMessageConsumer(message_type="tool_call_source")
     await mq.register_consumer(output_consumer)
     await mq.register_consumer(human_service.as_consumer())

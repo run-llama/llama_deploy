@@ -1,7 +1,6 @@
 import pytest
 
 from llama_deploy.message_queues.simple import SimpleMessageQueue
-from llama_deploy.services.base import BaseService
 from llama_deploy.services.human import HumanService
 from llama_deploy.services.agent import AgentService
 from llama_deploy.tools.service_as_tool import ServiceAsTool
@@ -48,16 +47,16 @@ def agent_service(message_queue: SimpleMessageQueue) -> AgentService:
 
 
 @pytest.mark.parametrize(
-    ("service"),
+    ("service_type"),
     ["human_service", "agent_service"],
 )
 def test_init(
     message_queue: SimpleMessageQueue,
-    service: BaseService,
+    service_type: str,
     request: pytest.FixtureRequest,
 ) -> None:
     # arrange
-    service = request.getfixturevalue(service)
+    service = request.getfixturevalue(service_type)
     tool_metadata = ToolMetadata(
         description=service.description,
         name=service.tool_name,
@@ -81,16 +80,16 @@ def test_init(
 
 
 @pytest.mark.parametrize(
-    ("service"),
+    ("service_type"),
     ["human_service", "agent_service"],
 )
 def test_init_invalid_tool_name_should_raise_error(
     message_queue: SimpleMessageQueue,
-    service: BaseService,
+    service_type: str,
     request: pytest.FixtureRequest,
 ) -> None:
     # arrange
-    service = request.getfixturevalue(service)
+    service = request.getfixturevalue(service_type)
     tool_metadata = ToolMetadata(
         description=service.description,
         name="incorrect-name",
@@ -105,16 +104,16 @@ def test_init_invalid_tool_name_should_raise_error(
 
 
 @pytest.mark.parametrize(
-    ("service"),
+    ("service_type"),
     ["human_service", "agent_service"],
 )
 def test_from_service_definition(
     message_queue: SimpleMessageQueue,
-    service: BaseService,
+    service_type: str,
     request: pytest.FixtureRequest,
 ) -> None:
     # arrange
-    service = request.getfixturevalue(service)
+    service = request.getfixturevalue(service_type)
     service_def = service.service_definition
 
     # act

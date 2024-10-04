@@ -1,10 +1,13 @@
 import asyncio
+from typing import Any, Callable, Dict, List, TYPE_CHECKING
+from unittest.mock import patch, MagicMock
+from urllib.parse import urlsplit
+
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import PrivateAttr
-from typing import Any, Callable, Dict, List, TYPE_CHECKING
-from urllib.parse import urlsplit
-from unittest.mock import patch, MagicMock
+
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
@@ -33,7 +36,7 @@ def message_queue() -> SimpleMessageQueue:
 def post_side_effect(message_queue: SimpleMessageQueue) -> Callable:
     test_client = TestClient(message_queue._app)
 
-    def side_effect(url: str, json: Dict) -> Dict[str, str]:
+    def side_effect(url: str, json: Dict) -> httpx.Response:
         split_result: SplitResult = urlsplit(url)
         return test_client.post(
             split_result.path,

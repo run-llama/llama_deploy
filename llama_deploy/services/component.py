@@ -65,8 +65,8 @@ class ComponentService(BaseService):
     description: str = "Component service."
     running: bool = True
     step_interval: float = 0.1
-    host: Optional[str] = None
-    port: Optional[int] = None
+    host: str
+    port: int
     raise_exceptions: bool = False
 
     _message_queue: BaseMessageQueue = PrivateAttr()

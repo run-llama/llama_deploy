@@ -91,8 +91,8 @@ class ToolService(BaseService):
     description: str = "Local Tool Service."
     running: bool = True
     step_interval: float = 0.1
-    host: Optional[str] = None
-    port: Optional[int] = None
+    host: str
+    port: int
 
     _outstanding_tool_calls: Dict[str, ToolCall] = PrivateAttr()
     _message_queue: BaseMessageQueue = PrivateAttr()
@@ -195,11 +195,13 @@ class ToolService(BaseService):
                 tool = get_function_by_name(
                     self.tools, tool_call.tool_call_bundle.tool_name
                 )
+                if tool is None:
+                    continue
 
                 logger.info(
                     f"Processing tool call id {tool_call.id_} with {tool.metadata.name}"
                 )
-                tool_output = await tool.acall(
+                tool_output = tool(
                     *tool_call.tool_call_bundle.tool_args,
                     **tool_call.tool_call_bundle.tool_kwargs,
                 )
@@ -238,7 +240,9 @@ class ToolService(BaseService):
         if message.action == ActionTypes.NEW_TOOL_CALL:
             tool_call_data = {"source_id": message.publisher_id}
             tool_call_data.update(message.data or {})
-            tool_call = ToolCall(**tool_call_data)
+            tool_call = ToolCall(
+                **tool_call_data  # type: ignore
+            )  # FIXME: field `tool_bundle` is missing and not optional
             async with self.lock:
                 self._outstanding_tool_calls.update({tool_call.id_: tool_call})
         else:

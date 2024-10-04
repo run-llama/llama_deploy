@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from logging import getLogger
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import AsyncGenerator, Dict, List, Optional, Any
+from typing import AsyncGenerator, Dict, List, Optional
 
 from llama_index.core.storage.kvstore.types import BaseKVStore
 from llama_index.core.storage.kvstore import SimpleKVStore
@@ -108,7 +108,7 @@ class ControlPlaneServer(BaseControlPlane):
         session_store_key: str = "sessions",
         step_interval: float = 0.1,
         host: str = "127.0.0.1",
-        port: Optional[int] = 8000,
+        port: int = 8000,
         internal_host: Optional[str] = None,
         internal_port: Optional[int] = None,
         running: bool = True,
@@ -493,7 +493,7 @@ class ControlPlaneServer(BaseControlPlane):
         # get session
         if task_stream.session_id is None:
             raise ValueError(
-                f"Task stream with id {task_stream.stream_id} has no session"
+                f"Task stream with id {task_stream.task_id} has no session"
             )
 
         session = await self.get_session(task_stream.session_id)
@@ -521,7 +521,7 @@ class ControlPlaneServer(BaseControlPlane):
 
         async def event_generator(
             session: SessionDefinition, stream_key: str
-        ) -> AsyncGenerator[str | dict[str, Any], None]:
+        ) -> AsyncGenerator[str, None]:
             try:
                 stream_results = session.state[stream_key]
                 stream_results = sorted(stream_results, key=lambda x: x["index"])
@@ -575,7 +575,8 @@ class ControlPlaneServer(BaseControlPlane):
                 yield json.dumps({"error": str(e)}) + "\n"
 
         return StreamingResponse(
-            event_generator(session, stream_key), media_type="application/x-ndjson"
+            event_generator(session, stream_key),
+            media_type="application/x-ndjson",
         )
 
     async def get_message_queue_config(self) -> Dict[str, dict]:

@@ -46,6 +46,8 @@ def tool_service(
         service_name="test_tool_service",
         description="Test Tool Server",
         step_interval=0.5,
+        host="localhost",
+        port=8001,
     )
 
 

@@ -29,6 +29,9 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
     - A service can be registered to the message queue.
     """
 
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
     service_name: str
 

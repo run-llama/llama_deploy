@@ -38,6 +38,8 @@ repos:
             "types-setuptools",
             "types-PyYAML",
             "types-protobuf==4.24.0.4",
+            "llama_deploy",
+            "llama_index_core",
           ]
         args:
           [
