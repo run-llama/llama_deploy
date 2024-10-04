@@ -3,7 +3,7 @@
 import asyncio
 import json
 from logging import getLogger
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Literal
+from typing import Any, Dict, List, Optional, TYPE_CHECKING, Literal, cast
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -18,7 +18,8 @@ from llama_deploy.message_consumers.base import (
 )
 
 if TYPE_CHECKING:
-    from aio_pika import Connection, Queue
+    from aio_pika import Connection, Queue, Channel, IncomingMessage
+    from aio_pika.abc import AbstractIncomingMessage
 
 logger = getLogger(__name__)
 
@@ -59,7 +60,7 @@ async def _establish_connection(url: str) -> "Connection":
         raise ValueError(
             "Missing pika optional dep. Please install by running `pip install llama-deploy[rabbimq]`."
         )
-    return await aio_pika.connect(url)
+    return cast(Connection, await aio_pika.connect(url))
 
 
 class RabbitMQMessageQueue(BaseMessageQueue):
@@ -178,16 +179,16 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         self, consumer: BaseMessageQueueConsumer
     ) -> StartConsumingCallable:
         """Register a new consumer."""
-        from aio_pika import ExchangeType, Message as AioPikaMessage
+        from aio_pika import ExchangeType
 
         connection = await _establish_connection(self.url)
         async with connection:
-            channel = await connection.channel()
+            channel = cast(Channel, await connection.channel())
             exchange = await channel.declare_exchange(
                 self.exchange_name,
                 ExchangeType.DIRECT,
             )
-            queue: Queue = await channel.declare_queue(name=consumer.message_type)
+            queue = cast(Queue, await channel.declare_queue(name=consumer.message_type))
             await queue.bind(exchange)
 
         logger.info(
@@ -200,7 +201,8 @@ class RabbitMQMessageQueue(BaseMessageQueue):
             Consumer of this queue, should call this in order to start consuming.
             """
 
-            async def on_message(message: AioPikaMessage) -> None:
+            async def on_message(message: AbstractIncomingMessage) -> None:
+                message = cast(IncomingMessage, message)
                 async with message.process():
                     decoded_message = json.loads(message.body.decode("utf-8"))
                     queue_message = QueueMessage.model_validate(decoded_message)
@@ -213,7 +215,9 @@ class RabbitMQMessageQueue(BaseMessageQueue):
                     self.exchange_name,
                     ExchangeType.DIRECT,
                 )
-                queue: Queue = await channel.declare_queue(name=consumer.message_type)
+                queue = cast(
+                    Queue, await channel.declare_queue(name=consumer.message_type)
+                )
                 await queue.bind(exchange)
 
                 await queue.consume(on_message)

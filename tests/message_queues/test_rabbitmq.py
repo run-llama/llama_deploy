@@ -6,12 +6,9 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 try:
     import aio_pika
-    from aio_pika import DeliveryMode, Message as AioPikaMessage, Exchange
+    from aio_pika import DeliveryMode, Message as AioPikaMessage
 except (ModuleNotFoundError, ImportError):
-    aio_pika = None
-    Exchange = Exchange
-    DeliveryMode = None
-    AioPikaMessage = None
+    aio_pika = None  # type: ignore
 
 
 def test_init() -> None:

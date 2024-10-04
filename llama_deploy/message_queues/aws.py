@@ -128,6 +128,7 @@ class AWSMessageQueue(BaseMessageQueue):
         client_kwargs = {
             "region_name": self.aws_region,
             "config": self._retry_config,
+            "service_name": service_name,
         }
 
         # IAM Role or environment variable fallback
@@ -139,7 +140,7 @@ class AWSMessageQueue(BaseMessageQueue):
                 }
             )
 
-        return session.create_client(service_name, **client_kwargs)
+        return session.create_client(**client_kwargs)  # type: ignore
 
     async def get_topic_by_name(self, topic_name: str) -> "Topic":
         """Get topic by name."""
@@ -148,7 +149,7 @@ class AWSMessageQueue(BaseMessageQueue):
         async with self._get_client("sns") as client:
             try:
                 # First, check if the topic exists
-                response = await client.list_topics()
+                response = await client.list_topics()  # type: ignore
                 for topic in response.get("Topics", []):
                     if f"{topic_name}.fifo" in topic["TopicArn"]:
                         logger.info(f"SNS topic {topic_name} already exists.")
@@ -166,14 +167,14 @@ class AWSMessageQueue(BaseMessageQueue):
         async with self._get_client("sns") as client:
             try:
                 # First, check if the topic exists
-                response = await client.list_topics()
+                response = await client.list_topics()  # type: ignore
                 for topic in response.get("Topics", []):
                     if topic_name in topic["TopicArn"]:
                         logger.info(f"SNS topic {topic_name} already exists.")
                         return Topic(arn=topic["TopicArn"], name=topic_name)
 
                 # If not found, create the topic
-                response = await client.create_topic(
+                response = await client.create_topic(  # type: ignore
                     Name=f"{topic_name}.fifo", Attributes={"FifoTopic": "true"}
                 )
             except ClientError:
@@ -191,19 +192,19 @@ class AWSMessageQueue(BaseMessageQueue):
         async with self._get_client("sqs") as client:
             try:
                 # Check if queue exists
-                response = await client.list_queues(QueueNamePrefix=queue_name)
+                response = await client.list_queues(QueueNamePrefix=queue_name)  # type: ignore
                 if response.get("QueueUrls"):
                     logger.info(f"SQS queue {queue_name} already exists.")
                     queue_url = response["QueueUrls"][0]
                 else:
                     # If not, create the queue
-                    response = await client.create_queue(
+                    response = await client.create_queue(  # type: ignore
                         QueueName=f"{queue_name}.fifo", Attributes={"FifoQueue": "true"}
                     )
                     queue_url = response["QueueUrl"]
 
                 # Get queue ARN
-                response = await client.get_queue_attributes(
+                response = await client.get_queue_attributes(  # type: ignore
                     QueueUrl=queue_url, AttributeNames=["QueueArn"]
                 )
                 queue_arn = response["Attributes"]["QueueArn"]
@@ -232,7 +233,7 @@ class AWSMessageQueue(BaseMessageQueue):
                     ],
                 }
             )
-            await client.set_queue_attributes(
+            await client.set_queue_attributes(  # type: ignore
                 QueueUrl=queue.url, Attributes={"Policy": policy}
             )
 
@@ -244,7 +245,7 @@ class AWSMessageQueue(BaseMessageQueue):
 
         async with self._get_client("sns") as client:
             try:
-                response = await client.subscribe(
+                response = await client.subscribe(  # type: ignore
                     TopicArn=topic.arn, Protocol="sqs", Endpoint=queue.arn
                 )
             except ClientError as e:
@@ -270,7 +271,7 @@ class AWSMessageQueue(BaseMessageQueue):
 
         try:
             async with self._get_client("sns") as client:
-                response = await client.publish(
+                response = await client.publish(  # type: ignore
                     TopicArn=topic.arn,
                     Message=message_body,
                     MessageStructure="bytes",
@@ -295,7 +296,7 @@ class AWSMessageQueue(BaseMessageQueue):
             # Delete all SQS queues
             for queue in self.queues:
                 try:
-                    await sqs_client.delete_queue(QueueUrl=queue.url)
+                    await sqs_client.delete_queue(QueueUrl=queue.url)  # type: ignore
                     logger.info(f"Deleted SQS queue {queue.name}")
                 except ClientError as e:
                     logger.error(f"Could not delete SQS queue {queue.name}: {e}")
@@ -303,7 +304,7 @@ class AWSMessageQueue(BaseMessageQueue):
             # Delete all SNS topics
             for topic in self.topics:
                 try:
-                    await sns_client.delete_topic(TopicArn=topic.arn)
+                    await sns_client.delete_topic(TopicArn=topic.arn)  # type: ignore
                     logger.info(f"Deleted SNS topic {topic.name}")
                 except ClientError as e:
                     logger.error(f"Could not delete SNS topic {topic.name}: {e}")
@@ -324,7 +325,7 @@ class AWSMessageQueue(BaseMessageQueue):
             while True:
                 async with self._get_client("sqs") as client:
                     try:
-                        response = await client.receive_message(
+                        response = await client.receive_message(  # type: ignore
                             QueueUrl=queue.url,
                             WaitTimeSeconds=2,
                         )
@@ -337,7 +338,7 @@ class AWSMessageQueue(BaseMessageQueue):
                                 queue_message_data
                             )
                             await consumer.process_message(queue_message)
-                            await client.delete_message(
+                            await client.delete_message(  # type: ignore
                                 QueueUrl=queue.url, ReceiptHandle=receipt_handle
                             )
                     except ClientError as e:
