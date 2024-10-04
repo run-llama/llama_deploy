@@ -223,7 +223,9 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
 
         tool_call = ToolCall(
             tool_call_bundle=ToolCallBundle(
-                tool_name=self.metadata.name, tool_args=args, tool_kwargs=kwargs
+                tool_name=self.metadata.name or "",
+                tool_args=list(args),
+                tool_kwargs=kwargs,
             ),
             source_id=self.publisher_id,
         )
@@ -251,7 +253,7 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
                 raise
             return ToolOutput(
                 content="Encountered error: " + str(e),
-                tool_name=self.metadata.name,
+                tool_name=self.metadata.name or "",
                 raw_input={"args": args, "kwargs": kwargs},
                 raw_output=str(e),
                 is_error=True,
@@ -263,7 +265,7 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
 
         return ToolOutput(
             content=tool_call_result.result,
-            tool_name=self.metadata.name,
+            tool_name=self.metadata.name or "",
             raw_input={"args": args, "kwargs": kwargs},
             raw_output=tool_call_result.result,
         )
