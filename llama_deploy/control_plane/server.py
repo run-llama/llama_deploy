@@ -85,7 +85,7 @@ class ControlPlaneServer(BaseControlPlane):
         internal_host (Optional[str], optional): The host for external networking as in Docker-Compose or K8s.
         internal_port (Optional[int], optional): The port for external networking as in Docker-Compose or K8s.
         running (bool, optional): Whether the service is running. Defaults to True.
-        cors_origins (Options[str], optional):
+        cors_origins (Optional[List[str]], optional): List of hosts from which the service will accept CORS requests.  Use '["*"]' for all hosts.
 
     Examples:
         ```python
