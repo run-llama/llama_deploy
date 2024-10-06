@@ -139,11 +139,11 @@ class ControlPlaneServer(BaseControlPlane):
         self.app = FastAPI()
         if cors_origins:
             self.app.add_middleware(
-                    CORSMiddleware,
-                    allow_origins=cors_origins,
-                    allow_methods=["*"],
-                    allow_headers=["*"],
-                    )
+                CORSMiddleware,
+                allow_origins=cors_origins,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
         self.app.add_api_route("/", self.home, methods=["GET"], tags=["Control Plane"])
         self.app.add_api_route(
             "/process_message",
