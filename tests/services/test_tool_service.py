@@ -55,6 +55,8 @@ async def test_init(tools: List[BaseTool]) -> None:
         running=False,
         description="Test Tool Server",
         step_interval=0.5,
+        host="localhost",
+        port=8001,
     )
 
     # act
@@ -78,6 +80,8 @@ async def test_create_tool_call(tools: List[BaseTool], tool_call: ToolCall) -> N
         running=False,
         description="Test Tool Server",
         step_interval=0.5,
+        host="localhost",
+        port=8001,
     )
 
     # act
@@ -102,6 +106,8 @@ async def test_process_tool_call(
         running=True,
         description="Test Tool Server",
         step_interval=0.5,
+        host="localhost",
+        port=8001,
     )
     await mq.register_consumer(tool_output_consumer)
 
@@ -138,6 +144,8 @@ async def test_process_tool_call_from_queue(
         service_name="test_tool_service",
         description="Test Tool Server",
         step_interval=0.5,
+        host="localhost",
+        port=8001,
     )
     await mq.register_consumer(tool_output_consumer)
     await mq.register_consumer(server.as_consumer())

@@ -62,15 +62,11 @@ class ServiceComponent(CustomQueryComponent):
 
     module_type: ModuleType = ModuleType.AGENT
 
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        input_keys: Optional[InputKeys] = None,
-        module_type: ModuleType = ModuleType.AGENT,
-    ) -> None:
-        super().__init__(name=name, description=description, module_type=module_type)
-        self._cur_input_keys = input_keys or InputKeys.from_keys({"input"})
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._cur_input_keys = kwargs.get("input_keys") or InputKeys.from_keys(
+            {"input"}
+        )
 
     @classmethod
     def from_service_definition(

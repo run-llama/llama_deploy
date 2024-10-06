@@ -10,6 +10,9 @@ from llama_deploy.messages.base import QueueMessage
 
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+
     processed_messages: List[QueueMessage] = []
     _lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
 

@@ -27,17 +27,20 @@ repos:
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.0.1
+    rev: v1.11.2
     hooks:
       - id: mypy
         additional_dependencies:
           [
-            "types-requests",
+            "llama_deploy[kafka,rabbitmq,redis,awssqs]",
+            "llama_index_core",
             "types-Deprecated",
-            "types-redis",
-            "types-setuptools",
             "types-PyYAML",
+            "types-aiobotocore",
             "types-protobuf==4.24.0.4",
+            "types-redis",
+            "types-requests",
+            "types-setuptools",
           ]
         args:
           [

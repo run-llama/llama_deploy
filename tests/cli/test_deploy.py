@@ -11,7 +11,7 @@ def test_deploy(runner: CliRunner, data_path: Path) -> None:
     mocked_response = mock.MagicMock(status_code=200, json=lambda: {})
     with mock.patch("llama_deploy.cli.deploy.request") as mocked_httpx:
         mocked_httpx.return_value = mocked_response
-        result = runner.invoke(llamactl, ["-t", 5.0, "deploy", str(test_config_file)])
+        result = runner.invoke(llamactl, ["-t", "5.0", "deploy", str(test_config_file)])
 
         assert result.exit_code == 0
         with open(test_config_file, "rb") as f:

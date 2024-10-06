@@ -264,7 +264,7 @@ class ServiceAsTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
                 raise
             return ToolOutput(
                 content="Encountered error: " + str(e),
-                tool_name=self.metadata.name,
+                tool_name=self.metadata.name or "",
                 raw_input={"args": args, "kwargs": kwargs},
                 raw_output=str(e),
                 is_error=True,
@@ -276,7 +276,7 @@ class ServiceAsTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
 
         return ToolOutput(
             content=tool_call_result.result,
-            tool_name=self.metadata.name,
+            tool_name=self.metadata.name or "",
             raw_input={"args": args, "kwargs": kwargs},
             raw_output=tool_call_result.result,
         )
