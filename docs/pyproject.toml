@@ -1,0 +1,21 @@
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "docs"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.11"
+llama_deploy = {path = "../", develop = true}
+mkdocs = "^1.6.1"
+mkdocstrings = {extras = ["python"], version = "^0.26.1"}
+mkdocs-jupyter = "^0.25.0"
+mkdocs-include-dir-to-nav = "^1.2.0"
+mkdocs-material = "^9.5.39"
+mkdocs-redirects = "^1.2.1"

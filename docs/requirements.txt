@@ -1,6 +1,0 @@
-mkdocs
-mkdocstrings[python]
-mkdocs-jupyter
-mkdocs-include-dir-to-nav
-mkdocs-material
-mkdocs-redirects
