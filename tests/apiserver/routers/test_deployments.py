@@ -1,9 +1,13 @@
+import json
+import pytest
 from pathlib import Path
 from unittest import mock
 
 from fastapi.testclient import TestClient
 
 from llama_deploy.apiserver import Config
+
+from llama_index.core.workflow import Event
 
 
 def test_read_deployments(http_client: TestClient) -> None:
@@ -116,3 +120,37 @@ def test_create_deployment_task_nowait(
         )
         assert response.status_code == 200
         assert response.json() == {"session_id": 42, "task_id": "test_task_id"}
+
+
+@pytest.mark.asyncio
+async def test_get_event_stream(http_client: TestClient, data_path: Path) -> None:
+    mock_events = [
+        Event(msg="mock event 1"),
+        Event(msg="mock event 2"),
+        Event(msg="mock event 3"),
+    ]
+
+    with mock.patch(
+        "llama_deploy.apiserver.routers.deployments.manager"
+    ) as mocked_manager:
+        deployment = mock.AsyncMock()
+        deployment.default_service = "TestService"
+        session = mock.MagicMock()
+        deployment.client.get_session.return_value = session
+        mocked_manager.get_deployment.return_value = deployment
+        session.session_id = 42
+        mocked_get_task_result_stream = mock.MagicMock()
+        mocked_get_task_result_stream.__aiter__.return_value = (
+            ev.dict() for ev in mock_events
+        )
+        session.get_task_result_stream.return_value = mocked_get_task_result_stream
+
+        response = http_client.get(
+            "/deployments/test-deployment/events/?session_id=42&task_id=test_task_id",
+        )
+        assert response.status_code == 200
+        ix = 0
+        async for line in response.aiter_lines():
+            data = json.loads(line)
+            assert data == mock_events[ix].dict()
+            ix += 1
