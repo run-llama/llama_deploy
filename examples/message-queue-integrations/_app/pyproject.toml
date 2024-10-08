@@ -14,4 +14,4 @@ python = "^3.10"
 llama-index-llms-openai = "^0.2.1"
 llama-index-embeddings-openai = "^0.2.4"
 llama-index-agent-openai = "^0.3.0"
-llama-deploy = {version = "^0.1.3a0", extras = ["awssqs", "rabbitmq", "kafka", "redis"]}
+llama-deploy = {version = "^0.2.1", extras = ["awssqs", "rabbitmq", "kafka", "redis"]}
