@@ -95,3 +95,24 @@ def test_create_deployment_task(http_client: TestClient, data_path: Path) -> Non
         )
         assert response.status_code == 200
         deployment.client.delete_session.assert_called_with(42)
+
+
+def test_create_deployment_task_nowait(
+    http_client: TestClient, data_path: Path
+) -> None:
+    with mock.patch(
+        "llama_deploy.apiserver.routers.deployments.manager"
+    ) as mocked_manager:
+        deployment = mock.AsyncMock()
+        deployment.default_service = "TestService"
+        session = mock.AsyncMock()
+        deployment.client.create_session.return_value = session
+        session.session_id = 42
+        session.run_nowait.return_value = "test_task_id"
+        mocked_manager.get_deployment.return_value = deployment
+        response = http_client.post(
+            "/deployments/test-deployment/tasks/create_nowait/",
+            json={"input": "{}"},
+        )
+        assert response.status_code == 200
+        assert response.json() == {"session_id": 42, "task_id": "test_task_id"}
