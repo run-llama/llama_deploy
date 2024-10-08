@@ -88,7 +88,7 @@ async def create_deployment_task_nowait(
     return JSONResponse({"session_id": session.session_id, "task_id": task_id})
 
 
-@deployments_router.get("/{deployment_name}/events/")
+@deployments_router.get("/{deployment_name}/events")
 async def get_events(
     deployment_name: str, session_id: str, task_id: str
 ) -> StreamingResponse:
