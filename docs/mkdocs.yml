@@ -19,21 +19,11 @@ markdown_extensions:
 nav:
   - Home: index.md
   - API Reference:
-      - Client: api_reference/llama_deploy/client.md
-      - Control Plane: api_reference/llama_deploy/control_plane.md
-      - Deployment: api_reference/llama_deploy/deployment.md
-      - Message Consumers: api_reference/llama_deploy/message_consumers.md
-      - Message Publishers: api_reference/llama_deploy/message_publishers.md
-      - Message Queues:
-          - api_reference/llama_deploy/message_queues/index.md
-          - api_reference/llama_deploy/message_queues/kafka.md
-          - api_reference/llama_deploy/message_queues/rabbitmq.md
-          - api_reference/llama_deploy/message_queues/redis.md
-          - api_reference/llama_deploy/message_queues/simple.md
-      - Messages: api_reference/llama_deploy/messages.md
-      - Orchestrators: api_reference/llama_deploy/orchestrators.md
-      - Services: api_reference/llama_deploy/services.md
-      - Types: api_reference/llama_deploy/types.md
+      - Llama Deploy:
+          - api_reference/llama_deploy
+  - Component Guides:
+      - Llama Deploy:
+          - module_guides/llama_deploy
 plugins:
   - search
   - include_dir_to_nav
