@@ -49,11 +49,27 @@ API is documented below.
 
 ## Control Plane
 
-todo
+The control plane is responsible for managing the state of the system, including:
+
+- Registering services.
+- Managing sessions and tasks.
+- Handling service completion.
+- Launching the control plane server.
 
 ## Service
 
-todo
+The general structure of a service is as follows:
+
+- A service has a name.
+- A service has a service definition.
+- A service uses a message queue to send/receive messages.
+- A service has a processing loop, for continuous processing of messages.
+- A service can process a message.
+- A service can publish a message to another service.
+- A service can be launched in-process.
+- A service can be launched as a server.
+- A service can be registered to the control plane.
+- A service can be registered to the message queue.
 
 ## Message Queue
 
@@ -93,8 +109,12 @@ message_queue = RabbitMQMessageQueue(**message_queue_config)
 
 ## Orchestrator
 
-todo
+The general idea for an orchestrator is to manage the flow of messages between services.
+
+Given some state, and task, figure out the next messages to publish. Then, once
+the messages are processed, update the state with the results.
 
 ## Task
 
-todo
+A Task is an object representing a request for an operation sent to a Service and the response that will be sent back.
+For the details you can look at the [API reference](../../api_reference/llama_deploy/types.md)
