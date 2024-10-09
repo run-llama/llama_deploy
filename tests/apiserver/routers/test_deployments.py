@@ -6,6 +6,7 @@ from unittest import mock
 from fastapi.testclient import TestClient
 
 from llama_deploy.apiserver import Config
+from llama_deploy.types import TaskResult
 
 from llama_index.core.workflow import Event
 
@@ -91,14 +92,14 @@ def test_create_deployment_task(http_client: TestClient, data_path: Path) -> Non
         session = mock.AsyncMock()
         deployment.client.create_session.return_value = session
         session.run.return_value = {"result": "test_result"}
-        session.session_id = 42
+        session.session_id = str(42)
         mocked_manager.get_deployment.return_value = deployment
         response = http_client.post(
             "/deployments/test-deployment/tasks/create/",
             json={"input": "{}"},
         )
         assert response.status_code == 200
-        deployment.client.delete_session.assert_called_with(42)
+        deployment.client.delete_session.assert_called_with("42")
 
 
 def test_create_deployment_task_nowait(
@@ -111,7 +112,7 @@ def test_create_deployment_task_nowait(
         deployment.default_service = "TestService"
         session = mock.AsyncMock()
         deployment.client.create_session.return_value = session
-        session.session_id = 42
+        session.session_id = "42"
         session.run_nowait.return_value = "test_task_id"
         mocked_manager.get_deployment.return_value = deployment
         response = http_client.post(
@@ -119,7 +120,7 @@ def test_create_deployment_task_nowait(
             json={"input": "{}"},
         )
         assert response.status_code == 200
-        assert response.json() == {"session_id": 42, "task_id": "test_task_id"}
+        assert response.json() == {"session_id": "42", "task_id": "test_task_id"}
 
 
 @pytest.mark.asyncio
@@ -138,7 +139,6 @@ async def test_get_event_stream(http_client: TestClient, data_path: Path) -> Non
         session = mock.MagicMock()
         deployment.client.get_session.return_value = session
         mocked_manager.get_deployment.return_value = deployment
-        session.session_id = 42
         mocked_get_task_result_stream = mock.MagicMock()
         mocked_get_task_result_stream.__aiter__.return_value = (
             ev.dict() for ev in mock_events
@@ -154,3 +154,26 @@ async def test_get_event_stream(http_client: TestClient, data_path: Path) -> Non
             data = json.loads(line)
             assert data == mock_events[ix].dict()
             ix += 1
+        deployment.client.get_session.assert_called_with("42")
+
+
+def test_get_task_result(http_client: TestClient, data_path: Path) -> None:
+    with mock.patch(
+        "llama_deploy.apiserver.routers.deployments.manager"
+    ) as mocked_manager:
+        deployment = mock.AsyncMock()
+        deployment.default_service = "TestService"
+        session = mock.AsyncMock()
+        deployment.client.get_session.return_value = session
+        session.get_task_result.return_value = TaskResult(
+            result="test_result", history=[], task_id="test_task_id"
+        )
+        mocked_manager.get_deployment.return_value = deployment
+
+        response = http_client.get(
+            "/deployments/test-deployment/results/?session_id=42&task_id=test_task_id",
+        )
+        assert response.status_code == 200
+        assert response.json() == "test_result"
+        session.get_task_result.assert_called_with("test_task_id")
+        deployment.client.get_session.assert_called_with("42")

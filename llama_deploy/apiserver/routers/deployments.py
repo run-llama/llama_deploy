@@ -110,7 +110,7 @@ async def get_events(
     )
 
 
-@deployments_router.get("/{deployment_name}/tasks/results")
+@deployments_router.get("/{deployment_name}/results")
 async def get_task_result(
     deployment_name: str, session_id: str, task_id: str
 ) -> JSONResponse:
@@ -120,9 +120,9 @@ async def get_task_result(
         raise HTTPException(status_code=404, detail="Deployment not found")
 
     session = await deployment.client.get_session(session_id)
-    result = session.get_task_result(task_id)
+    result = await session.get_task_result(task_id)
 
-    return JSONResponse(result)
+    return JSONResponse(result.result if result else "")
 
 
 @deployments_router.post("/create")
