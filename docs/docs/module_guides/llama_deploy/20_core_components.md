@@ -33,6 +33,8 @@ services:
     path: workflow:echo_workflow
 ```
 
+For more details, see the API reference for the deployment [`Config`](../../api_reference/llama_deploy/apiserver.md#llama_deploy.apiserver.config_parser.Config) object.
+
 ## API Server
 
 The API Server is a core component of Llama Deploy responsible for serving and managing multiple deployments. It is
