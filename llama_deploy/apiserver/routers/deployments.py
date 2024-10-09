@@ -37,11 +37,11 @@ async def read_deployment(deployment_name: str) -> JSONResponse:
     )
 
 
-@deployments_router.post("/{deployment_name}/tasks/create")
+@deployments_router.post("/{deployment_name}/tasks/run")
 async def create_deployment_task(
     deployment_name: str, task_definition: TaskDefinition
 ) -> JSONResponse:
-    """Create a task for the deployment."""
+    """Create a task for the deployment, wait for result and delete associated session."""
     deployment = manager.get_deployment(deployment_name)
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
@@ -63,11 +63,11 @@ async def create_deployment_task(
     return JSONResponse(result)
 
 
-@deployments_router.post("/{deployment_name}/tasks/create_nowait")
+@deployments_router.post("/{deployment_name}/tasks/create")
 async def create_deployment_task_nowait(
     deployment_name: str, task_definition: TaskDefinition
 ) -> JSONResponse:
-    """Create a task for the deployment and don't wait for result."""
+    """Create a task for the deployment but don't wait for result."""
     deployment = manager.get_deployment(deployment_name)
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")

@@ -83,7 +83,7 @@ def test_create_deployment_task_missing_service(
         )
 
 
-def test_create_deployment_task(http_client: TestClient, data_path: Path) -> None:
+def test_run_deployment_task(http_client: TestClient, data_path: Path) -> None:
     with mock.patch(
         "llama_deploy.apiserver.routers.deployments.manager"
     ) as mocked_manager:
@@ -95,16 +95,14 @@ def test_create_deployment_task(http_client: TestClient, data_path: Path) -> Non
         session.session_id = "42"
         mocked_manager.get_deployment.return_value = deployment
         response = http_client.post(
-            "/deployments/test-deployment/tasks/create/",
+            "/deployments/test-deployment/tasks/run/",
             json={"input": "{}"},
         )
         assert response.status_code == 200
         deployment.client.delete_session.assert_called_with("42")
 
 
-def test_create_deployment_task_nowait(
-    http_client: TestClient, data_path: Path
-) -> None:
+def test_create_deployment_task(http_client: TestClient, data_path: Path) -> None:
     with mock.patch(
         "llama_deploy.apiserver.routers.deployments.manager"
     ) as mocked_manager:
@@ -116,7 +114,7 @@ def test_create_deployment_task_nowait(
         session.run_nowait.return_value = "test_task_id"
         mocked_manager.get_deployment.return_value = deployment
         response = http_client.post(
-            "/deployments/test-deployment/tasks/create_nowait/",
+            "/deployments/test-deployment/tasks/create/",
             json={"input": "{}"},
         )
         assert response.status_code == 200
