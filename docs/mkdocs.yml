@@ -27,8 +27,6 @@ nav:
 plugins:
   - search
   - include_dir_to_nav
-  - mkdocs-jupyter:
-      execute: false
   - mkdocstrings:
       handlers:
         python:
