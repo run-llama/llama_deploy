@@ -8,7 +8,7 @@ At the top of a `llama_deploy` system is the `control plane`. The control plane 
 
 The overall system layout is pictured below.
 
-![A basic system in llama_deploy](./system_diagram.png)
+![A basic system in llama_deploy](https://github.com/run-llama/llama_deploy/blob/5e7703e98faa8d682a679832872094258a172629/system_diagram.png?raw=true)
 
 ## Why `llama_deploy`?
 
