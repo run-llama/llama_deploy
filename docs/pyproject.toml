@@ -12,7 +12,7 @@ package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.11"
-llama_deploy = {path = "../", develop = true}
+llama_deploy = {path = "../", extras = ["awssqs", "rabbitmq", "kafka", "redis"], develop = true}
 mkdocs = "^1.6.1"
 mkdocstrings = {extras = ["python"], version = "^0.26.1"}
 mkdocs-include-dir-to-nav = "^1.2.0"
