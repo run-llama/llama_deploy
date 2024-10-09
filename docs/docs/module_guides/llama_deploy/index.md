@@ -5,20 +5,14 @@ multi-service systems based on [workflows from `llama_index`](https://docs.llama
 With Llama Deploy, you can build any number of workflows in `llama_index` and then run them as services, accessible
 through a HTTP API by a user interface or other services part of your system.
 
-In Llama Deploy each workflow is wrapped in a _Service_ object, endlessly processing incoming requests in form of
-_Task_ objects. Each service pulls and publishes messages to and from a _Message Queue_. An internal component called
-_Control Plane_ handles ongoing tasks, manages the internal state, keeps track of which services are available, and
-decides which service should handle the next step of a task using another internal component called _Orchestrator_.
-A well defined set of these components is called _Deployment_, and a single Llama Deploy instance can serve multiple
-of them.
-
 The goal of Llama Deploy is to easily transition something that you built in a notebook to something running on the
 cloud with the minimum amount of changes to the original code, possibly zero. In order to make this transition a
-pleasant one, the intrinsic complexity of running agents as services is managed by a component called [_API Server_](20_api_server.md),
-the only one in Llama Deploy that's user facing. You can interact with the API Server in two ways:
+pleasant one, the intrinsic complexity of running agents as services is managed by a component called
+[_API Server_](./20_core_components.md#api-server), the only one in Llama Deploy that's user facing. You can interact
+with the API Server in two ways:
 
-- Using the [`llamactl`](60_llamactl.md) CLI from a shell.
-- Through the [_LLama Deploy SDK_](50_python_sdk.md) from a Python application or script.
+- Using the [`llamactl`](50_llamactl.md) CLI from a shell.
+- Through the [_LLama Deploy SDK_](40_python_sdk.md) from a Python application or script.
 
 Both the SDK and the CLI are distributed with the Llama Deploy Python package, so batteries are included.
 

@@ -1,8 +1,8 @@
 # Manual orchestration
 
 Llama Deploy offers different abstraction layers for maximum flexibility. For example, if you don't need the [API
-server](20_api_server.md), you can go down one layer and orchestrate the core components on your own. Llama Deploy
-provides a simple way to self-manage a deployment using configuration objects and helper functions.
+server](./20_core_components.md#api-server), you can go down one layer and orchestrate the core components on your own.
+Llama Deploy provides a simple way to self-manage a deployment using configuration objects and helper functions.
 
 ## Manual orchestration with llama_deploy utility wrappers
 
