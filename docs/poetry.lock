@@ -1314,6 +1314,22 @@ release = ["twine (>=1.13.0)"]
 test = ["autoflake", "black", "isort", "pytest"]
 
 [[package]]
+name = "mkdocs-render-swagger-plugin"
+version = "0.1.2"
+description = "MKDocs plugin for rendering swagger & openapi files."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "mkdocs_render_swagger_plugin-0.1.2-py3-none-any.whl", hash = "sha256:0340d45e12a0f1633a4b8af2eb99ea75469006ddf418ef0f1acd51ed1e4969e4"},
+]
+
+[package.dependencies]
+mkdocs = ">=1.4"
+
+[package.extras]
+dev = ["coverage", "flake8", "mypy", "pyyaml"]
+
+[[package]]
 name = "mkdocstrings"
 version = "0.26.1"
 description = "Automatic documentation from sources, for MkDocs."
@@ -3231,4 +3247,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "be52003a57e969a6d6f12b2632044696814428c554350bfce708bc6a7e66e9ef"
+content-hash = "30c5247b5f604008503becdf436b75d026284c360feb7ed75c2c7f6140f2690c"

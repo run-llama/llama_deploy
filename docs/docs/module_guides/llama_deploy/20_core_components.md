@@ -16,8 +16,15 @@ A well defined set of these components is called _Deployment_.
 
 ## API Server
 
-The API Server is a core component of Llama Deploy that provides a self-hosted service for managing multiple deployments.
+The API Server is a core component of Llama Deploy responsible for serving and managing multiple deployments. It is
+responsible for running and managing multiple deployments at the same time, and it exposes a HTTP API that can be used
+for administrative purposes as well as for querying the deployed services. You can interact with the administrative
+API through [`llamactl`](./50_llamactl.md) or the [Python SDK](./40_python_sdk.md).
 
+For more details see [the Python API reference](../../api_reference/llama_deploy/apiserver.md), while the administrative
+API is documented below.
+
+!!swagger apiserver.json!!
 
 ## Control Plane
 

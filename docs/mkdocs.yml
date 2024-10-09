@@ -28,6 +28,7 @@ nav:
 plugins:
   - search
   - include_dir_to_nav
+  - render_swagger
   - mkdocstrings:
       handlers:
         python:
