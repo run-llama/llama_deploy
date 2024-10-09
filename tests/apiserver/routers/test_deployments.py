@@ -193,3 +193,19 @@ def test_get_sessions(http_client: TestClient, data_path: Path) -> None:
         )
         assert response.status_code == 200
         assert response.json() == []
+
+
+def test_delete_session(http_client: TestClient, data_path: Path) -> None:
+    with mock.patch(
+        "llama_deploy.apiserver.routers.deployments.manager"
+    ) as mocked_manager:
+        deployment = mock.AsyncMock()
+        deployment.default_service = "TestService"
+        mocked_manager.get_deployment.return_value = deployment
+
+        response = http_client.post(
+            "/deployments/test-deployment/sessions/delete/?session_id=42",
+        )
+        assert response.status_code == 200
+        assert response.json() == {"session_id": "42", "status": "Deleted"}
+        deployment.client.delete_session.assert_called_with("42")

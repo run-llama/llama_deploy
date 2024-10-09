@@ -152,7 +152,7 @@ async def get_sessions(
     return JSONResponse(sessions)
 
 
-@deployments_router.get("/{deployment_name}/sessions/delete")
+@deployments_router.post("/{deployment_name}/sessions/delete")
 async def delete_session(deployment_name: str, session_id: str) -> JSONResponse:
     """Get the active sessions in a deployment and service."""
     deployment = manager.get_deployment(deployment_name)
