@@ -1210,6 +1210,21 @@ markupsafe = ">=2.0.1"
 mkdocs = ">=1.1"
 
 [[package]]
+name = "mkdocs-click"
+version = "0.8.1"
+description = "An MkDocs extension to generate documentation for Click command line applications"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "mkdocs_click-0.8.1-py3-none-any.whl", hash = "sha256:a100ff938be63911f86465a1c21d29a669a7c51932b700fdb3daa90d13b61ee4"},
+    {file = "mkdocs_click-0.8.1.tar.gz", hash = "sha256:0a88cce04870c5d70ff63138e2418219c3c4119cc928a59c66b76eb5214edba6"},
+]
+
+[package.dependencies]
+click = ">=8.1"
+markdown = ">=3.3"
+
+[[package]]
 name = "mkdocs-get-deps"
 version = "0.2.0"
 description = "MkDocs extension that lists all dependencies according to a mkdocs.yml file"
@@ -3216,4 +3231,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "00beaa4f49bdbb98663a843a84237c9e115a2b30d3204a3099ec8ced64620dba"
+content-hash = "be52003a57e969a6d6f12b2632044696814428c554350bfce708bc6a7e66e9ef"

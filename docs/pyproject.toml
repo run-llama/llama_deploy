@@ -18,3 +18,4 @@ mkdocstrings = {extras = ["python"], version = "^0.26.1"}
 mkdocs-include-dir-to-nav = "^1.2.0"
 mkdocs-material = "^9.5.39"
 mkdocs-redirects = "^1.2.1"
+mkdocs-click = "^0.8.1"
