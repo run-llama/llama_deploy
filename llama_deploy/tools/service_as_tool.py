@@ -32,40 +32,6 @@ class ServiceAsTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
     to be used as a tool in any other llama-index abstraction.
 
     NOTE: The BaseService must be able to process messages with action type: NEW_TOOL_CALL
-
-    Args:
-        tool_metadata (ToolMetadata): Tool metadata.
-        message_queue (BaseMessageQueue): Message queue.
-        service_name (str): Service name.
-        publish_callback (Optional[PublishCallback], optional): Publish callback. Defaults to None.
-        tool_call_results (Dict[str, ToolCallResult], optional): Tool call results. Defaults to {}.
-        timeout (float, optional): Timeout. Defaults to 60.0s.
-        step_interval (float, optional): Step interval when polling for a result. Defaults to 0.1s.
-        raise_timeout (bool, optional): Raise timeout. Defaults to False.
-
-    Examples:
-        ```python
-        from llama_deploy import AgentService, ServiceAsTool, SimpleMessageQueue
-
-        message_queue = SimpleMessageQueue()
-
-        agent1_server = AgentService(
-            agent=agent1,
-            message_queue=message_queue,
-            description="Useful for getting the secret fact.",
-            service_name="secret_fact_agent",
-        )
-
-        # create the tool for use in other agents
-        agent1_server_tool = ServiceAsTool.from_service_definition(
-            message_queue=message_queue,
-            service_definition=agent1_server.service_definition
-        )
-
-        # can also use the tool directly
-        result = await agent1_server_tool.acall(input="get the secret fact")
-        print(result)
-        ```
     """
 
     tool_call_results: Dict[str, ToolCallResult] = Field(default_factory=dict)
@@ -92,6 +58,42 @@ class ServiceAsTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
         step_interval: float = 0.1,
         raise_timeout: bool = False,
     ) -> None:
+        """Class constructor.
+
+        Args:
+            tool_metadata (ToolMetadata): Tool metadata.
+            message_queue (BaseMessageQueue): Message queue.
+            service_name (str): Service name.
+            publish_callback (Optional[PublishCallback], optional): Publish callback. Defaults to None.
+            tool_call_results (Dict[str, ToolCallResult], optional): Tool call results. Defaults to {}.
+            timeout (float, optional): Timeout. Defaults to 60.0s.
+            step_interval (float, optional): Step interval when polling for a result. Defaults to 0.1s.
+            raise_timeout (bool, optional): Raise timeout. Defaults to False.
+
+        Examples:
+            ```python
+            from llama_deploy import AgentService, ServiceAsTool, SimpleMessageQueue
+
+            message_queue = SimpleMessageQueue()
+
+            agent1_server = AgentService(
+                agent=agent1,
+                message_queue=message_queue,
+                description="Useful for getting the secret fact.",
+                service_name="secret_fact_agent",
+            )
+
+            # create the tool for use in other agents
+            agent1_server_tool = ServiceAsTool.from_service_definition(
+                message_queue=message_queue,
+                service_definition=agent1_server.service_definition
+            )
+
+            # can also use the tool directly
+            result = await agent1_server_tool.acall(input="get the secret fact")
+            print(result)
+            ```
+        """
         # validate fn_schema
         if "input" not in tool_metadata.get_parameters_dict()["properties"]:
             raise ValueError("Invalid FnSchema - 'input' field is required.")
