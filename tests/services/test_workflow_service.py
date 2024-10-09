@@ -64,6 +64,7 @@ async def test_workflow_service(
     # pass a task to the service
     task = TaskDefinition(
         input=json.dumps({"arg1": "test_arg1"}),
+        session_id="test_session_id",
     )
 
     await workflow_service.process_message(
