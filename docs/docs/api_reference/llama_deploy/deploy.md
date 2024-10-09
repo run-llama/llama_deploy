@@ -1,3 +1,3 @@
-# deploy
+# `deploy`
 
 ::: llama_deploy.deploy

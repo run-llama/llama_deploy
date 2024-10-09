@@ -1,3 +1,3 @@
-# message_publishers
+# `message_publishers`
 
 ::: llama_deploy.message_publishers

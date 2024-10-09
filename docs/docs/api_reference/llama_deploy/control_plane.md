@@ -1,3 +1,3 @@
-# control_plane
+# `control_plane`
 
 ::: llama_deploy.control_plane

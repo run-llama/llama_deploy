@@ -1,3 +1,3 @@
-# messages
+# `messages`
 
 ::: llama_deploy.messages

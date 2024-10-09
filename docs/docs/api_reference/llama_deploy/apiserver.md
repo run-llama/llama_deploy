@@ -1,4 +1,4 @@
-# apiserver
+# `apiserver`
 
 ::: llama_deploy.apiserver.deployment
 
