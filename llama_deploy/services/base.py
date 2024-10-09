@@ -91,17 +91,20 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
             )
             response.raise_for_status()
 
-    async def get_session_state(self, session_id: str) -> dict[str, Any]:
+    async def get_session_state(self, session_id: str) -> dict[str, Any] | None:
         """Get the session state from the control plane."""
         if not self._control_plane_url:
-            raise ValueError(
-                "Control plane URL not set. Call register_to_control_plane first."
-            )
+            return None
+
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{self._control_plane_url}/sessions/{session_id}/state"
             )
-            response.raise_for_status()
+            if response.status_code == 404:
+                return None
+            else:
+                response.raise_for_status()
+
             return response.json()
 
     async def update_session_state(
@@ -109,9 +112,8 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
     ) -> None:
         """Update the session state in the control plane."""
         if not self._control_plane_url:
-            raise ValueError(
-                "Control plane URL not set. Call register_to_control_plane first."
-            )
+            return
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{self._control_plane_url}/sessions/{session_id}/state",

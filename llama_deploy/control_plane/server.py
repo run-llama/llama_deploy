@@ -602,8 +602,6 @@ class ControlPlaneServer(BaseControlPlane):
         self, session_id: str, state: Dict[str, Any]
     ) -> None:
         session = await self.get_session(session_id)
-        if session.task_ids is None:
-            raise HTTPException(status_code=404, detail="Session not found")
 
         session.state.update(state)
         await self.state_store.aput(

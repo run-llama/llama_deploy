@@ -41,10 +41,7 @@ async def test_get_next_message() -> None:
     assert len(queue_messages) == 1
     assert queue_messages[0].type == INITIAL_QUEUE_MESSAGE.type
     assert isinstance(queue_messages[0].data, dict)
-    assert (
-        queue_messages[0].data["task"]["input"]
-        == INITIAL_QUEUE_MESSAGE.data["task"]["input"]
-    )  # type: ignore
+    assert queue_messages[0].data["input"] == INITIAL_QUEUE_MESSAGE.data["input"]  # type: ignore
 
     assert state[TASK_DEF.task_id] == {}
 

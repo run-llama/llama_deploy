@@ -1,7 +1,5 @@
 import asyncio
-import base64
 import json
-import pickle
 import os
 import uuid
 import uvicorn
@@ -13,6 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import AsyncGenerator, Dict, Optional, Any
 
 from llama_index.core.workflow import Context, Workflow
+from llama_index.core.workflow.context_serializers import JsonPickleSerializer
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
@@ -215,27 +214,49 @@ class WorkflowService(BaseService):
         if state.session_id is None:
             return None
 
-        # state_dict = await self.get_session_state(state.session_id)
-        return None
+        state_dict = await self.get_session_state(state.session_id)
+        if state_dict is None:
+            return None
+
+        workflow_state_json = state_dict.get(state.session_id, None)
+
+        if workflow_state_json is None:
+            return None
+
+        workflow_state = WorkflowState.model_validate_json(workflow_state_json)
+        if workflow_state.state is None:
+            return None
+
+        return Context.from_dict(
+            self.workflow,
+            json.loads(workflow_state.state or "{}"),
+            serializer=JsonPickleSerializer(),
+        )
 
     async def set_workflow_state(
         self, ctx: Context, current_state: WorkflowState
-    ) -> WorkflowState:
-        """Dump the workflow state.
-
-        TODO: Support managing the workflow state?
-        """
-        context_bytes = pickle.dumps({})
-        context_str = base64.b64encode(context_bytes).decode("ascii")
+    ) -> None:
+        """Set the workflow state for this session."""
+        context_str = json.dumps(ctx.to_dict(serializer=JsonPickleSerializer()))
         context_hash = hash(context_str + hash_secret)
 
-        return WorkflowState(
+        workflow_state = WorkflowState(
             hash=context_hash,
             state=context_str,
             run_kwargs=current_state.run_kwargs,
             session_id=current_state.session_id,
             task_id=current_state.task_id,
         )
+
+        if current_state.session_id is None:
+            raise ValueError("Session ID is None! Cannot set workflow state.")
+
+        session_state = await self.get_session_state(current_state.session_id)
+        if session_state:
+            session_state[current_state.session_id] = workflow_state.model_dump_json()
+
+            # Store the state in the control plane
+            await self.update_session_state(current_state.session_id, session_state)
 
     async def process_call(self, current_call: WorkflowState) -> None:
         """Processes a given task, and writes a response to the message queue.
