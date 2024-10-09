@@ -26,7 +26,7 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = ">=3.11,<4.0"
 fastapi = ">=0.109.1"
-llama-index-core = "^0.11.10"
+llama-index-core = "^0.11.17"
 pydantic-settings = ">=2.0,<3.0"
 PyYAML = ">6"
 uvicorn = ">=0.12.0"
