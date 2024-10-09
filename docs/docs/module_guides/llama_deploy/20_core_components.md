@@ -14,6 +14,25 @@ internal component called [_Orchestrator_](#orchestrator).
 
 A well defined set of these components is called _Deployment_.
 
+Deployments can be defined with YAML code, for example:
+
+```yaml
+name: QuickStart
+
+control-plane:
+  port: 8000
+
+default-service: dummy_workflow
+
+services:
+  dummy_workflow:
+    name: Dummy Workflow
+    source:
+      type: local
+      name: src
+    path: workflow:echo_workflow
+```
+
 ## API Server
 
 The API Server is a core component of Llama Deploy responsible for serving and managing multiple deployments. It is

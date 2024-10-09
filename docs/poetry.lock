@@ -579,6 +579,24 @@ all = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.5)", "httpx (>
 standard = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.5)", "httpx (>=0.23.0)", "jinja2 (>=2.11.2)", "python-multipart (>=0.0.7)", "uvicorn[standard] (>=0.12.0)"]
 
 [[package]]
+name = "fieldz"
+version = "0.1.0"
+description = "Utilities for providing compatibility with many dataclass-like libraries"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "fieldz-0.1.0-py3-none-any.whl", hash = "sha256:0825a45396877769b107ce016e63f6fedbe625a0ace3e56fe2f9d6d61c7ea8df"},
+    {file = "fieldz-0.1.0.tar.gz", hash = "sha256:ee3352534bc5d04ee8e1cafa5f59add2c11bea0fc2ecefe18454ccfdc7e21fb2"},
+]
+
+[package.dependencies]
+typing-extensions = "*"
+
+[package.extras]
+dev = ["black", "hatch", "ipython", "mypy", "pdbpp", "rich", "ruff"]
+test = ["annotated-types", "attrs", "dataclassy", "msgspec", "pydantic", "pytest", "pytest-cov"]
+
+[[package]]
 name = "frozenlist"
 version = "1.4.1"
 description = "A list-like structure which implements collections.abc.MutableSequence"
@@ -851,6 +869,25 @@ files = [
 
 [package.dependencies]
 colorama = ">=0.4"
+
+[[package]]
+name = "griffe-fieldz"
+version = "0.2.0"
+description = "Griffe extension adding support for data-class like things (pydantic, attrs, etc...)"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "griffe_fieldz-0.2.0-py3-none-any.whl", hash = "sha256:c2ebb0c63e7b660ddcc7c94237c6309a6bce998552b8c3483f0c14016fabf949"},
+    {file = "griffe_fieldz-0.2.0.tar.gz", hash = "sha256:fba1ecadb4d19e7f1c7b87e13caadd426f7066bd8f4bbb53615bd035bf67be58"},
+]
+
+[package.dependencies]
+fieldz = ">=0.1.0"
+griffe = ">=1.0"
+
+[package.extras]
+dev = ["ipython", "mypy", "pdbpp", "pre-commit", "rich", "ruff"]
+test = ["pytest", "pytest-cov"]
 
 [[package]]
 name = "h11"
@@ -3247,4 +3284,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "30c5247b5f604008503becdf436b75d026284c360feb7ed75c2c7f6140f2690c"
+content-hash = "6228aa3ddaed8e00df7fe3415770cee5ed183450b7e82d4e2e580f3df7292b36"

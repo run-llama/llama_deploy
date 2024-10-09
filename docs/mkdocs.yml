@@ -47,6 +47,8 @@ plugins:
             show_root_toc_entry: false
             show_signature_annotations: true
             signature_crossrefs: true
+            extensions:
+              - griffe_fieldz
           paths:
             - ../llama_deploy
 site_name: LlamaDeploy
