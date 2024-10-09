@@ -3,6 +3,7 @@ import json
 import uuid
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from logging import getLogger
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -51,6 +52,7 @@ class ControlPlaneConfig(BaseSettings):
     internal_host: Optional[str] = None
     internal_port: Optional[int] = None
     running: bool = True
+    cors_origins: Optional[List[str]] = None
 
     @property
     def url(self) -> str:
@@ -83,6 +85,7 @@ class ControlPlaneServer(BaseControlPlane):
         internal_host (Optional[str], optional): The host for external networking as in Docker-Compose or K8s.
         internal_port (Optional[int], optional): The port for external networking as in Docker-Compose or K8s.
         running (bool, optional): Whether the service is running. Defaults to True.
+        cors_origins (Optional[List[str]], optional): List of hosts from which the service will accept CORS requests.  Use '["*"]' for all hosts.
 
     Examples:
         ```python
@@ -112,6 +115,7 @@ class ControlPlaneServer(BaseControlPlane):
         internal_host: Optional[str] = None,
         internal_port: Optional[int] = None,
         running: bool = True,
+        cors_origins: Optional[List[str]] = None,
     ) -> None:
         self.orchestrator = orchestrator
 
@@ -133,6 +137,13 @@ class ControlPlaneServer(BaseControlPlane):
         self._publish_callback = publish_callback
 
         self.app = FastAPI()
+        if cors_origins:
+            self.app.add_middleware(
+                CORSMiddleware,
+                allow_origins=cors_origins,
+                allow_methods=["*"],
+                allow_headers=["*"],
+            )
         self.app.add_api_route("/", self.home, methods=["GET"], tags=["Control Plane"])
         self.app.add_api_route(
             "/process_message",
@@ -379,6 +390,9 @@ class ControlPlaneServer(BaseControlPlane):
         )
         if session_dict is None:
             raise HTTPException(status_code=404, detail="Session not found")
+
+        if not task_def.session_id:
+            task_def.session_id = session_id
 
         session = SessionDefinition(**session_dict)
         session.task_ids.append(task_def.task_id)
