@@ -37,6 +37,20 @@ async def read_deployment(deployment_name: str) -> JSONResponse:
     )
 
 
+@deployments_router.post("/create")
+async def create_deployment(config_file: UploadFile = File(...)) -> JSONResponse:
+    """Creates a new deployment by uploading a configuration file."""
+    config = Config.from_yaml_bytes(await config_file.read())
+    manager.deploy(config)
+
+    # Return some details about the file
+    return JSONResponse(
+        {
+            "name": config.name,
+        }
+    )
+
+
 @deployments_router.post("/{deployment_name}/tasks/run")
 async def create_deployment_task(
     deployment_name: str, task_definition: TaskDefinition
@@ -88,7 +102,7 @@ async def create_deployment_task_nowait(
     return JSONResponse({"session_id": session.session_id, "task_id": task_id})
 
 
-@deployments_router.get("/{deployment_name}/events")
+@deployments_router.get("/{deployment_name}/tasks/{task_id}/events")
 async def get_events(
     deployment_name: str, session_id: str, task_id: str
 ) -> StreamingResponse:
@@ -110,7 +124,7 @@ async def get_events(
     )
 
 
-@deployments_router.get("/{deployment_name}/results")
+@deployments_router.get("/{deployment_name}/tasks/{task_id}/results")
 async def get_task_result(
     deployment_name: str, session_id: str, task_id: str
 ) -> JSONResponse:
@@ -123,20 +137,6 @@ async def get_task_result(
     result = await session.get_task_result(task_id)
 
     return JSONResponse(result.result if result else "")
-
-
-@deployments_router.post("/create")
-async def create_deployment(config_file: UploadFile = File(...)) -> JSONResponse:
-    """Creates a new deployment by uploading a configuration file."""
-    config = Config.from_yaml_bytes(await config_file.read())
-    manager.deploy(config)
-
-    # Return some details about the file
-    return JSONResponse(
-        {
-            "name": config.name,
-        }
-    )
 
 
 @deployments_router.get("/{deployment_name}/sessions")

@@ -144,7 +144,7 @@ async def test_get_event_stream(http_client: TestClient, data_path: Path) -> Non
         session.get_task_result_stream.return_value = mocked_get_task_result_stream
 
         response = http_client.get(
-            "/deployments/test-deployment/events/?session_id=42&task_id=test_task_id",
+            "/deployments/test-deployment/tasks/test_task_id/events/?session_id=42",
         )
         assert response.status_code == 200
         ix = 0
@@ -153,6 +153,7 @@ async def test_get_event_stream(http_client: TestClient, data_path: Path) -> Non
             assert data == mock_events[ix].dict()
             ix += 1
         deployment.client.get_session.assert_called_with("42")
+        session.get_task_result_stream.assert_called_with("test_task_id")
 
 
 def test_get_task_result(http_client: TestClient, data_path: Path) -> None:
@@ -169,7 +170,7 @@ def test_get_task_result(http_client: TestClient, data_path: Path) -> None:
         mocked_manager.get_deployment.return_value = deployment
 
         response = http_client.get(
-            "/deployments/test-deployment/results/?session_id=42&task_id=test_task_id",
+            "/deployments/test-deployment/tasks/test_task_id/results/?session_id=42",
         )
         assert response.status_code == 200
         assert response.json() == "test_result"
