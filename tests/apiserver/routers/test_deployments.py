@@ -177,3 +177,19 @@ def test_get_task_result(http_client: TestClient, data_path: Path) -> None:
         assert response.json() == "test_result"
         session.get_task_result.assert_called_with("test_task_id")
         deployment.client.get_session.assert_called_with("42")
+
+
+def test_get_sessions(http_client: TestClient, data_path: Path) -> None:
+    with mock.patch(
+        "llama_deploy.apiserver.routers.deployments.manager"
+    ) as mocked_manager:
+        deployment = mock.AsyncMock()
+        deployment.default_service = "TestService"
+        deployment.client.list_sessions.return_value = []
+        mocked_manager.get_deployment.return_value = deployment
+
+        response = http_client.get(
+            "/deployments/test-deployment/sessions/",
+        )
+        assert response.status_code == 200
+        assert response.json() == []

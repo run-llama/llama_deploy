@@ -137,3 +137,27 @@ async def create_deployment(config_file: UploadFile = File(...)) -> JSONResponse
             "name": config.name,
         }
     )
+
+
+@deployments_router.get("/{deployment_name}/sessions")
+async def get_sessions(
+    deployment_name: str,
+) -> JSONResponse:
+    """Get the active sessions in a deployment and service."""
+    deployment = manager.get_deployment(deployment_name)
+    if deployment is None:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    sessions = await deployment.client.list_sessions()
+    return JSONResponse(sessions)
+
+
+@deployments_router.get("/{deployment_name}/sessions/delete")
+async def delete_session(deployment_name: str, session_id: str) -> JSONResponse:
+    """Get the active sessions in a deployment and service."""
+    deployment = manager.get_deployment(deployment_name)
+    if deployment is None:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    await deployment.client.delete_session(session_id)
+    return JSONResponse({"session_id": session_id, "status": "Deleted"})
