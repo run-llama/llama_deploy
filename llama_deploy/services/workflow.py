@@ -212,7 +212,7 @@ class WorkflowService(BaseService):
 
         TODO: Support managing the workflow state?
         """
-        return Context(self.workflow)
+        return None
 
     def dump_workflow_state(
         self, ctx: Context, current_state: WorkflowState
