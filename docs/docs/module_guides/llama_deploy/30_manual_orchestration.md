@@ -12,8 +12,8 @@ operations that are common when you need to orchestrate the different core compo
 ### Deploying the Core System
 
 !!! note
-When manually orchestrating a deployment, generally you'll want to deploy the core components and workflows services
-each from their own python scripts (or docker images, etc.).
+    When manually orchestrating a deployment, generally you'll want to deploy the core components and workflows services
+    each from their own python scripts (or docker images, etc.).
 
 To manually orchestrate a deployment, the first thing to do is to deploy the core system: message queue, control plane,
 and orchestrator. You can use the `deploy_core` function:
@@ -179,8 +179,8 @@ to your code!
 Just deploy each workflow:
 
 !!! note
-This code is launching both workflows from the same script, but these could easily be separate scripts, machines,
-or docker containers!
+    This code is launching both workflows from the same script, but these could easily be separate scripts, machines,
+    or docker containers!
 
 ```python
 import asyncio
