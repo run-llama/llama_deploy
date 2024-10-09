@@ -5,7 +5,6 @@ from llama_deploy.messages.base import QueueMessage
 from llama_deploy.orchestrators.simple import get_result_key
 from llama_deploy.types import (
     ActionTypes,
-    NewTask,
     TaskDefinition,
     TaskResult,
     SessionDefinition,
@@ -25,7 +24,7 @@ SESSION_DEF = SessionDefinition(
 
 INITIAL_QUEUE_MESSAGE = QueueMessage(
     type="secret_fact_agent",
-    data=NewTask(task=TASK_DEF, state=SESSION_DEF.state).model_dump(),
+    data=TASK_DEF.model_dump(),
     action=ActionTypes.NEW_TASK,
 )
 

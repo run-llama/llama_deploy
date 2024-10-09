@@ -17,7 +17,7 @@ from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services.base import BaseService
 from llama_deploy.types import (
     ActionTypes,
-    NewTask,
+    TaskDefinition,
     TaskResult,
     ServiceDefinition,
     CONTROL_PLANE_NAME,
@@ -190,12 +190,10 @@ class ComponentService(BaseService):
     async def process_message(self, message: QueueMessage) -> None:
         """Process a message received from the message queue."""
         if message.action == ActionTypes.NEW_TASK:
-            new_task = NewTask(**message.data or {})
-            task_def = new_task.task
+            task_def = TaskDefinition(**message.data or {})
+            input_dict = json.loads(task_def.input)
             async with self.lock:
-                self._outstanding_calls[task_def.task_id] = new_task.state[
-                    "__input_dict__"
-                ]
+                self._outstanding_calls[task_def.task_id] = input_dict["__input_dict__"]
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 

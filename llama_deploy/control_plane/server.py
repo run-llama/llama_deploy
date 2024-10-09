@@ -6,7 +6,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from logging import getLogger
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import AsyncGenerator, Dict, List, Optional
+from typing import AsyncGenerator, Any, Dict, List, Optional
 
 from llama_index.core.storage.kvstore.types import BaseKVStore
 from llama_index.core.storage.kvstore import SimpleKVStore
@@ -224,6 +224,18 @@ class ControlPlaneServer(BaseControlPlane):
             "/sessions/{session_id}/tasks/{task_id}/result_stream",
             self.get_task_result_stream,
             methods=["GET"],
+            tags=["Sessions"],
+        )
+        self.app.add_api_route(
+            "/sessions/{session_id}/state",
+            self.get_session_state,
+            methods=["GET"],
+            tags=["Sessions"],
+        )
+        self.app.add_api_route(
+            "/sessions/{session_id}/state",
+            self.update_session_state,
+            methods=["POST"],
             tags=["Sessions"],
         )
 
@@ -577,6 +589,25 @@ class ControlPlaneServer(BaseControlPlane):
         return StreamingResponse(
             event_generator(session, stream_key),
             media_type="application/x-ndjson",
+        )
+
+    async def get_session_state(self, session_id: str) -> Dict[str, Any]:
+        session = await self.get_session(session_id)
+        if session.task_ids is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        return session.state
+
+    async def update_session_state(
+        self, session_id: str, state: Dict[str, Any]
+    ) -> None:
+        session = await self.get_session(session_id)
+        if session.task_ids is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        session.state.update(state)
+        await self.state_store.aput(
+            session_id, session.model_dump(), collection=self.session_store_key
         )
 
     async def get_message_queue_config(self) -> Dict[str, dict]:

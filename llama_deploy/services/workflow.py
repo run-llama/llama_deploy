@@ -23,9 +23,9 @@ from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services.base import BaseService
 from llama_deploy.types import (
     ActionTypes,
-    NewTask,
     TaskResult,
     TaskStream,
+    TaskDefinition,
     ServiceDefinition,
     CONTROL_PLANE_NAME,
 )
@@ -207,14 +207,18 @@ class WorkflowService(BaseService):
     def lock(self) -> asyncio.Lock:
         return self._lock
 
-    def load_workflow_state(self, state: WorkflowState) -> Optional[Context]:
+    async def get_workflow_state(self, state: WorkflowState) -> Optional[Context]:
         """Load the existing context from the workflow state.
 
         TODO: Support managing the workflow state?
         """
+        if state.session_id is None:
+            return None
+
+        # state_dict = await self.get_session_state(state.session_id)
         return None
 
-    def dump_workflow_state(
+    async def set_workflow_state(
         self, ctx: Context, current_state: WorkflowState
     ) -> WorkflowState:
         """Dump the workflow state.
@@ -247,7 +251,7 @@ class WorkflowService(BaseService):
         """
         try:
             # load the state
-            ctx = self.load_workflow_state(current_call)
+            ctx = await self.get_workflow_state(current_call)
 
             # run the workflow
             handler = self.workflow.run(ctx=ctx, **current_call.run_kwargs)
@@ -273,7 +277,7 @@ class WorkflowService(BaseService):
             final_result = await handler
 
             # dump the state # dump the state
-            updated_state = self.dump_workflow_state(handler.ctx, current_call)
+            await self.set_workflow_state(handler.ctx, current_call)
 
             logger.debug(f"Publishing final result: {final_result}")
             await self.message_queue.publish(
@@ -284,7 +288,7 @@ class WorkflowService(BaseService):
                         task_id=current_call.task_id,
                         history=[],
                         result=str(final_result),
-                        data=updated_state.model_dump(),
+                        data={},
                     ).model_dump(),
                 )
             )
@@ -294,7 +298,7 @@ class WorkflowService(BaseService):
 
             logger.error(f"Encountered error in task {current_call.task_id}! {str(e)}")
             # dump the state
-            updated_state = self.dump_workflow_state(handler.ctx, current_call)
+            await self.set_workflow_state(handler.ctx, current_call)
 
             # return failure
             await self.message_queue.publish(
@@ -305,7 +309,7 @@ class WorkflowService(BaseService):
                         task_id=current_call.task_id,
                         history=[],
                         result=str(e),
-                        data=updated_state.model_dump(),
+                        data={},
                     ).model_dump(),
                 )
             )
@@ -372,15 +376,16 @@ class WorkflowService(BaseService):
     async def process_message(self, message: QueueMessage) -> None:
         """Process a message received from the message queue."""
         if message.action == ActionTypes.NEW_TASK:
-            new_task = NewTask(**message.data or {})
+            task_def = TaskDefinition(**message.data or {})
+            run_kwargs = json.loads(task_def.input)
+            workflow_state = WorkflowState(
+                session_id=task_def.session_id,
+                task_id=task_def.task_id,
+                run_kwargs=run_kwargs,
+            )
+
             async with self.lock:
-                new_task.state["run_kwargs"] = json.loads(new_task.task.input)
-                workflow_state = WorkflowState(
-                    session_id=new_task.task.session_id,
-                    task_id=new_task.task.task_id,
-                    **new_task.state,
-                )
-                self._outstanding_calls[new_task.task.task_id] = workflow_state
+                self._outstanding_calls[task_def.task_id] = workflow_state
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 

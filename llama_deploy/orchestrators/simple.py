@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.orchestrators.base import BaseOrchestrator
 from llama_deploy.orchestrators.utils import get_result_key
-from llama_deploy.types import ActionTypes, NewTask, TaskDefinition, TaskResult
+from llama_deploy.types import ActionTypes, TaskDefinition, TaskResult
 
 
 class SimpleOrchestratorConfig(BaseSettings):
@@ -75,9 +75,7 @@ class SimpleOrchestrator(BaseOrchestrator):
                 QueueMessage(
                     type=destination,
                     action=ActionTypes.NEW_TASK,
-                    data=NewTask(
-                        task=task_def, state=state[task_def.task_id]
-                    ).model_dump(),
+                    data=task_def.model_dump(),
                 )
             ]
 
