@@ -13,7 +13,7 @@ omit = [
 
 [tool.poetry]
 name = "llama-deploy"
-version = "0.2.0"
+version = "0.2.1"
 description = ""
 authors = ["Logan Markewich <logan.markewich@live.com>", "Andrei Fajardo <andrei@runllama.ai>"]
 maintainers = [

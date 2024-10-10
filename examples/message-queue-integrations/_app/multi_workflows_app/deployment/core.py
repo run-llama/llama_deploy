@@ -13,11 +13,11 @@ from llama_deploy.message_queues.aws import AWSMessageQueueConfig
 control_plane_config = ControlPlaneConfig()
 
 message_queue_configs = {
-    "kafka": KafkaMessageQueueConfig(),
-    "rabbitmq": RabbitMQMessageQueueConfig(),
-    "redis": RedisMessageQueueConfig(),
-    "aws": AWSMessageQueueConfig(),
-    "simple": SimpleMessageQueueConfig(),
+    "kafka": KafkaMessageQueueConfig,
+    "rabbitmq": RabbitMQMessageQueueConfig,
+    "redis": RedisMessageQueueConfig,
+    "aws": AWSMessageQueueConfig,
+    "simple": SimpleMessageQueueConfig,
 }
 
 
@@ -45,7 +45,9 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    message_queue_config = message_queue_configs[args.message_queue]
+    # initialize the message queue config
+    message_queue_config = message_queue_configs[args.message_queue]()
+
     asyncio.run(
         deploy_core(
             control_plane_config=control_plane_config,

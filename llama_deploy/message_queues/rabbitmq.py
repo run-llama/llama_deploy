@@ -71,14 +71,16 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         1. https://aio-pika.readthedocs.io/en/latest/rabbitmq-tutorial/2-work-queues.html
         2. https://aio-pika.readthedocs.io/en/latest/rabbitmq-tutorial/3-publish-subscribe.html
 
-    Connections are established by url that use amqp uri scheme
-    (https://www.rabbitmq.com/docs/uri-spec#the-amqp-uri-scheme)
-        amqp_URI       = "amqp://" amqp_authority [ "/" vhost ] [ "?" query ]
-        amqp_authority = [ amqp_userinfo "@" ] host [ ":" port ]
-        amqp_userinfo  = username [ ":" password ]
-        username       = *( unreserved / pct-encoded / sub-delims )
-        password       = *( unreserved / pct-encoded / sub-delims )
-        vhost          = segment
+    Connections are established by url that use [amqp uri scheme](https://www.rabbitmq.com/docs/uri-spec#the-amqp-uri-scheme):
+
+    ```
+    amqp_URI       = "amqp://" amqp_authority [ "/" vhost ] [ "?" query ]
+    amqp_authority = [ amqp_userinfo "@" ] host [ ":" port ]
+    amqp_userinfo  = username [ ":" password ]
+    username       = *( unreserved / pct-encoded / sub-delims )
+    password       = *( unreserved / pct-encoded / sub-delims )
+    vhost          = segment
+    ```
 
     The Work Queue created has the following properties:
         - Exchange with name self.exchange

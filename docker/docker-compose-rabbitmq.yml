@@ -19,7 +19,7 @@ services:
       retries: 5
 
   control_plane:
-    image: llamaindex/llama-deploy:v0.1.3
+    image: llamaindex/llama-deploy:v0.2.1
     environment:
       CONTROL_PLANE_HOST: control_plane
       CONTROL_PLANE_PORT: 8000
