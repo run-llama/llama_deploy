@@ -1,7 +1,7 @@
 # Getting Started
 
 Let's start with deploying a simple workflow on a local instance of Llama Deploy. After installing Llama Deploy, create
-a `src` folder add a `workflow.py` file to it containing the following Python code:
+a `src` folder and a `workflow.py` file to it containing the following Python code:
 
 ```python
 import asyncio
