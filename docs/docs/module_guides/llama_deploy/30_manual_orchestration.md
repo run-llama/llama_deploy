@@ -4,7 +4,7 @@ Llama Deploy offers different abstraction layers for maximum flexibility. For ex
 server](./20_core_components.md#api-server), you can go down one layer and orchestrate the core components on your own.
 Llama Deploy provides a simple way to self-manage a deployment using configuration objects and helper functions.
 
-## Manual orchestration with llama_deploy utility wrappers
+## Manual orchestration with Python wrappers
 
 Llama Deploy provides a set of utility functions that wrap the lower-level Python API in order to simplify certain
 operations that are common when you need to orchestrate the different core components, let's see how to use them.
