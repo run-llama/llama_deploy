@@ -240,8 +240,6 @@ class WorkflowService(BaseService):
         as the result.
 
         Args:
-            task_id (str):
-                The task ID being processed
             current_call (WorkflowState):
                 The state of the current task, including run_kwargs and other session state.
         """
