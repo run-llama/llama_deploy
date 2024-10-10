@@ -36,4 +36,9 @@ jobs:
         env:
           CI: true
         shell: bash
-        run: poetry run pytest tests
+        run: poetry run pytest --cov --cov-report=xml tests
+      - if: matrix.python-version == '3.12'
+        name: Report Coveralls
+        uses: coverallsapp/github-action@v2
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
