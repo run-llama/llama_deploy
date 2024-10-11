@@ -26,8 +26,8 @@ Both the SDK and the CLI are part of the Llama Deploy Python package. To install
 ```bash
 pip install llama_deploy
 ```
-
-For a comprehensive guide to Llama Deploy's architecture and detailed descriptions of its components, visit our
+> [!TIP]
+> For a comprehensive guide to Llama Deploy's architecture and detailed descriptions of its components, visit our
 [official documentation](https://docs.llamaindex.ai/en/latest/module_guides/llama_deploy/).
 
 ## Why Llama Deploy?
@@ -43,7 +43,7 @@ For a comprehensive guide to Llama Deploy's architecture and detailed descriptio
 6. **Async-First**: Designed for high-concurrency scenarios, making it suitable for real-time and high-throughput
    applications.
 
-> [!TIP]
+> [!NOTE]
 > This project was initially released under the name `llama-agents`,  but the introduction of [Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/#workflows) in `llama_index` turned out to be the most intuitive way for our users to develop agentic applications. We then decided to add new agentic features in `llama_index` directly, and focus Llama Deploy on closing the gap between local development and remote execution of agents as services.
 
 ## Getting Started
