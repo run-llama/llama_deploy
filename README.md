@@ -132,6 +132,12 @@ INFO:     Application startup complete.
 INFO:     Uvicorn running on http://0.0.0.0:4501 (Press CTRL+C to quit)
 ```
 
+> [!TIP]
+> By default, CORS is enabled. If you want to disable it, you can set the `DISABLE_CORS` environment variable:
+> ```
+> $ DISABLE_CORS=true python -m llama_deploy.apiserver
+> ```
+
 From another shell, use `llamactl` to create the deployment:
 
 ```
