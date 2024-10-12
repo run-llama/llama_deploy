@@ -49,6 +49,7 @@ awssqs = ["aiobotocore", "types-aiobotocore"]
 pytest = "^8.2.2"
 pytest-asyncio = "^0.23.7"
 pytest-mock = "^3.14.0"
+exceptiongroup = "^1.2.0"
 ruff = "^0.4.7"
 mypy = "^1.10.0"
 aio-pika = "^9.4.2"
