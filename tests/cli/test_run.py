@@ -13,7 +13,7 @@ def test_run(runner: CliRunner) -> None:
             llamactl, ["run", "-d", "deployment_name", "-s", "service_name"]
         )
         mocked_httpx.post.assert_called_with(
-            "http://localhost:4501/deployments/deployment_name/tasks/create",
+            "http://localhost:4501/deployments/deployment_name/tasks/run",
             verify=True,
             json={"input": "{}", "agent_id": "service_name"},
             timeout=None,
@@ -51,7 +51,7 @@ def test_run_args(runner: CliRunner) -> None:
             ],
         )
         mocked_httpx.post.assert_called_with(
-            "http://localhost:4501/deployments/deployment_name/tasks/create",
+            "http://localhost:4501/deployments/deployment_name/tasks/run",
             verify=True,
             json={
                 "input": '{"first_arg": "first_value", "second_arg": "\\"second value with spaces\\""}',
