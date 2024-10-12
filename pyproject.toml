@@ -38,6 +38,7 @@ redis = {version = "^5.0.7", optional = true}
 types-aiobotocore = {version = "^2.14.0", optional = true, extras = ["sqs", "sns"]}
 gitpython = "^3.1.43"
 python-multipart = "^0.0.10"
+typing_extensions = "^4.0.0"
 
 [tool.poetry.extras]
 kafka = ["aiokafka", "kafka-python-ng"]
