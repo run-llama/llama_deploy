@@ -7,12 +7,12 @@ from llama_deploy.cli import llamactl
 
 def test_run(runner: CliRunner) -> None:
     mocked_response = mock.MagicMock(status_code=200, json=lambda: {})
-    with mock.patch("llama_deploy.cli.run.httpx") as mocked_httpx:
-        mocked_httpx.post.return_value = mocked_response
+    with mock.patch("httpx.post") as mocked_post:
+        mocked_post.return_value = mocked_response
         result = runner.invoke(
             llamactl, ["run", "-d", "deployment_name", "-s", "service_name"]
         )
-        mocked_httpx.post.assert_called_with(
+        mocked_post.assert_called_with(
             "http://localhost:4501/deployments/deployment_name/tasks/run",
             verify=True,
             json={"input": "{}", "agent_id": "service_name"},
@@ -25,8 +25,8 @@ def test_run_error(runner: CliRunner) -> None:
     mocked_response = mock.MagicMock(
         status_code=500, json=lambda: {"detail": "test error"}
     )
-    with mock.patch("llama_deploy.cli.run.httpx") as mocked_httpx:
-        mocked_httpx.post.return_value = mocked_response
+    with mock.patch("httpx.post") as mocked_post:
+        mocked_post.return_value = mocked_response
         result = runner.invoke(llamactl, ["run", "-d", "deployment_name"])
         assert result.exit_code == 1
         assert result.output == "Error: test error\n"
@@ -34,8 +34,8 @@ def test_run_error(runner: CliRunner) -> None:
 
 def test_run_args(runner: CliRunner) -> None:
     mocked_response = mock.MagicMock(status_code=200, json=lambda: {})
-    with mock.patch("llama_deploy.cli.run.httpx") as mocked_httpx:
-        mocked_httpx.post.return_value = mocked_response
+    with mock.patch("httpx.post") as mocked_post:
+        mocked_post.return_value = mocked_response
         result = runner.invoke(
             llamactl,
             [
@@ -50,7 +50,7 @@ def test_run_args(runner: CliRunner) -> None:
                 '"second value with spaces"',
             ],
         )
-        mocked_httpx.post.assert_called_with(
+        mocked_post.assert_called_with(
             "http://localhost:4501/deployments/deployment_name/tasks/run",
             verify=True,
             json={
