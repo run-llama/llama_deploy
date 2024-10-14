@@ -1,7 +1,9 @@
+import pytest
+
 from llama_deploy import AsyncLlamaDeployClient, ControlPlaneConfig, LlamaDeployClient
 
 
-def test_run_client():
+def test_run_client(workflow):
     client = LlamaDeployClient(ControlPlaneConfig(), timeout=10)
 
     # test connections
@@ -38,7 +40,8 @@ def test_run_client():
     ), f"Expected 0 sessions, got {client.list_sessions()}"
 
 
-async def test_run_client_async():
+@pytest.mark.asyncio
+async def test_run_client_async(workflow):
     client = AsyncLlamaDeployClient(ControlPlaneConfig(), timeout=10)
 
     # test connections
@@ -73,13 +76,3 @@ async def test_run_client_async():
     assert (
         len(await client.list_sessions()) == 0
     ), f"Expected 0 sessions, got {await client.list_sessions()}"
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    print("Running async test")
-    asyncio.run(test_run_client_async())
-
-    print("Running sync test")
-    test_run_client()
