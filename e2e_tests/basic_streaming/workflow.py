@@ -1,13 +1,11 @@
-import asyncio
 from llama_index.core.workflow import (
     Context,
     Event,
-    Workflow,
     StartEvent,
     StopEvent,
+    Workflow,
     step,
 )
-from llama_deploy import deploy_workflow, ControlPlaneConfig, WorkflowServiceConfig
 
 
 class ProgressEvent(Event):
@@ -52,30 +50,3 @@ class StreamingWorkflow(Workflow):
         ctx.write_event_to_stream(ProgressEvent(progress=0.9))
 
         return StopEvent(result=str(arg1) + "_result")
-
-
-streaming_workflow = StreamingWorkflow(timeout=10)
-
-
-async def main():
-    # sanity check
-    result = await streaming_workflow.run(arg1="hello_world")
-    assert result == "hello_world_result_result_result", "Sanity check failed"
-
-    outer_task = asyncio.create_task(
-        deploy_workflow(
-            streaming_workflow,
-            WorkflowServiceConfig(
-                host="127.0.0.1",
-                port=8002,
-                service_name="streaming_workflow",
-            ),
-            ControlPlaneConfig(),
-        )
-    )
-
-    await asyncio.gather(outer_task)
-
-
-if __name__ == "__main__":
-    asyncio.run(main())

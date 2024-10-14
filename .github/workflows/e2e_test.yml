@@ -7,7 +7,7 @@ on:
   pull_request:
 
 env:
-  POETRY_VERSION: "1.6.1"
+  POETRY_VERSION: "1.8.3"
 
 jobs:
   test:
@@ -25,12 +25,12 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: ${{ env.POETRY_VERSION }}
       - name: Install deps
         shell: bash
-        run: pip install -e .
+        run: poetry install --with dev
       - name: Run All E2E Tests
-        env:
-          CI: true
-        shell: bash
-        working-directory: e2e_tests
-        run: sh run_all_e2e_tests.sh
+        run: poetry run pytest -m"e2e"
