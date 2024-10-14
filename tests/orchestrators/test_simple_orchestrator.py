@@ -5,7 +5,6 @@ from llama_deploy.messages.base import QueueMessage
 from llama_deploy.orchestrators.simple import get_result_key
 from llama_deploy.types import (
     ActionTypes,
-    NewTask,
     TaskDefinition,
     TaskResult,
     SessionDefinition,
@@ -25,7 +24,7 @@ SESSION_DEF = SessionDefinition(
 
 INITIAL_QUEUE_MESSAGE = QueueMessage(
     type="secret_fact_agent",
-    data=NewTask(task=TASK_DEF, state=SESSION_DEF.state).model_dump(),
+    data=TASK_DEF.model_dump(),
     action=ActionTypes.NEW_TASK,
 )
 
@@ -42,10 +41,7 @@ async def test_get_next_message() -> None:
     assert len(queue_messages) == 1
     assert queue_messages[0].type == INITIAL_QUEUE_MESSAGE.type
     assert isinstance(queue_messages[0].data, dict)
-    assert (
-        queue_messages[0].data["task"]["input"]
-        == INITIAL_QUEUE_MESSAGE.data["task"]["input"]
-    )  # type: ignore
+    assert queue_messages[0].data["input"] == INITIAL_QUEUE_MESSAGE.data["input"]  # type: ignore
 
     assert state[TASK_DEF.task_id] == {}
 

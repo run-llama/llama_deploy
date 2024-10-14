@@ -1,7 +1,7 @@
 import asyncio
 import httpx
 from abc import ABC, abstractmethod
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, PrivateAttr
 from typing import Any
 
 from llama_deploy.messages.base import QueueMessage
@@ -34,6 +34,7 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
     service_name: str
+    _control_plane_url: str | None = PrivateAttr(default=None)
 
     @property
     @abstractmethod
@@ -68,6 +69,7 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
 
     async def register_to_control_plane(self, control_plane_url: str) -> None:
         """Register the service to the control plane."""
+        self._control_plane_url = control_plane_url
         service_def = self.service_definition
         async with httpx.AsyncClient() as client:
             response = await client.post(
@@ -76,12 +78,46 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
             )
             response.raise_for_status()
 
-    async def deregister_from_control_plane(self, control_plane_url: str) -> None:
+    async def deregister_from_control_plane(self) -> None:
         """Deregister the service from the control plane."""
+        if not self._control_plane_url:
+            raise ValueError(
+                "Control plane URL not set. Call register_to_control_plane first."
+            )
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{control_plane_url}/services/deregister",
+                f"{self._control_plane_url}/services/deregister",
                 json={"service_name": self.service_name},
+            )
+            response.raise_for_status()
+
+    async def get_session_state(self, session_id: str) -> dict[str, Any] | None:
+        """Get the session state from the control plane."""
+        if not self._control_plane_url:
+            return None
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self._control_plane_url}/sessions/{session_id}/state"
+            )
+            if response.status_code == 404:
+                return None
+            else:
+                response.raise_for_status()
+
+            return response.json()
+
+    async def update_session_state(
+        self, session_id: str, state: dict[str, Any]
+    ) -> None:
+        """Update the session state in the control plane."""
+        if not self._control_plane_url:
+            return
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{self._control_plane_url}/sessions/{session_id}/state",
+                json=state,
             )
             response.raise_for_status()
 
