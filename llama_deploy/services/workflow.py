@@ -63,7 +63,9 @@ class WorkflowState(BaseModel):
     hash: Optional[int] = Field(
         default=None, description="Hash of the context, if any."
     )
-    state: Optional[str] = Field(default=None, description="Pickled state, if any.")
+    state: Optional[dict] = Field(
+        default_factory=dict, description="Pickled state, if any."
+    )
     run_kwargs: Dict[str, Any] = Field(
         default_factory=dict, description="Run kwargs needed to run the workflow."
     )
@@ -223,13 +225,20 @@ class WorkflowService(BaseService):
         if workflow_state_json is None:
             return None
 
-        workflow_state = WorkflowState.model_validate_json(workflow_state_json)
+        workflow_state = WorkflowState.model_validate(workflow_state_json)
         if workflow_state.state is None:
             return None
 
+        context_dict = workflow_state.state
+        context_str = json.dumps(context_dict)
+        context_hash = hash(context_str + hash_secret)
+
+        if workflow_state.hash is not None and context_hash != workflow_state.hash:
+            raise ValueError("Context hash does not match!")
+
         return Context.from_dict(
             self.workflow,
-            json.loads(workflow_state.state or "{}"),
+            workflow_state.state,
             serializer=JsonPickleSerializer(),
         )
 
@@ -237,12 +246,13 @@ class WorkflowService(BaseService):
         self, ctx: Context, current_state: WorkflowState
     ) -> None:
         """Set the workflow state for this session."""
-        context_str = json.dumps(ctx.to_dict(serializer=JsonPickleSerializer()))
+        context_dict = ctx.to_dict(serializer=JsonPickleSerializer())
+        context_str = json.dumps(context_dict)
         context_hash = hash(context_str + hash_secret)
 
         workflow_state = WorkflowState(
             hash=context_hash,
-            state=context_str,
+            state=context_dict,
             run_kwargs=current_state.run_kwargs,
             session_id=current_state.session_id,
             task_id=current_state.task_id,

@@ -187,6 +187,21 @@ class AsyncLlamaDeployClient:
                 SessionDefinition(**session) for session in response.json().values()
             ]
 
+    async def get_session_definition(self, session_id: str) -> SessionDefinition:
+        """Get the definition of a session by ID.
+
+        Args:
+            session_id (str): The ID of the session to get.
+
+        Returns:
+            SessionDefinition: The definition of the session.
+        """
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.control_plane_url}/sessions/{session_id}"
+            )
+            return SessionDefinition(**response.json())
+
     async def get_session(
         self, session_id: str, poll_interval: float = DEFAULT_POLL_INTERVAL
     ) -> AsyncSessionClient:

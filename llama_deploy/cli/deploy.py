@@ -18,6 +18,6 @@ def deploy(global_config: tuple, deployment_config_file: IO) -> None:
     )
 
     if resp.status_code >= 400:
-        raise click.ClickException(resp.json().get("detail"))
+        raise click.ClickException(resp.text)
     else:
         click.echo(f"Deployment successful: {resp.json().get('name')}")

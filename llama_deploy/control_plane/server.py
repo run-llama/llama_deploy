@@ -366,7 +366,7 @@ class ControlPlaneServer(BaseControlPlane):
         if session_dict is None:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        return SessionDefinition(**session_dict)
+        return SessionDefinition.model_validate(session_dict)
 
     async def delete_session(self, session_id: str) -> None:
         await self.state_store.adelete(session_id, collection=self.session_store_key)
@@ -377,7 +377,7 @@ class ControlPlaneServer(BaseControlPlane):
         )
 
         return {
-            session_id: SessionDefinition(**session_dict)
+            session_id: SessionDefinition.model_validate(session_dict)
             for session_id, session_dict in session_dicts.items()
         }
 

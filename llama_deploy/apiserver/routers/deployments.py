@@ -53,7 +53,7 @@ async def create_deployment(config_file: UploadFile = File(...)) -> JSONResponse
 
 @deployments_router.post("/{deployment_name}/tasks/run")
 async def create_deployment_task(
-    deployment_name: str, task_definition: TaskDefinition
+    deployment_name: str, task_definition: TaskDefinition, session_id: str | None = None
 ) -> JSONResponse:
     """Create a task for the deployment, wait for result and delete associated session."""
     deployment = manager.get_deployment(deployment_name)
@@ -68,18 +68,22 @@ async def create_deployment_task(
             )
         task_definition.agent_id = deployment.default_service
 
-    session = await deployment.client.create_session()
+    session = await deployment.client.get_or_create_session(session_id or "none")
+
     result = await session.run(
         task_definition.agent_id or "", **json.loads(task_definition.input)
     )
-    await deployment.client.delete_session(session.session_id)
+
+    # Assume the request does not care about the session if no session_id is provided
+    if session_id is None:
+        await deployment.client.delete_session(session.session_id)
 
     return JSONResponse(result)
 
 
 @deployments_router.post("/{deployment_name}/tasks/create")
 async def create_deployment_task_nowait(
-    deployment_name: str, task_definition: TaskDefinition
+    deployment_name: str, task_definition: TaskDefinition, session_id: str | None = None
 ) -> JSONResponse:
     """Create a task for the deployment but don't wait for result."""
     deployment = manager.get_deployment(deployment_name)
@@ -94,7 +98,8 @@ async def create_deployment_task_nowait(
             )
         task_definition.agent_id = deployment.default_service
 
-    session = await deployment.client.create_session()
+    session = await deployment.client.get_or_create_session(session_id or "none")
+
     task_id = await session.run_nowait(
         task_definition.agent_id or "", **json.loads(task_definition.input)
     )
@@ -150,6 +155,28 @@ async def get_sessions(
 
     sessions = await deployment.client.list_sessions()
     return JSONResponse(sessions)
+
+
+@deployments_router.get("/{deployment_name}/sessions/{session_id}")
+async def get_session(deployment_name: str, session_id: str) -> JSONResponse:
+    """Get the definition of a session by ID."""
+    deployment = manager.get_deployment(deployment_name)
+    if deployment is None:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    session = await deployment.client.get_session_definition(session_id)
+    return JSONResponse(session.model_dump())
+
+
+@deployments_router.post("/{deployment_name}/sessions/create")
+async def create_session(deployment_name: str) -> JSONResponse:
+    """Create a new session for a deployment."""
+    deployment = manager.get_deployment(deployment_name)
+    if deployment is None:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    session = await deployment.client.create_session()
+    return JSONResponse({"session_id": session.session_id})
 
 
 @deployments_router.post("/{deployment_name}/sessions/delete")

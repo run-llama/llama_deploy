@@ -39,7 +39,7 @@ services:
 
   deploy_workflows:
     # Init container, it deploys python_fullstack.yaml and exits
-    image: llamaindex/llama-deploy:local
+    image: llamaindex/llama-deploy:main
     volumes:
       - ./python_fullstack.yaml:/opt/python_fullstack.yaml
     depends_on:
