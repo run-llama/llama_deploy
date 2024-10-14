@@ -3,6 +3,7 @@ import pytest
 from llama_deploy import AsyncLlamaDeployClient, ControlPlaneConfig, LlamaDeployClient
 
 
+@pytest.mark.e2e
 def test_run_client(workflow):
     client = LlamaDeployClient(ControlPlaneConfig(), timeout=10)
 
@@ -40,6 +41,7 @@ def test_run_client(workflow):
     ), f"Expected 0 sessions, got {client.list_sessions()}"
 
 
+@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_run_client_async(workflow):
     client = AsyncLlamaDeployClient(ControlPlaneConfig(), timeout=10)

@@ -65,3 +65,8 @@ types-aiobotocore = {version = "^2.14.0", extras = ["sqs", "sns"]}
 
 [tool.poetry.scripts]
 llamactl = "llama_deploy.cli.__main__:main"
+
+[tool.pytest.ini_options]
+markers = [
+  "e2e: marks end-to-end tests (deselect with '-m \"not e2e\"')"
+]

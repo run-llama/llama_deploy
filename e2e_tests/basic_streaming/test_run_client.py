@@ -3,6 +3,7 @@ import pytest
 from llama_deploy import AsyncLlamaDeployClient, ControlPlaneConfig, LlamaDeployClient
 
 
+@pytest.mark.e2e
 def test_run_client(services):
     client = LlamaDeployClient(ControlPlaneConfig(), timeout=10)
 
@@ -39,6 +40,7 @@ def test_run_client(services):
     assert len(sessions) == 0, "Sessions list is not empty"
 
 
+@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_run_client_async(services):
     client = AsyncLlamaDeployClient(ControlPlaneConfig(), timeout=10)
