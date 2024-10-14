@@ -7,31 +7,25 @@ from pathlib import Path
 from typing import Any
 
 from llama_deploy import (
+    AsyncLlamaDeployClient,
     ControlPlaneServer,
     SimpleMessageQueue,
-    SimpleOrchestratorConfig,
     SimpleOrchestrator,
+    SimpleOrchestratorConfig,
     WorkflowService,
     WorkflowServiceConfig,
-    AsyncLlamaDeployClient,
 )
 from llama_deploy.message_queues import (
-    BaseMessageQueue,
-    SimpleMessageQueueConfig,
     AWSMessageQueue,
+    BaseMessageQueue,
     KafkaMessageQueue,
     RabbitMQMessageQueue,
     RedisMessageQueue,
+    SimpleMessageQueueConfig,
 )
 
-from .config_parser import (
-    Config,
-    SourceType,
-    Service,
-    MessageQueueConfig,
-)
+from .config_parser import Config, MessageQueueConfig, Service, SourceType
 from .source_managers import GitSourceManager, LocalSourceManager, SourceManager
-
 
 SOURCE_MANAGERS: dict[SourceType, SourceManager] = {
     SourceType.git: GitSourceManager(),

@@ -1,13 +1,12 @@
 import json
-
-from fastapi import APIRouter, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
 from typing import AsyncGenerator
 
-from llama_deploy.apiserver.server import manager
-from llama_deploy.apiserver.config_parser import Config
-from llama_deploy.types import TaskDefinition
+from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi.responses import JSONResponse, StreamingResponse
 
+from llama_deploy.apiserver.config_parser import Config
+from llama_deploy.apiserver.server import manager
+from llama_deploy.types import TaskDefinition
 
 deployments_router = APIRouter(
     prefix="/deployments",
@@ -142,6 +141,23 @@ async def get_task_result(
     result = await session.get_task_result(task_id)
 
     return JSONResponse(result.result if result else "")
+
+
+@deployments_router.get("/{deployment_name}/tasks")
+async def get_tasks(
+    deployment_name: str,
+) -> JSONResponse:
+    """Get the active sessions in a deployment and service."""
+    deployment = manager.get_deployment(deployment_name)
+    if deployment is None:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    tasks: list[TaskDefinition] = []
+    for session_def in await deployment.client.list_sessions():
+        session = await deployment.client.get_session(session_id=session_def.session_id)
+        for task_def in await session.get_tasks():
+            tasks.append(task_def)
+    return JSONResponse(tasks)
 
 
 @deployments_router.get("/{deployment_name}/sessions")

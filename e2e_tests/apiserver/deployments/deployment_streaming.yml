@@ -1,0 +1,14 @@
+name: Streaming
+
+control-plane:
+  port: 8000
+
+default-service: streaming_workflow
+
+services:
+  streaming_workflow:
+    name: Streaming Workflow
+    source:
+      type: local
+      name: ./e2e_tests/apiserver/deployments/src
+    path: workflow:streaming_workflow
