@@ -4,6 +4,7 @@
 
 
 [![Unit Testing](https://github.com/run-llama/llama_deploy/actions/workflows/unit_test.yml/badge.svg)](https://github.com/run-llama/llama_deploy/actions/workflows/unit_test.yml)
+[![E2E Testing](https://github.com/run-llama/llama_deploy/actions/workflows/e2e_test.yml/badge.svg)](https://github.com/run-llama/llama_deploy/actions/workflows/e2e_test.yml)
 [![Coverage Status](https://coveralls.io/repos/github/run-llama/llama_deploy/badge.svg?branch=main)](https://coveralls.io/github/run-llama/llama_deploy?branch=main)
 
 
