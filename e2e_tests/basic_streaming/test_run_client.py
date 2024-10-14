@@ -1,7 +1,9 @@
+import pytest
+
 from llama_deploy import AsyncLlamaDeployClient, ControlPlaneConfig, LlamaDeployClient
 
 
-def test_run_client():
+def test_run_client(services):
     client = LlamaDeployClient(ControlPlaneConfig(), timeout=10)
 
     # sanity check
@@ -19,16 +21,16 @@ def test_run_client():
         if "progress" in event:
             num_events += 1
             if num_events == 1:
-                assert event["progress"] == 0.3, "First progress event is not 0.3"
+                assert event["progress"] == 0.3
             elif num_events == 2:
-                assert event["progress"] == 0.6, "Second progress event is not 0.6"
+                assert event["progress"] == 0.6
             elif num_events == 3:
-                assert event["progress"] == 0.9, "Third progress event is not 0.9"
+                assert event["progress"] == 0.9
 
     # get final result
     final_result = session.get_task_result(task_id)
     assert (
-        final_result.result == "hello_world_result_result_result"
+        final_result.result == "hello_world_result_result_result"  # type: ignore
     ), "Final result is not 'hello_world_result_result_result'"
 
     # delete everything
@@ -37,7 +39,8 @@ def test_run_client():
     assert len(sessions) == 0, "Sessions list is not empty"
 
 
-async def test_run_client_async():
+@pytest.mark.asyncio
+async def test_run_client_async(services):
     client = AsyncLlamaDeployClient(ControlPlaneConfig(), timeout=10)
 
     # sanity check
@@ -55,28 +58,18 @@ async def test_run_client_async():
         if "progress" in event:
             num_events += 1
             if num_events == 1:
-                assert event["progress"] == 0.3, "First progress event is not 0.3"
+                assert event["progress"] == 0.3
             elif num_events == 2:
-                assert event["progress"] == 0.6, "Second progress event is not 0.6"
+                assert event["progress"] == 0.6
             elif num_events == 3:
-                assert event["progress"] == 0.9, "Third progress event is not 0.9"
+                assert event["progress"] == 0.9
 
     final_result = await session.get_task_result(task_id)
     assert (
-        final_result.result == "hello_world_result_result_result"
+        final_result.result == "hello_world_result_result_result"  # type: ignore
     ), "Final result is not 'hello_world_result_result_result'"
 
     # delete everything
     await client.delete_session(session.session_id)
     sessions = await client.list_sessions()
     assert len(sessions) == 0, "Sessions list is not empty"
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    print("Running async test")
-    asyncio.run(test_run_client_async())
-
-    print("Running sync test")
-    test_run_client()
