@@ -9,7 +9,7 @@ from llama_deploy.cli import llamactl
 def test_deploy(runner: CliRunner, data_path: Path) -> None:
     test_config_file = data_path / "deployment.yaml"
     mocked_response = mock.MagicMock(status_code=200, json=lambda: {})
-    with mock.patch("llama_deploy.cli.deploy.request") as mocked_httpx:
+    with mock.patch("llama_deploy.cli.utils.httpx.request") as mocked_httpx:
         mocked_httpx.return_value = mocked_response
         result = runner.invoke(llamactl, ["-t", "5.0", "deploy", str(test_config_file)])
 
@@ -29,7 +29,7 @@ def test_deploy_failed(runner: CliRunner, data_path: Path) -> None:
     mocked_response = mock.MagicMock(
         status_code=401, json=lambda: {"detail": "Unauthorized!"}
     )
-    with mock.patch("llama_deploy.cli.deploy.request") as mocked_httpx:
+    with mock.patch("llama_deploy.cli.utils.httpx.request") as mocked_httpx:
         mocked_httpx.return_value = mocked_response
         result = runner.invoke(llamactl, ["deploy", str(test_config_file)])
         assert result.exit_code == 1
