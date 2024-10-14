@@ -27,7 +27,7 @@ def run(
     service: str,
 ) -> None:
     server_url, disable_ssl, timeout = global_config
-    deploy_url = f"{server_url}/deployments/{deployment}/tasks/create"
+    deploy_url = f"{server_url}/deployments/{deployment}/tasks/run"
     payload = {"input": json.dumps(dict(arg))}
     if service:
         payload["agent_id"] = service
