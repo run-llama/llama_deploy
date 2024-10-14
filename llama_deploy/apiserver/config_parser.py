@@ -1,6 +1,12 @@
 from enum import Enum
 from pathlib import Path
-from typing import Self, Annotated, Union
+from typing import Annotated, Union
+import sys
+
+if sys.version_info >= (3, 11):
+    from typing import Self
+else:
+    from typing_extensions import Self
 
 import yaml
 from pydantic import BaseModel, Field

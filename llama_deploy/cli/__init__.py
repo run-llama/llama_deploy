@@ -1,8 +1,8 @@
 import click
 
-from .deploy import deploy
-from .run import run
-from .status import status
+from llama_deploy.cli.deploy import deploy
+from llama_deploy.cli.run import run
+from llama_deploy.cli.status import status
 
 
 @click.group(
