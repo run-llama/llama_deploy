@@ -1,15 +1,16 @@
 import asyncio
-import httpx
 import json
 import time
 from typing import Any, AsyncGenerator, List, Optional
 
+import httpx
+
 from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.types import (
-    TaskDefinition,
     ServiceDefinition,
-    TaskResult,
     SessionDefinition,
+    TaskDefinition,
+    TaskResult,
 )
 
 DEFAULT_TIMEOUT = 120.0
@@ -126,26 +127,27 @@ class AsyncSessionClient:
             AsyncGenerator[str, None, None]: A generator that yields the result of the task.
         """
         start_time = time.time()
-        async with httpx.AsyncClient() as client:
-            while True:
-                try:
-                    response = await client.get(
-                        f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/result_stream"
+        while True:
+            try:
+                async with httpx.AsyncClient() as client:
+                    async with client.stream(
+                        "GET",
+                        f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/result_stream",
+                    ) as response:
+                        response.raise_for_status()
+                        async for line in response.aiter_lines():
+                            json_line = json.loads(line)
+                            yield json_line
+                        break  # Exit the function if successful
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code != 404:
+                    raise  # Re-raise if it's not a 404 error
+                if time.time() - start_time < self.timeout:
+                    await asyncio.sleep(self.poll_interval)
+                else:
+                    raise TimeoutError(
+                        f"Task result not available after waiting for {self.timeout} seconds"
                     )
-                    response.raise_for_status()
-                    async for line in response.aiter_lines():
-                        json_line = json.loads(line)
-                        yield json_line
-                    break  # Exit the function if successful
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code != 404:
-                        raise  # Re-raise if it's not a 404 error
-                    if time.time() - start_time < self.timeout:
-                        await asyncio.sleep(self.poll_interval)
-                    else:
-                        raise TimeoutError(
-                            f"Task result not available after waiting for {self.timeout} seconds"
-                        )
 
 
 class AsyncLlamaDeployClient:

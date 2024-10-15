@@ -8,12 +8,13 @@ skip = "poetry.lock,./examples,*/algolia.js,docs/poetry.lock"
 
 [tool.coverage.run]
 omit = [
-  "__main__.py"
+  "__main__.py",
+  "tests/*"
 ]
 
 [tool.poetry]
 name = "llama-deploy"
-version = "0.2.1"
+version = "0.2.3"
 description = ""
 authors = ["Logan Markewich <logan.markewich@live.com>", "Andrei Fajardo <andrei@runllama.ai>"]
 maintainers = [
@@ -24,9 +25,9 @@ maintainers = [
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.11,<4.0"
+python = ">=3.10,<4.0"
 fastapi = ">=0.109.1"
-llama-index-core = "^0.11.10"
+llama-index-core = "^0.11.17"
 pydantic-settings = ">=2.0,<3.0"
 PyYAML = ">6"
 uvicorn = ">=0.12.0"
@@ -38,6 +39,7 @@ redis = {version = "^5.0.7", optional = true}
 types-aiobotocore = {version = "^2.14.0", optional = true, extras = ["sqs", "sns"]}
 gitpython = "^3.1.43"
 python-multipart = "^0.0.10"
+typing_extensions = "^4.0.0"
 
 [tool.poetry.extras]
 kafka = ["aiokafka", "kafka-python-ng"]
@@ -49,6 +51,7 @@ awssqs = ["aiobotocore", "types-aiobotocore"]
 pytest = "^8.2.2"
 pytest-asyncio = "^0.23.7"
 pytest-mock = "^3.14.0"
+exceptiongroup = "^1.2.0"
 ruff = "^0.4.7"
 mypy = "^1.10.0"
 aio-pika = "^9.4.2"
@@ -62,3 +65,8 @@ types-aiobotocore = {version = "^2.14.0", extras = ["sqs", "sns"]}
 
 [tool.poetry.scripts]
 llamactl = "llama_deploy.cli.__main__:main"
+
+[tool.pytest.ini_options]
+markers = [
+  "e2e: marks end-to-end tests (deselect with '-m \"not e2e\"')"
+]

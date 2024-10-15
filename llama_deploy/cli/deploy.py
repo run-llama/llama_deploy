@@ -2,7 +2,7 @@ from typing import IO
 
 import click
 
-from .utils import request
+from llama_deploy.cli.utils import request
 
 
 @click.command()
