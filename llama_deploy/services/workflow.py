@@ -225,7 +225,7 @@ class WorkflowService(BaseService):
         if workflow_state_json is None:
             return None
 
-        workflow_state = WorkflowState.model_validate(workflow_state_json)
+        workflow_state = WorkflowState.model_validate_json(workflow_state_json)
         if workflow_state.state is None:
             return None
 
