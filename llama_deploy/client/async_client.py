@@ -129,15 +129,16 @@ class AsyncSessionClient:
         start_time = time.time()
         while True:
             try:
-                with httpx.stream(
-                    "GET",
-                    f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/result_stream",
-                ) as response:
-                    response.raise_for_status()
-                    for line in response.iter_lines():
-                        json_line = json.loads(line)
-                        yield json_line
-                    break  # Exit the function if successful
+                async with httpx.AsyncClient() as client:
+                    async with client.stream(
+                        "GET",
+                        f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/result_stream",
+                    ) as response:
+                        response.raise_for_status()
+                        async for line in response.aiter_lines():
+                            json_line = json.loads(line)
+                            yield json_line
+                        break  # Exit the function if successful
             except httpx.HTTPStatusError as e:
                 if e.response.status_code != 404:
                     raise  # Re-raise if it's not a 404 error
