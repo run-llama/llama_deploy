@@ -2,7 +2,7 @@ import asyncio
 import json
 import uuid
 from logging import getLogger
-from typing import AsyncGenerator, Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -551,6 +551,7 @@ class ControlPlaneServer(BaseControlPlane):
             try:
                 last_index = 0
                 while True:
+                    session = await self.get_session(session_id)
                     stream_results = session.state[stream_key][last_index:]
                     stream_results = sorted(stream_results, key=lambda x: x["index"])
                     for result in stream_results:
