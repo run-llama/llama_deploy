@@ -1,7 +1,5 @@
 import asyncio
-import base64
 import json
-import pickle
 import os
 import uuid
 import uvicorn
@@ -13,6 +11,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import AsyncGenerator, Dict, Optional, Any
 
 from llama_index.core.workflow import Context, Workflow
+from llama_index.core.workflow.context_serializers import JsonPickleSerializer
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
@@ -23,9 +22,9 @@ from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services.base import BaseService
 from llama_deploy.types import (
     ActionTypes,
-    NewTask,
     TaskResult,
     TaskStream,
+    TaskDefinition,
     ServiceDefinition,
     CONTROL_PLANE_NAME,
 )
@@ -207,31 +206,57 @@ class WorkflowService(BaseService):
     def lock(self) -> asyncio.Lock:
         return self._lock
 
-    def load_workflow_state(self, state: WorkflowState) -> Optional[Context]:
+    async def get_workflow_state(self, state: WorkflowState) -> Optional[Context]:
         """Load the existing context from the workflow state.
 
         TODO: Support managing the workflow state?
         """
-        return None
+        if state.session_id is None:
+            return None
 
-    def dump_workflow_state(
+        state_dict = await self.get_session_state(state.session_id)
+        if state_dict is None:
+            return None
+
+        workflow_state_json = state_dict.get(state.session_id, None)
+
+        if workflow_state_json is None:
+            return None
+
+        workflow_state = WorkflowState.model_validate_json(workflow_state_json)
+        if workflow_state.state is None:
+            return None
+
+        return Context.from_dict(
+            self.workflow,
+            json.loads(workflow_state.state or "{}"),
+            serializer=JsonPickleSerializer(),
+        )
+
+    async def set_workflow_state(
         self, ctx: Context, current_state: WorkflowState
-    ) -> WorkflowState:
-        """Dump the workflow state.
-
-        TODO: Support managing the workflow state?
-        """
-        context_bytes = pickle.dumps({})
-        context_str = base64.b64encode(context_bytes).decode("ascii")
+    ) -> None:
+        """Set the workflow state for this session."""
+        context_str = json.dumps(ctx.to_dict(serializer=JsonPickleSerializer()))
         context_hash = hash(context_str + hash_secret)
 
-        return WorkflowState(
+        workflow_state = WorkflowState(
             hash=context_hash,
             state=context_str,
             run_kwargs=current_state.run_kwargs,
             session_id=current_state.session_id,
             task_id=current_state.task_id,
         )
+
+        if current_state.session_id is None:
+            raise ValueError("Session ID is None! Cannot set workflow state.")
+
+        session_state = await self.get_session_state(current_state.session_id)
+        if session_state:
+            session_state[current_state.session_id] = workflow_state.model_dump_json()
+
+            # Store the state in the control plane
+            await self.update_session_state(current_state.session_id, session_state)
 
     async def process_call(self, current_call: WorkflowState) -> None:
         """Processes a given task, and writes a response to the message queue.
@@ -245,7 +270,7 @@ class WorkflowService(BaseService):
         """
         try:
             # load the state
-            ctx = self.load_workflow_state(current_call)
+            ctx = await self.get_workflow_state(current_call)
 
             # run the workflow
             handler = self.workflow.run(ctx=ctx, **current_call.run_kwargs)
@@ -271,7 +296,7 @@ class WorkflowService(BaseService):
             final_result = await handler
 
             # dump the state # dump the state
-            updated_state = self.dump_workflow_state(handler.ctx, current_call)
+            await self.set_workflow_state(handler.ctx, current_call)
 
             logger.debug(f"Publishing final result: {final_result}")
             await self.message_queue.publish(
@@ -282,7 +307,7 @@ class WorkflowService(BaseService):
                         task_id=current_call.task_id,
                         history=[],
                         result=str(final_result),
-                        data=updated_state.model_dump(),
+                        data={},
                     ).model_dump(),
                 )
             )
@@ -292,7 +317,7 @@ class WorkflowService(BaseService):
 
             logger.error(f"Encountered error in task {current_call.task_id}! {str(e)}")
             # dump the state
-            updated_state = self.dump_workflow_state(handler.ctx, current_call)
+            await self.set_workflow_state(handler.ctx, current_call)
 
             # return failure
             await self.message_queue.publish(
@@ -303,7 +328,7 @@ class WorkflowService(BaseService):
                         task_id=current_call.task_id,
                         history=[],
                         result=str(e),
-                        data=updated_state.model_dump(),
+                        data={},
                     ).model_dump(),
                 )
             )
@@ -370,15 +395,16 @@ class WorkflowService(BaseService):
     async def process_message(self, message: QueueMessage) -> None:
         """Process a message received from the message queue."""
         if message.action == ActionTypes.NEW_TASK:
-            new_task = NewTask(**message.data or {})
+            task_def = TaskDefinition(**message.data or {})
+            run_kwargs = json.loads(task_def.input)
+            workflow_state = WorkflowState(
+                session_id=task_def.session_id,
+                task_id=task_def.task_id,
+                run_kwargs=run_kwargs,
+            )
+
             async with self.lock:
-                new_task.state["run_kwargs"] = json.loads(new_task.task.input)
-                workflow_state = WorkflowState(
-                    session_id=new_task.task.session_id,
-                    task_id=new_task.task.task_id,
-                    **new_task.state,
-                )
-                self._outstanding_calls[new_task.task.task_id] = workflow_state
+                self._outstanding_calls[task_def.task_id] = workflow_state
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 

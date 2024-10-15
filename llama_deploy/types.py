@@ -127,13 +127,6 @@ class SessionDefinition(BaseModel):
         return self.task_ids[-1]
 
 
-class NewTask(BaseModel):
-    """The payload for a new task message."""
-
-    task: TaskDefinition
-    state: Dict[str, Any] = Field(default_factory=dict)
-
-
 class TaskResult(BaseModel):
     """
     The result of a task.
