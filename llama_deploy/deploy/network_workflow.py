@@ -1,6 +1,6 @@
 from typing import Any, Dict, Optional
 
-from llama_index.core.workflow import Workflow, StopEvent, StartEvent, step
+from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
 from llama_index.core.workflow.service import ServiceManager, ServiceNotFoundError
 
 from llama_deploy.client.async_client import AsyncLlamaDeployClient
@@ -60,7 +60,7 @@ class NetworkServiceManager(ServiceManager):
 
         # If the remove service exists, swap it in
         if remote_service is not None:
-            return NetworkWorkflow(self.control_plane_config, name)
+            return NetworkWorkflow(self.control_plane_config, name, timeout=None)
 
         # else default to the local workflow -- if it exists
         if local_workflow is None:
