@@ -1,7 +1,5 @@
-from typing import Any
-
-import httpx
 from enum import StrEnum
+
 from pydantic import BaseModel
 
 from .model import Model
@@ -19,21 +17,12 @@ class ApiServerStatus(BaseModel):
 
 
 class ApiServer(Model):
-    def _request(
-        self, method: str, url: str | httpx.URL, *args: Any, **kwargs: Any
-    ) -> httpx.Response | None:
-        try:
-            return httpx.request(method, url, *args, **kwargs)
-        except httpx.ConnectError:
-            return None
-
-    @property
-    def status(self) -> ApiServerStatus:
+    async def status(self) -> ApiServerStatus:
         """Returns the status of the API Server."""
         settings = self.client.settings
         status_url = f"{settings.api_server_url}/status/"
 
-        r = self._request(
+        r = await self.client.request(
             "GET", status_url, verify=not settings.disable_ssl, timeout=settings.timeout
         )
 
