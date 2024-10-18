@@ -10,12 +10,12 @@ services:
     name: Agentic Workflow
     source:
       type: local
-      name: .  # TODO: Make this relative to the deployment file
+      name: .
     path: workflows:agentic_w
 
   rag_workflow:
     name: RAG Workflow
     source:
       type: local
-      name: .  # TODO: Make this relative to the deployment file
+      name: .
     path: workflows:rag_w
