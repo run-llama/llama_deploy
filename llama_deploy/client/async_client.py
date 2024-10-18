@@ -14,7 +14,7 @@ from llama_deploy.types import (
     TaskResult,
 )
 from llama_index.core.workflow import Event
-from llama_index.core.workflow.utils import JsonSerializer
+from llama_index.core.workflow.context_serializers import JsonSerializer
 
 DEFAULT_TIMEOUT = 120.0
 DEFAULT_POLL_INTERVAL = 0.5
@@ -152,7 +152,7 @@ class AsyncSessionClient:
                         f"Task result not available after waiting for {self.timeout} seconds"
                     )
 
-    async def send_event(self, task_id: str, ev: Event) -> None:
+    async def send_event(self, service_name: str, task_id: str, ev: Event) -> None:
         """Send event to a Workflow service.
 
         Args:
@@ -162,7 +162,9 @@ class AsyncSessionClient:
             None
         """
         serializer = JsonSerializer()
-        event_def = EventDefinition(event_obj_str=serializer.serialize(ev))
+        event_def = EventDefinition(
+            event_obj_str=serializer.serialize(ev), agent_id=service_name
+        )
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             await client.post(

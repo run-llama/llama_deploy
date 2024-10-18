@@ -78,7 +78,6 @@ class ActionTypes(str, Enum):
     NEW_TOOL_CALL = "new_tool_call"
     COMPLETED_TOOL_CALL = "completed_tool_call"
     TASK_STREAM = "task_stream"
-    SEND_EVENT = "send_event"
 
 
 class TaskDefinition(BaseModel):
@@ -101,6 +100,7 @@ class TaskDefinition(BaseModel):
     task_id: str = Field(default_factory=generate_id)
     session_id: Optional[str] = None
     agent_id: Optional[str] = None
+    is_send_event: bool = False
 
 
 class SessionDefinition(BaseModel):
@@ -138,6 +138,7 @@ class EventDefinition(BaseModel):
         event_object_str (str): serialized string of event.
     """
 
+    agent_id: str
     event_obj_str: str
 
 
