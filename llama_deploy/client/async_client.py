@@ -7,11 +7,14 @@ import httpx
 
 from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.types import (
+    EventDefinition,
     ServiceDefinition,
     SessionDefinition,
     TaskDefinition,
     TaskResult,
 )
+from llama_index.core.workflow import Event
+from llama_index.core.workflow.utils import JsonSerializer
 
 DEFAULT_TIMEOUT = 120.0
 DEFAULT_POLL_INTERVAL = 0.5
@@ -148,6 +151,24 @@ class AsyncSessionClient:
                     raise TimeoutError(
                         f"Task result not available after waiting for {self.timeout} seconds"
                     )
+
+    async def send_event(self, task_id: str, ev: Event) -> None:
+        """Send event to a Workflow service.
+
+        Args:
+            event (Event): The event to be submitted to the workflow.
+
+        Returns:
+            None
+        """
+        serializer = JsonSerializer()
+        event_def = EventDefinition(event_obj_str=serializer.serialize(ev))
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            await client.post(
+                f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/send_event",
+                json=event_def.model_dump(),
+            )
 
 
 class AsyncLlamaDeployClient:

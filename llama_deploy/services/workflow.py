@@ -3,15 +3,19 @@ import json
 import os
 import uuid
 import uvicorn
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from logging import getLogger
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import AsyncGenerator, Dict, Optional, Any
+from typing import AsyncGenerator, Dict, Optional, Any, Type
 
-from llama_index.core.workflow import Context, Workflow
-from llama_index.core.workflow.context_serializers import JsonPickleSerializer
+from llama_index.core.workflow import Context, Workflow, Event, BlockingEvent
+from llama_index.core.workflow.context_serializers import (
+    JsonPickleSerializer,
+    JsonSerializer,
+)
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
@@ -127,6 +131,7 @@ class WorkflowService(BaseService):
     _publish_callback: Optional[PublishCallback] = PrivateAttr()
     _lock: asyncio.Lock = PrivateAttr()
     _outstanding_calls: Dict[str, WorkflowState] = PrivateAttr()
+    _events_buffer: Dict[str, Dict[Type[Event], asyncio.Queue]] = PrivateAttr()
 
     def __init__(
         self,
@@ -165,6 +170,9 @@ class WorkflowService(BaseService):
 
         self._outstanding_calls: Dict[str, WorkflowState] = {}
         self._ongoing_tasks: Dict[str, asyncio.Task] = {}
+        self._events_buffer: Dict[str, Dict[Type[Event], asyncio.Queue]] = defaultdict(
+            lambda: defaultdict(asyncio.Queue)
+        )
 
         self._app = FastAPI(lifespan=self.lifespan)
 
@@ -287,8 +295,18 @@ class WorkflowService(BaseService):
 
             index = 0
             async for ev in handler.stream_events():
-                logger.debug(f"Publishing event: {ev}")
+                # check if blocking event
+                if isinstance(ev, BlockingEvent):
+                    # wait for the unblocking event type
+                    unblocking_ev = await self._events_buffer[current_call.task_id][
+                        ev.unblocking_event_type
+                    ].get()
 
+                    # send event
+                    ctx.send_event(unblocking_ev)
+
+                # send the event to control plane for client / api server streaming
+                logger.debug(f"Publishing event: {ev}")
                 await self.message_queue.publish(
                     QueueMessage(
                         type=CONTROL_PLANE_NAME,
@@ -415,6 +433,16 @@ class WorkflowService(BaseService):
 
             async with self.lock:
                 self._outstanding_calls[task_def.task_id] = workflow_state
+        elif message.action == ActionTypes.SEND_EVENT:
+            serializer = JsonSerializer()
+
+            task_def = TaskDefinition(**message.data or {})
+            event_obj = json.loads(task_def.input)
+
+            event = serializer.deserializer(event_obj)
+            async with self.lock:
+                self._events_buffer[task_def.task_id][type(event)].put_nowait(event)
+
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 

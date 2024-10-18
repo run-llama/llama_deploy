@@ -78,6 +78,7 @@ class ActionTypes(str, Enum):
     NEW_TOOL_CALL = "new_tool_call"
     COMPLETED_TOOL_CALL = "completed_tool_call"
     TASK_STREAM = "task_stream"
+    SEND_EVENT = "send_event"
 
 
 class TaskDefinition(BaseModel):
@@ -125,6 +126,19 @@ class SessionDefinition(BaseModel):
             return None
 
         return self.task_ids[-1]
+
+
+class EventDefinition(BaseModel):
+    """The definition of event.
+
+    To be used as payloads for service endpoints when wanting to send serialized
+    Events.
+
+    Attributes:
+        event_object_str (str): serialized string of event.
+    """
+
+    event_obj_str: str
 
 
 class TaskResult(BaseModel):

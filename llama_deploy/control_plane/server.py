@@ -25,6 +25,7 @@ from llama_deploy.orchestrators.base import BaseOrchestrator
 from llama_deploy.orchestrators.utils import get_result_key, get_stream_key
 from llama_deploy.types import (
     ActionTypes,
+    EventDefinition,
     ServiceDefinition,
     SessionDefinition,
     TaskDefinition,
@@ -235,6 +236,12 @@ class ControlPlaneServer(BaseControlPlane):
             "/sessions/{session_id}/tasks/{task_id}/result_stream",
             self.get_task_result_stream,
             methods=["GET"],
+            tags=["Sessions"],
+        )
+        self.app.add_api_route(
+            "/sessions/{session_id}/tasks/{task_id}/send_event",
+            self.send_event,
+            methods=["POST"],
             tags=["Sessions"],
         )
         self.app.add_api_route(
@@ -583,6 +590,14 @@ class ControlPlaneServer(BaseControlPlane):
             event_generator(session, stream_key),
             media_type="application/x-ndjson",
         )
+
+    async def send_event(
+        self, session_id: str, task_id: str, event_def: EventDefinition
+    ) -> None:
+        task_def = TaskDefinition(
+            task_id=task_id, session_id=session_id, input=event_def.event_obj_str
+        )
+        await self.send_task_to_service(task_def)
 
     async def get_session_state(self, session_id: str) -> Dict[str, Any]:
         session = await self.get_session(session_id)
