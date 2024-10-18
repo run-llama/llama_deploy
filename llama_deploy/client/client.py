@@ -19,22 +19,21 @@ class Client:
 
     async def request(
         self, method: str, url: str | httpx.URL, *args: Any, **kwargs: Any
-    ) -> httpx.Response | None:
+    ) -> httpx.Response:
         """Performs an async HTTP request using httpx."""
         verify = kwargs.pop("verify", True)
         async with httpx.AsyncClient(verify=verify) as client:
-            try:
-                return await client.request(method, url, *args, **kwargs)
-            except httpx.ConnectError:
-                return None
+            response = await client.request(method, url, *args, **kwargs)
+            response.raise_for_status()
+            return response
 
     @property
     def sync(self) -> "Client":
         return _SyncClient(**self.settings.model_dump())
 
-    def __getattr__(self, name):
+    def __getattr__(self, name):  # type: ignore
         try:
-            return self._model_mappings[name](client=self)
+            return self._model_mappings[name](client=self, id=name)
         except KeyError:
             raise AttributeError
 
