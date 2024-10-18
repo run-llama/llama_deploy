@@ -100,6 +100,7 @@ class TaskDefinition(BaseModel):
     task_id: str = Field(default_factory=generate_id)
     session_id: Optional[str] = None
     agent_id: Optional[str] = None
+    is_send_event: bool = False
 
 
 class SessionDefinition(BaseModel):
@@ -125,6 +126,20 @@ class SessionDefinition(BaseModel):
             return None
 
         return self.task_ids[-1]
+
+
+class EventDefinition(BaseModel):
+    """The definition of event.
+
+    To be used as payloads for service endpoints when wanting to send serialized
+    Events.
+
+    Attributes:
+        event_object_str (str): serialized string of event.
+    """
+
+    agent_id: str
+    event_obj_str: str
 
 
 class TaskResult(BaseModel):
