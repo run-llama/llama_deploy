@@ -298,12 +298,14 @@ class WorkflowService(BaseService):
                 # check if blocking event
                 if isinstance(ev, BlockingEvent):
                     # wait for the unblocking event type
+                    logger.debug(f"Waiting for unblocking event: {ev}")
                     unblocking_ev = await self._events_buffer[current_call.task_id][
                         ev.unblocking_event_type
                     ].get()
 
                     # send event
-                    ctx.send_event(unblocking_ev)
+                    logger.debug(f"Sending unblocking event: {ev}")
+                    handler.ctx.send_event(unblocking_ev)
 
                 # send the event to control plane for client / api server streaming
                 logger.debug(f"Publishing event: {ev}")
@@ -424,24 +426,24 @@ class WorkflowService(BaseService):
         """Process a message received from the message queue."""
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
-            run_kwargs = json.loads(task_def.input)
-            workflow_state = WorkflowState(
-                session_id=task_def.session_id,
-                task_id=task_def.task_id,
-                run_kwargs=run_kwargs,
-            )
 
-            async with self.lock:
-                self._outstanding_calls[task_def.task_id] = workflow_state
-        elif message.action == ActionTypes.SEND_EVENT:
-            serializer = JsonSerializer()
+            if not task_def.is_send_event:
+                run_kwargs = json.loads(task_def.input)
+                workflow_state = WorkflowState(
+                    session_id=task_def.session_id,
+                    task_id=task_def.task_id,
+                    run_kwargs=run_kwargs,
+                )
 
-            task_def = TaskDefinition(**message.data or {})
-            event_obj = json.loads(task_def.input)
+                async with self.lock:
+                    self._outstanding_calls[task_def.task_id] = workflow_state
+            else:
+                serializer = JsonSerializer()
 
-            event = serializer.deserializer(event_obj)
-            async with self.lock:
-                self._events_buffer[task_def.task_id][type(event)].put_nowait(event)
+                task_def = TaskDefinition(**message.data or {})
+                event = serializer.deserialize(task_def.input)
+                async with self.lock:
+                    self._events_buffer[task_def.task_id][type(event)].put_nowait(event)
 
         else:
             raise ValueError(f"Unhandled action: {message.action}")

@@ -592,10 +592,17 @@ class ControlPlaneServer(BaseControlPlane):
         )
 
     async def send_event(
-        self, session_id: str, task_id: str, event_def: EventDefinition
+        self,
+        session_id: str,
+        task_id: str,
+        event_def: EventDefinition,
     ) -> None:
         task_def = TaskDefinition(
-            task_id=task_id, session_id=session_id, input=event_def.event_obj_str
+            task_id=task_id,
+            session_id=session_id,
+            input=event_def.event_obj_str,
+            agent_id=event_def.agent_id,
+            is_send_event=True,
         )
         await self.send_task_to_service(task_def)
 
