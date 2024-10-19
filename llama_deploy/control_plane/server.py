@@ -602,9 +602,13 @@ class ControlPlaneServer(BaseControlPlane):
             session_id=session_id,
             input=event_def.event_obj_str,
             agent_id=event_def.agent_id,
-            is_send_event=True,
         )
-        await self.send_task_to_service(task_def)
+        message = QueueMessage(
+            type=event_def.agent_id,
+            action=ActionTypes.SEND_EVENT,
+            data=task_def.model_dump(),
+        )
+        await self.publish(message)
 
     async def get_session_state(self, session_id: str) -> Dict[str, Any]:
         session = await self.get_session(session_id)

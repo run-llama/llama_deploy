@@ -427,23 +427,22 @@ class WorkflowService(BaseService):
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
 
-            if not task_def.is_send_event:
-                run_kwargs = json.loads(task_def.input)
-                workflow_state = WorkflowState(
-                    session_id=task_def.session_id,
-                    task_id=task_def.task_id,
-                    run_kwargs=run_kwargs,
-                )
+            run_kwargs = json.loads(task_def.input)
+            workflow_state = WorkflowState(
+                session_id=task_def.session_id,
+                task_id=task_def.task_id,
+                run_kwargs=run_kwargs,
+            )
 
-                async with self.lock:
-                    self._outstanding_calls[task_def.task_id] = workflow_state
-            else:
-                serializer = JsonSerializer()
+            async with self.lock:
+                self._outstanding_calls[task_def.task_id] = workflow_state
+        elif message.action == ActionTypes.SEND_EVENT:
+            serializer = JsonSerializer()
 
-                task_def = TaskDefinition(**message.data or {})
-                event = serializer.deserialize(task_def.input)
-                async with self.lock:
-                    self._events_buffer[task_def.task_id][type(event)].put_nowait(event)
+            task_def = TaskDefinition(**message.data or {})
+            event = serializer.deserialize(task_def.input)
+            async with self.lock:
+                self._events_buffer[task_def.task_id][type(event)].put_nowait(event)
 
         else:
             raise ValueError(f"Unhandled action: {message.action}")
