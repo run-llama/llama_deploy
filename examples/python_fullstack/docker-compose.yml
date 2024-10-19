@@ -38,17 +38,18 @@ services:
       retries: 5
     volumes:
       - ./:/opt/app
+    working_dir: /opt/app
 
   deploy_workflows:
     # Init container, it deploys python_fullstack.yaml and exits
     image: llamaindex/llama-deploy:main
     volumes:
-      - ./:/opt/app
+      - ./python_fullstack.yaml:/opt/python_fullstack.yaml
+    working_dir: /opt/
     depends_on:
       apiserver:
         condition: service_healthy
-    working_dir: /opt/app
-    entrypoint: llamactl -s http://apiserver:4501 -t 20 deploy python_fullstack.yaml
+    entrypoint: llamactl -s http://apiserver:4501 -t 30 deploy python_fullstack.yaml
 
   frontend:
     # UI for this deployment, running at http://localhost:3000
