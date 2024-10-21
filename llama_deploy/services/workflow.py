@@ -12,6 +12,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import AsyncGenerator, Dict, Optional, Any
 
 from llama_index.core.workflow import Context, Workflow
+from llama_index.core.workflow.handler import WorkflowHandler
 from llama_index.core.workflow.context_serializers import (
     JsonPickleSerializer,
     JsonSerializer,
@@ -294,7 +295,12 @@ class WorkflowService(BaseService):
             # create send_event background task
             close_send_events = asyncio.Event()
 
-            async def send_events(handler: Any, close_event: asyncio.Event) -> None:
+            async def send_events(
+                handler: WorkflowHandler, close_event: asyncio.Event
+            ) -> None:
+                if handler.ctx is None:
+                    raise ValueError("handler does not have a valid Context.")
+
                 while not close_event.is_set():
                     try:
                         event = self._events_buffer[current_call.task_id].get_nowait()
