@@ -49,7 +49,7 @@ services:
     depends_on:
       apiserver:
         condition: service_healthy
-    entrypoint: llamactl -s http://apiserver:4501 -t 30 deploy python_fullstack.yaml
+    entrypoint: llamactl -s http://apiserver:4501 -t 60 deploy python_fullstack.yaml
 
   frontend:
     # UI for this deployment, running at http://localhost:3000
