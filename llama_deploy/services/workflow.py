@@ -3,6 +3,7 @@ import json
 import os
 import uuid
 import uvicorn
+from collections import defaultdict
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from logging import getLogger
@@ -11,7 +12,11 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import AsyncGenerator, Dict, Optional, Any
 
 from llama_index.core.workflow import Context, Workflow
-from llama_index.core.workflow.context_serializers import JsonPickleSerializer
+from llama_index.core.workflow.handler import WorkflowHandler
+from llama_index.core.workflow.context_serializers import (
+    JsonPickleSerializer,
+    JsonSerializer,
+)
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
@@ -127,6 +132,7 @@ class WorkflowService(BaseService):
     _publish_callback: Optional[PublishCallback] = PrivateAttr()
     _lock: asyncio.Lock = PrivateAttr()
     _outstanding_calls: Dict[str, WorkflowState] = PrivateAttr()
+    _events_buffer: Dict[str, asyncio.Queue] = PrivateAttr()
 
     def __init__(
         self,
@@ -165,6 +171,7 @@ class WorkflowService(BaseService):
 
         self._outstanding_calls: Dict[str, WorkflowState] = {}
         self._ongoing_tasks: Dict[str, asyncio.Task] = {}
+        self._events_buffer: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
 
         self._app = FastAPI(lifespan=self.lifespan)
 
@@ -285,10 +292,29 @@ class WorkflowService(BaseService):
             # run the workflow
             handler = self.workflow.run(ctx=ctx, **current_call.run_kwargs)
 
+            # create send_event background task
+            close_send_events = asyncio.Event()
+
+            async def send_events(
+                handler: WorkflowHandler, close_event: asyncio.Event
+            ) -> None:
+                if handler.ctx is None:
+                    raise ValueError("handler does not have a valid Context.")
+
+                while not close_event.is_set():
+                    try:
+                        event = self._events_buffer[current_call.task_id].get_nowait()
+                        handler.ctx.send_event(event)
+                    except asyncio.QueueEmpty:
+                        pass
+                    await asyncio.sleep(self.step_interval)
+
+            _ = asyncio.create_task(send_events(handler, close_send_events))
+
             index = 0
             async for ev in handler.stream_events():
+                # send the event to control plane for client / api server streaming
                 logger.debug(f"Publishing event: {ev}")
-
                 await self.message_queue.publish(
                     QueueMessage(
                         type=CONTROL_PLANE_NAME,
@@ -344,6 +370,7 @@ class WorkflowService(BaseService):
             )
         finally:
             # clean up
+            close_send_events.set()
             async with self.lock:
                 self._outstanding_calls.pop(current_call.task_id, None)
             self._ongoing_tasks.pop(current_call.task_id, None)
@@ -406,6 +433,7 @@ class WorkflowService(BaseService):
         """Process a message received from the message queue."""
         if message.action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data or {})
+
             run_kwargs = json.loads(task_def.input)
             workflow_state = WorkflowState(
                 session_id=task_def.session_id,
@@ -415,6 +443,14 @@ class WorkflowService(BaseService):
 
             async with self.lock:
                 self._outstanding_calls[task_def.task_id] = workflow_state
+        elif message.action == ActionTypes.SEND_EVENT:
+            serializer = JsonSerializer()
+
+            task_def = TaskDefinition(**message.data or {})
+            event = serializer.deserialize(task_def.input)
+            async with self.lock:
+                self._events_buffer[task_def.task_id].put_nowait(event)
+
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 
