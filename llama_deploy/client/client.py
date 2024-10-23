@@ -26,7 +26,7 @@ class Client(_BaseClient):
     @property
     def sync(self) -> "Client":
         """Returns the sync version of the client API."""
-        return _SyncClient(**self.settings.model_dump())
+        return _SyncClient(**self.model_dump())
 
     @property
     def apiserver(self) -> ApiServer:

@@ -32,27 +32,25 @@ class SessionCollection(Collection):
         Raises:
             HTTPException: If the session couldn't be found with the id provided.
         """
-        settings = self.client.settings
-        delete_url = f"{settings.api_server_url}/deployments/{self.deployment_id}/sessions/delete"
+        delete_url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/sessions/delete"
 
         await self.client.request(
             "POST",
             delete_url,
             params={"session_id": session_id},
-            verify=not settings.disable_ssl,
-            timeout=settings.timeout,
+            verify=not self.client.disable_ssl,
+            timeout=self.client.timeout,
         )
 
     async def create(self) -> Session:
         """"""
-        settings = self.client.settings
-        create_url = f"{settings.api_server_url}/deployments/{self.deployment_id}/sessions/create"
+        create_url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/sessions/create"
 
         r = await self.client.request(
             "POST",
             create_url,
-            verify=not settings.disable_ssl,
-            timeout=settings.timeout,
+            verify=not self.client.disable_ssl,
+            timeout=self.client.timeout,
         )
 
         session_def = SessionDefinition(**r.json())
@@ -72,26 +70,26 @@ class Task(Model):
 
     async def results(self) -> TaskResult:
         """Returns the result of a given task."""
-        settings = self.client.settings
-        results_url = f"{settings.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/results"
+        results_url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/results"
 
         r = await self.client.request(
             "GET",
             results_url,
-            verify=not settings.disable_ssl,
+            verify=not self.client.disable_ssl,
             params={"session_id": self.session_id},
-            timeout=settings.timeout,
+            timeout=self.client.timeout,
         )
         return TaskResult.model_validate_json(r.json())
 
     async def events(self) -> AsyncGenerator[dict[str, Any], None]:  # pragma: no cover
         """Returns a generator object to consume the events streamed from a service."""
-        settings = self.client.settings
-        events_url = f"{settings.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/events"
+        events_url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/events"
 
         while True:
             try:
-                async with httpx.AsyncClient(verify=not settings.disable_ssl) as client:
+                async with httpx.AsyncClient(
+                    verify=not self.client.disable_ssl
+                ) as client:
                     async with client.stream(
                         "GET", events_url, params={"session_id": self.session_id}
                     ) as response:
@@ -117,34 +115,30 @@ class TaskCollection(Collection):
         Args:
             task: The definition of the task we want to run.
         """
-        settings = self.client.settings
         run_url = (
-            f"{settings.api_server_url}/deployments/{self.deployment_id}/tasks/run"
+            f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/run"
         )
 
         r = await self.client.request(
             "POST",
             run_url,
-            verify=not settings.disable_ssl,
+            verify=not self.client.disable_ssl,
             json=task.model_dump(),
-            timeout=settings.timeout,
+            timeout=self.client.timeout,
         )
 
         return r.json()
 
     async def create(self, task: TaskDefinition) -> Task:
         """Runs a task returns it immediately, without waiting for the results."""
-        settings = self.client.settings
-        create_url = (
-            f"{settings.api_server_url}/deployments/{self.deployment_id}/tasks/create"
-        )
+        create_url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/create"
 
         r = await self.client.request(
             "POST",
             create_url,
-            verify=not settings.disable_ssl,
+            verify=not self.client.disable_ssl,
             json=task.model_dump(),
-            timeout=settings.timeout,
+            timeout=self.client.timeout,
         )
         response_fields = r.json()
 
@@ -162,13 +156,12 @@ class Deployment(Model):
 
     async def tasks(self) -> TaskCollection:
         """Returns a collection of tasks from all the sessions in the given deployment."""
-        settings = self.client.settings
-        tasks_url = f"{settings.api_server_url}/deployments/{self.id}/tasks"
+        tasks_url = f"{self.client.api_server_url}/deployments/{self.id}/tasks"
         r = await self.client.request(
             "GET",
             tasks_url,
-            verify=not settings.disable_ssl,
-            timeout=settings.timeout,
+            verify=not self.client.disable_ssl,
+            timeout=self.client.timeout,
         )
         items = {
             "id": Task.instance(
@@ -189,13 +182,12 @@ class Deployment(Model):
 
     async def sessions(self) -> SessionCollection:
         """Returns a collection of all the sessions in the given deployment."""
-        settings = self.client.settings
-        sessions_url = f"{settings.api_server_url}/deployments/{self.id}/sessions"
+        sessions_url = f"{self.client.api_server_url}/deployments/{self.id}/sessions"
         r = await self.client.request(
             "GET",
             sessions_url,
-            verify=not settings.disable_ssl,
-            timeout=settings.timeout,
+            verify=not self.client.disable_ssl,
+            timeout=self.client.timeout,
         )
         items = {
             "id": Session.instance(
@@ -218,16 +210,15 @@ class DeploymentCollection(Collection):
 
     async def create(self, config: TextIO) -> Deployment:
         """Creates a new deployment from a deployment file."""
-        settings = self.client.settings
-        create_url = f"{settings.api_server_url}/deployments/create"
+        create_url = f"{self.client.api_server_url}/deployments/create"
 
         files = {"config_file": config.read()}
         r = await self.client.request(
             "POST",
             create_url,
             files=files,
-            verify=not settings.disable_ssl,
-            timeout=settings.timeout,
+            verify=not self.client.disable_ssl,
+            timeout=self.client.timeout,
         )
 
         return Deployment.instance(
@@ -238,11 +229,13 @@ class DeploymentCollection(Collection):
 
     async def get(self, deployment_id: str) -> Deployment:
         """Gets a deployment by id."""
-        settings = self.client.settings
-        get_url = f"{settings.api_server_url}/deployments/{deployment_id}"
+        get_url = f"{self.client.api_server_url}/deployments/{deployment_id}"
         # Current version of apiserver doesn't returns anything useful in this endpoint, let's just ignore it
         await self.client.request(
-            "GET", get_url, verify=not settings.disable_ssl, timeout=settings.timeout
+            "GET",
+            get_url,
+            verify=not self.client.disable_ssl,
+            timeout=self.client.timeout,
         )
         return Deployment.instance(
             client=self.client, make_sync=self._instance_is_sync, id=deployment_id
@@ -254,15 +247,14 @@ class ApiServer(Model):
 
     async def status(self) -> Status:
         """Returns the status of the API Server."""
-        settings = self.client.settings
-        status_url = f"{settings.api_server_url}/status/"
+        status_url = f"{self.client.api_server_url}/status/"
 
         try:
             r = await self.client.request(
                 "GET",
                 status_url,
-                verify=not settings.disable_ssl,
-                timeout=settings.timeout,
+                verify=not self.client.disable_ssl,
+                timeout=self.client.timeout,
             )
         except httpx.ConnectError:
             return Status(
@@ -292,11 +284,13 @@ class ApiServer(Model):
 
     async def deployments(self) -> DeploymentCollection:
         """Returns a collection of deployments currently active in the API Server."""
-        settings = self.client.settings
-        status_url = f"{settings.api_server_url}/deployments/"
+        status_url = f"{self.client.api_server_url}/deployments/"
 
         r = await self.client.request(
-            "GET", status_url, verify=not settings.disable_ssl, timeout=settings.timeout
+            "GET",
+            status_url,
+            verify=not self.client.disable_ssl,
+            timeout=self.client.timeout,
         )
         deployments = {
             "id": Deployment.instance(

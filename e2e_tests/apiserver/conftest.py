@@ -5,7 +5,6 @@ import pytest
 import uvicorn
 
 from llama_deploy.client import Client
-from llama_deploy.client.client_settings import ClientSettings
 
 
 def run_async_apiserver():
@@ -25,5 +24,4 @@ def apiserver():
 
 @pytest.fixture
 def client():
-    s = ClientSettings(api_server_url="http://localhost:4501")
-    return Client(**s.model_dump())
+    return Client(api_server_url="http://localhost:4501")
