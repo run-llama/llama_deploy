@@ -5,7 +5,7 @@ from typing import Any, AsyncGenerator, TextIO
 import httpx
 
 from llama_deploy.types.apiserver import Status, StatusEnum
-from llama_deploy.types.core import TaskDefinition, TaskResult
+from llama_deploy.types.core import SessionDefinition, TaskDefinition, TaskResult
 
 from .model import Collection, Model
 
@@ -41,6 +41,26 @@ class SessionCollection(Collection):
             params={"session_id": session_id},
             verify=not settings.disable_ssl,
             timeout=settings.timeout,
+        )
+
+    async def create(self) -> Session:
+        """"""
+        settings = self.client.settings
+        create_url = f"{settings.api_server_url}/deployments/{self.deployment_id}/sessions/create"
+
+        r = await self.client.request(
+            "POST",
+            create_url,
+            verify=not settings.disable_ssl,
+            timeout=settings.timeout,
+        )
+
+        session_def = SessionDefinition(**r.json())
+
+        return Session.instance(
+            client=self.client,
+            make_sync=self._instance_is_sync,
+            id=session_def.session_id,
         )
 
 

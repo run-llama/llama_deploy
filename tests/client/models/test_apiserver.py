@@ -35,6 +35,25 @@ async def test_session_collection_delete(client: Any) -> None:
 
 
 @pytest.mark.asyncio
+async def test_session_collection_create(client: Any) -> None:
+    client.request.return_value = mock.MagicMock(
+        json=lambda: {"session_id": "a_session"}
+    )
+    coll = SessionCollection.instance(
+        client=client,
+        items={},
+        deployment_id="a_deployment",
+    )
+    await coll.create()
+    client.request.assert_awaited_with(
+        "POST",
+        "http://localhost:4501/deployments/a_deployment/sessions/create",
+        verify=True,
+        timeout=120.0,
+    )
+
+
+@pytest.mark.asyncio
 async def test_task_results(client: Any) -> None:
     res = TaskResult(task_id="a_result", history=[], result="some_text", data={})
     client.request.return_value = mock.MagicMock(json=lambda: res.model_dump_json())
