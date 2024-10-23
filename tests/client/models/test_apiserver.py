@@ -45,7 +45,7 @@ async def test_task_results(client: Any) -> None:
         deployment_id="a_deployment",
         session_id="a_session",
     )
-    await t.results(session_id="a_session")
+    await t.results()
 
     client.request.assert_awaited_with(
         "GET",

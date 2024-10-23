@@ -36,7 +36,8 @@ class Task(Model):
     deployment_id: str
     session_id: str
 
-    async def results(self, session_id: str) -> TaskResult:
+    async def results(self) -> TaskResult:
+        """Returns the result of a given task."""
         settings = self.client.settings
         results_url = f"{settings.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/results"
 
@@ -44,7 +45,7 @@ class Task(Model):
             "GET",
             results_url,
             verify=not settings.disable_ssl,
-            params={"session_id": session_id},
+            params={"session_id": self.session_id},
             timeout=settings.timeout,
         )
         return TaskResult.model_validate_json(r.json())
