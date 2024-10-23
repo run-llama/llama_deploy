@@ -13,13 +13,25 @@ DEFAULT_POLL_INTERVAL = 0.5
 
 
 class Session(Model):
+    """A model representing a session."""
+
     pass
 
 
 class SessionCollection(Collection):
+    """A model representing a collection of session for a given deployment."""
+
     deployment_id: str
 
     async def delete(self, session_id: str) -> None:
+        """Deletes the session with the provided `session_id`.
+
+        Args:
+            session_id: The id of the session that will be removed
+
+        Raises:
+            HTTPException: If the session couldn't be found with the id provided.
+        """
         settings = self.client.settings
         delete_url = f"{settings.api_server_url}/deployments/{self.deployment_id}/sessions/delete"
 
@@ -33,6 +45,8 @@ class SessionCollection(Collection):
 
 
 class Task(Model):
+    """A model representing a task belonging to a given session in the given deployment."""
+
     deployment_id: str
     session_id: str
 
@@ -51,6 +65,7 @@ class Task(Model):
         return TaskResult.model_validate_json(r.json())
 
     async def events(self) -> AsyncGenerator[dict[str, Any], None]:  # pragma: no cover
+        """Returns a generator object to consume the events streamed from a service."""
         settings = self.client.settings
         events_url = f"{settings.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/events"
 
@@ -72,9 +87,16 @@ class Task(Model):
 
 
 class TaskCollection(Collection):
+    """A model representing a collection of tasks for a given deployment."""
+
     deployment_id: str
 
     async def run(self, task: TaskDefinition) -> Any:
+        """Runs a task and returns the results once it's done.
+
+        Args:
+            task: The definition of the task we want to run.
+        """
         settings = self.client.settings
         run_url = (
             f"{settings.api_server_url}/deployments/{self.deployment_id}/tasks/run"
@@ -91,6 +113,7 @@ class TaskCollection(Collection):
         return r.json()
 
     async def create(self, task: TaskDefinition) -> Task:
+        """Runs a task returns it immediately, without waiting for the results."""
         settings = self.client.settings
         create_url = (
             f"{settings.api_server_url}/deployments/{self.deployment_id}/tasks/create"
@@ -115,7 +138,10 @@ class TaskCollection(Collection):
 
 
 class Deployment(Model):
+    """A model representing a deployment."""
+
     async def tasks(self) -> TaskCollection:
+        """Returns a collection of tasks from all the sessions in the given deployment."""
         settings = self.client.settings
         tasks_url = f"{settings.api_server_url}/deployments/{self.id}/tasks"
         r = await self.client.request(
@@ -142,6 +168,7 @@ class Deployment(Model):
         )
 
     async def sessions(self) -> SessionCollection:
+        """Returns a collection of all the sessions in the given deployment."""
         settings = self.client.settings
         sessions_url = f"{settings.api_server_url}/deployments/{self.id}/sessions"
         r = await self.client.request(
@@ -167,8 +194,10 @@ class Deployment(Model):
 
 
 class DeploymentCollection(Collection):
+    """A model representing a collection of deployments currently active."""
+
     async def create(self, config: TextIO) -> Deployment:
-        """Creates a deployment"""
+        """Creates a new deployment from a deployment file."""
         settings = self.client.settings
         create_url = f"{settings.api_server_url}/deployments/create"
 
@@ -188,7 +217,7 @@ class DeploymentCollection(Collection):
         )
 
     async def get(self, deployment_id: str) -> Deployment:
-        """Get a deployment by id"""
+        """Gets a deployment by id."""
         settings = self.client.settings
         get_url = f"{settings.api_server_url}/deployments/{deployment_id}"
         # Current version of apiserver doesn't returns anything useful in this endpoint, let's just ignore it
@@ -201,6 +230,8 @@ class DeploymentCollection(Collection):
 
 
 class ApiServer(Model):
+    """A model representing the API Server instance."""
+
     async def status(self) -> Status:
         """Returns the status of the API Server."""
         settings = self.client.settings
@@ -240,6 +271,7 @@ class ApiServer(Model):
         )
 
     async def deployments(self) -> DeploymentCollection:
+        """Returns a collection of deployments currently active in the API Server."""
         settings = self.client.settings
         status_url = f"{settings.api_server_url}/deployments/"
 

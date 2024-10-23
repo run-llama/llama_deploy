@@ -147,7 +147,7 @@ async def get_task_result(
 async def get_tasks(
     deployment_name: str,
 ) -> JSONResponse:
-    """Get the active sessions in a deployment and service."""
+    """Get all the tasks from all the sessions in a given deployment."""
     deployment = manager.get_deployment(deployment_name)
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
