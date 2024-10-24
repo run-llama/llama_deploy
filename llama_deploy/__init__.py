@@ -1,10 +1,21 @@
-from llama_deploy.client import AsyncLlamaDeployClient, LlamaDeployClient
-from llama_deploy.control_plane import ControlPlaneServer, ControlPlaneConfig
+# configure logger
+import logging
+
+from llama_deploy.client import AsyncLlamaDeployClient, Client, LlamaDeployClient
+from llama_deploy.control_plane import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.deploy import deploy_core, deploy_workflow
 from llama_deploy.message_consumers import CallableMessageConsumer
 from llama_deploy.message_queues import SimpleMessageQueue, SimpleMessageQueueConfig
 from llama_deploy.messages import QueueMessage
 from llama_deploy.orchestrators import SimpleOrchestrator, SimpleOrchestratorConfig
+from llama_deploy.services import (
+    AgentService,
+    ComponentService,
+    HumanService,
+    ToolService,
+    WorkflowService,
+    WorkflowServiceConfig,
+)
 from llama_deploy.tools import (
     AgentServiceTool,
     MetaServiceTool,
@@ -12,17 +23,6 @@ from llama_deploy.tools import (
     ServiceComponent,
     ServiceTool,
 )
-from llama_deploy.services import (
-    AgentService,
-    ToolService,
-    HumanService,
-    ComponentService,
-    WorkflowService,
-    WorkflowServiceConfig,
-)
-
-# configure logger
-import logging
 
 root_logger = logging.getLogger("llama_deploy")
 
@@ -39,6 +39,7 @@ __all__ = [
     # clients
     "LlamaDeployClient",
     "AsyncLlamaDeployClient",
+    "Client",
     # services
     "AgentService",
     "HumanService",
