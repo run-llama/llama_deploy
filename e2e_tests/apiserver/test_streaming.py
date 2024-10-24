@@ -17,5 +17,11 @@ async def test_stream(apiserver, client):
 
     tasks = await deployment.tasks()
     task = await tasks.create(TaskDefinition(input='{"a": "b"}'))
+    read_events = []
     async for ev in task.events():
-        print(ev)
+        if "text" in ev:
+            read_events.append(ev)
+    assert len(read_events) == 3
+    # the workflow produces events sequentially, so here we can assume events arrived in order
+    for i, ev in enumerate(read_events):
+        assert ev["text"] == f"message number {i+1}"
