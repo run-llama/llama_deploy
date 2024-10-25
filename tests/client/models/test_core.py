@@ -27,13 +27,16 @@ async def test_service_collection_register(client: mock.AsyncMock) -> None:
 
 @pytest.mark.asyncio
 async def test_service_collection_deregister(client: mock.AsyncMock) -> None:
-    coll = ServiceCollection.instance(client=client, items={})
+    coll = ServiceCollection.instance(
+        client=client,
+        items={"test_service": Service.instance(client=client, id="test_service")},
+    )
     await coll.deregister("test_service")
 
     client.request.assert_awaited_with(
         "POST",
         "http://localhost:8000/services/deregister",
-        json={"service_name": "test_service"},
+        params={"service_name": "test_service"},
     )
 
 
@@ -48,5 +51,5 @@ async def test_core_services(client: mock.AsyncMock) -> None:
 
     client.request.assert_awaited_with("GET", "http://localhost:8000/services")
     assert isinstance(services, ServiceCollection)
-    assert "name" in services.items
-    assert isinstance(services.items["name"], Service)
+    assert "test_service" in services.items
+    assert isinstance(services.items["test_service"], Service)
