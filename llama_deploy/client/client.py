@@ -1,5 +1,5 @@
 from .base import _BaseClient
-from .models import ApiServer
+from .models import ApiServer, Core
 
 
 class Client(_BaseClient):
@@ -24,7 +24,7 @@ class Client(_BaseClient):
     """
 
     @property
-    def sync(self) -> "Client":
+    def sync(self) -> "_SyncClient":
         """Returns the sync version of the client API."""
         return _SyncClient(**self.model_dump())
 
@@ -33,8 +33,17 @@ class Client(_BaseClient):
         """Returns the ApiServer model."""
         return ApiServer.instance(client=self, id="apiserver")
 
+    @property
+    def core(self) -> Core:
+        """Returns the Core model."""
+        return Core.instance(client=self, id="core")
+
 
 class _SyncClient(Client):
     @property
     def apiserver(self) -> ApiServer:
         return ApiServer.instance(make_sync=True, client=self, id="apiserver")
+
+    @property
+    def core(self) -> Core:
+        return Core.instance(make_sync=True, client=self, id="core")

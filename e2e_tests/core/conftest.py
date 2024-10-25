@@ -10,17 +10,17 @@ from llama_deploy import (
     deploy_workflow,
 )
 
-from .workflow import StreamingWorkflow
+from .workflow import BasicWorkflow
 
 
 def run_async_workflow():
     asyncio.run(
         deploy_workflow(
-            StreamingWorkflow(timeout=10),
+            BasicWorkflow(timeout=10),
             WorkflowServiceConfig(
                 host="127.0.0.1",
                 port=8002,
-                service_name="streaming_workflow",
+                service_name="basic",
             ),
             ControlPlaneConfig(),
         )
@@ -28,7 +28,7 @@ def run_async_workflow():
 
 
 @pytest.fixture
-def services(core):
+def workflow(core):
     p = multiprocessing.Process(target=run_async_workflow)
     p.start()
     time.sleep(5)

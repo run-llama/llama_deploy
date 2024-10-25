@@ -4,7 +4,7 @@ import pytest
 
 from llama_deploy.client import Client
 from llama_deploy.client.client import _SyncClient
-from llama_deploy.client.models.apiserver import ApiServer
+from llama_deploy.client.models import ApiServer, Core
 
 
 def test_client_init_default() -> None:
@@ -33,7 +33,9 @@ def test_client_sync() -> None:
 def test_client_attributes() -> None:
     c = Client()
     assert type(c.apiserver) is ApiServer
+    assert type(c.core) is Core
     assert issubclass(type(c.sync.apiserver), ApiServer)
+    assert issubclass(type(c.sync.core), Core)
 
 
 @pytest.mark.asyncio
