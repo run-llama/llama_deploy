@@ -24,7 +24,7 @@ class Client(_BaseClient):
     """
 
     @property
-    def sync(self) -> "Client":
+    def sync(self) -> "_SyncClient":
         """Returns the sync version of the client API."""
         return _SyncClient(**self.model_dump())
 
@@ -43,3 +43,7 @@ class _SyncClient(Client):
     @property
     def apiserver(self) -> ApiServer:
         return ApiServer.instance(make_sync=True, client=self, id="apiserver")
+
+    @property
+    def core(self) -> Core:
+        return Core.instance(make_sync=True, client=self, id="core")

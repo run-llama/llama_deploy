@@ -12,11 +12,11 @@ def run_async_core():
     asyncio.run(deploy_core(ControlPlaneConfig(), SimpleMessageQueueConfig()))
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture
 def core():
     p = multiprocessing.Process(target=run_async_core)
     p.start()
-    time.sleep(5)
+    time.sleep(3)
 
     yield
 

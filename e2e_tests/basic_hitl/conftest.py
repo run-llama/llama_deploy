@@ -27,7 +27,7 @@ def run_async_workflow():
     )
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture
 def services(core):
     p = multiprocessing.Process(target=run_async_workflow)
     p.start()

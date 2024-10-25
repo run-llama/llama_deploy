@@ -8,7 +8,7 @@ class Service(Model):
 
 
 class ServiceCollection(Collection):
-    async def register(self, service: ServiceDefinition) -> None:
+    async def register(self, service: ServiceDefinition) -> Service:
         """Registers a service with the control plane.
 
         Args:
@@ -16,6 +16,9 @@ class ServiceCollection(Collection):
         """
         register_url = f"{self.client.control_plane_url}/services/register"
         await self.client.request("POST", register_url, json=service.model_dump())
+        s = Service.instance(id=service.service_name, client=self.client)
+        self.items[service.service_name] = s
+        return s
 
     async def deregister(self, service_name: str) -> None:
         """Deregisters a service from the control plane.
@@ -27,8 +30,9 @@ class ServiceCollection(Collection):
         await self.client.request(
             "POST",
             deregister_url,
-            json={"service_name": service_name},
+            params={"service_name": service_name},
         )
+        self.items.pop(service_name)
 
 
 class Core(Model):
@@ -42,5 +46,9 @@ class Core(Model):
         response = await self.client.request("GET", services_url)
         items = {}
         for name, service in response.json().items():
-            items["name"] = Service.instance(client=self.client, id=name)
-        return ServiceCollection.instance(client=self.client, items=items)
+            items[name] = Service.instance(
+                make_sync=self._instance_is_sync, client=self.client, id=name
+            )
+        return ServiceCollection.instance(
+            make_sync=self._instance_is_sync, client=self.client, items=items
+        )
