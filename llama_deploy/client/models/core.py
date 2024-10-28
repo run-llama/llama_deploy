@@ -1,6 +1,67 @@
+import httpx
+
 from llama_deploy.types.core import ServiceDefinition
 
 from .model import Collection, Model
+
+
+class Session(Model):
+    pass
+
+
+class SessionCollection(Collection):
+    async def create(self) -> Session:
+        """Creates a new session and returns a Session object.
+
+        Returns:
+            Session: A Session object representing the newly created session.
+        """
+        create_url = f"{self.client.control_plane_url}/sessions/create"
+        response = await self.client.request("POST", create_url)
+        session_id = response.json()
+        return Session.instance(
+            make_sync=self._instance_is_sync, client=self.client, id=session_id
+        )
+
+    async def get(self, id: str) -> Session:
+        """Gets a session by ID.
+
+        Args:
+            session_id: The ID of the session to get.
+
+        Returns:
+            Session: A Session object representing the specified session.
+
+        Raises:
+            ValueError: If the session does not exist.
+        """
+        get_url = f"{self.client.control_plane_url}/sessions/{id}"
+        await self.client.request("GET", get_url)
+        return Session.instance(
+            make_sync=self._instance_is_sync, client=self.client, id=id
+        )
+
+    async def get_or_create(self, id: str) -> Session:
+        """Gets a session by ID, or creates a new one if it doesn't exist.
+
+        Returns:
+            Session: A Session object representing the specified session.
+        """
+        try:
+            return await self.get(id)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return await self.create()
+            raise e
+
+    async def delete(self, session_id: str) -> None:
+        """Deletes a session by ID.
+
+        Args:
+            session_id: The ID of the session to delete.
+        """
+        delete_url = f"{self.client.control_plane_url}/sessions/{session_id}/delete"
+        await self.client.request("POST", delete_url)
 
 
 class Service(Model):
@@ -50,5 +111,22 @@ class Core(Model):
                 make_sync=self._instance_is_sync, client=self.client, id=name
             )
         return ServiceCollection.instance(
+            make_sync=self._instance_is_sync, client=self.client, items=items
+        )
+
+    async def sessions(self) -> SessionCollection:
+        """Returns a collection containing all the sessions registered with the control plane.
+
+        Returns:
+            SessionCollection: Collection of sessions registered with the control plane.
+        """
+        sessions_url = f"{self.client.control_plane_url}/sessions"
+        response = await self.client.request("GET", sessions_url)
+        items = {}
+        for id, session in response.json().items():
+            items[id] = Session.instance(
+                make_sync=self._instance_is_sync, client=self.client, id=id
+            )
+        return SessionCollection.instance(
             make_sync=self._instance_is_sync, client=self.client, items=items
         )
