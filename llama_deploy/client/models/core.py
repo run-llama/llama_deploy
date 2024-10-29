@@ -65,6 +65,16 @@ class Session(Model):
         data = response.json()
         return TaskResult(**data) if data else None
 
+    async def get_tasks(self) -> list[TaskDefinition]:
+        """Get all tasks in this session.
+
+        Returns:
+            list[TaskDefinition]: A list of task definitions in the session.
+        """
+        url = f"{self.client.control_plane_url}/sessions/{self.id}/tasks"
+        response = await self.client.request("GET", url)
+        return [TaskDefinition(**task) for task in response.json()]
+
 
 class SessionCollection(Collection):
     async def list(self) -> list[Session]:  # type: ignore
@@ -86,6 +96,10 @@ class SessionCollection(Collection):
         Returns:
             Session: A Session object representing the newly created session.
         """
+        return await self._create()
+
+    async def _create(self) -> Session:
+        """Async-only version of create, to be used internally from other methods."""
         create_url = f"{self.client.control_plane_url}/sessions/create"
         response = await self.client.request("POST", create_url)
         session_id = response.json()
@@ -105,6 +119,11 @@ class SessionCollection(Collection):
         Raises:
             ValueError: If the session does not exist.
         """
+        return await self._get(id)
+
+    async def _get(self, id: str) -> Session:
+        """Async-only version of get, to be used internally from other methods."""
+
         get_url = f"{self.client.control_plane_url}/sessions/{id}"
         await self.client.request("GET", get_url)
         return Session.instance(
@@ -118,10 +137,10 @@ class SessionCollection(Collection):
             Session: A Session object representing the specified session.
         """
         try:
-            return await self.get(id)
+            return await self._get(id)
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                return await self.create()
+                return await self._create()
             raise e
 
     async def delete(self, session_id: str) -> None:
@@ -139,6 +158,24 @@ class Service(Model):
 
 
 class ServiceCollection(Collection):
+    async def list(self) -> list[Service]:  # type: ignore
+        """Returns a list containing all the services registered with the control plane.
+
+        Returns:
+            list[Service]: List of services registered with the control plane.
+        """
+        services_url = f"{self.client.control_plane_url}/services"
+        response = await self.client.request("GET", services_url)
+        services = []
+        for name, service in response.json().items():
+            services.append(
+                Service.instance(
+                    make_sync=self._instance_is_sync, client=self.client, id=name
+                )
+            )
+
+        return services
+
     async def register(self, service: ServiceDefinition) -> Service:
         """Registers a service with the control plane.
 
@@ -167,21 +204,16 @@ class ServiceCollection(Collection):
 
 
 class Core(Model):
-    async def services(self) -> ServiceCollection:
+    @property
+    def services(self) -> ServiceCollection:
         """Returns a collection containing all the services registered with the control plane.
 
         Returns:
             ServiceCollection: Collection of services registered with the control plane.
         """
-        services_url = f"{self.client.control_plane_url}/services"
-        response = await self.client.request("GET", services_url)
-        items = {}
-        for name, service in response.json().items():
-            items[name] = Service.instance(
-                make_sync=self._instance_is_sync, client=self.client, id=name
-            )
+
         return ServiceCollection.instance(
-            make_sync=self._instance_is_sync, client=self.client, items=items
+            make_sync=self._instance_is_sync, client=self.client, items={}
         )
 
     @property
