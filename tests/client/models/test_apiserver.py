@@ -147,7 +147,7 @@ async def test_task_deployment_tasks(client: Any) -> None:
     ]
     client.request.return_value = mock.MagicMock(json=lambda: res)
 
-    await d.tasks()
+    await d.tasks.list()
 
     client.request.assert_awaited_with(
         "GET",
@@ -163,7 +163,7 @@ async def test_task_deployment_sessions(client: Any) -> None:
     res: list[SessionDefinition] = [SessionDefinition(session_id="a_session")]
     client.request.return_value = mock.MagicMock(json=lambda: res)
 
-    await d.sessions()
+    await d.sessions.list()
 
     client.request.assert_awaited_with(
         "GET",
@@ -278,7 +278,7 @@ async def test_deployments(client: Any) -> None:
         status_code=200, text="", json=lambda: {"deployments": ["foo", "bar"]}
     )
     apis = ApiServer.instance(client=client, id="apiserver")
-    await apis.deployments()
+    await apis.deployments.list()
     client.request.assert_awaited_with(
         "GET", "http://localhost:4501/deployments/", verify=True, timeout=120.0
     )
