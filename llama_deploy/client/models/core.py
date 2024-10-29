@@ -1,6 +1,137 @@
-from llama_deploy.types.core import ServiceDefinition
+import asyncio
+import json
+from typing import Any
+
+import httpx
+
+from llama_deploy.types.core import ServiceDefinition, TaskDefinition, TaskResult
 
 from .model import Collection, Model
+
+
+class Session(Model):
+    async def run(self, service_name: str, **run_kwargs: Any) -> str:
+        """Implements the workflow-based run API for a session."""
+        task_input = json.dumps(run_kwargs)
+        task_def = TaskDefinition(input=task_input, agent_id=service_name)
+        task_id = await self._do_create_task(task_def)
+
+        # wait for task to complete, up to timeout seconds
+        async def _get_result() -> str:
+            while True:
+                task_result = await self._do_get_task_result(task_id)
+
+                if isinstance(task_result, TaskResult):
+                    return task_result.result or ""
+                await asyncio.sleep(self.client.poll_interval)
+
+        return await asyncio.wait_for(_get_result(), timeout=self.client.timeout)
+
+    async def create_task(self, task_def: TaskDefinition) -> str:
+        """Create a new task in this session.
+
+        Args:
+            task_def (Union[str, TaskDefinition]): The task definition or input string.
+
+        Returns:
+            str: The ID of the created task.
+        """
+        return await self._do_create_task(task_def)
+
+    async def _do_create_task(self, task_def: TaskDefinition) -> str:
+        """Async-only version of create_task, to be used internally from other methods."""
+        task_def.session_id = self.id
+        url = f"{self.client.control_plane_url}/sessions/{self.id}/tasks"
+        response = await self.client.request("POST", url, json=task_def.model_dump())
+        return response.json()
+
+    async def get_task_result(self, task_id: str) -> TaskResult | None:
+        """Get the result of a task in this session if it has one.
+
+        Args:
+            task_id (str): The ID of the task to get the result for.
+
+        Returns:
+            Optional[TaskResult]: The result of the task if it has one, otherwise None.
+        """
+        return await self._do_get_task_result(task_id)
+
+    async def _do_get_task_result(self, task_id: str) -> TaskResult | None:
+        """Async-only version of get_task_result, to be used internally from other methods."""
+        url = (
+            f"{self.client.control_plane_url}/sessions/{self.id}/tasks/{task_id}/result"
+        )
+        response = await self.client.request("GET", url)
+        data = response.json()
+        return TaskResult(**data) if data else None
+
+
+class SessionCollection(Collection):
+    async def list(self) -> list[Session]:  # type: ignore
+        """Returns a list of all the sessions in the collection."""
+        sessions_url = f"{self.client.control_plane_url}/sessions"
+        response = await self.client.request("GET", sessions_url)
+        sessions = []
+        for id, session_def in response.json().items():
+            sessions.append(
+                Session.instance(
+                    make_sync=self._instance_is_sync, client=self.client, id=id
+                )
+            )
+        return sessions
+
+    async def create(self) -> Session:
+        """Creates a new session and returns a Session object.
+
+        Returns:
+            Session: A Session object representing the newly created session.
+        """
+        create_url = f"{self.client.control_plane_url}/sessions/create"
+        response = await self.client.request("POST", create_url)
+        session_id = response.json()
+        return Session.instance(
+            make_sync=self._instance_is_sync, client=self.client, id=session_id
+        )
+
+    async def get(self, id: str) -> Session:
+        """Gets a session by ID.
+
+        Args:
+            session_id: The ID of the session to get.
+
+        Returns:
+            Session: A Session object representing the specified session.
+
+        Raises:
+            ValueError: If the session does not exist.
+        """
+        get_url = f"{self.client.control_plane_url}/sessions/{id}"
+        await self.client.request("GET", get_url)
+        return Session.instance(
+            make_sync=self._instance_is_sync, client=self.client, id=id
+        )
+
+    async def get_or_create(self, id: str) -> Session:
+        """Gets a session by ID, or creates a new one if it doesn't exist.
+
+        Returns:
+            Session: A Session object representing the specified session.
+        """
+        try:
+            return await self.get(id)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return await self.create()
+            raise e
+
+    async def delete(self, session_id: str) -> None:
+        """Deletes a session by ID.
+
+        Args:
+            session_id: The ID of the session to delete.
+        """
+        delete_url = f"{self.client.control_plane_url}/sessions/{session_id}/delete"
+        await self.client.request("POST", delete_url)
 
 
 class Service(Model):
@@ -51,4 +182,15 @@ class Core(Model):
             )
         return ServiceCollection.instance(
             make_sync=self._instance_is_sync, client=self.client, items=items
+        )
+
+    @property
+    def sessions(self) -> SessionCollection:
+        """Returns a collection to access all the sessions registered with the control plane.
+
+        Returns:
+            SessionCollection: Collection of sessions registered with the control plane.
+        """
+        return SessionCollection.instance(
+            make_sync=self._instance_is_sync, client=self.client, items={}
         )
