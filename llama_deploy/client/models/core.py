@@ -200,7 +200,6 @@ class ServiceCollection(Collection):
             deregister_url,
             params={"service_name": service_name},
         )
-        self.items.pop(service_name)
 
 
 class Core(Model):

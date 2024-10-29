@@ -28,7 +28,7 @@ async def test_services_async(workflow):
 
     assert len(await client.core.services.list()) == 1
     await client.core.services.deregister("basic")
-    assert len(await client.core.services.list()) == 1
+    assert len(await client.core.services.list()) == 0
 
     new_s = await client.core.services.register(
         ServiceDefinition(service_name="another_basic", description="none")
