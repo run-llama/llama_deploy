@@ -14,7 +14,7 @@ def test_status_down_sync(client):
 
 @pytest.mark.asyncio
 async def test_status_up(apiserver, client):
-    res = await client.sync.apiserver.status()
+    res = await client.apiserver.status()
     assert res.status.value == "Healthy"
 
 
