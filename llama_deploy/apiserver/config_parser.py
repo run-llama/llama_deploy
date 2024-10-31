@@ -18,6 +18,7 @@ from llama_deploy.message_queues import (
     RedisMessageQueueConfig,
     SimpleMessageQueueConfig,
     RabbitMQMessageQueueConfig,
+    SolaceMessageQueueConfig,
 )
 
 
@@ -28,6 +29,7 @@ MessageQueueConfig = Annotated[
         RabbitMQMessageQueueConfig,
         RedisMessageQueueConfig,
         SimpleMessageQueueConfig,
+        SolaceMessageQueueConfig,
     ],
     Field(discriminator="type"),
 ]

@@ -1,0 +1,115 @@
+services:
+  solace:
+    image: solace/solace-pubsub-standard:latest
+    hostname: "solace"
+    env_file:
+      - ./solace/docker/.env.solace
+      - ./.env.docker
+    ulimits:
+      core: -1
+      nofile:
+        soft: 2448
+        hard: 6592
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 1
+    ports:
+      #Web transport
+      - '8008:8008'
+      #Web transport over TLS
+      - '1443:1443'
+      #SEMP over TLS
+      - '1943:1943'
+      #MQTT Default VPN
+      - '1883:1883'
+      #AMQP Default VPN over TLS
+      - '5671:5671'
+      #AMQP Default VPN
+      - '5672:5672'
+      # #MQTT Default VPN over WebSockets
+      # - '8000:8000'
+      #MQTT Default VPN over WebSockets / TLS
+      - '8443:8443'
+      #MQTT Default VPN over TLS
+      - '8883:8883'
+      #SEMP / PubSub+ Manager
+      - '8080:8080'
+      #REST Default VPN
+      - '9000:9000'
+      #REST Default VPN over TLS
+      - '9443:9443'
+      #SMF
+      - '55554:55555'
+      #SMF Compressed
+      - '55003:55003'
+      #SMF over TLS
+      - '55443:55443'
+      #SSH connection to CLI
+      - '2222:2222'
+    environment:
+      - username_admin_globalaccesslevel=admin
+      - username_admin_password=admin
+      - system_scaling_maxconnectioncount=100
+    volumes:
+      - solace_storage:/var/lib/solace
+    shm_size: '2g'
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8080/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 60s
+      timeout: 10s
+  control_plane:
+    image: multi_workflows_app:latest
+    command: sh -c "python -m multi_workflows_app.deployment.core -q 'solace' "
+    env_file:
+      - ./solace/docker/.env.solace
+      - ./.env.docker
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./_app/multi_workflows_app:/app/multi_workflows_app
+      - ./logging.ini:/app/logging.ini
+    depends_on:
+      solace:
+        condition: service_healthy
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 -O /dev/null http://0.0.0.0:8000/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+  funny_joke_workflow:
+    image: multi_workflows_app:latest
+    command: sh -c "python -m multi_workflows_app.deployment.workflow_funny_joke"
+    env_file:
+      - ./solace/docker/.env.solace
+      - ./.env.docker
+      - ./.env.openai
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./_app/multi_workflows_app:/app/multi_workflows_app
+      - ./logging.ini:/app/logging.ini
+    platform: linux/amd64
+    depends_on:
+      solace:
+        condition: service_healthy
+      control_plane:
+        condition: service_healthy
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    healthcheck:
+      test: wget --no-verbose --tries=1 http://0.0.0.0:8001/ || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 20s
+      timeout: 10s
+volumes:
+  solace_storage:

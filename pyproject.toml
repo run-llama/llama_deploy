@@ -36,6 +36,7 @@ aiokafka = {version = "^0.11.0", optional = true}
 aio-pika = {version = "^9.4.2", optional = true}
 kafka-python-ng = {version = "^2.2.2", optional = true}
 redis = {version = "^5.0.7", optional = true}
+solace-pubsubplus = {version = "^1.8.0", optional = true}
 types-aiobotocore = {version = "^2.14.0", optional = true, extras = ["sqs", "sns"]}
 gitpython = "^3.1.43"
 python-multipart = "^0.0.10"
@@ -46,6 +47,7 @@ kafka = ["aiokafka", "kafka-python-ng"]
 rabbitmq = ["aio-pika"]
 redis = ["redis"]
 awssqs = ["aiobotocore", "types-aiobotocore"]
+solace-pubsubplus = ["solace-pubsubplus"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
@@ -56,11 +58,13 @@ ruff = "^0.4.7"
 mypy = "^1.10.0"
 aio-pika = "^9.4.2"
 redis = "^5.0.7"
+solace-pubsubplus = "^1.8.0"
 pytest-cov = "^5.0.0"
 coverage = "^7.6.0"
 aiokafka = "^0.11.0"
 kafka-python-ng = "^2.2.2"
 aiobotocore = "^2.14.0"
+python-dotenv = "^1.0.1"
 types-aiobotocore = {version = "^2.14.0", extras = ["sqs", "sns"]}
 
 [tool.poetry.scripts]
