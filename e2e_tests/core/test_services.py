@@ -8,8 +8,8 @@ from llama_deploy.types.core import ServiceDefinition
 def test_services(workflow):
     client = Client()
 
-    services = client.sync.core.services()
-    assert len(services.items) == 1
+    services = client.sync.core.services
+    assert len(services.list()) == 1
 
     services.deregister("basic")
     assert len(services.items) == 0
@@ -26,14 +26,12 @@ def test_services(workflow):
 async def test_services_async(workflow):
     client = Client()
 
-    services = await client.core.services()
-    assert len(services.items) == 1
+    assert len(await client.core.services.list()) == 1
+    await client.core.services.deregister("basic")
+    assert len(await client.core.services.list()) == 0
 
-    await services.deregister("basic")
-    assert len(services.items) == 0
-
-    new_s = await services.register(
+    new_s = await client.core.services.register(
         ServiceDefinition(service_name="another_basic", description="none")
     )
     assert new_s.id == "another_basic"
-    assert len(services.items) == 1
+    assert len(await client.core.services.list()) == 1

@@ -102,12 +102,10 @@ async def test_core_services(client: mock.AsyncMock) -> None:
     )
 
     core = Core.instance(client=client, id="core")
-    services = await core.services()
+    services = await core.services.list()
 
     client.request.assert_awaited_with("GET", "http://localhost:8000/services")
-    assert isinstance(services, ServiceCollection)
-    assert "test_service" in services.items
-    assert isinstance(services.items["test_service"], Service)
+    assert services[0].id == "test_service"
 
 
 @pytest.mark.asyncio
@@ -216,3 +214,36 @@ async def test_core_sessions(client: mock.AsyncMock) -> None:
 
     client.request.assert_awaited_with("GET", "http://localhost:8000/sessions")
     assert sessions[0].id == "test_session"
+
+
+@pytest.mark.asyncio
+async def test_session_get_tasks(client: mock.AsyncMock) -> None:
+    client.request.return_value = mock.MagicMock(
+        json=lambda: [
+            {
+                "input": "task1 input",
+                "agent_id": "agent1",
+                "session_id": "test_session_id",
+            },
+            {
+                "input": "task2 input",
+                "agent_id": "agent2",
+                "session_id": "test_session_id",
+            },
+        ]
+    )
+
+    session = Session.instance(client=client, id="test_session_id")
+    tasks = await session.get_tasks()
+
+    client.request.assert_awaited_with(
+        "GET", "http://localhost:8000/sessions/test_session_id/tasks"
+    )
+    assert len(tasks) == 2
+    assert all(isinstance(task, TaskDefinition) for task in tasks)
+    assert tasks[0].input == "task1 input"
+    assert tasks[0].agent_id == "agent1"
+    assert tasks[0].session_id == "test_session_id"
+    assert tasks[1].input == "task2 input"
+    assert tasks[1].agent_id == "agent2"
+    assert tasks[1].session_id == "test_session_id"
