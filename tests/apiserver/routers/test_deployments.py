@@ -90,7 +90,7 @@ def test_run_deployment_task(http_client: TestClient, data_path: Path) -> None:
         deployment = mock.AsyncMock()
         deployment.default_service = "TestService"
         session = mock.AsyncMock()
-        deployment.client.create_session.return_value = session
+        deployment.client.get_or_create_session.return_value = session
         session.run.return_value = {"result": "test_result"}
         session.session_id = "42"
         mocked_manager.get_deployment.return_value = deployment
@@ -109,7 +109,7 @@ def test_create_deployment_task(http_client: TestClient, data_path: Path) -> Non
         deployment = mock.AsyncMock()
         deployment.default_service = "TestService"
         session = mock.AsyncMock()
-        deployment.client.create_session.return_value = session
+        deployment.client.get_or_create_session.return_value = session
         session.session_id = "42"
         session.run_nowait.return_value = "test_task_id"
         mocked_manager.get_deployment.return_value = deployment

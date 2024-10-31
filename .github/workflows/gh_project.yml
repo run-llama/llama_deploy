@@ -1,0 +1,16 @@
+name: Add issues to GitHub project
+
+on:
+  issues:
+    types:
+      - opened
+
+jobs:
+  add-to-project:
+    name: Add new issues to project for triage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: https://github.com/orgs/run-llama/projects/8
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}

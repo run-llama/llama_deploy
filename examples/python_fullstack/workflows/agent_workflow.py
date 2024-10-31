@@ -3,7 +3,14 @@ from typing import List
 
 from llama_index.core.llms import ChatMessage
 from llama_index.core.memory import ChatMemoryBuffer
-from llama_index.core.workflow import Event, Workflow, StartEvent, StopEvent, step
+from llama_index.core.workflow import (
+    Context,
+    Event,
+    Workflow,
+    StartEvent,
+    StopEvent,
+    step,
+)
 from llama_index.llms.openai import OpenAI
 from llama_index.core.tools import FunctionTool
 
@@ -20,21 +27,20 @@ class AgenticWorkflow(Workflow):
     llm: OpenAI = OpenAI(model="gpt-4o")
 
     @step
-    def prepare_chat_history(self, ev: StartEvent) -> ChatEvent:
+    async def prepare_chat_history(self, ctx: Context, ev: StartEvent) -> ChatEvent:
         logger.info(f"Preparing chat history: {ev}")
-        chat_history_dicts = ev.get("chat_history_dicts", [])
-        chat_history = [
-            ChatMessage(**chat_history_dict) for chat_history_dict in chat_history_dicts
-        ]
+
+        current_chat_history = await ctx.get("chat_history", [])
 
         newest_msg = ev.get("user_input")
         if not newest_msg:
             raise ValueError("No `user_input` input provided!")
 
-        chat_history.append(ChatMessage(role="user", content=newest_msg))
+        current_chat_history.append({"role": "user", "content": newest_msg})
+        await ctx.set("chat_history", current_chat_history)
 
         memory = ChatMemoryBuffer.from_defaults(
-            chat_history=chat_history,
+            chat_history=[ChatMessage(**x) for x in current_chat_history],
             llm=OpenAI(model="gpt-4o-mini"),
         )
 
@@ -43,7 +49,9 @@ class AgenticWorkflow(Workflow):
         return ChatEvent(chat_history=processed_chat_history)
 
     @step
-    async def chat(self, ev: ChatEvent, rag_workflow: RAGWorkflow) -> StopEvent:
+    async def chat(
+        self, ctx: Context, ev: ChatEvent, rag_workflow: RAGWorkflow
+    ) -> StopEvent:
         chat_history = ev.chat_history
 
         async def run_query(query: str) -> str:
@@ -68,6 +76,11 @@ class AgenticWorkflow(Workflow):
             chat_history=chat_history,
             error_on_no_tool_call=False,
         )
+
+        # update the chat history in the context
+        current_chat_history = await ctx.get("chat_history", [])
+        current_chat_history.append({"role": "assistant", "content": response.response})
+        await ctx.set("chat_history", current_chat_history)
 
         logger.info(f"Response: {response.response}")
         return StopEvent(result=response.response)

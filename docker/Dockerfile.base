@@ -4,7 +4,9 @@ ARG dist_image
 FROM $build_image AS build-image
 
 ARG llama_deploy_version
+ARG llama_deploy_version_sha
 ARG llama_deploy_extras=""
+ARG git_clone_options
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -12,8 +14,9 @@ RUN apt-get update && \
     git
 
 # Shallow clone the repo, we install from git
-RUN git clone --depth=1 --branch=${llama_deploy_version} https://github.com/run-llama/llama_deploy.git /opt/llama_deploy
+RUN git clone ${git_clone_options} --branch=${llama_deploy_version} https://github.com/run-llama/llama_deploy.git /opt/llama_deploy
 WORKDIR /opt/llama_deploy
+RUN git checkout ${llama_deploy_version_sha}
 
 # Use a virtualenv we can copy over the next build stage
 RUN python3 -m venv --system-site-packages /opt/venv
