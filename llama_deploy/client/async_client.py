@@ -1,16 +1,20 @@
 import asyncio
-import httpx
 import json
 import time
 from typing import Any, AsyncGenerator, List, Optional
 
+import httpx
+
 from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.types import (
-    TaskDefinition,
+    EventDefinition,
     ServiceDefinition,
-    TaskResult,
     SessionDefinition,
+    TaskDefinition,
+    TaskResult,
 )
+from llama_index.core.workflow import Event
+from llama_index.core.workflow.context_serializers import JsonSerializer
 
 DEFAULT_TIMEOUT = 120.0
 DEFAULT_POLL_INTERVAL = 0.5
@@ -126,26 +130,47 @@ class AsyncSessionClient:
             AsyncGenerator[str, None, None]: A generator that yields the result of the task.
         """
         start_time = time.time()
-        async with httpx.AsyncClient() as client:
-            while True:
-                try:
-                    response = await client.get(
-                        f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/result_stream"
+        while True:
+            try:
+                async with httpx.AsyncClient() as client:
+                    async with client.stream(
+                        "GET",
+                        f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/result_stream",
+                    ) as response:
+                        response.raise_for_status()
+                        async for line in response.aiter_lines():
+                            json_line = json.loads(line)
+                            yield json_line
+                        break  # Exit the function if successful
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code != 404:
+                    raise  # Re-raise if it's not a 404 error
+                if time.time() - start_time < self.timeout:
+                    await asyncio.sleep(self.poll_interval)
+                else:
+                    raise TimeoutError(
+                        f"Task result not available after waiting for {self.timeout} seconds"
                     )
-                    response.raise_for_status()
-                    async for line in response.aiter_lines():
-                        json_line = json.loads(line)
-                        yield json_line
-                    break  # Exit the function if successful
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code != 404:
-                        raise  # Re-raise if it's not a 404 error
-                    if time.time() - start_time < self.timeout:
-                        await asyncio.sleep(self.poll_interval)
-                    else:
-                        raise TimeoutError(
-                            f"Task result not available after waiting for {self.timeout} seconds"
-                        )
+
+    async def send_event(self, service_name: str, task_id: str, ev: Event) -> None:
+        """Send event to a Workflow service.
+
+        Args:
+            event (Event): The event to be submitted to the workflow.
+
+        Returns:
+            None
+        """
+        serializer = JsonSerializer()
+        event_def = EventDefinition(
+            event_obj_str=serializer.serialize(ev), agent_id=service_name
+        )
+
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            await client.post(
+                f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/send_event",
+                json=event_def.model_dump(),
+            )
 
 
 class AsyncLlamaDeployClient:
@@ -186,6 +211,21 @@ class AsyncLlamaDeployClient:
             return [
                 SessionDefinition(**session) for session in response.json().values()
             ]
+
+    async def get_session_definition(self, session_id: str) -> SessionDefinition:
+        """Get the definition of a session by ID.
+
+        Args:
+            session_id (str): The ID of the session to get.
+
+        Returns:
+            SessionDefinition: The definition of the session.
+        """
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(
+                f"{self.control_plane_url}/sessions/{session_id}"
+            )
+            return SessionDefinition(**response.json())
 
     async def get_session(
         self, session_id: str, poll_interval: float = DEFAULT_POLL_INTERVAL

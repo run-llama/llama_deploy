@@ -5,11 +5,15 @@ from typing import Any, Generator, List, Optional
 
 from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.types import (
+    EventDefinition,
     TaskDefinition,
     ServiceDefinition,
     TaskResult,
     SessionDefinition,
 )
+from llama_index.core.workflow import Event
+from llama_index.core.workflow.context_serializers import JsonSerializer
+
 
 DEFAULT_TIMEOUT = 120.0
 DEFAULT_POLL_INTERVAL = 0.5
@@ -151,6 +155,26 @@ class SessionClient:
                             f"Task result not available after waiting for {self.timeout} seconds"
                         )
 
+    def send_event(self, service_name: str, task_id: str, ev: Event) -> None:
+        """Send event to a Workflow service.
+
+        Args:
+            event (Event): The event to be submitted to the workflow.
+
+        Returns:
+            None
+        """
+        serializer = JsonSerializer()
+        event_def = EventDefinition(
+            event_obj_str=serializer.serialize(ev), agent_id=service_name
+        )
+
+        with httpx.Client(timeout=self.timeout) as client:
+            client.post(
+                f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/send_event",
+                json=event_def.model_dump(),
+            )
+
 
 class LlamaDeployClient:
     def __init__(
@@ -190,6 +214,19 @@ class LlamaDeployClient:
             return [
                 SessionDefinition(**session) for session in response.json().values()
             ]
+
+    def get_session_definition(self, session_id: str) -> SessionDefinition:
+        """Get the definition of a session by ID.
+
+        Args:
+            session_id (str): The ID of the session to get.
+
+        Returns:
+            SessionDefinition: The definition of the session.
+        """
+        with httpx.Client(timeout=self.timeout) as client:
+            response = client.get(f"{self.control_plane_url}/sessions/{session_id}")
+            return SessionDefinition(**response.json())
 
     def get_session(
         self, session_id: str, poll_interval: float = DEFAULT_POLL_INTERVAL

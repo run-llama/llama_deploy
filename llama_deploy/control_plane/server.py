@@ -1,16 +1,16 @@
 import asyncio
 import json
 import uuid
+from logging import getLogger
+from typing import Any, AsyncGenerator, Dict, List, Optional
+
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from logging import getLogger
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import AsyncGenerator, Any, Dict, List, Optional
-
-from llama_index.core.storage.kvstore.types import BaseKVStore
 from llama_index.core.storage.kvstore import SimpleKVStore
+from llama_index.core.storage.kvstore.types import BaseKVStore
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llama_deploy.control_plane.base import BaseControlPlane
 from llama_deploy.message_consumers.base import (
@@ -25,8 +25,9 @@ from llama_deploy.orchestrators.base import BaseOrchestrator
 from llama_deploy.orchestrators.utils import get_result_key, get_stream_key
 from llama_deploy.types import (
     ActionTypes,
-    SessionDefinition,
+    EventDefinition,
     ServiceDefinition,
+    SessionDefinition,
     TaskDefinition,
     TaskResult,
     TaskStream,
@@ -238,6 +239,12 @@ class ControlPlaneServer(BaseControlPlane):
             tags=["Sessions"],
         )
         self.app.add_api_route(
+            "/sessions/{session_id}/tasks/{task_id}/send_event",
+            self.send_event,
+            methods=["POST"],
+            tags=["Sessions"],
+        )
+        self.app.add_api_route(
             "/sessions/{session_id}/state",
             self.get_session_state,
             methods=["GET"],
@@ -366,7 +373,7 @@ class ControlPlaneServer(BaseControlPlane):
         if session_dict is None:
             raise HTTPException(status_code=404, detail="Session not found")
 
-        return SessionDefinition(**session_dict)
+        return SessionDefinition.model_validate(session_dict)
 
     async def delete_session(self, session_id: str) -> None:
         await self.state_store.adelete(session_id, collection=self.session_store_key)
@@ -377,7 +384,7 @@ class ControlPlaneServer(BaseControlPlane):
         )
 
         return {
-            session_id: SessionDefinition(**session_dict)
+            session_id: SessionDefinition.model_validate(session_dict)
             for session_id, session_dict in session_dicts.items()
         }
 
@@ -549,41 +556,19 @@ class ControlPlaneServer(BaseControlPlane):
             session: SessionDefinition, stream_key: str
         ) -> AsyncGenerator[str, None]:
             try:
-                stream_results = session.state[stream_key]
-                stream_results = sorted(stream_results, key=lambda x: x["index"])
-                for result in stream_results:
-                    if not isinstance(result, TaskStream):
-                        if isinstance(result, dict):
-                            result = TaskStream(**result)
-                        elif isinstance(result, str):
-                            result = TaskStream(**json.loads(result))
-                        else:
-                            raise ValueError("Unexpected result type in stream")
-
-                    yield json.dumps(result.data) + "\n"
-
-                # check if there is a final result
-                final_result = await self.get_task_result(task_id, session_id)
-                if final_result is not None:
-                    return
-
-                # Continue to check for new results
+                last_index = 0
                 while True:
-                    await asyncio.sleep(
-                        self.step_interval
-                    )  # Small delay to prevent tight loop
                     session = await self.get_session(session_id)
-                    new_results = session.state[stream_key][len(stream_results) :]
-                    new_results = sorted(new_results, key=lambda x: x["index"])
-
-                    for result in new_results:
+                    stream_results = session.state[stream_key][last_index:]
+                    stream_results = sorted(stream_results, key=lambda x: x["index"])
+                    for result in stream_results:
                         if not isinstance(result, TaskStream):
                             if isinstance(result, dict):
                                 result = TaskStream(**result)
                             elif isinstance(result, str):
                                 result = TaskStream(**json.loads(result))
                             else:
-                                raise ValueError("Unexpected result type")
+                                raise ValueError("Unexpected result type in stream")
 
                         yield json.dumps(result.data) + "\n"
 
@@ -592,8 +577,9 @@ class ControlPlaneServer(BaseControlPlane):
                     if final_result is not None:
                         return
 
-                    # update results list used for indexing
-                    stream_results.extend(new_results)
+                    last_index += len(stream_results)
+                    # Small delay to prevent tight loop
+                    await asyncio.sleep(self.step_interval)
             except Exception as e:
                 logger.error(
                     f"Error in event stream for session {session_id}, task {task_id}: {str(e)}"
@@ -604,6 +590,25 @@ class ControlPlaneServer(BaseControlPlane):
             event_generator(session, stream_key),
             media_type="application/x-ndjson",
         )
+
+    async def send_event(
+        self,
+        session_id: str,
+        task_id: str,
+        event_def: EventDefinition,
+    ) -> None:
+        task_def = TaskDefinition(
+            task_id=task_id,
+            session_id=session_id,
+            input=event_def.event_obj_str,
+            agent_id=event_def.agent_id,
+        )
+        message = QueueMessage(
+            type=event_def.agent_id,
+            action=ActionTypes.SEND_EVENT,
+            data=task_def.model_dump(),
+        )
+        await self.publish(message)
 
     async def get_session_state(self, session_id: str) -> Dict[str, Any]:
         session = await self.get_session(session_id)
