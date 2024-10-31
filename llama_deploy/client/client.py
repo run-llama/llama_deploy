@@ -1,5 +1,7 @@
+from typing import Any
+
 from .base import _BaseClient
-from .models import ApiServer, Core
+from .models import ApiServer, Core, make_sync
 
 
 class Client(_BaseClient):
@@ -31,19 +33,19 @@ class Client(_BaseClient):
     @property
     def apiserver(self) -> ApiServer:
         """Returns the ApiServer model."""
-        return ApiServer.instance(client=self, id="apiserver")
+        return ApiServer(client=self, id="apiserver")
 
     @property
     def core(self) -> Core:
         """Returns the Core model."""
-        return Core.instance(client=self, id="core")
+        return Core(client=self, id="core")
 
 
-class _SyncClient(Client):
+class _SyncClient(_BaseClient):
     @property
-    def apiserver(self) -> ApiServer:
-        return ApiServer.instance(make_sync=True, client=self, id="apiserver")
+    def apiserver(self) -> Any:
+        return make_sync(ApiServer)(client=self, id="apiserver")
 
     @property
-    def core(self) -> Core:
-        return Core.instance(make_sync=True, client=self, id="core")
+    def core(self) -> Any:
+        return make_sync(Core)(client=self, id="core")

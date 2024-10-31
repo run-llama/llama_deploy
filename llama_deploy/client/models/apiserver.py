@@ -9,6 +9,8 @@ from llama_deploy.types.core import SessionDefinition, TaskDefinition, TaskResul
 
 from .model import Collection, Model
 
+DEFAULT_POLL_INTERVAL = 0.5
+
 
 class Session(Model):
     """A model representing a session."""
@@ -53,32 +55,8 @@ class SessionCollection(Collection):
 
         session_def = SessionDefinition(**r.json())
 
-        return Session.instance(
-            client=self.client,
-            make_sync=self._instance_is_sync,
-            id=session_def.session_id,
-        )
-
-    async def list(self) -> list[Session]:  # type: ignore
-        """Returns a collection of all the sessions in the given deployment."""
-        sessions_url = (
-            f"{self.client.api_server_url}/deployments/{self.deployment_id}/sessions"
-        )
-        r = await self.client.request(
-            "GET",
-            sessions_url,
-            verify=not self.client.disable_ssl,
-            timeout=self.client.timeout,
-        )
-        items = [
-            Session.instance(
-                make_sync=self._instance_is_sync,
-                client=self.client,
-                id=session_def.session_id,
-            )
-            for session_def in r.json()
-        ]
-        return items
+        model_class = self._prepare(Session)
+        return model_class(client=self.client, id=session_def.session_id)
 
 
 class Task(Model):
@@ -120,7 +98,7 @@ class Task(Model):
             except httpx.HTTPStatusError as e:
                 if e.response.status_code != 404:
                     raise  # Re-raise if it's not a 404 error
-                await asyncio.sleep(self.client.poll_interval)
+                await asyncio.sleep(DEFAULT_POLL_INTERVAL)
 
 
 class TaskCollection(Collection):
@@ -161,60 +139,56 @@ class TaskCollection(Collection):
         )
         response_fields = r.json()
 
-        return Task.instance(
-            make_sync=self._instance_is_sync,
+        model_class = self._prepare(Task)
+        return model_class(
             client=self.client,
             deployment_id=self.deployment_id,
             id=response_fields["task_id"],
             session_id=response_fields["session_id"],
         )
 
-    async def list(self) -> list[Task]:  # type: ignore
+
+class Deployment(Model):
+    """A model representing a deployment."""
+
+    async def tasks(self) -> TaskCollection:
         """Returns a collection of tasks from all the sessions in the given deployment."""
-        tasks_url = (
-            f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks"
-        )
+        tasks_url = f"{self.client.api_server_url}/deployments/{self.id}/tasks"
         r = await self.client.request(
             "GET",
             tasks_url,
             verify=not self.client.disable_ssl,
             timeout=self.client.timeout,
         )
-        items = [
-            Task.instance(
-                make_sync=self._instance_is_sync,
+        task_model_class = self._prepare(Task)
+        items = {
+            "id": task_model_class(
                 client=self.client,
                 id=task_def.task_id,
                 session_id=task_def.session_id,
-                deployment_id=self.deployment_id,
+                deployment_id=self.id,
             )
             for task_def in r.json()
-        ]
-        return items
+        }
+        model_class = self._prepare(TaskCollection)
+        return model_class(client=self.client, deployment_id=self.id, items=items)
 
-
-class Deployment(Model):
-    """A model representing a deployment."""
-
-    @property
-    def tasks(self) -> TaskCollection:
-        """Returns a collection of tasks from all the sessions in the given deployment."""
-        return TaskCollection.instance(
-            make_sync=self._instance_is_sync,
-            client=self.client,
-            deployment_id=self.id,
-            items={},
-        )
-
-    @property
-    def sessions(self) -> SessionCollection:
+    async def sessions(self) -> SessionCollection:
         """Returns a collection of all the sessions in the given deployment."""
-        return SessionCollection.instance(
-            make_sync=self._instance_is_sync,
-            client=self.client,
-            deployment_id=self.id,
-            items={},
+        sessions_url = f"{self.client.api_server_url}/deployments/{self.id}/sessions"
+        r = await self.client.request(
+            "GET",
+            sessions_url,
+            verify=not self.client.disable_ssl,
+            timeout=self.client.timeout,
         )
+        model_class = self._prepare(Session)
+        items = {
+            "id": model_class(client=self.client, id=session_def.session_id)
+            for session_def in r.json()
+        }
+        coll_model_class = self._prepare(SessionCollection)
+        return coll_model_class(client=self.client, deployment_id=self.id, items=items)
 
 
 class DeploymentCollection(Collection):
@@ -233,15 +207,12 @@ class DeploymentCollection(Collection):
             timeout=self.client.timeout,
         )
 
-        return Deployment.instance(
-            make_sync=self._instance_is_sync,
-            client=self.client,
-            id=r.json().get("name"),
-        )
+        model_class = self._prepare(Deployment)
+        return model_class(client=self.client, id=r.json().get("name"))
 
-    async def get(self, id: str) -> Deployment:
+    async def get(self, deployment_id: str) -> Deployment:
         """Gets a deployment by id."""
-        get_url = f"{self.client.api_server_url}/deployments/{id}"
+        get_url = f"{self.client.api_server_url}/deployments/{deployment_id}"
         # Current version of apiserver doesn't returns anything useful in this endpoint, let's just ignore it
         await self.client.request(
             "GET",
@@ -249,27 +220,8 @@ class DeploymentCollection(Collection):
             verify=not self.client.disable_ssl,
             timeout=self.client.timeout,
         )
-        return Deployment.instance(
-            client=self.client, make_sync=self._instance_is_sync, id=id
-        )
-
-    async def list(self) -> list[Deployment]:  # type: ignore
-        """Returns a collection of deployments currently active in the API Server."""
-        status_url = f"{self.client.api_server_url}/deployments/"
-
-        r = await self.client.request(
-            "GET",
-            status_url,
-            verify=not self.client.disable_ssl,
-            timeout=self.client.timeout,
-        )
-        deployments = [
-            Deployment.instance(
-                make_sync=self._instance_is_sync, client=self.client, id=name
-            )
-            for name in r.json()
-        ]
-        return deployments
+        model_class = self._prepare(Deployment)
+        return model_class(client=self.client, id=deployment_id)
 
 
 class ApiServer(Model):
@@ -312,9 +264,19 @@ class ApiServer(Model):
             deployments=deployments,
         )
 
-    @property
-    def deployments(self) -> DeploymentCollection:
+    async def deployments(self) -> DeploymentCollection:
         """Returns a collection of deployments currently active in the API Server."""
-        return DeploymentCollection.instance(
-            make_sync=self._instance_is_sync, client=self.client, items={}
+        status_url = f"{self.client.api_server_url}/deployments/"
+
+        r = await self.client.request(
+            "GET",
+            status_url,
+            verify=not self.client.disable_ssl,
+            timeout=self.client.timeout,
         )
+        model_class = self._prepare(Deployment)
+        deployments = {
+            "id": model_class(client=self.client, id=name) for name in r.json()
+        }
+        coll_model_class = self._prepare(DeploymentCollection)
+        return coll_model_class(client=self.client, items=deployments)
