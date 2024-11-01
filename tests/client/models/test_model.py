@@ -1,11 +1,8 @@
 import asyncio
-from typing import TypeVar
 
 from llama_deploy.client import Client
 from llama_deploy.client.models import Collection, Model
 from llama_deploy.client.models.model import make_sync
-
-T = TypeVar("T")
 
 
 class SomeAsyncModel(Model):
