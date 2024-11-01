@@ -19,9 +19,9 @@ from llama_deploy.types import SessionDefinition, TaskDefinition, TaskResult
 
 @pytest.mark.asyncio
 async def test_session_collection_delete(client: Any) -> None:
-    coll = SessionCollection.instance(
+    coll = SessionCollection(
         client=client,
-        items={"a_session": Session.instance(id="a_session", client=client)},
+        items={"a_session": Session(id="a_session", client=client)},
         deployment_id="a_deployment",
     )
     await coll.delete("a_session")
@@ -39,7 +39,7 @@ async def test_session_collection_create(client: Any) -> None:
     client.request.return_value = mock.MagicMock(
         json=lambda: {"session_id": "a_session"}
     )
-    coll = SessionCollection.instance(
+    coll = SessionCollection(
         client=client,
         items={},
         deployment_id="a_deployment",
@@ -54,11 +54,46 @@ async def test_session_collection_create(client: Any) -> None:
 
 
 @pytest.mark.asyncio
+async def test_session_collection_list(client: Any) -> None:
+    # Mock response containing list of sessions
+    client.request.return_value = mock.MagicMock(
+        json=lambda: [
+            SessionDefinition(session_id="session1"),
+            SessionDefinition(session_id="session2"),
+        ]
+    )
+
+    # Create session collection instance
+    coll = SessionCollection(
+        client=client,
+        items={},
+        deployment_id="a_deployment",
+    )
+
+    # Call list method
+    sessions = await coll.list()
+
+    # Verify request was made correctly
+    client.request.assert_awaited_with(
+        "GET",
+        "http://localhost:4501/deployments/a_deployment/sessions",
+        verify=True,
+        timeout=120.0,
+    )
+
+    # Verify returned sessions
+    assert len(sessions) == 2
+    assert all(isinstance(session, Session) for session in sessions)
+    assert sessions[0].id == "session1"
+    assert sessions[1].id == "session2"
+
+
+@pytest.mark.asyncio
 async def test_task_results(client: Any) -> None:
     res = TaskResult(task_id="a_result", history=[], result="some_text", data={})
     client.request.return_value = mock.MagicMock(json=lambda: res.model_dump_json())
 
-    t = Task.instance(
+    t = Task(
         client=client,
         id="a_task",
         deployment_id="a_deployment",
@@ -78,10 +113,10 @@ async def test_task_results(client: Any) -> None:
 @pytest.mark.asyncio
 async def test_task_collection_run(client: Any) -> None:
     client.request.return_value = mock.MagicMock(json=lambda: "some result")
-    coll = TaskCollection.instance(
+    coll = TaskCollection(
         client=client,
         items={
-            "a_session": Task.instance(
+            "a_session": Task(
                 id="a_session",
                 client=client,
                 deployment_id="a_deployment",
@@ -110,10 +145,10 @@ async def test_task_collection_create(client: Any) -> None:
     client.request.return_value = mock.MagicMock(
         json=lambda: {"session_id": "a_session", "task_id": "test_id"}
     )
-    coll = TaskCollection.instance(
+    coll = TaskCollection(
         client=client,
         items={
-            "a_session": Task.instance(
+            "a_session": Task(
                 id="a_session",
                 client=client,
                 deployment_id="a_deployment",
@@ -139,7 +174,7 @@ async def test_task_collection_create(client: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_task_deployment_tasks(client: Any) -> None:
-    d = Deployment.instance(client=client, id="a_deployment")
+    d = Deployment(client=client, id="a_deployment")
     res: list[TaskDefinition] = [
         TaskDefinition(
             input='{"arg": "input"}', task_id="a_task", session_id="a_session"
@@ -147,7 +182,7 @@ async def test_task_deployment_tasks(client: Any) -> None:
     ]
     client.request.return_value = mock.MagicMock(json=lambda: res)
 
-    await d.tasks.list()
+    await d.tasks()
 
     client.request.assert_awaited_with(
         "GET",
@@ -159,11 +194,11 @@ async def test_task_deployment_tasks(client: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_task_deployment_sessions(client: Any) -> None:
-    d = Deployment.instance(client=client, id="a_deployment")
+    d = Deployment(client=client, id="a_deployment")
     res: list[SessionDefinition] = [SessionDefinition(session_id="a_session")]
     client.request.return_value = mock.MagicMock(json=lambda: res)
 
-    await d.sessions.list()
+    await d.sessions()
 
     client.request.assert_awaited_with(
         "GET",
@@ -177,7 +212,7 @@ async def test_task_deployment_sessions(client: Any) -> None:
 async def test_task_deployment_collection_create(client: Any) -> None:
     client.request.return_value = mock.MagicMock(json=lambda: {"name": "deployment"})
 
-    coll = DeploymentCollection.instance(client=client, items={})
+    coll = DeploymentCollection(client=client, items={})
     await coll.create(io.StringIO("some config"))
 
     client.request.assert_awaited_with(
@@ -191,8 +226,8 @@ async def test_task_deployment_collection_create(client: Any) -> None:
 
 @pytest.mark.asyncio
 async def test_task_deployment_collection_get(client: Any) -> None:
-    d = Deployment.instance(client=client, id="a_deployment")
-    coll = DeploymentCollection.instance(client=client, items={"a_deployment": d})
+    d = Deployment(client=client, id="a_deployment")
+    coll = DeploymentCollection(client=client, items={"a_deployment": d})
     client.request.return_value = mock.MagicMock(json=lambda: {"a_deployment": "Up!"})
 
     await coll.get("a_deployment")
@@ -209,7 +244,7 @@ async def test_task_deployment_collection_get(client: Any) -> None:
 async def test_status_down(client: Any) -> None:
     client.request.side_effect = httpx.ConnectError(message="connection error")
 
-    apis = ApiServer.instance(client=client, id="apiserver")
+    apis = ApiServer(client=client, id="apiserver")
     res = await apis.status()
 
     client.request.assert_awaited_with(
@@ -224,7 +259,7 @@ async def test_status_unhealthy(client: Any) -> None:
         status_code=400, text="This is a drill."
     )
 
-    apis = ApiServer.instance(client=client, id="apiserver")
+    apis = ApiServer(client=client, id="apiserver")
     res = await apis.status()
 
     client.request.assert_awaited_with(
@@ -240,7 +275,7 @@ async def test_status_healthy_no_deployments(client: Any) -> None:
         status_code=200, text="", json=lambda: {}
     )
 
-    apis = ApiServer.instance(client=client, id="apiserver")
+    apis = ApiServer(client=client, id="apiserver")
     res = await apis.status()
 
     client.request.assert_awaited_with(
@@ -259,7 +294,7 @@ async def test_status_healthy(client: Any) -> None:
         status_code=200, text="", json=lambda: {"deployments": ["foo", "bar"]}
     )
 
-    apis = ApiServer.instance(client=client, id="apiserver")
+    apis = ApiServer(client=client, id="apiserver")
     res = await apis.status()
 
     client.request.assert_awaited_with(
@@ -277,8 +312,8 @@ async def test_deployments(client: Any) -> None:
     client.request.return_value = mock.MagicMock(
         status_code=200, text="", json=lambda: {"deployments": ["foo", "bar"]}
     )
-    apis = ApiServer.instance(client=client, id="apiserver")
-    await apis.deployments.list()
+    apis = ApiServer(client=client, id="apiserver")
+    await apis.deployments()
     client.request.assert_awaited_with(
         "GET", "http://localhost:4501/deployments/", verify=True, timeout=120.0
     )

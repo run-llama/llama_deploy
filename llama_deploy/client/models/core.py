@@ -82,12 +82,9 @@ class SessionCollection(Collection):
         sessions_url = f"{self.client.control_plane_url}/sessions"
         response = await self.client.request("GET", sessions_url)
         sessions = []
+        model_class = self._prepare(Session)
         for id, session_def in response.json().items():
-            sessions.append(
-                Session.instance(
-                    make_sync=self._instance_is_sync, client=self.client, id=id
-                )
-            )
+            sessions.append(model_class(client=self.client, id=id))
         return sessions
 
     async def create(self) -> Session:
@@ -103,9 +100,8 @@ class SessionCollection(Collection):
         create_url = f"{self.client.control_plane_url}/sessions/create"
         response = await self.client.request("POST", create_url)
         session_id = response.json()
-        return Session.instance(
-            make_sync=self._instance_is_sync, client=self.client, id=session_id
-        )
+        model_class = self._prepare(Session)
+        return model_class(client=self.client, id=session_id)
 
     async def get(self, id: str) -> Session:
         """Gets a session by ID.
@@ -126,9 +122,8 @@ class SessionCollection(Collection):
 
         get_url = f"{self.client.control_plane_url}/sessions/{id}"
         await self.client.request("GET", get_url)
-        return Session.instance(
-            make_sync=self._instance_is_sync, client=self.client, id=id
-        )
+        model_class = self._prepare(Session)
+        return model_class(client=self.client, id=id)
 
     async def get_or_create(self, id: str) -> Session:
         """Gets a session by ID, or creates a new one if it doesn't exist.
@@ -167,12 +162,10 @@ class ServiceCollection(Collection):
         services_url = f"{self.client.control_plane_url}/services"
         response = await self.client.request("GET", services_url)
         services = []
+        model_class = self._prepare(Service)
+
         for name, service in response.json().items():
-            services.append(
-                Service.instance(
-                    make_sync=self._instance_is_sync, client=self.client, id=name
-                )
-            )
+            services.append(model_class(client=self.client, id=name))
 
         return services
 
@@ -184,7 +177,8 @@ class ServiceCollection(Collection):
         """
         register_url = f"{self.client.control_plane_url}/services/register"
         await self.client.request("POST", register_url, json=service.model_dump())
-        s = Service.instance(id=service.service_name, client=self.client)
+        model_class = self._prepare(Service)
+        s = model_class(id=service.service_name, client=self.client)
         self.items[service.service_name] = s
         return s
 
@@ -210,10 +204,8 @@ class Core(Model):
         Returns:
             ServiceCollection: Collection of services registered with the control plane.
         """
-
-        return ServiceCollection.instance(
-            make_sync=self._instance_is_sync, client=self.client, items={}
-        )
+        model_class = self._prepare(ServiceCollection)
+        return model_class(client=self.client, items={})
 
     @property
     def sessions(self) -> SessionCollection:
@@ -222,6 +214,5 @@ class Core(Model):
         Returns:
             SessionCollection: Collection of sessions registered with the control plane.
         """
-        return SessionCollection.instance(
-            make_sync=self._instance_is_sync, client=self.client, items={}
-        )
+        model_class = self._prepare(SessionCollection)
+        return model_class(client=self.client, items={})

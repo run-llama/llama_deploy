@@ -1,9 +1,8 @@
 import asyncio
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, Generic, TypeVar
 
 from asgiref.sync import async_to_sync
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
-from typing_extensions import Self
 
 from llama_deploy.client.base import _BaseClient
 
@@ -16,24 +15,10 @@ class _Base(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    def __new__(cls, *args, **kwargs):  # type: ignore[no-untyped-def]
-        """We prevent the usage of the constructor and force users to call `instance()` instead."""
-        raise TypeError("Please use instance() instead of direct instantiation")
-
-    @classmethod
-    def instance(cls, make_sync: bool = False, **kwargs: Any) -> Self:
-        """Returns an instance of the given model.
-
-        Using the class constructor is not possible because we want to alter the class method to
-        accommodate sync/async usage before creating an instance, and __init__ would be too late.
-        """
-        if make_sync:
-            cls = _make_sync(cls)
-
-        inst = super(_Base, cls).__new__(cls)
-        inst.__init__(**kwargs)  # type: ignore[misc]
-        inst._instance_is_sync = make_sync
-        return inst
+    def _prepare(self, _class: type) -> type:
+        if self._instance_is_sync:
+            return make_sync(_class)
+        return _class
 
 
 T = TypeVar("T", bound=_Base)
@@ -57,15 +42,15 @@ class Collection(_Base, Generic[T]):
         return [self.get(id) for id in self.items.keys()]
 
 
-def _make_sync(_class: type[T]) -> type[T]:
+def make_sync(_class: type[T]) -> Any:
     """Wraps the methods of the given model class so that they can be called without `await`."""
 
     class Wrapper(_class):  # type: ignore
-        pass
+        _instance_is_sync: bool = True
 
     for name, method in _class.__dict__.items():
         # Only wrap async public methods
         if asyncio.iscoroutinefunction(method) and not name.startswith("_"):
             setattr(Wrapper, name, async_to_sync(method))
-    # Static type checkers can't assess Wrapper is indeed a type[T], let's promise it is.
-    return cast(type[T], Wrapper)
+
+    return Wrapper
