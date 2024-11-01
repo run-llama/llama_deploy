@@ -54,6 +54,41 @@ async def test_session_collection_create(client: Any) -> None:
 
 
 @pytest.mark.asyncio
+async def test_session_collection_list(client: Any) -> None:
+    # Mock response containing list of sessions
+    client.request.return_value = mock.MagicMock(
+        json=lambda: [
+            SessionDefinition(session_id="session1"),
+            SessionDefinition(session_id="session2"),
+        ]
+    )
+
+    # Create session collection instance
+    coll = SessionCollection(
+        client=client,
+        items={},
+        deployment_id="a_deployment",
+    )
+
+    # Call list method
+    sessions = await coll.list()
+
+    # Verify request was made correctly
+    client.request.assert_awaited_with(
+        "GET",
+        "http://localhost:4501/deployments/a_deployment/sessions",
+        verify=True,
+        timeout=120.0,
+    )
+
+    # Verify returned sessions
+    assert len(sessions) == 2
+    assert all(isinstance(session, Session) for session in sessions)
+    assert sessions[0].id == "session1"
+    assert sessions[1].id == "session2"
+
+
+@pytest.mark.asyncio
 async def test_task_results(client: Any) -> None:
     res = TaskResult(task_id="a_result", history=[], result="some_text", data={})
     client.request.return_value = mock.MagicMock(json=lambda: res.model_dump_json())

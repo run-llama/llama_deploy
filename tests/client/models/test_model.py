@@ -22,6 +22,12 @@ def test_make_sync_instance(client: Client) -> None:
     assert some_sync.method() + 1 == 1
 
 
+def test__prepare(client: Client) -> None:
+    some_sync = make_sync(SomeAsyncModel)(client=client, id="foo")
+    coll = some_sync._prepare(Collection)
+    assert coll._instance_is_sync
+
+
 def test_collection_get() -> None:
     class MyCollection(Collection):
         pass
