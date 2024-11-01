@@ -9,8 +9,6 @@ from llama_deploy.types.core import SessionDefinition, TaskDefinition, TaskResul
 
 from .model import Collection, Model
 
-DEFAULT_POLL_INTERVAL = 0.5
-
 
 class Session(Model):
     """A model representing a session."""
@@ -58,6 +56,24 @@ class SessionCollection(Collection):
         model_class = self._prepare(Session)
         return model_class(client=self.client, id=session_def.session_id)
 
+    async def list(self) -> list[Session]:  # type: ignore
+        """Returns a collection of all the sessions in the given deployment."""
+        sessions_url = (
+            f"{self.client.api_server_url}/deployments/{self.deployment_id}/sessions"
+        )
+        r = await self.client.request(
+            "GET",
+            sessions_url,
+            verify=not self.client.disable_ssl,
+            timeout=self.client.timeout,
+        )
+        model_class = self._prepare(Session)
+        items = [
+            model_class(client=self.client, id=session_def.session_id)
+            for session_def in r.json()
+        ]
+        return items
+
 
 class Task(Model):
     """A model representing a task belonging to a given session in the given deployment."""
@@ -98,7 +114,7 @@ class Task(Model):
             except httpx.HTTPStatusError as e:
                 if e.response.status_code != 404:
                     raise  # Re-raise if it's not a 404 error
-                await asyncio.sleep(DEFAULT_POLL_INTERVAL)
+                await asyncio.sleep(self.client.poll_interval)
 
 
 class TaskCollection(Collection):
