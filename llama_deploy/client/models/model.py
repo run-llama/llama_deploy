@@ -6,8 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 
 from llama_deploy.client.base import _BaseClient
 
-S = TypeVar("S")
-
 
 class _Base(BaseModel):
     """The base model provides fields and functionalities common to derived models and collections."""
