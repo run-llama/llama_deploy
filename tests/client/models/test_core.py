@@ -2,6 +2,7 @@ from unittest import mock
 
 import httpx
 import pytest
+from llama_index.core.workflow import Event
 
 from llama_deploy.client.models.core import (
     Core,
@@ -247,3 +248,37 @@ async def test_session_get_tasks(client: mock.AsyncMock) -> None:
     assert tasks[1].input == "task2 input"
     assert tasks[1].agent_id == "agent2"
     assert tasks[1].session_id == "test_session_id"
+
+
+@pytest.mark.asyncio
+async def test_session_send_event(client: mock.AsyncMock) -> None:
+    event = Event(event_type="test_event", payload={"key": "value"})
+    session = Session(client=client, id="test_session_id")
+
+    await session.send_event("test_service", "test_task_id", event)
+
+    client.request.assert_awaited_once_with(
+        "POST",
+        "http://localhost:8000/sessions/test_session_id/tasks/test_task_id/send_event",
+        json={"event_obj_str": mock.ANY, "agent_id": "test_service"},
+    )
+
+
+@pytest.mark.asyncio
+async def test_session_run_nowait(client: mock.AsyncMock) -> None:
+    client.request.return_value = mock.MagicMock(json=lambda: "test_task_id")
+
+    session = Session(client=client, id="test_session_id")
+    task_id = await session.run_nowait("test_service", test_param="test_value")
+
+    assert task_id == "test_task_id"
+    client.request.assert_awaited_once_with(
+        "POST",
+        "http://localhost:8000/sessions/test_session_id/tasks",
+        json={
+            "input": '{"test_param": "test_value"}',
+            "agent_id": "test_service",
+            "session_id": "test_session_id",
+            "task_id": mock.ANY,
+        },
+    )

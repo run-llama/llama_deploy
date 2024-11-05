@@ -3,8 +3,15 @@ import json
 from typing import Any
 
 import httpx
+from llama_index.core.workflow import Event
+from llama_index.core.workflow.context_serializers import JsonSerializer
 
-from llama_deploy.types.core import ServiceDefinition, TaskDefinition, TaskResult
+from llama_deploy.types.core import (
+    EventDefinition,
+    ServiceDefinition,
+    TaskDefinition,
+    TaskResult,
+)
 
 from .model import Collection, Model
 
@@ -26,6 +33,15 @@ class Session(Model):
                 await asyncio.sleep(self.client.poll_interval)
 
         return await asyncio.wait_for(_get_result(), timeout=self.client.timeout)
+
+    async def run_nowait(self, service_name: str, **run_kwargs: Any) -> str:
+        """Implements the workflow-based run API for a session, but does not wait for the task to complete."""
+
+        task_input = json.dumps(run_kwargs)
+        task_def = TaskDefinition(input=task_input, agent_id=service_name)
+        task_id = await self._do_create_task(task_def)
+
+        return task_id
 
     async def create_task(self, task_def: TaskDefinition) -> str:
         """Create a new task in this session.
@@ -74,6 +90,23 @@ class Session(Model):
         url = f"{self.client.control_plane_url}/sessions/{self.id}/tasks"
         response = await self.client.request("GET", url)
         return [TaskDefinition(**task) for task in response.json()]
+
+    async def send_event(self, service_name: str, task_id: str, ev: Event) -> None:
+        """Send event to a Workflow service.
+
+        Args:
+            event (Event): The event to be submitted to the workflow.
+
+        Returns:
+            None
+        """
+        serializer = JsonSerializer()
+        event_def = EventDefinition(
+            event_obj_str=serializer.serialize(ev), agent_id=service_name
+        )
+
+        url = f"{self.client.control_plane_url}/sessions/{self.id}/tasks/{task_id}/send_event"
+        await self.client.request("POST", url, json=event_def.model_dump())
 
 
 class SessionCollection(Collection):
