@@ -1,24 +1,26 @@
-import httpx
 import json
 import time
 from typing import Any, Generator, List, Optional
 
-from llama_deploy.control_plane.server import ControlPlaneConfig
-from llama_deploy.types import (
-    EventDefinition,
-    TaskDefinition,
-    ServiceDefinition,
-    TaskResult,
-    SessionDefinition,
-)
+import httpx
+from deprecated import deprecated
 from llama_index.core.workflow import Event
 from llama_index.core.workflow.context_serializers import JsonSerializer
 
+from llama_deploy.control_plane.server import ControlPlaneConfig
+from llama_deploy.types import (
+    EventDefinition,
+    ServiceDefinition,
+    SessionDefinition,
+    TaskDefinition,
+    TaskResult,
+)
 
 DEFAULT_TIMEOUT = 120.0
 DEFAULT_POLL_INTERVAL = 0.5
 
 
+@deprecated(reason="This class is deprecated. Please use the 'Client' class instead.")
 class SessionClient:
     def __init__(
         self,

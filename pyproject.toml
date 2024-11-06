@@ -9,14 +9,20 @@ skip = "poetry.lock,./examples,*/algolia.js,docs/poetry.lock"
 [tool.coverage.run]
 omit = [
   "__main__.py",
-  "tests/*"
+  "tests/*",
+  # deprecated classes
+  "llama_deploy/client/async_client.py",
+  "llama_deploy/client/sync_client.py"
 ]
 
 [tool.poetry]
 name = "llama-deploy"
 version = "0.2.4"
 description = ""
-authors = ["Logan Markewich <logan.markewich@live.com>", "Andrei Fajardo <andrei@runllama.ai>"]
+authors = [
+  "Logan Markewich <logan.markewich@live.com>",
+  "Andrei Fajardo <andrei@runllama.ai>"
+]
 maintainers = [
   "Logan Markewich <logan@llamaindex.ai>",
   "Andrei Fajardo <andrei@runllama.ai>",
@@ -36,7 +42,10 @@ aiokafka = {version = "^0.11.0", optional = true}
 aio-pika = {version = "^9.4.2", optional = true}
 kafka-python-ng = {version = "^2.2.2", optional = true}
 redis = {version = "^5.0.7", optional = true}
-types-aiobotocore = {version = "^2.14.0", optional = true, extras = ["sqs", "sns"]}
+types-aiobotocore = {version = "^2.14.0", optional = true, extras = [
+  "sqs",
+  "sns"
+]}
 gitpython = "^3.1.43"
 python-multipart = "^0.0.10"
 typing_extensions = "^4.0.0"
@@ -68,6 +77,4 @@ types-aiobotocore = {version = "^2.14.0", extras = ["sqs", "sns"]}
 llamactl = "llama_deploy.cli.__main__:main"
 
 [tool.pytest.ini_options]
-markers = [
-  "e2e: marks end-to-end tests (deselect with '-m \"not e2e\"')"
-]
+markers = ["e2e: marks end-to-end tests (deselect with '-m \"not e2e\"')"]
