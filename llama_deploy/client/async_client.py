@@ -4,6 +4,9 @@ import time
 from typing import Any, AsyncGenerator, List, Optional
 
 import httpx
+from deprecated import deprecated
+from llama_index.core.workflow import Event
+from llama_index.core.workflow.context_serializers import JsonSerializer
 
 from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.types import (
@@ -13,13 +16,12 @@ from llama_deploy.types import (
     TaskDefinition,
     TaskResult,
 )
-from llama_index.core.workflow import Event
-from llama_index.core.workflow.context_serializers import JsonSerializer
 
 DEFAULT_TIMEOUT = 120.0
 DEFAULT_POLL_INTERVAL = 0.5
 
 
+@deprecated(reason="This class is deprecated. Please use the 'Client' class instead.")
 class AsyncSessionClient:
     def __init__(
         self,
