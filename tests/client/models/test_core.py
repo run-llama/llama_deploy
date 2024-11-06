@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import httpx
@@ -282,3 +283,97 @@ async def test_session_run_nowait(client: mock.AsyncMock) -> None:
             "task_id": mock.ANY,
         },
     )
+
+
+@pytest.mark.asyncio
+async def test_get_task_result_stream_success(client: mock.AsyncMock) -> None:
+    class MockResponse:
+        async def aiter_lines(self):  # type: ignore
+            yield json.dumps({"status": "running", "progress": 0})
+            yield json.dumps({"status": "completed", "progress": 100})
+
+        def raise_for_status(self):  # type: ignore
+            pass
+
+    class MockStreamClient:
+        async def __aenter__(self):  # type: ignore
+            return MockResponse()
+
+        async def __aexit__(self, *args):  # type: ignore
+            pass
+
+    class HttpxMockClient:
+        async def __aenter__(self):  # type: ignore
+            return self
+
+        async def __aexit__(self, *args):  # type: ignore
+            pass
+
+        def stream(self, *args, **kwargs):  # type: ignore
+            return MockStreamClient()
+
+    with mock.patch("httpx.AsyncClient", return_value=HttpxMockClient()):
+        session = Session(client=client, id="test_session_id")
+
+        results = []
+        async for result in session.get_task_result_stream("test_task_id"):
+            results.append(result)
+
+        assert len(results) == 2
+        assert results[0]["status"] == "running"
+        assert results[1]["status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_get_task_result_stream_timeout(client: mock.AsyncMock) -> None:
+    class Mock404Response:
+        status_code = 404
+
+    class HttpxMockClient:
+        async def __aenter__(self):  # type: ignore
+            return self
+
+        async def __aexit__(self, *args):  # type: ignore
+            pass
+
+        def stream(self, *args, **kwargs):  # type: ignore
+            raise httpx.HTTPStatusError(
+                "404 Not Found",
+                request=mock.MagicMock(),
+                response=Mock404Response(),  # type: ignore
+            )
+
+    with mock.patch("httpx.AsyncClient", return_value=HttpxMockClient()):
+        client.timeout = 1
+        session = Session(client=client, id="test_session_id")
+
+        with pytest.raises(TimeoutError):
+            async for _ in session.get_task_result_stream("test_task_id"):
+                pass
+
+
+@pytest.mark.asyncio
+async def test_get_task_result_stream_error(client: mock.AsyncMock) -> None:
+    class Mock500Response:
+        status_code = 500
+
+    class HttpxMockClient:
+        async def __aenter__(self):  # type: ignore
+            return self
+
+        async def __aexit__(self, *args):  # type: ignore
+            pass
+
+        def stream(self, *args, **kwargs):  # type: ignore
+            raise httpx.HTTPStatusError(
+                "500 Internal Server Error",
+                request=mock.MagicMock(),
+                response=Mock500Response(),  # type: ignore
+            )
+
+    with mock.patch("httpx.AsyncClient", return_value=HttpxMockClient()):
+        session = Session(client=client, id="test_session_id")
+
+        with pytest.raises(httpx.HTTPStatusError):
+            async for _ in session.get_task_result_stream("test_task_id"):
+                pass
