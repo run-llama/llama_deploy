@@ -23,6 +23,7 @@ def mq(kafka_service):
     return KafkaMessageQueue(KafkaMessageQueueConfig(topic_name="test"))
 
 
+@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_roundtrip(mq):
     received_messages = []
