@@ -18,7 +18,6 @@ def test_run_client(services):
     task_id = session.run_nowait("streaming_workflow", arg1="hello_world")
 
     num_events = 0
-    print("-->", session.get_task_result_stream)
     for event in session.get_task_result_stream(task_id):
         if "progress" in event:
             num_events += 1
