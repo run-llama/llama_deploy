@@ -30,6 +30,16 @@ def test_client_sync() -> None:
     assert sc.poll_interval == 0.5
 
 
+@pytest.mark.asyncio
+async def test_client_sync_within_loop() -> None:
+    c = Client()
+    with pytest.raises(
+        RuntimeError,
+        match="You cannot use the sync client within an async event loop - just await the async methods directly.",
+    ):
+        c.sync
+
+
 def test_client_attributes() -> None:
     c = Client()
     assert type(c.apiserver) is ApiServer
