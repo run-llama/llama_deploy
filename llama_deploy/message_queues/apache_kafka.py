@@ -67,6 +67,7 @@ class KafkaMessageQueue(AbstractMessageQueue):
         self, config: KafkaMessageQueueConfig = KafkaMessageQueueConfig()
     ) -> None:
         self._config = config
+        self._kafka_consumer = None
 
     @classmethod
     def from_url_params(
@@ -170,7 +171,8 @@ class KafkaMessageQueue(AbstractMessageQueue):
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         """Deregister a consumer."""
-        pass
+        if self._kafka_consumer is not None:
+            await self._kafka_consumer.stop()
 
     async def launch_local(self) -> asyncio.Task:
         """Launch the message queue locally, in-process.
@@ -200,13 +202,14 @@ class KafkaMessageQueue(AbstractMessageQueue):
 
         # register topic
         self._create_new_topic(self._config.topic_name)
-        kafka_consumer = AIOKafkaConsumer(
+        self._kafka_consumer = AIOKafkaConsumer(
             self._config.topic_name,
             bootstrap_servers=self._config.url,
             group_id=DEFAULT_GROUP_ID,
             auto_offset_reset="earliest",
         )
-        await kafka_consumer.start()
+
+        await self._kafka_consumer.start()  # type: ignore # we know self._kafka_consumer is not None
 
         logger.info(
             f"Registered consumer {consumer.id_}: {consumer.message_type} on topic {self._config.topic_name}",
@@ -214,13 +217,16 @@ class KafkaMessageQueue(AbstractMessageQueue):
 
         async def start_consuming_callable() -> None:
             """StartConsumingCallable."""
+            if self._kafka_consumer is None:
+                raise RuntimeError("Kafka consumer was not set.")
+
             try:
-                async for msg in kafka_consumer:
+                async for msg in self._kafka_consumer:
                     decoded_message = json.loads(msg.value.decode("utf-8"))
                     queue_message = QueueMessage.model_validate(decoded_message)
                     await consumer.process_message(queue_message)
             finally:
-                stop_task = asyncio.create_task(kafka_consumer.stop())
+                stop_task = asyncio.create_task(self._kafka_consumer.stop())
                 stop_task.add_done_callback(
                     lambda _: logger.info(
                         f"stopped kafka consumer {consumer.id_}: {consumer.message_type} on topic {self._config.topic_name}"

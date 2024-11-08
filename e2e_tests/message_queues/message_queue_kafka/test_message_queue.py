@@ -47,7 +47,8 @@ async def test_roundtrip(mq):
     t = asyncio.create_task(start_consuming_callable())
     await asyncio.sleep(0.5)
     # at this point message should've been arrived
-    t.cancel()
+    await mq.deregister_consumer(test_consumer)
+    await t
 
     assert len(received_messages) == 1
     assert test_message in received_messages
