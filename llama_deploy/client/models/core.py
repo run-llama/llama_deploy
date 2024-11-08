@@ -1,6 +1,7 @@
 import asyncio
 import json
-from typing import Any
+import time
+from typing import Any, AsyncGenerator
 
 import httpx
 from llama_index.core.workflow import Event
@@ -107,6 +108,38 @@ class Session(Model):
 
         url = f"{self.client.control_plane_url}/sessions/{self.id}/tasks/{task_id}/send_event"
         await self.client.request("POST", url, json=event_def.model_dump())
+
+    async def get_task_result_stream(
+        self, task_id: str
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Get the result of a task in this session if it has one.
+
+        Args:
+            task_id (str): The ID of the task to get the result for.
+
+        Returns:
+            AsyncGenerator[str, None, None]: A generator that yields the result of the task.
+        """
+        url = f"{self.client.control_plane_url}/sessions/{self.id}/tasks/{task_id}/result_stream"
+        start_time = time.time()
+        while True:
+            try:
+                async with httpx.AsyncClient() as client:
+                    async with client.stream("GET", url) as response:
+                        response.raise_for_status()
+                        async for line in response.aiter_lines():
+                            json_line = json.loads(line)
+                            yield json_line
+                        break  # Exit the function if successful
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code != 404:
+                    raise  # Re-raise if it's not a 404 error
+                if time.time() - start_time < self.client.timeout:
+                    await asyncio.sleep(self.client.poll_interval)
+                else:
+                    raise TimeoutError(
+                        f"Task result not available after waiting for {self.client.timeout} seconds"
+                    )
 
 
 class SessionCollection(Collection):

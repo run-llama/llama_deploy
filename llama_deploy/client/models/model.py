@@ -1,8 +1,10 @@
 import asyncio
-from typing import Any, Generic, TypeVar
+import inspect
+from typing import Any, AsyncGenerator, Callable, Generic, TypeVar
 
 from asgiref.sync import async_to_sync
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from typing_extensions import ParamSpec
 
 from llama_deploy.client.base import _BaseClient
 
@@ -42,15 +44,37 @@ class Collection(_Base, Generic[T]):
         return [self.get(id) for id in self.items.keys()]
 
 
+# Generic type for what's returned by the async generator
+_G = TypeVar("_G")
+# Generic parameter for the wrapped generator method
+_P = ParamSpec("_P")
+# Generic parameter for the wrapped generator method return value
+_R = TypeVar("_R")
+
+
+async def _async_gen_to_list(async_gen: AsyncGenerator[_G, None]) -> list[_G]:
+    return [item async for item in async_gen]
+
+
 def make_sync(_class: type[T]) -> Any:
     """Wraps the methods of the given model class so that they can be called without `await`."""
 
-    class Wrapper(_class):  # type: ignore
+    class ModelWrapper(_class):  # type: ignore
         _instance_is_sync: bool = True
+
+    def generator_wrapper(
+        func: Callable[_P, AsyncGenerator[_G, None]], /, *args: Any, **kwargs: Any
+    ) -> Callable[_P, list[_G]]:
+        def new_func(*fargs: Any, **fkwargs: Any) -> list[_G]:
+            return asyncio.run(_async_gen_to_list(func(*fargs, **fkwargs)))
+
+        return new_func
 
     for name, method in _class.__dict__.items():
         # Only wrap async public methods
-        if asyncio.iscoroutinefunction(method) and not name.startswith("_"):
-            setattr(Wrapper, name, async_to_sync(method))
+        if inspect.isasyncgenfunction(method):
+            setattr(ModelWrapper, name, generator_wrapper(method))
+        elif asyncio.iscoroutinefunction(method) and not name.startswith("_"):
+            setattr(ModelWrapper, name, async_to_sync(method))
 
-    return Wrapper
+    return ModelWrapper
