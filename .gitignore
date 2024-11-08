@@ -10,6 +10,7 @@ coverage.*
 
 # Project related
 .tool-versions
+docs/*.lock
 
 # IDEs
 .idea

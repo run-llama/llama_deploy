@@ -1,23 +1,80 @@
 # Python SDK
 
-Llama Deploy provides access to a deployed system through a synchronous and an asynchronous client. Both clients have
-the same interface, but the asynchronous client is recommended for production use to enable concurrent operations.
+Llama Deploy provides a Python SDK for interacting with deployed systems. The SDK supports both synchronous and
+asynchronous operations through a unified client interface. The asynchronous API is recommended for production use.
 
-Generally, there is a top-level client for interacting with the control plane, and a session client for interacting
-with a specific session. The session client is created automatically for you by the top-level client and returned from
-specific methods.
+## Getting started
 
-To create a client, you need to point it to a control plane.
+Creating a client is as simple as this:
 
 ```python
-from llama_deploy import (
-    LlamaDeployClient,
-    AsyncLlamaDeployClient,
-    ControlPlaneConfig,
-)
+from llama_deploy import Client
 
-client = LlamaDeployClient(ControlPlaneConfig())
-async_client = AsyncLlamaDeployClient(ControlPlaneConfig())
+client = Client()
 ```
 
-For more details, see the dedicated [API Reference section](../../api_reference/llama_deploy/python_sdk.md).
+## Client Configuration
+
+The client can be configured either through constructor arguments or environment variables.
+To set a configuration parameter through environment variables, their name should be the
+uppercase version of the parameter name, prefixed by the string `LLAMA_DEPLOY_`:
+
+```python
+import os
+from llama_deploy import Client
+
+# Set `disable_ssl` to False with an environment variable
+os.environ["LLAMA_DEPLOY_DISABLE_SSL"] = "False"
+
+
+async def check_status():
+    # Pass other config settings to the Client constructor
+    client = Client(api_server_url="http://localhost:4501", timeout=10)
+    status = await client.apiserver.status()
+    print(status)
+```
+
+> [!NOTE]
+> For a list of all the available configuration parameters, see the dedicated
+> [API Reference section](../../api_reference/llama_deploy/python_sdk.md).
+
+## Usage Examples
+
+### Asynchronous Operations
+
+```python
+from llama_deploy import Client
+
+
+async def check_status():
+    client = Client()
+    status = await client.apiserver.status()
+    print(status)
+```
+
+### Synchronous Operations
+
+```python
+from llama_deploy import Client
+
+client = Client()
+status = client.sync.apiserver.status()
+print(status)
+```
+
+> [!IMPORTANT]
+> The synchronous API (`client.sync`) cannot be used within an async event loop.
+> Use the async methods directly in that case.
+
+## Client Components
+
+The client provides access to two main components:
+
+- `apiserver`: Interact with the [API server](./20_core_components.md#apiserver)
+- `core`: Access [core functionalities](./20_core_components.md#control-plane) like the Control Plane.
+
+Each component exposes specific methods for managing and interacting with the deployed system.
+
+> [!NOTE]
+> For a complete list of available methods and detailed API reference, see the
+> [API Reference section](../../api_reference/llama_deploy/python_sdk.md).
