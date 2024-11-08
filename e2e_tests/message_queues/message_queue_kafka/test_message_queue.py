@@ -11,11 +11,13 @@ from llama_deploy.messages import QueueMessage
 
 @pytest.fixture
 def kafka_service():
-    cwd = Path(__file__).resolve().parent
-    proc = subprocess.Popen(["docker-compose", "up", "-d", "--wait"], cwd=cwd)
+    compose_file = Path(__file__).resolve().parent / "docker-compose.yml"
+    proc = subprocess.Popen(
+        ["docker-compose", "-f", f"{compose_file}", "up", "-d", "--wait"]
+    )
     proc.communicate()
     yield
-    subprocess.Popen(["docker-compose", "down"], cwd=cwd)
+    subprocess.Popen(["docker-compose", "-f", f"{compose_file}", "down"])
 
 
 @pytest.fixture
