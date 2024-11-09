@@ -8,9 +8,9 @@ asynchronous operations through a unified client interface. The asynchronous API
 Creating a client is as simple as this:
 
 ```python
-from llama_deploy import Client
+import llama_deploy
 
-client = Client()
+client = llama_deploy.Client()
 ```
 
 ## Client Configuration
@@ -21,7 +21,7 @@ uppercase version of the parameter name, prefixed by the string `LLAMA_DEPLOY_`:
 
 ```python
 import os
-from llama_deploy import Client
+import llama_deploy
 
 # Set `disable_ssl` to False with an environment variable
 os.environ["LLAMA_DEPLOY_DISABLE_SSL"] = "False"
@@ -29,7 +29,9 @@ os.environ["LLAMA_DEPLOY_DISABLE_SSL"] = "False"
 
 async def check_status():
     # Pass other config settings to the Client constructor
-    client = Client(api_server_url="http://localhost:4501", timeout=10)
+    client = llama_deploy.Client(
+        api_server_url="http://localhost:4501", timeout=10
+    )
     status = await client.apiserver.status()
     print(status)
 ```
@@ -43,11 +45,11 @@ async def check_status():
 ### Asynchronous Operations
 
 ```python
-from llama_deploy import Client
+import llama_deploy
 
 
 async def check_status():
-    client = Client()
+    client = llama_deploy.Client()
     status = await client.apiserver.status()
     print(status)
 ```
@@ -55,9 +57,9 @@ async def check_status():
 ### Synchronous Operations
 
 ```python
-from llama_deploy import Client
+import llama_deploy
 
-client = Client()
+client = llama_deploy.Client()
 status = client.sync.apiserver.status()
 print(status)
 ```
