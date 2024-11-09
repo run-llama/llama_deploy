@@ -63,10 +63,8 @@ class KafkaMessageQueue(AbstractMessageQueue):
         ```
     """
 
-    def __init__(
-        self, config: KafkaMessageQueueConfig = KafkaMessageQueueConfig()
-    ) -> None:
-        self._config = config
+    def __init__(self, config: KafkaMessageQueueConfig | None = None) -> None:
+        self._config = config or KafkaMessageQueueConfig()
         self._kafka_consumer = None
 
     @classmethod
