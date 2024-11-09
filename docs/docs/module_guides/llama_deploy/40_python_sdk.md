@@ -40,6 +40,19 @@ async def check_status():
 > For a list of all the available configuration parameters, see the dedicated
 > [API Reference section](../../api_reference/llama_deploy/python_sdk.md).
 
+## Client Components
+
+The client provides access to two main components:
+
+- `apiserver`: Interact with the [API server](./20_core_components.md#apiserver)
+- `core`: Access [core functionalities](./20_core_components.md#control-plane) like the Control Plane.
+
+Each component exposes specific methods for managing and interacting with the deployed system.
+
+> [!NOTE]
+> For a complete list of available methods and detailed API reference, see the
+> [API Reference section](../../api_reference/llama_deploy/python_sdk.md).
+
 ## Usage Examples
 
 ### Asynchronous Operations
@@ -68,20 +81,7 @@ print(status)
 > The synchronous API (`client.sync`) cannot be used within an async event loop.
 > Use the async methods directly in that case.
 
-## Client Components
-
-The client provides access to two main components:
-
-- `apiserver`: Interact with the [API server](./20_core_components.md#apiserver)
-- `core`: Access [core functionalities](./20_core_components.md#control-plane) like the Control Plane.
-
-Each component exposes specific methods for managing and interacting with the deployed system.
-
-> [!NOTE]
-> For a complete list of available methods and detailed API reference, see the
-> [API Reference section](../../api_reference/llama_deploy/python_sdk.md).
-
-## Usage example
+### A more complex example
 
 This is an example of how you would use the recommended async version of the client to
 run a deployed workflow and collect the events it streams.
