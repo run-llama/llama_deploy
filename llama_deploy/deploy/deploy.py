@@ -1,16 +1,17 @@
 import asyncio
-import httpx
 import signal
 import sys
-
-from llama_deploy.message_queues.simple import SimpleRemoteClientMessageQueue
-from pydantic_settings import BaseSettings
 from typing import Any, Callable, List, Optional
+
+import httpx
 from llama_index.core.workflow import Workflow
+from pydantic_settings import BaseSettings
 
 from llama_deploy.control_plane.server import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.deploy.network_workflow import NetworkServiceManager
 from llama_deploy.message_queues import (
+    AWSMessageQueue,
+    AWSMessageQueueConfig,
     BaseMessageQueue,
     KafkaMessageQueue,
     KafkaMessageQueueConfig,
@@ -20,14 +21,13 @@ from llama_deploy.message_queues import (
     RedisMessageQueueConfig,
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
-    AWSMessageQueue,
-    AWSMessageQueueConfig,
 )
+from llama_deploy.message_queues.simple import SimpleRemoteClientMessageQueue
 from llama_deploy.orchestrators.simple import (
     SimpleOrchestrator,
     SimpleOrchestratorConfig,
 )
-from llama_deploy.services.workflow import WorkflowServiceConfig, WorkflowService
+from llama_deploy.services.workflow import WorkflowService, WorkflowServiceConfig
 
 DEFAULT_TIMEOUT = 120.0
 
@@ -67,9 +67,7 @@ def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
     elif isinstance(config, AWSMessageQueueConfig):
         return AWSMessageQueue(**config.model_dump())
     elif isinstance(config, KafkaMessageQueueConfig):
-        return KafkaMessageQueue(
-            **config.model_dump(),
-        )
+        return KafkaMessageQueue(config)  # type: ignore
     elif isinstance(config, RabbitMQMessageQueueConfig):
         return RabbitMQMessageQueue(
             **config.model_dump(),

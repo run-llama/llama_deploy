@@ -209,7 +209,7 @@ class Deployment:
         if cfg.type == "aws":
             return AWSMessageQueue(**cfg.model_dump())
         elif cfg.type == "kafka":
-            return KafkaMessageQueue(**cfg.model_dump())
+            return KafkaMessageQueue(cfg)  # type: ignore
         elif cfg.type == "rabbitmq":
             return RabbitMQMessageQueue(**cfg.model_dump())
         elif cfg.type == "redis":

@@ -2,11 +2,10 @@
 
 import asyncio
 import inspect
-
 from abc import ABC, abstractmethod
 from logging import getLogger
-from pydantic import BaseModel, ConfigDict
 from typing import (
+    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -14,9 +13,10 @@ from typing import (
     List,
     Optional,
     Protocol,
-    TYPE_CHECKING,
     Sequence,
 )
+
+from pydantic import BaseModel, ConfigDict
 
 from llama_deploy.messages.base import QueueMessage
 
@@ -47,13 +47,8 @@ class PublishCallback(Protocol):
         ...
 
 
-class BaseMessageQueue(BaseModel, ABC):
+class AbstractMessageQueue(ABC):
     """Message broker interface between publisher and consumer."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
 
     @abstractmethod
     async def _publish(self, message: QueueMessage) -> Any:
@@ -127,3 +122,10 @@ class BaseMessageQueue(BaseModel, ABC):
     def as_config(self) -> BaseModel:
         """Returns the config dict to reconstruct the message queue."""
         ...
+
+
+class BaseMessageQueue(BaseModel, AbstractMessageQueue):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
