@@ -22,7 +22,7 @@ def kafka_service():
 
 @pytest.fixture
 def mq(kafka_service):
-    return KafkaMessageQueue(KafkaMessageQueueConfig(topic_name="test"))
+    return KafkaMessageQueue(KafkaMessageQueueConfig(topic_name="test_message"))
 
 
 @pytest.mark.e2e
@@ -35,12 +35,12 @@ async def test_roundtrip(mq):
         received_messages.append(message)
 
     test_consumer = CallableMessageConsumer(
-        message_type="test", handler=message_handler
+        message_type="test_message", handler=message_handler
     )
     start_consuming_callable = await mq.register_consumer(test_consumer)
 
     # produce a message
-    test_message = QueueMessage(type="test", data={"message": "this is a test"})
+    test_message = QueueMessage(type="test_message", data={"message": "this is a test"})
 
     # await asyncio.gather(start_consuming_callable(), mq.publish(test_message))
     await mq.publish(test_message)
