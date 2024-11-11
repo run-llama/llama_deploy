@@ -1,16 +1,15 @@
 import asyncio
-from pydantic import PrivateAttr
-import pytest
 from typing import Any, List
 
+import pytest
+from llama_index.core.tools import BaseTool, FunctionTool
+from pydantic import PrivateAttr
 
-from llama_index.core.tools import FunctionTool, BaseTool
-
-from llama_deploy.services import ToolService
-from llama_deploy.message_queues.simple import SimpleMessageQueue
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
+from llama_deploy.message_queues.simple import SimpleMessageQueue
 from llama_deploy.messages.base import QueueMessage
-from llama_deploy.types import ToolCall, ToolCallBundle, ActionTypes
+from llama_deploy.services import ToolService
+from llama_deploy.types import ActionTypes, ToolCall, ToolCallBundle
 
 TOOL_CALL_SOURCE = "mock-source"
 
@@ -159,7 +158,7 @@ async def test_process_tool_call_from_queue(
         action=ActionTypes.NEW_TOOL_CALL,
         type="test_tool_service",
     )
-    await mq.publish(tool_call_message)
+    await mq.publish(tool_call_message, topic="test_tool_service")
 
     # Give some time for last message to get published and sent to consumers
     await asyncio.sleep(1)

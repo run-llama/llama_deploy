@@ -162,7 +162,7 @@ async def test_process_human_req_from_queue(
         action=ActionTypes.NEW_TASK,
         type="test_human_service",
     )
-    await mq.publish(human_req_message)
+    await mq.publish(human_req_message, topic="test_human_service")
 
     # Give some time for last message to get published and sent to consumers
     await asyncio.sleep(1)
@@ -251,7 +251,7 @@ async def test_process_task_as_tool_call(
         action=ActionTypes.NEW_TOOL_CALL,
         type="test_human_service",
     )
-    await mq.publish(human_req_message)
+    await mq.publish(human_req_message, topic="test_human_service")
 
     # Give some time for last message to get published and sent to consumers
     await asyncio.sleep(1)

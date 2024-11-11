@@ -3,22 +3,22 @@
 import asyncio
 import json
 from logging import getLogger
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, cast
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_queues.base import (
-    BaseMessageQueue,
-)
-from llama_deploy.messages.base import QueueMessage
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
+from llama_deploy.message_queues.base import (
+    BaseMessageQueue,
+)
+from llama_deploy.messages.base import QueueMessage
 
 if TYPE_CHECKING:
-    from aio_pika import Connection, Queue, Channel, IncomingMessage
+    from aio_pika import Channel, Connection, IncomingMessage, Queue
     from aio_pika.abc import AbstractIncomingMessage
 
 logger = getLogger(__name__)
@@ -154,9 +154,10 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         """Returns a new connection to the RabbitMQ server."""
         return await _establish_connection(self.url)
 
-    async def _publish(self, message: QueueMessage) -> Any:
+    async def _publish(self, message: QueueMessage, topic: str) -> Any:
         """Publish message to the queue."""
-        from aio_pika import DeliveryMode, ExchangeType, Message as AioPikaMessage
+        from aio_pika import DeliveryMode, ExchangeType
+        from aio_pika import Message as AioPikaMessage
 
         message_type_str = message.type
         connection = await _establish_connection(self.url)
@@ -178,7 +179,7 @@ class RabbitMQMessageQueue(BaseMessageQueue):
             logger.info(f"published message {message.id_}")
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer
+        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         from aio_pika import ExchangeType

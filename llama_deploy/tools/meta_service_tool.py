@@ -1,24 +1,24 @@
 import asyncio
 import uuid
 from logging import getLogger
-from pydantic import BaseModel, Field, PrivateAttr
 from typing import Any, Dict, Optional
 
 from llama_index.core.tools import AsyncBaseTool, ToolMetadata, ToolOutput
+from pydantic import BaseModel, Field, PrivateAttr
 
-from llama_deploy.messages.base import QueueMessage
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
-from llama_deploy.message_queues.base import BaseMessageQueue
 from llama_deploy.message_publishers.publisher import (
     MessageQueuePublisherMixin,
     PublishCallback,
 )
+from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services.tool import ToolService
 from llama_deploy.types import (
     ActionTypes,
-    ToolCallBundle,
     ToolCall,
+    ToolCallBundle,
     ToolCallResult,
 )
 
@@ -269,3 +269,6 @@ class MetaServiceTool(MessageQueuePublisherMixin, AsyncBaseTool, BaseModel):
             raw_input={"args": args, "kwargs": kwargs},
             raw_output=tool_call_result.result,
         )
+
+    def get_topic(self, msg_type: str) -> str:
+        return msg_type

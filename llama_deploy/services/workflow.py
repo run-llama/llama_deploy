@@ -2,22 +2,23 @@ import asyncio
 import json
 import os
 import uuid
-import uvicorn
 from collections import defaultdict
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
 from logging import getLogger
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
-from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import AsyncGenerator, Dict, Optional, Any
+from typing import Any, AsyncGenerator, Dict, Optional
 
+import uvicorn
+from fastapi import FastAPI
 from llama_index.core.workflow import Context, Workflow
-from llama_index.core.workflow.handler import WorkflowHandler
 from llama_index.core.workflow.context_serializers import (
     JsonPickleSerializer,
     JsonSerializer,
 )
+from llama_index.core.workflow.handler import WorkflowHandler
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from llama_deploy.control_plane.server import CONTROL_PLANE_MESSAGE_TYPE
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
@@ -27,11 +28,10 @@ from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services.base import BaseService
 from llama_deploy.types import (
     ActionTypes,
+    ServiceDefinition,
+    TaskDefinition,
     TaskResult,
     TaskStream,
-    TaskDefinition,
-    ServiceDefinition,
-    CONTROL_PLANE_NAME,
 )
 
 logger = getLogger(__name__)
@@ -317,7 +317,7 @@ class WorkflowService(BaseService):
                 logger.debug(f"Publishing event: {ev}")
                 await self.message_queue.publish(
                     QueueMessage(
-                        type=CONTROL_PLANE_NAME,
+                        type=CONTROL_PLANE_MESSAGE_TYPE,
                         action=ActionTypes.TASK_STREAM,
                         data=TaskStream(
                             task_id=current_call.task_id,
@@ -325,7 +325,8 @@ class WorkflowService(BaseService):
                             data=ev.model_dump(),
                             index=index,
                         ).model_dump(),
-                    )
+                    ),
+                    self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
                 )
                 index += 1
 
@@ -334,10 +335,12 @@ class WorkflowService(BaseService):
             # dump the state # dump the state
             await self.set_workflow_state(handler.ctx, current_call)
 
-            logger.debug(f"Publishing final result: {final_result}")
+            logger.info(
+                f"Publishing final result: {final_result} to '{self.get_topic(CONTROL_PLANE_MESSAGE_TYPE)}'"
+            )
             await self.message_queue.publish(
                 QueueMessage(
-                    type=CONTROL_PLANE_NAME,
+                    type=CONTROL_PLANE_MESSAGE_TYPE,
                     action=ActionTypes.COMPLETED_TASK,
                     data=TaskResult(
                         task_id=current_call.task_id,
@@ -345,7 +348,8 @@ class WorkflowService(BaseService):
                         result=str(final_result),
                         data={},
                     ).model_dump(),
-                )
+                ),
+                self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
             )
         except Exception as e:
             if self.raise_exceptions:
@@ -358,7 +362,7 @@ class WorkflowService(BaseService):
             # return failure
             await self.message_queue.publish(
                 QueueMessage(
-                    type=CONTROL_PLANE_NAME,
+                    type=CONTROL_PLANE_MESSAGE_TYPE,
                     action=ActionTypes.COMPLETED_TASK,
                     data=TaskResult(
                         task_id=current_call.task_id,
@@ -366,7 +370,8 @@ class WorkflowService(BaseService):
                         result=str(e),
                         data={},
                     ).model_dump(),
-                )
+                ),
+                self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
             )
         finally:
             # clean up

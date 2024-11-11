@@ -33,8 +33,7 @@ AsyncProcessMessageCallable = Callable[[QueueMessage], Awaitable[Any]]
 class MessageProcessor(Protocol):
     """Protocol for a callable that processes messages."""
 
-    def __call__(self, message: QueueMessage, **kwargs: Any) -> None:
-        ...
+    def __call__(self, message: QueueMessage, **kwargs: Any) -> None: ...
 
 
 class PublishCallback(Protocol):
@@ -43,32 +42,31 @@ class PublishCallback(Protocol):
     TODO: Variant for Async Publish Callback.
     """
 
-    def __call__(self, message: QueueMessage, **kwargs: Any) -> None:
-        ...
+    def __call__(self, message: QueueMessage, **kwargs: Any) -> None: ...
 
 
 class AbstractMessageQueue(ABC):
     """Message broker interface between publisher and consumer."""
 
     @abstractmethod
-    async def _publish(self, message: QueueMessage) -> Any:
+    async def _publish(self, message: QueueMessage, topic: str) -> Any:
         """Subclasses implement publish logic here."""
-        ...
 
     async def publish(
         self,
         message: QueueMessage,
+        topic: str,
         callback: Optional[PublishCallback] = None,
         **kwargs: Any,
     ) -> Any:
         """Send message to a consumer."""
         logger.info(
-            f"Publishing message to '{message.type}' with action '{message.action}'"
+            f"Publishing message of type '{message.type}' with action '{message.action}' to topic '{topic}'"
         )
         logger.debug(f"Message: {message.model_dump()}")
 
         message.stats.publish_time = message.stats.timestamp_str()
-        await self._publish(message)
+        await self._publish(message, topic)
 
         if callback:
             if inspect.iscoroutinefunction(callback):
@@ -78,8 +76,7 @@ class AbstractMessageQueue(ABC):
 
     @abstractmethod
     async def register_consumer(
-        self,
-        consumer: "BaseMessageQueueConsumer",
+        self, consumer: "BaseMessageQueueConsumer", topic: str | None = None
     ) -> "StartConsumingCallable":
         """Register consumer to start consuming messages."""
 
@@ -99,29 +96,24 @@ class AbstractMessageQueue(ABC):
     @abstractmethod
     async def processing_loop(self) -> None:
         """The processing loop for the service."""
-        ...
 
     @abstractmethod
     async def launch_local(self) -> asyncio.Task:
         """Launch the service in-process."""
-        ...
 
     @abstractmethod
     async def launch_server(self) -> None:
         """Launch the service as a server."""
-        ...
 
     @abstractmethod
     async def cleanup_local(
         self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
     ) -> None:
         """Perform any cleanup before shutting down."""
-        ...
 
     @abstractmethod
     def as_config(self) -> BaseModel:
         """Returns the config dict to reconstruct the message queue."""
-        ...
 
 
 class BaseMessageQueue(BaseModel, AbstractMessageQueue):

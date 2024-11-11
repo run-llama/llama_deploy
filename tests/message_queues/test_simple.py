@@ -1,8 +1,9 @@
 import asyncio
+from typing import Any, List
+
 import pytest
 from fastapi import HTTPException
 from pydantic import PrivateAttr
-from typing import Any, List
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_queues.simple import SimpleMessageQueue
@@ -78,9 +79,13 @@ async def test_simple_publish_consumer() -> None:
     await mq.register_consumer(consumer_two)
 
     # Act
-    await mq.publish(QueueMessage(publisher_id="test", id_="1"))
-    await mq.publish(QueueMessage(publisher_id="test", id_="2", type="two"))
-    await mq.publish(QueueMessage(publisher_id="test", id_="3", type="two"))
+    await mq.publish(QueueMessage(publisher_id="test", id_="1"), topic="test")
+    await mq.publish(
+        QueueMessage(publisher_id="test", id_="2", type="two"), topic="test"
+    )
+    await mq.publish(
+        QueueMessage(publisher_id="test", id_="3", type="two"), topic="test"
+    )
 
     # Give some time for last message to get published and sent to consumers
     await asyncio.sleep(0.5)

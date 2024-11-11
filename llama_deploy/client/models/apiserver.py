@@ -226,9 +226,9 @@ class DeploymentCollection(Collection):
         model_class = self._prepare(Deployment)
         return model_class(client=self.client, id=r.json().get("name"))
 
-    async def get(self, deployment_id: str) -> Deployment:
+    async def get(self, id: str) -> Deployment:
         """Gets a deployment by id."""
-        get_url = f"{self.client.api_server_url}/deployments/{deployment_id}"
+        get_url = f"{self.client.api_server_url}/deployments/{id}"
         # Current version of apiserver doesn't returns anything useful in this endpoint, let's just ignore it
         await self.client.request(
             "GET",
@@ -237,7 +237,7 @@ class DeploymentCollection(Collection):
             timeout=self.client.timeout,
         )
         model_class = self._prepare(Deployment)
-        return model_class(client=self.client, id=deployment_id)
+        return model_class(client=self.client, id=id)
 
 
 class ApiServer(Model):
@@ -280,19 +280,8 @@ class ApiServer(Model):
             deployments=deployments,
         )
 
-    async def deployments(self) -> DeploymentCollection:
+    @property
+    def deployments(self) -> DeploymentCollection:
         """Returns a collection of deployments currently active in the API Server."""
-        status_url = f"{self.client.api_server_url}/deployments/"
-
-        r = await self.client.request(
-            "GET",
-            status_url,
-            verify=not self.client.disable_ssl,
-            timeout=self.client.timeout,
-        )
-        model_class = self._prepare(Deployment)
-        deployments = {
-            "id": model_class(client=self.client, id=name) for name in r.json()
-        }
-        coll_model_class = self._prepare(DeploymentCollection)
-        return coll_model_class(client=self.client, items=deployments)
+        model_class = self._prepare(DeploymentCollection)
+        return model_class(client=self.client, items={})

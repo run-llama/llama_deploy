@@ -52,10 +52,8 @@ async def test_publish() -> None:
             AIOKafkaProducer, "send_and_wait", new_callable=AsyncMock
         ) as mock_send_and_wait:
             # Act
-            _ = await mq._publish(queue_message)
+            _ = await mq._publish(queue_message, "test")
 
             # Assert
             mock_start.assert_awaited_once()
-            mock_send_and_wait.assert_awaited_once_with(
-                queue_message.type, message_body
-            )
+            mock_send_and_wait.assert_awaited_once_with("test", message_body)

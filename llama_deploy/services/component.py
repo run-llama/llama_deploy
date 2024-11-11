@@ -1,13 +1,16 @@
 import asyncio
-import uuid
-import uvicorn
-from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from logging import getLogger
-from llama_index.core.bridge.pydantic import PrivateAttr
-from typing import AsyncGenerator, Dict, Optional, Any
 import json
+import uuid
+from contextlib import asynccontextmanager
+from logging import getLogger
+from typing import Any, AsyncGenerator, Dict, Optional
 
+import uvicorn
+from fastapi import FastAPI
+from llama_index.core.bridge.pydantic import PrivateAttr
+from llama_index.core.query_pipeline import QueryComponent
+
+from llama_deploy.control_plane.server import CONTROL_PLANE_MESSAGE_TYPE
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
@@ -17,12 +20,10 @@ from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services.base import BaseService
 from llama_deploy.types import (
     ActionTypes,
+    ServiceDefinition,
     TaskDefinition,
     TaskResult,
-    ServiceDefinition,
-    CONTROL_PLANE_NAME,
 )
-from llama_index.core.query_pipeline import QueryComponent
 
 logger = getLogger(__name__)
 
@@ -170,7 +171,7 @@ class ComponentService(BaseService):
 
                 await self.message_queue.publish(
                     QueueMessage(
-                        type=CONTROL_PLANE_NAME,
+                        type=CONTROL_PLANE_MESSAGE_TYPE,
                         action=ActionTypes.COMPLETED_TASK,
                         data=TaskResult(
                             task_id=task_id,
@@ -178,7 +179,8 @@ class ComponentService(BaseService):
                             result=json.dumps(output_dict),
                             data=output_dict,
                         ).model_dump(),
-                    )
+                    ),
+                    topic=self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
                 )
 
                 # clean up

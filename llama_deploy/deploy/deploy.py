@@ -124,7 +124,7 @@ async def deploy_core(
     control_plane = ControlPlaneServer(
         message_queue_client,
         SimpleOrchestrator(**orchestrator_config.model_dump()),
-        **control_plane_config.model_dump(),
+        config=control_plane_config,
     )
 
     if (
@@ -220,14 +220,14 @@ async def deploy_workflow(
     # let service spin up
     await asyncio.sleep(1)
 
-    # register to message queue
-    consumer_fn = await service.register_to_message_queue()
-
     # register to control plane
     control_plane_url = (
         f"http://{control_plane_config.host}:{control_plane_config.port}"
     )
     await service.register_to_control_plane(control_plane_url)
+
+    # register to message queue
+    consumer_fn = await service.register_to_message_queue()
 
     # create consumer task
     consumer_task = asyncio.create_task(consumer_fn())
