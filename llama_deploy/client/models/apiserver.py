@@ -239,6 +239,13 @@ class DeploymentCollection(Collection):
         model_class = self._prepare(Deployment)
         return model_class(client=self.client, id=id)
 
+    async def list(self) -> list[Deployment]:
+        deployments_url = f"{self.client.api_server_url}/deployments/"
+        r = await self.client.request("GET", deployments_url)
+        model_class = self._prepare(Deployment)
+        deployments = [model_class(client=self.client, id=name) for name in r.json()]
+        return deployments
+
 
 class ApiServer(Model):
     """A model representing the API Server instance."""

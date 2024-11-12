@@ -39,7 +39,7 @@ class Collection(_Base, Generic[T]):
         """Returns an item from the collection."""
         return self.items[id]
 
-    def list(self) -> list[T]:
+    async def list(self) -> list[T]:
         """Returns a list of all the items in the collection."""
         return [self.get(id) for id in self.items.keys()]
 
