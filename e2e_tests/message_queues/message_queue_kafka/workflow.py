@@ -8,4 +8,5 @@ class BasicWorkflow(Workflow):
 
     @step()
     async def run_step(self, ctx: Context, ev: StartEvent) -> StopEvent:
-        return StopEvent(result=f"{self._name} received {ev.get("arg")}")
+        received = ev.get("arg")
+        return StopEvent(result=f"{self._name} received {received}")
