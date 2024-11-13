@@ -6,6 +6,13 @@ from llama_deploy.cli import llamactl
 from llama_deploy.types.apiserver import Status, StatusEnum
 
 
+def test_status_raised(runner: CliRunner) -> None:
+    with mock.patch("llama_deploy.cli.status.Client") as mocked_client:
+        mocked_client.return_value.sync.apiserver.status.side_effect = Exception()
+        result = runner.invoke(llamactl, ["-s", "https://test", "status"])
+        assert result.exit_code == 1
+
+
 def test_status_server_down(runner: CliRunner) -> None:
     with mock.patch("llama_deploy.cli.status.Client") as mocked_client:
         mocked_client.return_value.sync.apiserver.status.return_value = Status(
