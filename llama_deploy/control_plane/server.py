@@ -10,7 +10,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from llama_index.core.storage.kvstore import SimpleKVStore
 from llama_index.core.storage.kvstore.types import BaseKVStore
-from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llama_deploy.control_plane.base import BaseControlPlane
 from llama_deploy.message_consumers.base import (
@@ -33,35 +32,11 @@ from llama_deploy.types import (
     TaskStream,
 )
 
+from .config import ControlPlaneConfig
+
 logger = getLogger(__name__)
 
-
-class ControlPlaneConfig(BaseSettings):
-    """Control plane configuration."""
-
-    model_config = SettingsConfigDict(
-        env_prefix="CONTROL_PLANE_", arbitrary_types_allowed=True
-    )
-
-    state_store: BaseKVStore | None = None
-    services_store_key: str = "services"
-    tasks_store_key: str = "tasks"
-    session_store_key: str = "sessions"
-    step_interval: float = 0.1
-    host: str = "127.0.0.1"
-    port: int = 8000
-    internal_host: str | None = None
-    internal_port: int | None = None
-    running: bool = True
-    cors_origins: List[str] | None = None
-    message_type: str = "control_plane"
-
-    @property
-    def url(self) -> str:
-        if self.port:
-            return f"http://{self.host}:{self.port}"
-        else:
-            return f"http://{self.host}"
+CONTROL_PLANE_MESSAGE_TYPE = "control_plane"
 
 
 class ControlPlaneServer(BaseControlPlane):
@@ -108,43 +83,21 @@ class ControlPlaneServer(BaseControlPlane):
         orchestrator: BaseOrchestrator,
         publish_callback: PublishCallback | None = None,
         state_store: BaseKVStore | None = None,
-        services_store_key: str = "services",
-        tasks_store_key: str = "tasks",
-        session_store_key: str = "sessions",
-        step_interval: float = 0.1,
-        host: str = "127.0.0.1",
-        port: int = 8000,
-        internal_host: str | None = None,
-        internal_port: int | None = None,
-        running: bool = True,
-        cors_origins: List[str] | None = None,
-        message_type: str = "control_plane",
+        config: ControlPlaneConfig | None = None,
     ) -> None:
         self.orchestrator = orchestrator
-
-        self.step_interval = step_interval
-        self.running = running
-        self.host = host
-        self.port = port
-        self.internal_host = internal_host
-        self.internal_port = internal_port
-
         self.state_store = state_store or SimpleKVStore()
 
-        self.services_store_key = services_store_key
-        self.tasks_store_key = tasks_store_key
-        self.session_store_key = session_store_key
-
+        self._config = config or ControlPlaneConfig()
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
-        self._message_type = message_type
 
         self.app = FastAPI()
-        if cors_origins:
+        if self._config.cors_origins:
             self.app.add_middleware(
                 CORSMiddleware,
-                allow_origins=cors_origins,
+                allow_origins=self._config.cors_origins,
                 allow_methods=["*"],
                 allow_headers=["*"],
             )
@@ -293,25 +246,25 @@ class ControlPlaneServer(BaseControlPlane):
             return RemoteMessageConsumer(
                 id_=self.publisher_id,
                 url=(
-                    f"http://{self.host}:{self.port}/process_message"
-                    if self.port
-                    else f"http://{self.host}/process_message"
+                    f"http://{self._config.host}:{self._config.port}/process_message"
+                    if self._config.port
+                    else f"http://{self._config.host}/process_message"
                 ),
-                message_type=self._message_type,
+                message_type=CONTROL_PLANE_MESSAGE_TYPE,
             )
 
         return CallableMessageConsumer(
             id_=self.publisher_id,
-            message_type=self._message_type,
+            message_type=CONTROL_PLANE_MESSAGE_TYPE,
             handler=self.process_message,
         )
 
     async def launch_server(self) -> None:
         # give precedence to external settings
-        host = self.internal_host or self.host
-        port = self.internal_port or self.port
+        host = self._config.internal_host or self._config.host
+        port = self._config.internal_port or self._config.port
         logger.info(f"Launching control plane server at {host}:{port}")
-        # uvicorn.run(self.app, host=self.host, port=self.port)
+        # uvicorn.run(self.app, host=self._config.host, port=self._config.port)
 
         class CustomServer(uvicorn.Server):
             def install_signal_handlers(self) -> None:
@@ -323,26 +276,31 @@ class ControlPlaneServer(BaseControlPlane):
 
     async def home(self) -> Dict[str, str]:
         return {
-            "running": str(self.running),
-            "step_interval": str(self.step_interval),
-            "services_store_key": self.services_store_key,
-            "tasks_store_key": self.tasks_store_key,
-            "session_store_key": self.session_store_key,
+            "running": str(self._config.running),
+            "step_interval": str(self._config.step_interval),
+            "services_store_key": self._config.services_store_key,
+            "tasks_store_key": self._config.tasks_store_key,
+            "session_store_key": self._config.session_store_key,
         }
 
-    async def register_service(self, service_def: ServiceDefinition) -> None:
+    async def register_service(
+        self, service_def: ServiceDefinition
+    ) -> ControlPlaneConfig:
         await self.state_store.aput(
             service_def.service_name,
             service_def.model_dump(),
-            collection=self.services_store_key,
+            collection=self._config.services_store_key,
         )
+        return self._config
 
     async def deregister_service(self, service_name: str) -> None:
-        await self.state_store.adelete(service_name, collection=self.services_store_key)
+        await self.state_store.adelete(
+            service_name, collection=self._config.services_store_key
+        )
 
     async def get_service(self, service_name: str) -> ServiceDefinition:
         service_dict = await self.state_store.aget(
-            service_name, collection=self.services_store_key
+            service_name, collection=self._config.services_store_key
         )
         if service_dict is None:
             raise HTTPException(status_code=404, detail="Service not found")
@@ -351,7 +309,7 @@ class ControlPlaneServer(BaseControlPlane):
 
     async def get_all_services(self) -> Dict[str, ServiceDefinition]:
         service_dicts = await self.state_store.aget_all(
-            collection=self.services_store_key
+            collection=self._config.services_store_key
         )
 
         return {
@@ -364,14 +322,14 @@ class ControlPlaneServer(BaseControlPlane):
         await self.state_store.aput(
             session.session_id,
             session.model_dump(),
-            collection=self.session_store_key,
+            collection=self._config.session_store_key,
         )
 
         return session.session_id
 
     async def get_session(self, session_id: str) -> SessionDefinition:
         session_dict = await self.state_store.aget(
-            session_id, collection=self.session_store_key
+            session_id, collection=self._config.session_store_key
         )
         if session_dict is None:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -379,11 +337,13 @@ class ControlPlaneServer(BaseControlPlane):
         return SessionDefinition.model_validate(session_dict)
 
     async def delete_session(self, session_id: str) -> None:
-        await self.state_store.adelete(session_id, collection=self.session_store_key)
+        await self.state_store.adelete(
+            session_id, collection=self._config.session_store_key
+        )
 
     async def get_all_sessions(self) -> Dict[str, SessionDefinition]:
         session_dicts = await self.state_store.aget_all(
-            collection=self.session_store_key
+            collection=self._config.session_store_key
         )
 
         return {
@@ -408,7 +368,7 @@ class ControlPlaneServer(BaseControlPlane):
         self, session_id: str, task_def: TaskDefinition
     ) -> str:
         session_dict = await self.state_store.aget(
-            session_id, collection=self.session_store_key
+            session_id, collection=self._config.session_store_key
         )
         if session_dict is None:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -419,11 +379,13 @@ class ControlPlaneServer(BaseControlPlane):
         session = SessionDefinition(**session_dict)
         session.task_ids.append(task_def.task_id)
         await self.state_store.aput(
-            session_id, session.model_dump(), collection=self.session_store_key
+            session_id, session.model_dump(), collection=self._config.session_store_key
         )
 
         await self.state_store.aput(
-            task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
+            task_def.task_id,
+            task_def.model_dump(),
+            collection=self._config.tasks_store_key,
         )
 
         task_def = await self.send_task_to_service(task_def)
@@ -448,7 +410,9 @@ class ControlPlaneServer(BaseControlPlane):
         session.state.update(session_state)
 
         await self.state_store.aput(
-            task_def.session_id, session.model_dump(), collection=self.session_store_key
+            task_def.session_id,
+            session.model_dump(),
+            collection=self._config.session_store_key,
         )
 
         return task_def
@@ -470,19 +434,21 @@ class ControlPlaneServer(BaseControlPlane):
         await self.state_store.aput(
             session.session_id,
             session.model_dump(),
-            collection=self.session_store_key,
+            collection=self._config.session_store_key,
         )
 
         # generate and send new tasks when needed
         task_def = await self.send_task_to_service(task_def)
 
         await self.state_store.aput(
-            task_def.task_id, task_def.model_dump(), collection=self.tasks_store_key
+            task_def.task_id,
+            task_def.model_dump(),
+            collection=self._config.tasks_store_key,
         )
 
     async def get_task(self, task_id: str) -> TaskDefinition:
         state_dict = await self.state_store.aget(
-            task_id, collection=self.tasks_store_key
+            task_id, collection=self._config.tasks_store_key
         )
         if state_dict is None:
             raise HTTPException(status_code=404, detail="Task not found")
@@ -543,7 +509,7 @@ class ControlPlaneServer(BaseControlPlane):
         await self.state_store.aput(
             task_stream.session_id,
             session.model_dump(),
-            collection=self.session_store_key,
+            collection=self._config.session_store_key,
         )
 
     async def get_task_result_stream(
@@ -582,7 +548,7 @@ class ControlPlaneServer(BaseControlPlane):
 
                     last_index += len(stream_results)
                     # Small delay to prevent tight loop
-                    await asyncio.sleep(self.step_interval)
+                    await asyncio.sleep(self._config.step_interval)
             except Exception as e:
                 logger.error(
                     f"Error in event stream for session {session_id}, task {task_id}: {str(e)}"
@@ -627,7 +593,7 @@ class ControlPlaneServer(BaseControlPlane):
 
         session.state.update(state)
         await self.state_store.aput(
-            session_id, session.model_dump(), collection=self.session_store_key
+            session_id, session.model_dump(), collection=self._config.session_store_key
         )
 
     async def get_message_queue_config(self) -> Dict[str, dict]:
@@ -641,12 +607,10 @@ class ControlPlaneServer(BaseControlPlane):
         return {queue_config.__class__.__name__: queue_config.model_dump()}
 
     async def register_to_message_queue(self) -> StartConsumingCallable:
-        return await self.message_queue.register_consumer(self.as_consumer(remote=True))
+        return await self.message_queue.register_consumer(
+            self.as_consumer(remote=True),
+            topic=self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
+        )
 
-
-if __name__ == "__main__":
-    from llama_deploy import SimpleMessageQueue, SimpleOrchestrator
-
-    control_plane = ControlPlaneServer(SimpleMessageQueue(), SimpleOrchestrator())
-
-    asyncio.run(control_plane.launch_server())
+    def get_topic(self, msg_type: str) -> str:
+        return f"{self._config.topic_namespace}.{msg_type}"

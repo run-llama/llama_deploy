@@ -49,7 +49,6 @@ def test_collection_get() -> None:
     coll = MyCollection(client=c, items={m.id: m for m in models_list})
     assert coll.get("foo").id == "foo"
     assert coll.get("bar").id == "bar"
-    assert coll.list() == models_list
 
 
 @pytest.mark.asyncio

@@ -1,10 +1,12 @@
 import json
-import pytest
 from typing import Any
-from unittest.mock import patch, AsyncMock
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_queues.redis import RedisMessageQueue
 from llama_deploy.messages.base import QueueMessage
-from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 
 
 class MockPubSub:
@@ -60,7 +62,7 @@ async def test_publish(
     test_message = QueueMessage(type="test_channel", data={"key": "value"})
     expected_json = json.dumps(test_message.model_dump())
 
-    await redis_queue._publish(test_message)
+    await redis_queue._publish(test_message, topic="test_channel")
 
     mock_establish_connection.assert_called_once_with("redis://localhost:6379")
     mock_redis.publish.assert_called_once_with(test_message.type, expected_json)

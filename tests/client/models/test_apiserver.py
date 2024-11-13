@@ -313,7 +313,5 @@ async def test_deployments(client: Any) -> None:
         status_code=200, text="", json=lambda: {"deployments": ["foo", "bar"]}
     )
     apis = ApiServer(client=client, id="apiserver")
-    await apis.deployments()
-    client.request.assert_awaited_with(
-        "GET", "http://localhost:4501/deployments/", verify=True, timeout=120.0
-    )
+    await apis.deployments.list()
+    client.request.assert_awaited_with("GET", "http://localhost:4501/deployments/")

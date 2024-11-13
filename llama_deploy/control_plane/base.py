@@ -1,18 +1,20 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
-from llama_deploy.message_queues.base import BaseMessageQueue
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
 from llama_deploy.message_publishers.publisher import MessageQueuePublisherMixin
+from llama_deploy.message_queues.base import BaseMessageQueue
 from llama_deploy.types import (
     ServiceDefinition,
-    TaskDefinition,
     SessionDefinition,
+    TaskDefinition,
     TaskResult,
 )
+
+from .config import ControlPlaneConfig
 
 
 class BaseControlPlane(MessageQueuePublisherMixin, ABC):
@@ -46,7 +48,9 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         ...
 
     @abstractmethod
-    async def register_service(self, service_def: ServiceDefinition) -> None:
+    async def register_service(
+        self, service_def: ServiceDefinition
+    ) -> ControlPlaneConfig:
         """
         Register a service with the control plane.
 

@@ -1,12 +1,15 @@
 import json
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
+
 from llama_deploy import QueueMessage
 from llama_deploy.message_queues.rabbitmq import RabbitMQMessageQueue
-from unittest.mock import patch, MagicMock, AsyncMock
 
 try:
     import aio_pika
-    from aio_pika import DeliveryMode, Message as AioPikaMessage
+    from aio_pika import DeliveryMode
+    from aio_pika import Message as AioPikaMessage
 except (ModuleNotFoundError, ImportError):
     aio_pika = None  # type: ignore
 
@@ -76,7 +79,7 @@ async def test_publish(mock_connect: MagicMock) -> None:
     )
 
     # Act
-    _ = await mq._publish(queue_message)
+    _ = await mq._publish(queue_message, topic="test")
 
     # Assert
     mock_connect.assert_called_once()

@@ -1,6 +1,6 @@
 import asyncio
-from typing import Any, Callable, Dict, List, TYPE_CHECKING
-from unittest.mock import patch, MagicMock
+from typing import TYPE_CHECKING, Any, Callable, Dict, List
+from unittest.mock import MagicMock, patch
 from urllib.parse import urlsplit
 
 import httpx
@@ -8,7 +8,6 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import PrivateAttr
 
-from llama_deploy.messages.base import QueueMessage
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     default_start_consuming_callable,
@@ -21,6 +20,7 @@ from llama_deploy.message_queues.simple import (
     SimpleMessageQueue,
     SimpleRemoteClientMessageQueue,
 )
+from llama_deploy.messages.base import QueueMessage
 from llama_deploy.types import ActionTypes
 
 if TYPE_CHECKING:
@@ -159,10 +159,10 @@ async def test_remote_client_publish(
     message = QueueMessage(
         type="mock_type", data={"payload": "mock payload"}, action=ActionTypes.NEW_TASK
     )
-    await remote_mq.publish(message=message)
+    await remote_mq.publish(message=message, topic="mock_type")
 
     # assert
     mock_post.assert_called_once_with(
-        "https://mock-url.io/publish", json=message.model_dump()
+        "https://mock-url.io/publish/mock_type", json=message.model_dump()
     )
     assert message_queue.queues["mock_type"][0] == message

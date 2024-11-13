@@ -1,11 +1,8 @@
 import asyncio
 import uuid
-import uvicorn
-from contextlib import asynccontextmanager
 from asyncio import Lock
-from fastapi import FastAPI
+from contextlib import asynccontextmanager
 from logging import getLogger
-from pydantic import BaseModel, ConfigDict, PrivateAttr, field_validator
 from typing import (
     Any,
     AsyncGenerator,
@@ -17,7 +14,10 @@ from typing import (
     runtime_checkable,
 )
 
+import uvicorn
+from fastapi import FastAPI
 from llama_index.core.llms import MessageRole
+from pydantic import BaseModel, ConfigDict, PrivateAttr, field_validator
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
@@ -26,21 +26,20 @@ from llama_deploy.message_publishers.publisher import PublishCallback
 from llama_deploy.message_queues.base import BaseMessageQueue
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services.base import BaseService
+from llama_deploy.tools.utils import get_tool_name_from_service_name
 from llama_deploy.types import (
+    CONTROL_PLANE_NAME,
     ActionTypes,
     ChatMessage,
     HumanResponse,
+    ServiceDefinition,
     TaskDefinition,
     TaskResult,
     ToolCall,
     ToolCallBundle,
     ToolCallResult,
-    ServiceDefinition,
-    CONTROL_PLANE_NAME,
 )
-from llama_deploy.tools.utils import get_tool_name_from_service_name
 from llama_deploy.utils import get_prompt_params
-
 
 logger = getLogger(__name__)
 
@@ -56,8 +55,7 @@ HELP_REQUEST_TEMPLATE_STR = (
 class HumanInputFn(Protocol):
     """Protocol for getting human input."""
 
-    def __call__(self, prompt: str, task_id: str, **kwargs: Any) -> Awaitable[str]:
-        ...
+    def __call__(self, prompt: str, task_id: str, **kwargs: Any) -> Awaitable[str]: ...
 
 
 async def default_human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
