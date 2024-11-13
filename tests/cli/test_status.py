@@ -9,11 +9,13 @@ from llama_deploy.types.apiserver import Status, StatusEnum
 def test_status_server_down(runner: CliRunner) -> None:
     with mock.patch("llama_deploy.cli.status.Client") as mocked_client:
         mocked_client.return_value.sync.apiserver.status.return_value = Status(
-            status=StatusEnum.DOWN, status_message="API Server is down"
+            status=StatusEnum.DOWN, status_message="API Server is down for tests"
         )
         result = runner.invoke(llamactl, ["-s", "https://test", "status"])
         assert result.exit_code == 0
-        assert "Llama Deploy is unhealthy: API Server is down" in result.output
+        assert (
+            "Llama Deploy is unhealthy: API Server is down for tests" in result.output
+        )
 
 
 def test_status_unhealthy(runner: CliRunner) -> None:
