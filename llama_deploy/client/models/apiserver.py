@@ -211,7 +211,14 @@ class DeploymentCollection(Collection):
     """A model representing a collection of deployments currently active."""
 
     async def create(self, config: TextIO) -> Deployment:
-        """Creates a new deployment from a deployment file."""
+        """Creates a new deployment from a deployment file.
+
+        Example:
+            ```
+            with open("deployment.yml") as f:
+                await client.apiserver.deployments.create(f)
+            ```
+        """
         create_url = f"{self.client.api_server_url}/deployments/create"
 
         files = {"config_file": config.read()}
