@@ -613,4 +613,4 @@ class ControlPlaneServer(BaseControlPlane):
         )
 
     def get_topic(self, msg_type: str) -> str:
-        return f"{self._config.topic_ns}.{msg_type}"
+        return f"{self._config.topic_namespace}.{msg_type}"

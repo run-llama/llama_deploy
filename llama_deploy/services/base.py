@@ -134,4 +134,4 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
         )
 
     def get_topic(self, msg_type: str) -> str:
-        return f"{self._control_plane_config.topic_ns}.{msg_type}"
+        return f"{self._control_plane_config.topic_namespace}.{msg_type}"

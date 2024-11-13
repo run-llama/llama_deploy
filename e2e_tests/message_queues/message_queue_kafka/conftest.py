@@ -42,7 +42,7 @@ def run_workflow_one():
                 port=8003,
                 service_name="basic",
             ),
-            ControlPlaneConfig(topic_ns="core_one", port=8001),
+            ControlPlaneConfig(topic_namespace="core_one", port=8001),
         )
     )
 
@@ -56,7 +56,7 @@ def run_workflow_two():
                 port=8004,
                 service_name="basic",
             ),
-            ControlPlaneConfig(topic_ns="core_two", port=8002),
+            ControlPlaneConfig(topic_namespace="core_two", port=8002),
         )
     )
 
@@ -64,7 +64,7 @@ def run_workflow_two():
 def run_core_one():
     asyncio.run(
         deploy_core(
-            ControlPlaneConfig(topic_ns="core_one", port=8001),
+            ControlPlaneConfig(topic_namespace="core_one", port=8001),
             KafkaMessageQueueConfig(),
         )
     )
@@ -73,7 +73,7 @@ def run_core_one():
 def run_core_two():
     asyncio.run(
         deploy_core(
-            ControlPlaneConfig(topic_ns="core_two", port=8002),
+            ControlPlaneConfig(topic_namespace="core_two", port=8002),
             KafkaMessageQueueConfig(),
         )
     )

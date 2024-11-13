@@ -20,7 +20,7 @@ class ControlPlaneConfig(BaseSettings):
     internal_port: int | None = None
     running: bool = True
     cors_origins: List[str] | None = None
-    topic_ns: str = "llama_deploy"
+    topic_namespace: str = "llama_deploy"
 
     @property
     def url(self) -> str:
