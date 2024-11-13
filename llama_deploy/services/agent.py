@@ -1,14 +1,15 @@
 import asyncio
 import uuid
-import uvicorn
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
 from logging import getLogger
-from pydantic import PrivateAttr
 from typing import AsyncGenerator, Dict, List, Literal, Optional, cast
 
+import uvicorn
+from fastapi import FastAPI
 from llama_index.core.agent import AgentRunner
+from pydantic import PrivateAttr
 
+from llama_deploy.control_plane.server import CONTROL_PLANE_MESSAGE_TYPE
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
@@ -17,19 +18,19 @@ from llama_deploy.message_queues.base import BaseMessageQueue
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services.base import BaseService
 from llama_deploy.services.types import _ChatMessage
+from llama_deploy.tools.utils import get_tool_name_from_service_name
 from llama_deploy.types import (
+    CONTROL_PLANE_NAME,
     ActionTypes,
     ChatMessage,
     MessageRole,
-    TaskResult,
+    ServiceDefinition,
     TaskDefinition,
+    TaskResult,
     ToolCall,
     ToolCallBundle,
     ToolCallResult,
-    ServiceDefinition,
-    CONTROL_PLANE_NAME,
 )
-from llama_deploy.tools.utils import get_tool_name_from_service_name
 
 logger = getLogger(__name__)
 
@@ -292,14 +293,15 @@ class AgentService(BaseService):
                 else:
                     await self.message_queue.publish(
                         QueueMessage(
-                            type=CONTROL_PLANE_NAME,
+                            type=CONTROL_PLANE_MESSAGE_TYPE,
                             action=ActionTypes.COMPLETED_TASK,
                             data=TaskResult(
                                 task_id=task_id,
                                 history=[],
                                 result=f"Error during processing: {e}",
                             ).model_dump(),
-                        )
+                        ),
+                        topic=self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
                     )
 
                 continue

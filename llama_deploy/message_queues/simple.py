@@ -1,21 +1,19 @@
 """Simple Message Queue."""
 
 import asyncio
-import httpx
 import random
-import uvicorn
 from collections import deque
 from contextlib import asynccontextmanager
 from logging import getLogger
-from typing import Any, AsyncGenerator, Dict, List, Optional, Literal, Sequence
+from typing import Any, AsyncGenerator, Dict, List, Literal, Optional, Sequence
 from urllib.parse import urljoin
 
+import httpx
+import uvicorn
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_queues.base import BaseMessageQueue
-from llama_deploy.messages.base import QueueMessage
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
@@ -25,6 +23,8 @@ from llama_deploy.message_consumers.remote import (
     RemoteMessageConsumer,
     RemoteMessageConsumerDef,
 )
+from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.messages.base import QueueMessage
 from llama_deploy.types import PydanticValidatedUrl
 
 logger = getLogger(__name__)
@@ -52,11 +52,9 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
     client: Optional[httpx.AsyncClient] = None
     raise_exceptions: bool = False
 
-    async def _publish(
-        self, message: QueueMessage, publish_url: str = "publish", **kwargs: Any
-    ) -> Any:
+    async def _publish(self, message: QueueMessage, topic: str) -> Any:
         client_kwargs = self.client_kwargs or {}
-        url = urljoin(self.base_url, publish_url)
+        url = urljoin(self.base_url, f"publish/{topic}")
         async with httpx.AsyncClient(**client_kwargs) as client:
             result = await client.post(url, json=message.model_dump())
         return result
@@ -64,11 +62,10 @@ class SimpleRemoteClientMessageQueue(BaseMessageQueue):
     async def register_consumer(
         self,
         consumer: BaseMessageQueueConsumer,
-        register_consumer_url: str = "register_consumer",
-        **kwargs: Any,
+        topic: str | None = None,
     ) -> StartConsumingCallable:
         client_kwargs = self.client_kwargs or {}
-        url = urljoin(self.base_url, register_consumer_url)
+        url = urljoin(self.base_url, "register_consumer")
         try:
             remote_consumer_def = RemoteMessageConsumerDef(**consumer.model_dump())
         except Exception as e:
@@ -228,7 +225,7 @@ class SimpleMessageQueue(BaseMessageQueue):
         )
 
         self._app.add_api_route(
-            "/publish",
+            "/publish/{topic}",
             self._publish,
             methods=["POST"],
             tags=["QueueMessages"],
@@ -252,7 +249,7 @@ class SimpleMessageQueue(BaseMessageQueue):
         consumer_id = random.choice(list(self.consumers[message_type_str].keys()))
         return self.consumers[message_type_str][consumer_id]
 
-    async def _publish(self, message: QueueMessage) -> Any:
+    async def _publish(self, message: QueueMessage, topic: str) -> Any:
         """Publish message to a queue."""
         message_type_str = message.type
 
@@ -282,7 +279,7 @@ class SimpleMessageQueue(BaseMessageQueue):
             raise
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, **kwargs: Any
+        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         message_type_str = consumer.message_type

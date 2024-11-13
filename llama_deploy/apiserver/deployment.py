@@ -34,8 +34,7 @@ SOURCE_MANAGERS: dict[SourceType, SourceManager] = {
 }
 
 
-class DeploymentError(Exception):
-    ...
+class DeploymentError(Exception): ...
 
 
 class Deployment:
@@ -56,10 +55,11 @@ class Deployment:
         self._path = root_path / config.name
         self._simple_message_queue: SimpleMessageQueue | None = None
         self._queue_client = self._load_message_queue_client(config.message_queue)
+        self._control_plane_config = config.control_plane
         self._control_plane = ControlPlaneServer(
             self._queue_client,
             SimpleOrchestrator(**SimpleOrchestratorConfig().model_dump()),
-            **config.control_plane.model_dump(),
+            config=config.control_plane,
         )
         self._workflow_services: list[WorkflowService] = self._load_services(config)
         self._client = AsyncLlamaDeployClient(config.control_plane)
@@ -112,9 +112,7 @@ class Deployment:
             service_task = asyncio.create_task(wfs.launch_server())
             tasks.append(service_task)
             consumer_fn = await wfs.register_to_message_queue()
-            control_plane_url = (
-                f"http://{self._control_plane.host}:{self._control_plane.port}"
-            )
+            control_plane_url = f"http://{self._control_plane_config.host}:{self._control_plane_config.port}"
             await wfs.register_to_control_plane(control_plane_url)
             consumer_task = asyncio.create_task(consumer_fn())
             tasks.append(consumer_task)
@@ -210,7 +208,7 @@ class Deployment:
         if cfg.type == "aws":
             return AWSMessageQueue(**cfg.model_dump())
         elif cfg.type == "kafka":
-            return KafkaMessageQueue(**cfg.model_dump())
+            return KafkaMessageQueue(cfg)  # type: ignore
         elif cfg.type == "rabbitmq":
             return RabbitMQMessageQueue(**cfg.model_dump())
         elif cfg.type == "redis":

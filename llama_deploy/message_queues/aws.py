@@ -3,17 +3,17 @@
 import asyncio
 import json
 from logging import getLogger
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
 
-from pydantic import BaseModel, PrivateAttr, SecretStr, Field
+from pydantic import BaseModel, Field, PrivateAttr, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_queues.base import BaseMessageQueue
-from llama_deploy.messages.base import QueueMessage
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
+from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.messages.base import QueueMessage
 
 if TYPE_CHECKING:
     from aiobotocore.session import AioSession, ClientCreatorContext
@@ -262,17 +262,17 @@ class AWSMessageQueue(BaseMessageQueue):
 
         return subscription
 
-    async def _publish(self, message: QueueMessage) -> Any:
+    async def _publish(self, message: QueueMessage, topic: str) -> Any:
         """Publish message to the SQS queue."""
         from botocore.exceptions import ClientError
 
         message_body = json.dumps(message.model_dump())
-        topic = await self.get_topic_by_name(message.type)
+        _topic = await self.get_topic_by_name(message.type)
 
         try:
             async with self._get_client("sns") as client:
                 response = await client.publish(  # type: ignore
-                    TopicArn=topic.arn,
+                    TopicArn=_topic.arn,
                     Message=message_body,
                     MessageStructure="bytes",
                     MessageGroupId=message.id_,  # Assigning message id as the group id for simplicity
@@ -310,14 +310,14 @@ class AWSMessageQueue(BaseMessageQueue):
                     logger.error(f"Could not delete SNS topic {topic.name}: {e}")
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer
+        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         from botocore.exceptions import ClientError
 
-        topic = await self._create_sns_topic(topic_name=consumer.message_type)
+        _topic = await self._create_sns_topic(topic_name=consumer.message_type)
         queue = await self._create_sqs_queue(queue_name=consumer.message_type)
-        await self._subscribe_queue_to_topic(queue=queue, topic=topic)
+        await self._subscribe_queue_to_topic(queue=queue, topic=_topic)
         logger.info(f"Registered consumer {consumer.id_}: {consumer.message_type}")
 
         async def start_consuming_callable() -> None:

@@ -1,4 +1,5 @@
-from llama_deploy.control_plane.base import BaseControlPlane
-from llama_deploy.control_plane.server import ControlPlaneServer, ControlPlaneConfig
+from .base import BaseControlPlane
+from .config import ControlPlaneConfig
+from .server import ControlPlaneServer
 
 __all__ = ["BaseControlPlane", "ControlPlaneServer", "ControlPlaneConfig"]

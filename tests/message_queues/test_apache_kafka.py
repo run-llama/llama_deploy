@@ -1,9 +1,13 @@
 import json
-import pytest
-from unittest.mock import patch, AsyncMock
-from llama_deploy import QueueMessage
-from llama_deploy.message_queues.apache_kafka import KafkaMessageQueue
+from unittest.mock import AsyncMock, patch
 
+import pytest
+
+from llama_deploy import QueueMessage
+from llama_deploy.message_queues.apache_kafka import (
+    KafkaMessageQueue,
+    KafkaMessageQueueConfig,
+)
 
 try:
     import aiokafka
@@ -13,10 +17,10 @@ except (ModuleNotFoundError, ImportError):
 
 def test_init() -> None:
     # arrange/act
-    mq = KafkaMessageQueue(url="0.0.0.0:5555")
+    mq = KafkaMessageQueue(KafkaMessageQueueConfig(url="0.0.0.0:5555"))
 
     # assert
-    assert mq.url == "0.0.0.0:5555"
+    assert mq._config.url == "0.0.0.0:5555"
 
 
 def test_from_url_params() -> None:
@@ -28,7 +32,7 @@ def test_from_url_params() -> None:
     mq = KafkaMessageQueue.from_url_params(host=host, port=port)
 
     # assert
-    assert mq.url == f"{host}:{port}"
+    assert mq._config.url == f"{host}:{port}"
 
 
 @pytest.mark.asyncio()
@@ -48,10 +52,8 @@ async def test_publish() -> None:
             AIOKafkaProducer, "send_and_wait", new_callable=AsyncMock
         ) as mock_send_and_wait:
             # Act
-            _ = await mq._publish(queue_message)
+            _ = await mq._publish(queue_message, "test")
 
             # Assert
             mock_start.assert_awaited_once()
-            mock_send_and_wait.assert_awaited_once_with(
-                queue_message.type, message_body
-            )
+            mock_send_and_wait.assert_awaited_once_with("test", message_body)

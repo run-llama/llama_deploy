@@ -1,7 +1,8 @@
 import asyncio
+from typing import Any, List
+
 import pytest
 from pydantic import PrivateAttr
-from typing import Any, List
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_queues.simple import SimpleMessageQueue
@@ -28,8 +29,8 @@ async def test_consumer_consumes_messages() -> None:
     start_consuming_callable = await mq.register_consumer(consumer_one)
     await start_consuming_callable()
     await asyncio.sleep(0.1)
-    await mq.publish(QueueMessage(publisher_id="test", id_="1"))
-    await mq.publish(QueueMessage(publisher_id="test", id_="2"))
+    await mq.publish(QueueMessage(publisher_id="test", id_="1"), topic="test")
+    await mq.publish(QueueMessage(publisher_id="test", id_="2"), topic="test")
 
     # Give some time for last message to get published and sent to consumers
     await asyncio.sleep(0.5)

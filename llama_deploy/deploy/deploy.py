@@ -1,16 +1,17 @@
 import asyncio
-import httpx
 import signal
 import sys
-
-from llama_deploy.message_queues.simple import SimpleRemoteClientMessageQueue
-from pydantic_settings import BaseSettings
 from typing import Any, Callable, List, Optional
+
+import httpx
 from llama_index.core.workflow import Workflow
+from pydantic_settings import BaseSettings
 
 from llama_deploy.control_plane.server import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.deploy.network_workflow import NetworkServiceManager
 from llama_deploy.message_queues import (
+    AWSMessageQueue,
+    AWSMessageQueueConfig,
     BaseMessageQueue,
     KafkaMessageQueue,
     KafkaMessageQueueConfig,
@@ -20,16 +21,15 @@ from llama_deploy.message_queues import (
     RedisMessageQueueConfig,
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
-    AWSMessageQueue,
-    AWSMessageQueueConfig,
     SolaceMessageQueue,
     SolaceMessageQueueConfig,
 )
+from llama_deploy.message_queues.simple import SimpleRemoteClientMessageQueue
 from llama_deploy.orchestrators.simple import (
     SimpleOrchestrator,
     SimpleOrchestratorConfig,
 )
-from llama_deploy.services.workflow import WorkflowServiceConfig, WorkflowService
+from llama_deploy.services.workflow import WorkflowService, WorkflowServiceConfig
 
 DEFAULT_TIMEOUT = 120.0
 
@@ -71,9 +71,7 @@ def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
     elif isinstance(config, AWSMessageQueueConfig):
         return AWSMessageQueue(**config.model_dump())
     elif isinstance(config, KafkaMessageQueueConfig):
-        return KafkaMessageQueue(
-            **config.model_dump(),
-        )
+        return KafkaMessageQueue(config)  # type: ignore
     elif isinstance(config, RabbitMQMessageQueueConfig):
         return RabbitMQMessageQueue(
             **config.model_dump(),
@@ -134,7 +132,7 @@ async def deploy_core(
     control_plane = ControlPlaneServer(
         message_queue_client,
         SimpleOrchestrator(**orchestrator_config.model_dump()),
-        **control_plane_config.model_dump(),
+        config=control_plane_config,
     )
 
     if (
@@ -230,14 +228,14 @@ async def deploy_workflow(
     # let service spin up
     await asyncio.sleep(1)
 
-    # register to message queue
-    consumer_fn = await service.register_to_message_queue()
-
     # register to control plane
     control_plane_url = (
         f"http://{control_plane_config.host}:{control_plane_config.port}"
     )
     await service.register_to_control_plane(control_plane_url)
+
+    # register to message queue
+    consumer_fn = await service.register_to_message_queue()
 
     # create consumer task
     consumer_task = asyncio.create_task(consumer_fn())

@@ -1,10 +1,18 @@
 import asyncio
 import json
-from typing import Any
+import time
+from typing import Any, AsyncGenerator
 
 import httpx
+from llama_index.core.workflow import Event
+from llama_index.core.workflow.context_serializers import JsonSerializer
 
-from llama_deploy.types.core import ServiceDefinition, TaskDefinition, TaskResult
+from llama_deploy.types.core import (
+    EventDefinition,
+    ServiceDefinition,
+    TaskDefinition,
+    TaskResult,
+)
 
 from .model import Collection, Model
 
@@ -26,6 +34,15 @@ class Session(Model):
                 await asyncio.sleep(self.client.poll_interval)
 
         return await asyncio.wait_for(_get_result(), timeout=self.client.timeout)
+
+    async def run_nowait(self, service_name: str, **run_kwargs: Any) -> str:
+        """Implements the workflow-based run API for a session, but does not wait for the task to complete."""
+
+        task_input = json.dumps(run_kwargs)
+        task_def = TaskDefinition(input=task_input, agent_id=service_name)
+        task_id = await self._do_create_task(task_def)
+
+        return task_id
 
     async def create_task(self, task_def: TaskDefinition) -> str:
         """Create a new task in this session.
@@ -75,6 +92,55 @@ class Session(Model):
         response = await self.client.request("GET", url)
         return [TaskDefinition(**task) for task in response.json()]
 
+    async def send_event(self, service_name: str, task_id: str, ev: Event) -> None:
+        """Send event to a Workflow service.
+
+        Args:
+            event (Event): The event to be submitted to the workflow.
+
+        Returns:
+            None
+        """
+        serializer = JsonSerializer()
+        event_def = EventDefinition(
+            event_obj_str=serializer.serialize(ev), agent_id=service_name
+        )
+
+        url = f"{self.client.control_plane_url}/sessions/{self.id}/tasks/{task_id}/send_event"
+        await self.client.request("POST", url, json=event_def.model_dump())
+
+    async def get_task_result_stream(
+        self, task_id: str
+    ) -> AsyncGenerator[dict[str, Any], None]:
+        """Get the result of a task in this session if it has one.
+
+        Args:
+            task_id (str): The ID of the task to get the result for.
+
+        Returns:
+            AsyncGenerator[str, None, None]: A generator that yields the result of the task.
+        """
+        url = f"{self.client.control_plane_url}/sessions/{self.id}/tasks/{task_id}/result_stream"
+        start_time = time.time()
+        while True:
+            try:
+                async with httpx.AsyncClient() as client:
+                    async with client.stream("GET", url) as response:
+                        response.raise_for_status()
+                        async for line in response.aiter_lines():
+                            json_line = json.loads(line)
+                            yield json_line
+                        break  # Exit the function if successful
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code != 404:
+                    raise  # Re-raise if it's not a 404 error
+                if time.time() - start_time < self.client.timeout:
+                    await asyncio.sleep(self.client.poll_interval)
+                else:
+                    raise TimeoutError(
+                        f"Task result not available after waiting for {self.client.timeout} seconds"
+                    )
+
 
 class SessionCollection(Collection):
     async def list(self) -> list[Session]:  # type: ignore
@@ -82,12 +148,9 @@ class SessionCollection(Collection):
         sessions_url = f"{self.client.control_plane_url}/sessions"
         response = await self.client.request("GET", sessions_url)
         sessions = []
+        model_class = self._prepare(Session)
         for id, session_def in response.json().items():
-            sessions.append(
-                Session.instance(
-                    make_sync=self._instance_is_sync, client=self.client, id=id
-                )
-            )
+            sessions.append(model_class(client=self.client, id=id))
         return sessions
 
     async def create(self) -> Session:
@@ -103,9 +166,8 @@ class SessionCollection(Collection):
         create_url = f"{self.client.control_plane_url}/sessions/create"
         response = await self.client.request("POST", create_url)
         session_id = response.json()
-        return Session.instance(
-            make_sync=self._instance_is_sync, client=self.client, id=session_id
-        )
+        model_class = self._prepare(Session)
+        return model_class(client=self.client, id=session_id)
 
     async def get(self, id: str) -> Session:
         """Gets a session by ID.
@@ -126,9 +188,8 @@ class SessionCollection(Collection):
 
         get_url = f"{self.client.control_plane_url}/sessions/{id}"
         await self.client.request("GET", get_url)
-        return Session.instance(
-            make_sync=self._instance_is_sync, client=self.client, id=id
-        )
+        model_class = self._prepare(Session)
+        return model_class(client=self.client, id=id)
 
     async def get_or_create(self, id: str) -> Session:
         """Gets a session by ID, or creates a new one if it doesn't exist.
@@ -167,12 +228,10 @@ class ServiceCollection(Collection):
         services_url = f"{self.client.control_plane_url}/services"
         response = await self.client.request("GET", services_url)
         services = []
+        model_class = self._prepare(Service)
+
         for name, service in response.json().items():
-            services.append(
-                Service.instance(
-                    make_sync=self._instance_is_sync, client=self.client, id=name
-                )
-            )
+            services.append(model_class(client=self.client, id=name))
 
         return services
 
@@ -184,7 +243,8 @@ class ServiceCollection(Collection):
         """
         register_url = f"{self.client.control_plane_url}/services/register"
         await self.client.request("POST", register_url, json=service.model_dump())
-        s = Service.instance(id=service.service_name, client=self.client)
+        model_class = self._prepare(Service)
+        s = model_class(id=service.service_name, client=self.client)
         self.items[service.service_name] = s
         return s
 
@@ -210,10 +270,8 @@ class Core(Model):
         Returns:
             ServiceCollection: Collection of services registered with the control plane.
         """
-
-        return ServiceCollection.instance(
-            make_sync=self._instance_is_sync, client=self.client, items={}
-        )
+        model_class = self._prepare(ServiceCollection)
+        return model_class(client=self.client, items={})
 
     @property
     def sessions(self) -> SessionCollection:
@@ -222,6 +280,5 @@ class Core(Model):
         Returns:
             SessionCollection: Collection of sessions registered with the control plane.
         """
-        return SessionCollection.instance(
-            make_sync=self._instance_is_sync, client=self.client, items={}
-        )
+        model_class = self._prepare(SessionCollection)
+        return model_class(client=self.client, items={})

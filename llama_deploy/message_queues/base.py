@@ -2,11 +2,10 @@
 
 import asyncio
 import inspect
-
 from abc import ABC, abstractmethod
 from logging import getLogger
-from pydantic import BaseModel, ConfigDict
 from typing import (
+    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
@@ -14,9 +13,10 @@ from typing import (
     List,
     Optional,
     Protocol,
-    TYPE_CHECKING,
     Sequence,
 )
+
+from pydantic import BaseModel, ConfigDict
 
 from llama_deploy.messages.base import QueueMessage
 
@@ -33,8 +33,7 @@ AsyncProcessMessageCallable = Callable[[QueueMessage], Awaitable[Any]]
 class MessageProcessor(Protocol):
     """Protocol for a callable that processes messages."""
 
-    def __call__(self, message: QueueMessage, **kwargs: Any) -> None:
-        ...
+    def __call__(self, message: QueueMessage, **kwargs: Any) -> None: ...
 
 
 class PublishCallback(Protocol):
@@ -43,37 +42,31 @@ class PublishCallback(Protocol):
     TODO: Variant for Async Publish Callback.
     """
 
-    def __call__(self, message: QueueMessage, **kwargs: Any) -> None:
-        ...
+    def __call__(self, message: QueueMessage, **kwargs: Any) -> None: ...
 
 
-class BaseMessageQueue(BaseModel, ABC):
+class AbstractMessageQueue(ABC):
     """Message broker interface between publisher and consumer."""
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-
     @abstractmethod
-    async def _publish(self, message: QueueMessage) -> Any:
+    async def _publish(self, message: QueueMessage, topic: str) -> Any:
         """Subclasses implement publish logic here."""
-        ...
 
     async def publish(
         self,
         message: QueueMessage,
+        topic: str,
         callback: Optional[PublishCallback] = None,
         **kwargs: Any,
     ) -> Any:
         """Send message to a consumer."""
         logger.info(
-            f"Publishing message to '{message.type}' with action '{message.action}'"
+            f"Publishing message of type '{message.type}' with action '{message.action}' to topic '{topic}'"
         )
         logger.debug(f"Message: {message.model_dump()}")
 
         message.stats.publish_time = message.stats.timestamp_str()
-        await self._publish(message)
+        await self._publish(message, topic)
 
         if callback:
             if inspect.iscoroutinefunction(callback):
@@ -83,8 +76,7 @@ class BaseMessageQueue(BaseModel, ABC):
 
     @abstractmethod
     async def register_consumer(
-        self,
-        consumer: "BaseMessageQueueConsumer",
+        self, consumer: "BaseMessageQueueConsumer", topic: str | None = None
     ) -> "StartConsumingCallable":
         """Register consumer to start consuming messages."""
 
@@ -104,26 +96,28 @@ class BaseMessageQueue(BaseModel, ABC):
     @abstractmethod
     async def processing_loop(self) -> None:
         """The processing loop for the service."""
-        ...
 
     @abstractmethod
     async def launch_local(self) -> asyncio.Task:
         """Launch the service in-process."""
-        ...
 
     @abstractmethod
     async def launch_server(self) -> None:
         """Launch the service as a server."""
-        ...
 
     @abstractmethod
     async def cleanup_local(
         self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
     ) -> None:
         """Perform any cleanup before shutting down."""
-        ...
 
     @abstractmethod
     def as_config(self) -> BaseModel:
         """Returns the config dict to reconstruct the message queue."""
-        ...
+
+
+class BaseMessageQueue(BaseModel, AbstractMessageQueue):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)

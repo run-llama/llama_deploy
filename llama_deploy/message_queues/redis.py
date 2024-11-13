@@ -3,17 +3,17 @@
 import asyncio
 import json
 from logging import getLogger
-from typing import Any, Dict, List, Optional, TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
 
-from pydantic import PrivateAttr, BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_queues.base import BaseMessageQueue
-from llama_deploy.messages.base import QueueMessage
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
+from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.messages.base import QueueMessage
 
 if TYPE_CHECKING:
     import redis.asyncio as redis
@@ -118,7 +118,7 @@ class RedisMessageQueue(BaseMessageQueue):
             self._redis = await _establish_connection(self.url)
         return self._redis
 
-    async def _publish(self, message: QueueMessage) -> Any:
+    async def _publish(self, message: QueueMessage, topic: str) -> Any:
         """Publish message to the Redis channel."""
         redis = await self.new_connection()
         message_json = json.dumps(message.model_dump())
@@ -129,7 +129,7 @@ class RedisMessageQueue(BaseMessageQueue):
         return result
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer
+        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         if consumer.id_ in self._consumers:

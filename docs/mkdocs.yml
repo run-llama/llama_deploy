@@ -29,6 +29,7 @@ plugins:
   - search
   - include_dir_to_nav
   - render_swagger
+  - gh-admonitions
   - mkdocstrings:
       handlers:
         python:

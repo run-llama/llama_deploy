@@ -1,14 +1,16 @@
 import asyncio
+from typing import Any, List
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import PrivateAttr
-from typing import Any, List
+
+from llama_deploy.message_consumers.remote import (
+    BaseMessageQueueConsumer,
+    RemoteMessageConsumerDef,
+)
 from llama_deploy.message_queues.simple import SimpleMessageQueue
 from llama_deploy.messages.base import QueueMessage
-from llama_deploy.message_consumers.remote import (
-    RemoteMessageConsumerDef,
-    BaseMessageQueueConsumer,
-)
 from llama_deploy.types import ActionTypes
 
 
@@ -89,7 +91,7 @@ async def test_publish() -> None:
     message = QueueMessage(
         type="mock_type", data={"payload": "mock payload"}, action=ActionTypes.NEW_TASK
     )
-    response = test_client.post("/publish", json=message.model_dump())
+    response = test_client.post("/publish/mock_type", json=message.model_dump())
 
     # assert
     assert response.status_code == 200

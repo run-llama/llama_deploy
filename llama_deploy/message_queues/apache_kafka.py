@@ -2,18 +2,16 @@
 
 import asyncio
 import json
+import logging
 from logging import getLogger
-from typing import Any, Callable, Coroutine, Dict, List, Optional, Literal
+from typing import Any, Callable, Coroutine, Dict, List, Literal
 
-from pydantic import BaseModel, model_validator, Field
+from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_consumers.callable import CallableMessageConsumer
-from llama_deploy.message_queues.base import BaseMessageQueue
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
+from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
-
-import logging
 
 logger = getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -22,6 +20,7 @@ logger.setLevel(logging.INFO)
 DEFAULT_URL = "localhost:9092"
 DEFAULT_TOPIC_PARTITIONS = 10
 DEFAULT_TOPIC_REPLICATION_FACTOR = 1
+DEFAULT_TOPIC_NAME = "control_plane"
 DEFAULT_GROUP_ID = "default_group"  # single group for competing consumers
 
 
@@ -32,8 +31,8 @@ class KafkaMessageQueueConfig(BaseSettings):
 
     type: Literal["kafka"] = Field(default="kafka", exclude=True)
     url: str = DEFAULT_URL
-    host: Optional[str] = None
-    port: Optional[int] = None
+    host: str | None = None
+    port: int | None = None
 
     @model_validator(mode="after")
     def update_url(self) -> "KafkaMessageQueueConfig":
@@ -42,7 +41,7 @@ class KafkaMessageQueueConfig(BaseSettings):
         return self
 
 
-class KafkaMessageQueue(BaseMessageQueue):
+class KafkaMessageQueue(AbstractMessageQueue):
     """Apache Kafka integration with aiokafka.
 
     This class implements a traditional message broker using Apache Kafka.
@@ -63,20 +62,15 @@ class KafkaMessageQueue(BaseMessageQueue):
         ```
     """
 
-    url: str = DEFAULT_URL
-
-    def __init__(
-        self,
-        url: str = DEFAULT_URL,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(url=url)
+    def __init__(self, config: KafkaMessageQueueConfig | None = None) -> None:
+        self._config = config or KafkaMessageQueueConfig()
+        self._kafka_consumers: dict[str, Any] = {}
 
     @classmethod
     def from_url_params(
         cls,
         host: str,
-        port: Optional[int] = None,
+        port: int | None = None,
     ) -> "KafkaMessageQueue":
         """Convenience constructor from url params.
 
@@ -88,13 +82,13 @@ class KafkaMessageQueue(BaseMessageQueue):
             KafkaMessageQueue: An Apache Kafka MessageQueue integration.
         """
         url = f"{host}:{port}" if port else f"{host}"
-        return cls(url=url)
+        return cls(KafkaMessageQueueConfig(url=url))
 
     def _create_new_topic(
         self,
         topic_name: str,
-        num_partitions: Optional[int] = None,
-        replication_factor: Optional[int] = None,
+        num_partitions: int | None = None,
+        replication_factor: int | None = None,
         **kwargs: Dict[str, Any],
     ) -> None:
         """Create a new topic.
@@ -113,7 +107,7 @@ class KafkaMessageQueue(BaseMessageQueue):
                 "Please install it using `pip install kafka-python-ng`."
             )
 
-        admin_client = KafkaAdminClient(bootstrap_servers=self.url)
+        admin_client = KafkaAdminClient(bootstrap_servers=self._config.url)
         try:
             topic = NewTopic(
                 name=topic_name,
@@ -128,7 +122,7 @@ class KafkaMessageQueue(BaseMessageQueue):
             logger.info(f"Topic {topic_name} already exists.")
             pass
 
-    async def _publish(self, message: QueueMessage) -> Any:
+    async def _publish(self, message: QueueMessage, topic: str) -> Any:
         """Publish message to the queue."""
         try:
             from aiokafka import AIOKafkaProducer
@@ -138,11 +132,11 @@ class KafkaMessageQueue(BaseMessageQueue):
                 "Please install it using `pip install aiokafka`."
             )
 
-        producer = AIOKafkaProducer(bootstrap_servers=self.url)
+        producer = AIOKafkaProducer(bootstrap_servers=self._config.url)
         await producer.start()
         try:
             message_body = json.dumps(message.model_dump()).encode("utf-8")
-            await producer.send_and_wait(message.type, message_body)
+            await producer.send_and_wait(topic, message_body)
             logger.info(f"published message {message.id_}")
         finally:
             await producer.stop()
@@ -165,7 +159,7 @@ class KafkaMessageQueue(BaseMessageQueue):
                 "Please install it using `pip install aiokafka`."
             )
 
-        admin_client = KafkaAdminClient(bootstrap_servers=self.url)
+        admin_client = KafkaAdminClient(bootstrap_servers=self._config.url)
         active_topics = admin_client.list_topics()
         topics_to_delete = [el for el in message_types if el in active_topics]
         admin_client.delete_consumer_groups(DEFAULT_GROUP_ID)
@@ -174,7 +168,8 @@ class KafkaMessageQueue(BaseMessageQueue):
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         """Deregister a consumer."""
-        pass
+        if consumer.id_ in self._kafka_consumers:
+            await self._kafka_consumers[consumer.id_].stop()
 
     async def launch_local(self) -> asyncio.Task:
         """Launch the message queue locally, in-process.
@@ -191,7 +186,7 @@ class KafkaMessageQueue(BaseMessageQueue):
         pass
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer
+        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
     ) -> Callable[..., Coroutine[Any, Any, None]]:
         """Register a new consumer."""
         try:
@@ -203,23 +198,34 @@ class KafkaMessageQueue(BaseMessageQueue):
             )
 
         # register topic
-        self._create_new_topic(consumer.message_type)
+        if topic is None:
+            raise ValueError("Topic must be a valid string")
+
+        if consumer.id_ in self._kafka_consumers:
+            msg = f"Consumer {consumer.id_} already registered for topic {topic}"
+            raise ValueError(msg)
+
+        self._create_new_topic(topic)
         kafka_consumer = AIOKafkaConsumer(
-            consumer.message_type,
-            bootstrap_servers=self.url,
+            topic,
+            bootstrap_servers=self._config.url,
             group_id=DEFAULT_GROUP_ID,
             auto_offset_reset="earliest",
         )
+        self._kafka_consumers[consumer.id_] = kafka_consumer
+
         await kafka_consumer.start()
 
         logger.info(
-            f"Registered consumer {consumer.id_}: {consumer.message_type}",
+            f"Registered consumer {consumer.id_} for message type '{consumer.message_type}' on topic '{topic}'",
         )
 
         async def start_consuming_callable() -> None:
             """StartConsumingCallable."""
             try:
                 async for msg in kafka_consumer:
+                    if msg.value is None:
+                        raise RuntimeError("msg.value is None")
                     decoded_message = json.loads(msg.value.decode("utf-8"))
                     queue_message = QueueMessage.model_validate(decoded_message)
                     await consumer.process_message(queue_message)
@@ -227,62 +233,13 @@ class KafkaMessageQueue(BaseMessageQueue):
                 stop_task = asyncio.create_task(kafka_consumer.stop())
                 stop_task.add_done_callback(
                     lambda _: logger.info(
-                        f"stopped kafka consumer {consumer.id_}: {consumer.message_type}"
+                        f"stopped kafka consumer {consumer.id_}: {consumer.message_type} on topic {topic}"
                     )
                 )
                 await asyncio.shield(stop_task)
+                del self._kafka_consumers[consumer.id_]
 
         return start_consuming_callable
 
     def as_config(self) -> BaseModel:
-        return KafkaMessageQueueConfig(url=self.url)
-
-
-if __name__ == "__main__":
-    # for testing
-    import argparse
-    import sys
-
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
-    logger.addHandler(logging.StreamHandler(stream=sys.stdout))
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--produce", action="store_true", default=False)
-    parser.add_argument("--consume", action="store_true", default=False)
-    parser.add_argument("--clean-up", action="store_true", default=False)
-
-    args = parser.parse_args()
-
-    async def consume() -> None:
-        mq = KafkaMessageQueue()
-
-        # register a sample consumer
-        def message_handler(message: QueueMessage) -> None:
-            print(f"MESSAGE: {message}")
-
-        test_consumer = CallableMessageConsumer(
-            message_type="test", handler=message_handler
-        )
-
-        start_consuming_callable = await mq.register_consumer(test_consumer)
-        await start_consuming_callable()
-
-    async def produce() -> None:
-        mq = KafkaMessageQueue()
-        mq._create_new_topic(topic_name="test")
-
-        test_message = QueueMessage(type="test", data={"message": "this is a test"})
-        await mq.publish(test_message)
-
-    async def clean_up() -> None:
-        mq = KafkaMessageQueue()
-        await mq.cleanup_local(["test"])
-
-    if args.produce:
-        asyncio.run(produce())
-
-    if args.consume:
-        asyncio.run(consume())
-
-    if args.clean_up:
-        asyncio.run(clean_up())
+        return self._config
