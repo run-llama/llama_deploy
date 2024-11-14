@@ -3,28 +3,44 @@ from unittest import mock
 from click.testing import CliRunner
 
 from llama_deploy.cli import llamactl
+from llama_deploy.types.apiserver import Status, StatusEnum
+
+
+def test_status_raised(runner: CliRunner) -> None:
+    with mock.patch("llama_deploy.cli.status.Client") as mocked_client:
+        mocked_client.return_value.sync.apiserver.status.side_effect = Exception()
+        result = runner.invoke(llamactl, ["-s", "https://test", "status"])
+        assert result.exit_code == 1
 
 
 def test_status_server_down(runner: CliRunner) -> None:
-    result = runner.invoke(llamactl, ["-s", "https://test", "status"])
-    assert result.exit_code == 1
-    print(result.output)
-    assert "Error: Llama Deploy is not responding" in result.output
+    with mock.patch("llama_deploy.cli.status.Client") as mocked_client:
+        mocked_client.return_value.sync.apiserver.status.return_value = Status(
+            status=StatusEnum.DOWN, status_message="API Server is down for tests"
+        )
+        result = runner.invoke(llamactl, ["-s", "https://test", "status"])
+        assert result.exit_code == 0
+        assert (
+            "Llama Deploy is unhealthy: API Server is down for tests" in result.output
+        )
 
 
 def test_status_unhealthy(runner: CliRunner) -> None:
-    mocked_response = mock.MagicMock(status_code=500)
-    with mock.patch("llama_deploy.cli.utils.httpx.request") as mocked_httpx:
-        mocked_httpx.return_value = mocked_response
+    with mock.patch("llama_deploy.cli.status.Client") as mocked_client:
+        mocked_client.return_value.sync.apiserver.status.return_value = Status(
+            status=StatusEnum.UNHEALTHY, status_message="test_message"
+        )
+
         result = runner.invoke(llamactl, ["status"])
         assert result.exit_code == 0
-        assert "Llama Deploy is unhealthy: [500]" in result.output
+        assert "Llama Deploy is unhealthy: test_message" in result.output
 
 
 def test_status(runner: CliRunner) -> None:
-    mocked_response = mock.MagicMock(status_code=200, json=lambda: {})
-    with mock.patch("llama_deploy.cli.utils.httpx.request") as mocked_httpx:
-        mocked_httpx.return_value = mocked_response
+    with mock.patch("llama_deploy.cli.status.Client") as mocked_client:
+        mocked_client.return_value.sync.apiserver.status.return_value = Status(
+            status=StatusEnum.HEALTHY, status_message="test_message"
+        )
         result = runner.invoke(llamactl, ["status"])
         assert result.exit_code == 0
         assert (
@@ -34,11 +50,15 @@ def test_status(runner: CliRunner) -> None:
 
 
 def test_status_with_deployments(runner: CliRunner) -> None:
-    mocked_response = mock.MagicMock(status_code=200)
-    mocked_response.json.return_value = {"deployments": ["foo", "bar"]}
-    with mock.patch("llama_deploy.cli.utils.httpx.request") as mocked_httpx:
-        mocked_httpx.return_value = mocked_response
+    with mock.patch("llama_deploy.cli.status.Client") as mocked_client:
+        mocked_client.return_value.sync.apiserver.status.return_value = Status(
+            status=StatusEnum.HEALTHY,
+            status_message="test_message",
+            deployments=["foo", "bar"],
+        )
+
         result = runner.invoke(llamactl, ["status"])
+
         assert result.exit_code == 0
         assert result.output == (
             "Llama Deploy is up and running.\n\nActive deployments:\n- foo\n- bar\n"

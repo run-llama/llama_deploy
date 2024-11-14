@@ -1,7 +1,9 @@
 import json
 
 import click
-import httpx
+
+from llama_deploy import Client
+from llama_deploy.types import TaskDefinition
 
 
 @click.command()
@@ -27,14 +29,15 @@ def run(
     service: str,
 ) -> None:
     server_url, disable_ssl, timeout = global_config
-    deploy_url = f"{server_url}/deployments/{deployment}/tasks/run"
+    client = Client(api_server_url=server_url, disable_ssl=disable_ssl, timeout=timeout)
+
     payload = {"input": json.dumps(dict(arg))}
     if service:
         payload["agent_id"] = service
 
-    resp = httpx.post(deploy_url, verify=not disable_ssl, json=payload, timeout=timeout)
+    try:
+        result = client.sync.apiserver.deployments.tasks.run(TaskDefinition(**payload))
+    except Exception as e:
+        raise click.ClickException(str(e))
 
-    if resp.status_code >= 400:
-        raise click.ClickException(resp.json().get("detail"))
-    else:
-        click.echo(resp.json())
+    click.echo(result)

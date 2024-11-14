@@ -1,41 +1,58 @@
 from unittest import mock
 
+import httpx
 from click.testing import CliRunner
 
 from llama_deploy.cli import llamactl
+from llama_deploy.types import TaskDefinition
 
 
 def test_run(runner: CliRunner) -> None:
-    mocked_response = mock.MagicMock(status_code=200, json=lambda: {})
-    with mock.patch("httpx.post") as mocked_post:
-        mocked_post.return_value = mocked_response
+    mocked_result = mock.MagicMock(id="test_deployment")
+    with mock.patch("llama_deploy.cli.run.Client") as mocked_client:
+        mocked_client.return_value.sync.apiserver.deployments.tasks.run.return_value = (
+            mocked_result
+        )
+
         result = runner.invoke(
-            llamactl, ["run", "-d", "deployment_name", "-s", "service_name"]
+            llamactl,
+            ["run", "-d", "deployment_name", "-s", "service_name"],
         )
-        mocked_post.assert_called_with(
-            "http://localhost:4501/deployments/deployment_name/tasks/run",
-            verify=True,
-            json={"input": "{}", "agent_id": "service_name"},
-            timeout=None,
+
+        mocked_client.assert_called_with(
+            api_server_url="http://localhost:4501", disable_ssl=False, timeout=120.0
         )
+
+        args = mocked_client.return_value.sync.apiserver.deployments.tasks.run.call_args
+        actual = args[0][0]
+        expected = TaskDefinition(agent_id="service_name", input="{}")
+        assert expected.input == actual.input
+        assert expected.agent_id == actual.agent_id
+        assert actual.session_id is None
         assert result.exit_code == 0
 
 
 def test_run_error(runner: CliRunner) -> None:
-    mocked_response = mock.MagicMock(
-        status_code=500, json=lambda: {"detail": "test error"}
-    )
-    with mock.patch("httpx.post") as mocked_post:
-        mocked_post.return_value = mocked_response
+    with mock.patch("llama_deploy.cli.run.Client") as mocked_client:
+        mocked_client.return_value.sync.apiserver.deployments.tasks.run.side_effect = (
+            httpx.HTTPStatusError(
+                "test error", response=mock.MagicMock(), request=mock.MagicMock()
+            )
+        )
+
         result = runner.invoke(llamactl, ["run", "-d", "deployment_name"])
+
         assert result.exit_code == 1
         assert result.output == "Error: test error\n"
 
 
 def test_run_args(runner: CliRunner) -> None:
-    mocked_response = mock.MagicMock(status_code=200, json=lambda: {})
-    with mock.patch("httpx.post") as mocked_post:
-        mocked_post.return_value = mocked_response
+    mocked_result = mock.MagicMock(id="test_deployment")
+    with mock.patch("llama_deploy.cli.run.Client") as mocked_client:
+        mocked_client.return_value.sync.apiserver.deployments.tasks.run.return_value = (
+            mocked_result
+        )
+
         result = runner.invoke(
             llamactl,
             [
@@ -50,12 +67,13 @@ def test_run_args(runner: CliRunner) -> None:
                 '"second value with spaces"',
             ],
         )
-        mocked_post.assert_called_with(
-            "http://localhost:4501/deployments/deployment_name/tasks/run",
-            verify=True,
-            json={
-                "input": '{"first_arg": "first_value", "second_arg": "\\"second value with spaces\\""}',
-            },
-            timeout=None,
+
+        args = mocked_client.return_value.sync.apiserver.deployments.tasks.run.call_args
+        actual = args[0][0]
+        expected = TaskDefinition(
+            input='{"first_arg": "first_value", "second_arg": "\\"second value with spaces\\""}',
         )
+        assert expected.input == actual.input
+        assert expected.agent_id == actual.agent_id
+        assert actual.session_id is None
         assert result.exit_code == 0
