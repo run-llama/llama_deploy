@@ -1,8 +1,8 @@
 import click
 
-from llama_deploy.cli.deploy import deploy
-from llama_deploy.cli.run import run
-from llama_deploy.cli.status import status
+from .deploy import deploy as deploy_cmd
+from .run import run as run_cmd
+from .status import status as status_cmd
 
 
 @click.group(
@@ -21,19 +21,17 @@ from llama_deploy.cli.status import status
 @click.option(
     "-t",
     "--timeout",
-    default=None,
+    default=120.0,
     type=float,
     help="Timeout on apiserver HTTP requests",
 )
 @click.pass_context
-def llamactl(
-    ctx: click.Context, server: str, insecure: bool, timeout: float | None
-) -> None:
+def llamactl(ctx: click.Context, server: str, insecure: bool, timeout: float) -> None:
     ctx.obj = server, insecure, timeout
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())  # show the help if no subcommand was provided
 
 
-llamactl.add_command(deploy)
-llamactl.add_command(run)
-llamactl.add_command(status)
+llamactl.add_command(deploy_cmd)
+llamactl.add_command(run_cmd)
+llamactl.add_command(status_cmd)
