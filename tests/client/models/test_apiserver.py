@@ -9,7 +9,6 @@ from llama_deploy.client.models.apiserver import (
     ApiServer,
     Deployment,
     DeploymentCollection,
-    Session,
     SessionCollection,
     Task,
     TaskCollection,
@@ -21,7 +20,7 @@ from llama_deploy.types import SessionDefinition, TaskDefinition, TaskResult
 async def test_session_collection_delete(client: Any) -> None:
     coll = SessionCollection(
         client=client,
-        items={"a_session": Session(id="a_session", client=client)},
+        items={},
         deployment_id="a_deployment",
     )
     await coll.delete("a_session")
@@ -83,9 +82,9 @@ async def test_session_collection_list(client: Any) -> None:
 
     # Verify returned sessions
     assert len(sessions) == 2
-    assert all(isinstance(session, Session) for session in sessions)
-    assert sessions[0].id == "session1"
-    assert sessions[1].id == "session2"
+    assert all(isinstance(session, SessionDefinition) for session in sessions)
+    assert sessions[0].session_id == "session1"
+    assert sessions[1].session_id == "session2"
 
 
 @pytest.mark.asyncio
@@ -182,7 +181,7 @@ async def test_task_deployment_tasks(client: Any) -> None:
     ]
     client.request.return_value = mock.MagicMock(json=lambda: res)
 
-    await d.tasks()
+    await d.tasks.list()
 
     client.request.assert_awaited_with(
         "GET",
@@ -198,7 +197,7 @@ async def test_task_deployment_sessions(client: Any) -> None:
     res: list[SessionDefinition] = [SessionDefinition(session_id="a_session")]
     client.request.return_value = mock.MagicMock(json=lambda: res)
 
-    await d.sessions()
+    await d.sessions.list()
 
     client.request.assert_awaited_with(
         "GET",
