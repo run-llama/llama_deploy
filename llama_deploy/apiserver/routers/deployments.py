@@ -168,33 +168,32 @@ async def get_sessions(
 
 
 @deployments_router.get("/{deployment_name}/sessions/{session_id}")
-async def get_session(deployment_name: str, session_id: str) -> JSONResponse:
+async def get_session(deployment_name: str, session_id: str) -> SessionDefinition:
     """Get the definition of a session by ID."""
     deployment = manager.get_deployment(deployment_name)
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
     session = await deployment.client.core.sessions.get(session_id)
-    return JSONResponse(session.model_dump())
+    return SessionDefinition(session_id=session.id)
 
 
 @deployments_router.post("/{deployment_name}/sessions/create")
-async def create_session(deployment_name: str) -> JSONResponse:
+async def create_session(deployment_name: str) -> SessionDefinition:
     """Create a new session for a deployment."""
     deployment = manager.get_deployment(deployment_name)
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
     session = await deployment.client.core.sessions.create()
-    return JSONResponse({"session_id": session.id})
+    return SessionDefinition(session_id=session.id)
 
 
 @deployments_router.post("/{deployment_name}/sessions/delete")
-async def delete_session(deployment_name: str, session_id: str) -> JSONResponse:
+async def delete_session(deployment_name: str, session_id: str) -> None:
     """Get the active sessions in a deployment and service."""
     deployment = manager.get_deployment(deployment_name)
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
     await deployment.client.core.sessions.delete(session_id)
-    return JSONResponse({"session_id": session_id, "status": "Deleted"})

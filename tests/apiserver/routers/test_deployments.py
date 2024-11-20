@@ -207,5 +207,4 @@ def test_delete_session(http_client: TestClient, data_path: Path) -> None:
             "/deployments/test-deployment/sessions/delete/?session_id=42",
         )
         assert response.status_code == 200
-        assert response.json() == {"session_id": "42", "status": "Deleted"}
         deployment.client.core.sessions.delete.assert_called_with("42")
