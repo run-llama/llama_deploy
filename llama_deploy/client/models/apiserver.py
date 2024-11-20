@@ -10,12 +10,6 @@ from llama_deploy.types.core import SessionDefinition, TaskDefinition, TaskResul
 from .model import Collection, Model
 
 
-class Session(Model):
-    """A model representing a session."""
-
-    pass
-
-
 class SessionCollection(Collection):
     """A model representing a collection of session for a given deployment."""
 
@@ -40,7 +34,7 @@ class SessionCollection(Collection):
             timeout=self.client.timeout,
         )
 
-    async def create(self) -> Session:
+    async def create(self) -> SessionDefinition:
         """"""
         create_url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/sessions/create"
 
@@ -51,12 +45,9 @@ class SessionCollection(Collection):
             timeout=self.client.timeout,
         )
 
-        session_def = SessionDefinition(**r.json())
+        return SessionDefinition(**r.json())
 
-        model_class = self._prepare(Session)
-        return model_class(client=self.client, id=session_def.session_id)
-
-    async def list(self) -> list[Session]:  # type: ignore
+    async def list(self) -> list[SessionDefinition]:
         """Returns a collection of all the sessions in the given deployment."""
         sessions_url = (
             f"{self.client.api_server_url}/deployments/{self.deployment_id}/sessions"
@@ -67,12 +58,8 @@ class SessionCollection(Collection):
             verify=not self.client.disable_ssl,
             timeout=self.client.timeout,
         )
-        model_class = self._prepare(Session)
-        items = [
-            model_class(client=self.client, id=session_def.session_id)
-            for session_def in r.json()
-        ]
-        return items
+
+        return r.json()
 
 
 class Task(Model):
@@ -163,13 +150,11 @@ class TaskCollection(Collection):
             session_id=response_fields["session_id"],
         )
 
-
-class Deployment(Model):
-    """A model representing a deployment."""
-
-    async def tasks(self) -> TaskCollection:
-        """Returns a collection of tasks from all the sessions in the given deployment."""
-        tasks_url = f"{self.client.api_server_url}/deployments/{self.id}/tasks"
+    async def list(self) -> list[Task]:
+        """Returns the list of tasks from this collection."""
+        tasks_url = (
+            f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks"
+        )
         r = await self.client.request(
             "GET",
             tasks_url,
@@ -182,29 +167,32 @@ class Deployment(Model):
                 client=self.client,
                 id=task_def.task_id,
                 session_id=task_def.session_id,
-                deployment_id=self.id,
+                deployment_id=self.deployment_id,
             )
             for task_def in r.json()
         }
         model_class = self._prepare(TaskCollection)
-        return model_class(client=self.client, deployment_id=self.id, items=items)
-
-    async def sessions(self) -> SessionCollection:
-        """Returns a collection of all the sessions in the given deployment."""
-        sessions_url = f"{self.client.api_server_url}/deployments/{self.id}/sessions"
-        r = await self.client.request(
-            "GET",
-            sessions_url,
-            verify=not self.client.disable_ssl,
-            timeout=self.client.timeout,
+        return model_class(
+            client=self.client, deployment_id=self.deployment_id, items=items
         )
-        model_class = self._prepare(Session)
-        items = {
-            "id": model_class(client=self.client, id=session_def.session_id)
-            for session_def in r.json()
-        }
+
+
+class Deployment(Model):
+    """A model representing a deployment."""
+
+    @property
+    def tasks(self) -> TaskCollection:
+        """Returns a collection of tasks from all the sessions in the given deployment."""
+
+        model_class = self._prepare(TaskCollection)
+        return model_class(client=self.client, deployment_id=self.id, items={})
+
+    @property
+    def sessions(self) -> SessionCollection:
+        """Returns a collection of all the sessions in the given deployment."""
+
         coll_model_class = self._prepare(SessionCollection)
-        return coll_model_class(client=self.client, deployment_id=self.id, items=items)
+        return coll_model_class(client=self.client, deployment_id=self.id, items={})
 
 
 class DeploymentCollection(Collection):

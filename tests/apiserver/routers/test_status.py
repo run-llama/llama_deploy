@@ -7,5 +7,6 @@ def test_read_main(http_client: TestClient) -> None:
     assert response.json() == {
         "max_deployments": 10,
         "deployments": [],
-        "status": "Up!",
+        "status": "Healthy",
+        "status_message": "",
     }
