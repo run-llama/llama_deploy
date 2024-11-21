@@ -11,7 +11,7 @@ pip install solace-pubsubplus
 ```
 
 #### Verification
-Open the PubSub+ interface in your browser. If you’re running PubSub+ locally, go to http://localhost:8080. Use ‘admin’ for both the username and password. Once the dashboard loads, click on ‘Try Me’ from the left-side menu. Then, subscribe to the 'hello_workflow', 'ping_workflow' and 'control_plane' topics to monitor events.
+Open the PubSub+ interface in your browser. If you’re running PubSub+ locally, go to http://localhost:8080. Use ‘admin’ for both the username and password. Once the dashboard loads, click on ‘Try Me’ from the left-side menu. Then, subscribe to the 'llama_deploy.hello_workflow', 'llama_deploy.ping_workflow' and 'llama_deploy.control_plane' topics to monitor events.
 
 ## Run
 Deploy the core on a terminal.
