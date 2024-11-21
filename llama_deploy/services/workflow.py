@@ -68,9 +68,7 @@ class WorkflowState(BaseModel):
     hash: Optional[int] = Field(
         default=None, description="Hash of the context, if any."
     )
-    state: Optional[dict] = Field(
-        default_factory=dict, description="Pickled state, if any."
-    )
+    state: dict = Field(default_factory=dict, description="Pickled state, if any.")
     run_kwargs: Dict[str, Any] = Field(
         default_factory=dict, description="Run kwargs needed to run the workflow."
     )

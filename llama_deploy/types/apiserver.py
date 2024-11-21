@@ -14,3 +14,7 @@ class Status(BaseModel):
     status_message: str
     max_deployments: int | None = None
     deployments: list[str] | None = None
+
+
+class DeploymentDefinition(BaseModel):
+    name: str
