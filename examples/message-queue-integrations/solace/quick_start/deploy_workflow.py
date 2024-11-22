@@ -15,8 +15,10 @@ from llama_index.core.workflow import (
     step,
 )
 
+
 class ProgressEvent(Event):
     progress: str
+
 
 # create a dummy workflow
 class PingWorkflow(Workflow):
@@ -28,12 +30,11 @@ class PingWorkflow(Workflow):
 
         # stream events as steps run
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        ctx.write_event_to_stream(
-            ProgressEvent(progress=f"{current_time}: Ping Ping!")
-        )
+        ctx.write_event_to_stream(ProgressEvent(progress=f"{current_time}: Ping Ping!"))
 
         return StopEvent(result=result)
-    
+
+
 # create a dummy workflow
 class HelloWorkflow(Workflow):
     @step()
@@ -43,19 +44,19 @@ class HelloWorkflow(Workflow):
         result = arg1 + "_result"
 
         # stream events as steps run
-        ctx.write_event_to_stream(
-            ProgressEvent(progress="Hello!")
-        )
+        ctx.write_event_to_stream(ProgressEvent(progress="Hello!"))
 
         return StopEvent(result=result)
 
+
 def load_env():
     # Load environment variables from .env.solace file
-    dotenv_path = find_dotenv('.env.solace')
+    dotenv_path = find_dotenv(".env.solace")
     if not dotenv_path:
-        raise FileNotFoundError('.env.solace file not found')
-    
+        raise FileNotFoundError(".env.solace file not found")
+
     load_dotenv(dotenv_path)
+
 
 async def main():
     flow1 = deploy_workflow(
@@ -76,6 +77,7 @@ async def main():
 
     # Run both tasks concurrently
     await asyncio.gather(flow1, flow2)
+
 
 if __name__ == "__main__":
     load_env()

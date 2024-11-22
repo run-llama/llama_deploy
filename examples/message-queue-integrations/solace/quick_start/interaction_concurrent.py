@@ -7,6 +7,7 @@ ITERATION_COUNT = 3
 # Points to deployed control plane
 client = LlamaDeployClient(ControlPlaneConfig())
 
+
 def run_workflow(workflow_name: str):
     """Function to run the workflow in a separate thread."""
     # Create a session
@@ -18,8 +19,9 @@ def run_workflow(workflow_name: str):
     print(f"task_id for {workflow_name}:", task_id)
     for event in session.get_task_result_stream(task_id):
         print(f"task result for {workflow_name}:", event)
-    
+
     print(f"Done with {workflow_name}")
+
 
 # Create and start threads for each workflow
 threads = []

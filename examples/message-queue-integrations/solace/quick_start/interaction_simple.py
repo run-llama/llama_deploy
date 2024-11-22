@@ -19,7 +19,7 @@ for _ in range(ITERATION_COUNT):
     print("task_id:", task_id)
     for event in session.get_task_result_stream(task_id):
         print("task result:", event)
-    
+
     time.sleep(SLEEP_TIME)
-    
+
 print("Done")

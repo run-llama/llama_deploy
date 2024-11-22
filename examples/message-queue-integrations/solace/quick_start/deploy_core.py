@@ -6,13 +6,15 @@ from llama_deploy.deploy.deploy import (
     SolaceMessageQueueConfig,
 )
 
+
 def load_env():
     # Load environment variables from .env.solace file
-    dotenv_path = find_dotenv('.env.solace')
+    dotenv_path = find_dotenv(".env.solace")
     if not dotenv_path:
-        raise FileNotFoundError('.env.solace file not found')
-    
+        raise FileNotFoundError(".env.solace file not found")
+
     load_dotenv(dotenv_path)
+
 
 async def main():
     await deploy_core(
@@ -20,7 +22,9 @@ async def main():
         message_queue_config=SolaceMessageQueueConfig(),
     )
 
+
 if __name__ == "__main__":
     import asyncio
+
     load_env()
     asyncio.run(main())
