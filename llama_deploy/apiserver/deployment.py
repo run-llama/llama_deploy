@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from llama_deploy import (
-    AsyncLlamaDeployClient,
+    Client,
     ControlPlaneServer,
     SimpleMessageQueue,
     SimpleOrchestrator,
@@ -62,7 +62,7 @@ class Deployment:
             config=config.control_plane,
         )
         self._workflow_services: list[WorkflowService] = self._load_services(config)
-        self._client = AsyncLlamaDeployClient(config.control_plane)
+        self._client = Client(control_plane_url=config.control_plane.url)
         self._default_service = config.default_service
 
     @property
@@ -70,7 +70,7 @@ class Deployment:
         return self._default_service
 
     @property
-    def client(self) -> AsyncLlamaDeployClient:
+    def client(self) -> Client:
         """Returns an async client to interact with this deployment."""
         return self._client
 

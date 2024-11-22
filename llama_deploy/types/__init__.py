@@ -1,3 +1,4 @@
+from .apiserver import DeploymentDefinition, Status, StatusEnum
 from .core import (
     CONTROL_PLANE_NAME,
     ActionTypes,
@@ -34,4 +35,7 @@ __all__ = [
     "ToolCallBundle",
     "ToolCallResult",
     "generate_id",
+    "DeploymentDefinition",
+    "Status",
+    "StatusEnum",
 ]
