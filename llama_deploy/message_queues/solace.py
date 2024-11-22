@@ -1,6 +1,5 @@
 """Solace Message Queue."""
 
-import os
 import asyncio
 import json
 import time
@@ -15,15 +14,9 @@ from llama_deploy.message_queues.base import BaseMessageQueue
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer, StartConsumingCallable
 
-from solace.messaging.errors.pubsubplus_client_error import PubSubPlusClientError, IllegalStateError
-from solace.messaging.resources.topic_subscription import TopicSubscription
-from solace.messaging.resources.topic import Topic
 from solace.messaging.publisher.persistent_message_publisher import MessagePublishReceiptListener
 from solace.messaging.receiver.message_receiver import MessageHandler
-from solace.messaging.config.retry_strategy import RetryStrategy
 from solace.messaging.messaging_service import MessagingService
-from solace.messaging.resources.queue import Queue
-from solace.messaging.config.missing_resources_creation_configuration import MissingResourcesCreationStrategy
 from solace.messaging.receiver.persistent_message_receiver import PersistentMessageReceiver
 from solace.messaging.publisher.persistent_message_publisher import PersistentMessagePublisher
 
@@ -95,8 +88,14 @@ class SolaceMessageQueueConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="SOLACE_")
     type: Literal["solace"] = Field(default="solace", exclude=True)
+    host: str = Field(default="")
+    vpn_name: str = Field(default="")
+    username: str = Field(default="")
+    password: str = Field(default="")
+    host_secured: str = Field(default="")
+    is_queue_temporary: bool = Field(default=True)
 
-    def get_properties() -> dict:
+    def get_properties(self) -> dict:
         """Reads Solace PubSub+ properties from environment variables."""
         HOST = "solace.messaging.transport.host"
         VPN_NAME = "solace.messaging.service.vpn-name"
@@ -106,19 +105,13 @@ class SolaceMessageQueueConfig(BaseSettings):
         IS_QUEUE_TEMPORARY = "IS_QUEUE_TEMPORARY"
 
         broker_properties = {
-            HOST: os.getenv("SOLACE_HOST"),
-            VPN_NAME: os.getenv("SOLACE_VPN_NAME"),
-            USER_NAME: os.getenv("SOLACE_USERNAME"),
-            PASSWORD: os.getenv("SOLACE_PASSWORD"),
-            HOST_SECURED: os.getenv("SOLACE_HOST_SECURED"),
-            IS_QUEUE_TEMPORARY: os.getenv("SOLACE_IS_QUEUE_TEMPORARY").lower()
-            in ["true", "1", "yes"],
+            HOST: self.host,
+            VPN_NAME: self.vpn_name,
+            USER_NAME: self.username,
+            PASSWORD: self.password,
+            HOST_SECURED: self.host_secured,
+            IS_QUEUE_TEMPORARY: self.is_queue_temporary in ["true", "1", "yes"],
         }
-
-        # Check for missing environment variables and log warnings
-        for key, value in broker_properties.items():
-            if value is None:
-                logger.warning(f"Missing required Solace PubSub+ properties: {key}")
 
         logger.info(
             f"\n\n********************************BROKER PROPERTIES**********************************************"
@@ -145,7 +138,17 @@ class SolaceMessageQueue(BaseMessageQueue):
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the Solace message queue."""
         super().__init__()
-        self.broker_properties = SolaceMessageQueueConfig.get_properties()
+
+        try:
+            from solace.messaging.config.retry_strategy import RetryStrategy
+            from solace.messaging.messaging_service import MessagingService
+        except ImportError:
+            raise ValueError(
+                "Missing `solace` package. Please install by running `pip install llama-deploy[solace]`."
+            )
+
+        config = SolaceMessageQueueConfig(**kwargs)
+        self.broker_properties = config.get_properties()
         self.messaging_service = (
             MessagingService.builder()
             .from_properties(self.broker_properties)
@@ -162,6 +165,14 @@ class SolaceMessageQueue(BaseMessageQueue):
 
     async def _establish_connection(self) -> "Connection":
         """Establish and return a new connection to the Solace server."""
+
+        try:
+            from solace.messaging.errors.pubsubplus_client_error import PubSubPlusClientError
+        except ImportError:
+            raise ValueError(
+                "Missing `solace` package. Please install by running `pip install llama-deploy[solace]`."
+            )
+
         try:
             logger.info("Establishing connection to Solace server")
             connect = self.messaging_service.connect()
@@ -185,6 +196,13 @@ class SolaceMessageQueue(BaseMessageQueue):
 
     async def _publish(self, message: QueueMessage, topic: str) -> None:
         """Publish message to the queue."""
+        try:
+            from solace.messaging.resources.topic import Topic
+        except ImportError:
+            raise ValueError(
+                "Missing `solace` package. Please install by running `pip install llama-deploy[solace]`."
+            )
+
         if not self.is_connected():
             await self._establish_connection()
 
@@ -217,6 +235,15 @@ class SolaceMessageQueue(BaseMessageQueue):
 
     def bind_to_queue(self, subscriptions: list = None) -> None:
         """Bind to a queue and subscribe to topics."""
+        try:
+            from solace.messaging.errors.pubsubplus_client_error import PubSubPlusClientError
+            from solace.messaging.config.missing_resources_creation_configuration import MissingResourcesCreationStrategy
+            from solace.messaging.resources.queue import Queue
+        except ImportError:
+            raise ValueError(
+                "Missing `solace` package. Please install by running `pip install llama-deploy[solace]`."
+            )
+
         if subscriptions is None:
             return
         queue_name = QUEUE_TEMPLATE.substitute(iteration=subscriptions[0])
@@ -263,6 +290,14 @@ class SolaceMessageQueue(BaseMessageQueue):
         self, consumer: BaseMessageQueueConsumer, topic: str | None = None
     ) -> StartConsumingCallable:
         """Register a new consumer."""
+        try:
+            from solace.messaging.errors.pubsubplus_client_error import PubSubPlusClientError, IllegalStateError
+            from solace.messaging.resources.topic_subscription import TopicSubscription
+        except ImportError:
+            raise ValueError(
+                "Missing `solace` package. Please install by running `pip install llama-deploy[solace]`."
+            )
+
         consumer_subscription = topic
         subscriptions = [TopicSubscription.of(consumer_subscription)]
 
@@ -286,6 +321,13 @@ class SolaceMessageQueue(BaseMessageQueue):
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> None:
         """Deregister a consumer."""
+        try:
+            from solace.messaging.resources.topic_subscription import TopicSubscription
+        except ImportError:
+            raise ValueError(
+                "Missing `solace` package. Please install by running `pip install llama-deploy[solace]`."
+            )
+
         consumer_subscription = consumer.message_type
         topics = [TopicSubscription.of(consumer_subscription)]
 

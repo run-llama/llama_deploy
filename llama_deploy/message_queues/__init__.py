@@ -14,7 +14,7 @@ from llama_deploy.message_queues.simple import (
     SimpleMessageQueueConfig,
     SimpleRemoteClientMessageQueue,
 )
-from llama_deploy.message_queues.solace.solace import SolaceMessageQueue, SolaceMessageQueueConfig
+from llama_deploy.message_queues.solace import SolaceMessageQueue, SolaceMessageQueueConfig
 
 __all__ = [
     "AbstractMessageQueue",

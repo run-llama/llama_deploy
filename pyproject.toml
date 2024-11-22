@@ -57,7 +57,7 @@ kafka = ["aiokafka", "kafka-python-ng"]
 rabbitmq = ["aio-pika"]
 redis = ["redis"]
 awssqs = ["aiobotocore", "types-aiobotocore"]
-solace-pubsubplus = ["solace-pubsubplus"]
+solace = ["solace-pubsubplus"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.2"
@@ -74,7 +74,6 @@ coverage = "^7.6.0"
 aiokafka = "^0.11.0"
 kafka-python-ng = "^2.2.2"
 aiobotocore = "^2.14.0"
-python-dotenv = "^1.0.1"
 types-aiobotocore = {version = "^2.14.0", extras = ["sqs", "sns"]}
 
 [tool.poetry.scripts]
