@@ -30,6 +30,4 @@ __all__ = [
     "SimpleRemoteClientMessageQueue",
     "AWSMessageQueue",
     "AWSMessageQueueConfig",
-    "SolaceMessageQueue",
-    "SolaceMessageQueueConfig",
 ]
