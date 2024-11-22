@@ -12,17 +12,27 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llama_deploy.message_queues.base import BaseMessageQueue
 from llama_deploy.messages.base import QueueMessage
-from llama_deploy.message_consumers.base import BaseMessageQueueConsumer, StartConsumingCallable
+from llama_deploy.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+)
 
-from solace.messaging.publisher.persistent_message_publisher import MessagePublishReceiptListener
+from solace.messaging.publisher.persistent_message_publisher import (
+    MessagePublishReceiptListener,
+)
 from solace.messaging.receiver.message_receiver import MessageHandler
 from solace.messaging.messaging_service import MessagingService
-from solace.messaging.receiver.persistent_message_receiver import PersistentMessageReceiver
-from solace.messaging.publisher.persistent_message_publisher import PersistentMessagePublisher
+from solace.messaging.receiver.persistent_message_receiver import (
+    PersistentMessageReceiver,
+)
+from solace.messaging.publisher.persistent_message_publisher import (
+    PersistentMessagePublisher,
+)
 
 if TYPE_CHECKING:
     from solace.messaging.receiver.message_receiver import InboundMessage
-
+    from solace.messaging.publisher.persistent_message_publisher import PublishReceipt
+    from solace.messaging.connections.connectable import Connectable
 
 # Constants
 MAX_SLEEP = 10
@@ -35,10 +45,10 @@ logger = getLogger(__name__)
 class MessagePublishReceiptListenerImpl(MessagePublishReceiptListener):
     """Message publish receipt listener for Solace message queue."""
 
-    def __init__(self, callback=None):
+    def __init__(self, callback: Any = None) -> None:
         self.callback = callback
 
-    def on_publish_receipt(self, publish_receipt: "PublishReceipt"):
+    def on_publish_receipt(self, publish_receipt: "PublishReceipt") -> None:
         if publish_receipt.user_context:
             logger.info(
                 f"\tUser context received: {publish_receipt.user_context.get_custom_message}"
@@ -50,11 +60,15 @@ class MessagePublishReceiptListenerImpl(MessagePublishReceiptListener):
 class MessageHandlerImpl(MessageHandler):
     """Message handler for Solace message queue."""
 
-    def __init__(self, consumer: BaseMessageQueueConsumer, receiver=None):
+    def __init__(
+        self,
+        consumer: BaseMessageQueueConsumer,
+        receiver: PersistentMessageReceiver = None,
+    ) -> None:
         self._consumer = consumer
         self._receiver = receiver
 
-    def on_message(self, message: "InboundMessage"):
+    def on_message(self, message: "InboundMessage") -> None:
         try:
             topic = message.get_destination_name()
             payload_as_string = message.get_payload_as_string()
@@ -132,7 +146,7 @@ class SolaceMessageQueue(BaseMessageQueue):
     messaging_service: MessagingService = None
     publisher: PersistentMessagePublisher = None
     persistent_receiver: PersistentMessageReceiver = None
-    broker_properties: dict = None
+    broker_properties: dict = {}
     is_queue_temporary: bool = True
 
     def __init__(self, **kwargs: Any) -> None:
@@ -157,17 +171,19 @@ class SolaceMessageQueue(BaseMessageQueue):
             )
             .build()
         )
-        self.is_queue_temporary = self.broker_properties.get("IS_QUEUE_TEMPORARY")
+        self.is_queue_temporary = bool(self.broker_properties.get("IS_QUEUE_TEMPORARY"))
         logger.info("Solace Messaging Service created")
 
     def __del__(self) -> None:
         self.disconnect()
 
-    async def _establish_connection(self) -> "Connection":
+    async def _establish_connection(self) -> "Connectable":
         """Establish and return a new connection to the Solace server."""
 
         try:
-            from solace.messaging.errors.pubsubplus_client_error import PubSubPlusClientError
+            from solace.messaging.errors.pubsubplus_client_error import (
+                PubSubPlusClientError,
+            )
         except ImportError:
             raise ValueError(
                 "Missing `solace` package. Please install by running `pip install llama-deploy[solace]`."
@@ -178,9 +194,7 @@ class SolaceMessageQueue(BaseMessageQueue):
             connect = self.messaging_service.connect()
 
             # Create a publisher
-            self.publisher = (
-                self.messaging_service.create_persistent_message_publisher_builder().build()
-            )
+            self.publisher = self.messaging_service.create_persistent_message_publisher_builder().build()
             self.publisher.start()
 
             publish_receipt_listener = MessagePublishReceiptListenerImpl()
@@ -233,11 +247,15 @@ class SolaceMessageQueue(BaseMessageQueue):
         """Check if the Solace server is connected."""
         return self.messaging_service.is_connected
 
-    def bind_to_queue(self, subscriptions: list = None) -> None:
+    def bind_to_queue(self, subscriptions: list = []) -> None:
         """Bind to a queue and subscribe to topics."""
         try:
-            from solace.messaging.errors.pubsubplus_client_error import PubSubPlusClientError
-            from solace.messaging.config.missing_resources_creation_configuration import MissingResourcesCreationStrategy
+            from solace.messaging.errors.pubsubplus_client_error import (
+                PubSubPlusClientError,
+            )
+            from solace.messaging.config.missing_resources_creation_configuration import (
+                MissingResourcesCreationStrategy,
+            )
             from solace.messaging.resources.queue import Queue
         except ImportError:
             raise ValueError(
@@ -291,7 +309,10 @@ class SolaceMessageQueue(BaseMessageQueue):
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         try:
-            from solace.messaging.errors.pubsubplus_client_error import PubSubPlusClientError, IllegalStateError
+            from solace.messaging.errors.pubsubplus_client_error import (
+                PubSubPlusClientError,
+                IllegalStateError,
+            )
             from solace.messaging.resources.topic_subscription import TopicSubscription
         except ImportError:
             raise ValueError(
