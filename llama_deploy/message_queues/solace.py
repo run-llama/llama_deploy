@@ -124,7 +124,7 @@ class SolaceMessageQueueConfig(BaseSettings):
             USER_NAME: self.username,
             PASSWORD: self.password,
             HOST_SECURED: self.host_secured,
-            IS_QUEUE_TEMPORARY: self.is_queue_temporary in ["true", "1", "yes"],
+            IS_QUEUE_TEMPORARY: self.is_queue_temporary,
         }
 
         logger.info(
