@@ -21,6 +21,13 @@ if TYPE_CHECKING:
     from solace.messaging.receiver.message_receiver import InboundMessage
     from solace.messaging.publisher.persistent_message_publisher import PublishReceipt
     from solace.messaging.connections.connectable import Connectable
+    from solace.messaging.messaging_service import MessagingService
+    from solace.messaging.receiver.persistent_message_receiver import (
+        PersistentMessageReceiver,
+    )
+    from solace.messaging.publisher.persistent_message_publisher import (
+        PersistentMessagePublisher,
+    )
 
 # Constants
 MAX_SLEEP = 10
@@ -149,9 +156,9 @@ class SolaceMessageQueueConfig(BaseSettings):
 class SolaceMessageQueue(BaseMessageQueue):
     """Solace PubSub+ Message Queue."""
 
-    messaging_service: MessagingService = None
-    publisher: PersistentMessagePublisher = None
-    persistent_receiver: PersistentMessageReceiver = None
+    messaging_service: "MessagingService" = None
+    publisher: "PersistentMessagePublisher" = None
+    persistent_receiver: "PersistentMessageReceiver" = None
     broker_properties: dict = {}
     is_queue_temporary: bool = True
 
