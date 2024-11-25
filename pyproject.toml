@@ -48,7 +48,7 @@ types-aiobotocore = {version = "^2.14.0", optional = true, extras = [
   "sns"
 ]}
 gitpython = "^3.1.43"
-python-multipart = "^0.0.10"
+python-multipart = "^0.0.9"
 typing_extensions = "^4.0.0"
 asgiref = "^3.8.1"
 
