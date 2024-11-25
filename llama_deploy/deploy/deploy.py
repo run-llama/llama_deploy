@@ -21,6 +21,8 @@ from llama_deploy.message_queues import (
     RedisMessageQueueConfig,
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
+    SolaceMessageQueue,
+    SolaceMessageQueueConfig,
 )
 from llama_deploy.message_queues.simple import SimpleRemoteClientMessageQueue
 from llama_deploy.orchestrators.simple import (
@@ -56,6 +58,8 @@ def _get_message_queue_config(config_dict: dict) -> BaseSettings:
         return RabbitMQMessageQueueConfig(**config_dict[key])
     elif key == RedisMessageQueueConfig.__name__:
         return RedisMessageQueueConfig(**config_dict[key])
+    elif key == SolaceMessageQueueConfig.__name__:
+        return SolaceMessageQueueConfig(**config_dict[key])
     else:
         raise ValueError(f"Unknown message queue: {key}")
 
@@ -74,6 +78,10 @@ def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
         )
     elif isinstance(config, RedisMessageQueueConfig):
         return RedisMessageQueue(
+            **config.model_dump(),
+        )
+    elif isinstance(config, SolaceMessageQueueConfig):
+        return SolaceMessageQueue(
             **config.model_dump(),
         )
     else:

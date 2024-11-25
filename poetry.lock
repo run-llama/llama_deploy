@@ -2167,6 +2167,21 @@ files = [
 ]
 
 [[package]]
+name = "solace-pubsubplus"
+version = "1.9.0"
+description = "Solace PubSub+ Messaging API for Python."
+optional = false
+python-versions = ">=3.6"
+files = [
+    {file = "solace_pubsubplus-1.9.0-py36-none-macosx_11_0_universal2.whl", hash = "sha256:68b2893a876c41b0eeec8fa96a2edec0f556b6f8d992db322a44eb6516912f93"},
+    {file = "solace_pubsubplus-1.9.0-py36-none-manylinux_2_12_x86_64.whl", hash = "sha256:4eebb9635f1518a3836f31cf955961790830218d4ccca32ef2c389225fed2ea4"},
+    {file = "solace_pubsubplus-1.9.0-py36-none-manylinux_2_17_aarch64.whl", hash = "sha256:7925960f6f4cc2abf09d9fd69791cafa36b8483bdaddd79a8573b02b322170d4"},
+    {file = "solace_pubsubplus-1.9.0-py36-none-musllinux_1_2_x86_64.whl", hash = "sha256:fc4d5029068552446e94083ce8465638f3ad0fd89e8b1d07fabf4faa3a896c36"},
+    {file = "solace_pubsubplus-1.9.0-py36-none-win32.whl", hash = "sha256:07920b16a1cc5d0faa5d8c538054ec3924b00aff653dd1c43501ca9d7439a4f7"},
+    {file = "solace_pubsubplus-1.9.0-py36-none-win_amd64.whl", hash = "sha256:5a60eb95536b890e83479e130376bb6851ea0f645692ae9c726b1bb88f0beacb"},
+]
+
+[[package]]
 name = "sqlalchemy"
 version = "2.0.36"
 description = "Database Abstraction Library"
@@ -2308,6 +2323,7 @@ files = [
     {file = "tiktoken-0.8.0-cp310-cp310-win_amd64.whl", hash = "sha256:d8c2d0e5ba6453a290b86cd65fc51fedf247e1ba170191715b049dac1f628005"},
     {file = "tiktoken-0.8.0-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:d622d8011e6d6f239297efa42a2657043aaed06c4f68833550cac9e9bc723ef1"},
     {file = "tiktoken-0.8.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:2efaf6199717b4485031b4d6edb94075e4d79177a172f38dd934d911b588d54a"},
+    {file = "tiktoken-0.8.0-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:5637e425ce1fc49cf716d88df3092048359a4b3bbb7da762840426e937ada06d"},
     {file = "tiktoken-0.8.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:9fb0e352d1dbe15aba082883058b3cce9e48d33101bdaac1eccf66424feb5b47"},
     {file = "tiktoken-0.8.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:56edfefe896c8f10aba372ab5706b9e3558e78db39dd497c940b47bf228bc419"},
     {file = "tiktoken-0.8.0-cp311-cp311-win_amd64.whl", hash = "sha256:326624128590def898775b722ccc327e90b073714227175ea8febbc920ac0a99"},
@@ -3060,8 +3076,9 @@ awssqs = ["aiobotocore", "types-aiobotocore"]
 kafka = ["aiokafka", "kafka-python-ng"]
 rabbitmq = ["aio-pika"]
 redis = ["redis"]
+solace = ["solace-pubsubplus"]
 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "5612fc23bd1c12850c72dae5f0f66cf06948e825d119c5e0da63c5826527e115"
+content-hash = "8e9c8b103efe747640d3820e7c4a3010136e91e8605e24f853f3797c5ffa579c"

@@ -21,6 +21,7 @@ from llama_deploy.message_queues import (
     KafkaMessageQueue,
     RabbitMQMessageQueue,
     RedisMessageQueue,
+    SolaceMessageQueue,
     SimpleMessageQueueConfig,
 )
 
@@ -215,6 +216,8 @@ class Deployment:
         elif cfg.type == "simple":
             self._simple_message_queue = SimpleMessageQueue(**cfg.model_dump())
             return self._simple_message_queue.client
+        elif cfg.type == "solace":
+            return SolaceMessageQueue(**cfg.model_dump())
         else:
             msg = f"Unsupported message queue: {cfg.type}"
             raise ValueError(msg)

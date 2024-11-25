@@ -8,6 +8,7 @@ from llama_deploy.message_queues.simple import SimpleMessageQueueConfig
 from llama_deploy.message_queues.rabbitmq import RabbitMQMessageQueueConfig
 from llama_deploy.message_queues.redis import RedisMessageQueueConfig
 from llama_deploy.message_queues.aws import AWSMessageQueueConfig
+from llama_deploy.message_queues.solace import SolaceMessageQueueConfig
 
 
 control_plane_config = ControlPlaneConfig()
@@ -18,6 +19,7 @@ message_queue_configs = {
     "redis": RedisMessageQueueConfig,
     "aws": AWSMessageQueueConfig,
     "simple": SimpleMessageQueueConfig,
+    "solace": SolaceMessageQueueConfig,
 }
 
 
@@ -28,7 +30,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-q",
         "--message-queue",
-        choices=["rabbitmq", "simple", "kafka", "redis", "aws"],
+        choices=["rabbitmq", "simple", "kafka", "redis", "aws", "solace"],
         default="simple",
         type=str,
         help="The message queue to use.",

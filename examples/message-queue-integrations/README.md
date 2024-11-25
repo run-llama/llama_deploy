@@ -52,6 +52,9 @@ docker compose -f ./rabbitmq/docker/docker-compose.yml --project-directory ./ up
 
 # redis
 docker compose -f ./redis/docker/docker-compose.yml --project-directory ./ up --build -d
+
+# solace
+docker compose -f ./solace/docker/docker-compose.yml --project-directory ./ up --build -d
 ```
 
 NOTE: In a real-world app, you would only use one of these message queues. So, in
