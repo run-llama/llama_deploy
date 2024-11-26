@@ -27,7 +27,7 @@ Message received: Hello!
 ```
 
 To be able to run the workflow above within Llama Deploy, a deployment must be defined in YAML format. This is the code
-you'll find in the file `deployment.yml` from the current folder, with comments to the relevant bits:
+you'll find in the file `quick_start.yml` from the current folder, with comments to the relevant bits:
 
 ```yaml
 name: QuickStart
@@ -70,7 +70,7 @@ INFO:     Uvicorn running on http://0.0.0.0:4501 (Press CTRL+C to quit)
 From another shell, use the CLI, `llamactl`, to create the deployment:
 
 ```
-$ llamactl deploy deployment.yml
+$ llamactl deploy quick_start.yml
 Deployment successful: QuickStart
 ```
 
