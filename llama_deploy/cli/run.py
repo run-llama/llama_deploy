@@ -36,7 +36,8 @@ def run(
         payload["agent_id"] = service
 
     try:
-        result = client.sync.apiserver.deployments.tasks.run(TaskDefinition(**payload))
+        d = client.sync.apiserver.deployments.get(deployment)
+        result = d.tasks.run(TaskDefinition(**payload))
     except Exception as e:
         raise click.ClickException(str(e))
 
