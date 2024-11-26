@@ -12,14 +12,11 @@ from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
-from llama_deploy.message_queues.base import (
-    BaseMessageQueue,
-)
+from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
 
 if TYPE_CHECKING:
-    from aio_pika import Channel, Connection, IncomingMessage, Queue
-    from aio_pika.abc import AbstractIncomingMessage
+    from aio_pika import Connection
 
 logger = getLogger(__name__)
 
@@ -56,6 +53,7 @@ class RabbitMQMessageQueueConfig(BaseSettings):
 async def _establish_connection(url: str) -> "Connection":
     try:
         import aio_pika
+        from aio_pika import Connection
     except ImportError:
         raise ValueError(
             "Missing pika optional dep. Please install by running `pip install llama-deploy[rabbimq]`."
@@ -63,7 +61,7 @@ async def _establish_connection(url: str) -> "Connection":
     return cast(Connection, await aio_pika.connect(url))
 
 
-class RabbitMQMessageQueue(BaseMessageQueue):
+class RabbitMQMessageQueue(AbstractMessageQueue):
     """RabbitMQ integration with aio-pika client.
 
     This class creates a Work (or Task) Queue. For more information on Work Queues
@@ -103,16 +101,14 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         ```
     """
 
-    url: str = DEFAULT_URL
-    exchange_name: str = DEFAULT_EXCHANGE_NAME
-
     def __init__(
         self,
+        config: RabbitMQMessageQueueConfig | None = None,
         url: str = DEFAULT_URL,
         exchange_name: str = DEFAULT_EXCHANGE_NAME,
         **kwargs: Any,
     ) -> None:
-        super().__init__(url=url, exchange_name=exchange_name)
+        self._config = config or RabbitMQMessageQueueConfig()
 
     @classmethod
     def from_url_params(
@@ -143,16 +139,16 @@ class RabbitMQMessageQueue(BaseMessageQueue):
                 url = f"amqp://{username}:{password}@{host}:{port}/{vhost}"
             else:
                 url = f"amqp://{username}:{password}@{host}/{vhost}"
-        if secure:
+        else:
             if port:
                 url = f"amqps://{username}:{password}@{host}:{port}/{vhost}"
             else:
                 url = f"amqps://{username}:{password}@{host}/{vhost}"
-        return cls(url=url, exchange_name=exchange_name)
+        return cls(RabbitMQMessageQueueConfig(url=url, exchange_name=exchange_name))
 
     async def new_connection(self) -> "Connection":
         """Returns a new connection to the RabbitMQ server."""
-        return await _establish_connection(self.url)
+        return await _establish_connection(self._config.url)
 
     async def _publish(self, message: QueueMessage, topic: str) -> Any:
         """Publish message to the queue."""
@@ -160,12 +156,12 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         from aio_pika import Message as AioPikaMessage
 
         message_type_str = message.type
-        connection = await _establish_connection(self.url)
+        connection = await _establish_connection(self._config.url)
 
         async with connection:
             channel = await connection.channel()
             exchange = await channel.declare_exchange(
-                self.exchange_name,
+                self._config.exchange_name,
                 ExchangeType.DIRECT,
             )
             message_body = json.dumps(message.model_dump()).encode("utf-8")
@@ -182,13 +178,14 @@ class RabbitMQMessageQueue(BaseMessageQueue):
         self, consumer: BaseMessageQueueConsumer, topic: str | None = None
     ) -> StartConsumingCallable:
         """Register a new consumer."""
-        from aio_pika import ExchangeType
+        from aio_pika import Channel, ExchangeType, IncomingMessage, Queue
+        from aio_pika.abc import AbstractIncomingMessage
 
-        connection = await _establish_connection(self.url)
+        connection = await _establish_connection(self._config.url)
         async with connection:
             channel = cast(Channel, await connection.channel())
             exchange = await channel.declare_exchange(
-                self.exchange_name,
+                self._config.exchange_name,
                 ExchangeType.DIRECT,
             )
             queue = cast(Queue, await channel.declare_queue(name=consumer.message_type))
@@ -211,21 +208,18 @@ class RabbitMQMessageQueue(BaseMessageQueue):
                     queue_message = QueueMessage.model_validate(decoded_message)
                     await consumer.process_message(queue_message)
 
-            connection = await _establish_connection(self.url)
+            connection = await _establish_connection(self._config.url)
             async with connection:
                 channel = await connection.channel()
                 exchange = await channel.declare_exchange(
-                    self.exchange_name,
+                    self._config.exchange_name,
                     ExchangeType.DIRECT,
                 )
                 queue = cast(
                     Queue, await channel.declare_queue(name=consumer.message_type)
                 )
                 await queue.bind(exchange)
-
                 await queue.consume(on_message)
-
-                await asyncio.Future()
 
         return start_consuming_callable
 
@@ -267,9 +261,9 @@ class RabbitMQMessageQueue(BaseMessageQueue):
             channel = await connection.channel()
             for message_type in message_types:
                 await channel.queue_delete(queue_name=message_type)
-            await channel.exchange_delete(exchange_name=self.exchange_name)
+            await channel.exchange_delete(exchange_name=self._config.exchange_name)
 
     def as_config(self) -> BaseModel:
         return RabbitMQMessageQueueConfig(
-            url=self.url, exchange_name=self.exchange_name
+            url=self._config.url, exchange_name=self._config.exchange_name
         )
