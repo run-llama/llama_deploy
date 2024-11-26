@@ -8,10 +8,11 @@ from llama_deploy.types import TaskDefinition
 
 
 def test_run(runner: CliRunner) -> None:
-    mocked_result = mock.MagicMock(id="test_deployment")
     with mock.patch("llama_deploy.cli.run.Client") as mocked_client:
-        mocked_client.return_value.sync.apiserver.deployments.tasks.run.return_value = (
-            mocked_result
+        mocked_deployment = mock.MagicMock()
+        mocked_deployment.tasks.run.return_value = mock.MagicMock(id="test_deployment")
+        mocked_client.return_value.sync.apiserver.deployments.get.return_value = (
+            mocked_deployment
         )
 
         result = runner.invoke(
@@ -23,7 +24,7 @@ def test_run(runner: CliRunner) -> None:
             api_server_url="http://localhost:4501", disable_ssl=False, timeout=120.0
         )
 
-        args = mocked_client.return_value.sync.apiserver.deployments.tasks.run.call_args
+        args = mocked_deployment.tasks.run.call_args
         actual = args[0][0]
         expected = TaskDefinition(agent_id="service_name", input="{}")
         assert expected.input == actual.input
@@ -34,7 +35,7 @@ def test_run(runner: CliRunner) -> None:
 
 def test_run_error(runner: CliRunner) -> None:
     with mock.patch("llama_deploy.cli.run.Client") as mocked_client:
-        mocked_client.return_value.sync.apiserver.deployments.tasks.run.side_effect = (
+        mocked_client.return_value.sync.apiserver.deployments.get.side_effect = (
             httpx.HTTPStatusError(
                 "test error", response=mock.MagicMock(), request=mock.MagicMock()
             )
@@ -47,10 +48,11 @@ def test_run_error(runner: CliRunner) -> None:
 
 
 def test_run_args(runner: CliRunner) -> None:
-    mocked_result = mock.MagicMock(id="test_deployment")
     with mock.patch("llama_deploy.cli.run.Client") as mocked_client:
-        mocked_client.return_value.sync.apiserver.deployments.tasks.run.return_value = (
-            mocked_result
+        mocked_deployment = mock.MagicMock()
+        mocked_deployment.tasks.run.return_value = mock.MagicMock(id="test_deployment")
+        mocked_client.return_value.sync.apiserver.deployments.get.return_value = (
+            mocked_deployment
         )
 
         result = runner.invoke(
@@ -68,7 +70,7 @@ def test_run_args(runner: CliRunner) -> None:
             ],
         )
 
-        args = mocked_client.return_value.sync.apiserver.deployments.tasks.run.call_args
+        args = mocked_deployment.tasks.run.call_args
         actual = args[0][0]
         expected = TaskDefinition(
             input='{"first_arg": "first_value", "second_arg": "\\"second value with spaces\\""}',
