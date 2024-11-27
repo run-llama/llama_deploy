@@ -103,7 +103,7 @@ def test_deployment__load_message_queues(mocked_deployment: Deployment) -> None:
         mocked_config = mock.MagicMock(type="rabbitmq")
         mocked_config.model_dump.return_value = {"foo": "rabbitmq"}
         mocked_deployment._load_message_queue_client(mocked_config)
-        m.assert_called_with(**{"foo": "rabbitmq"})
+        m.assert_called_with(mocked_config)
 
     with mock.patch("llama_deploy.apiserver.deployment.RedisMessageQueue") as m:
         mocked_config = mock.MagicMock(type="redis")

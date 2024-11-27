@@ -4,7 +4,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from llama_deploy import QueueMessage
-from llama_deploy.message_queues.rabbitmq import RabbitMQMessageQueue
+from llama_deploy.message_queues.rabbitmq import (
+    RabbitMQMessageQueue,
+    RabbitMQMessageQueueConfig,
+)
 
 try:
     import aio_pika
@@ -17,12 +20,14 @@ except (ModuleNotFoundError, ImportError):
 def test_init() -> None:
     # arrange/act
     mq = RabbitMQMessageQueue(
-        url="amqp://guest:password@rabbitmq", exchange_name="test-exchange"
+        RabbitMQMessageQueueConfig(
+            url="amqp://guest:password@rabbitmq", exchange_name="test-exchange"
+        )
     )
 
     # assert
-    assert mq.url == "amqp://guest:password@rabbitmq"
-    assert mq.exchange_name == "test-exchange"
+    assert mq._config.url == "amqp://guest:password@rabbitmq"
+    assert mq._config.exchange_name == "test-exchange"
 
 
 def test_from_url_params() -> None:
@@ -43,8 +48,8 @@ def test_from_url_params() -> None:
     )
 
     # assert
-    assert mq.url == f"amqp://{username}:{password}@{host}/{vhost}"
-    assert mq.exchange_name == exchange_name
+    assert mq._config.url == f"amqp://{username}:{password}@{host}/{vhost}"
+    assert mq._config.exchange_name == exchange_name
 
 
 @pytest.mark.asyncio()

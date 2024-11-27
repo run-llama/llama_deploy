@@ -21,8 +21,8 @@ from llama_deploy.message_queues import (
     KafkaMessageQueue,
     RabbitMQMessageQueue,
     RedisMessageQueue,
-    SolaceMessageQueue,
     SimpleMessageQueueConfig,
+    SolaceMessageQueue,
 )
 
 from .config_parser import Config, MessageQueueConfig, Service, SourceType
@@ -210,7 +210,7 @@ class Deployment:
         elif cfg.type == "kafka":
             return KafkaMessageQueue(cfg)  # type: ignore
         elif cfg.type == "rabbitmq":
-            return RabbitMQMessageQueue(**cfg.model_dump())
+            return RabbitMQMessageQueue(cfg)  # type: ignore
         elif cfg.type == "redis":
             return RedisMessageQueue(**cfg.model_dump())
         elif cfg.type == "simple":
