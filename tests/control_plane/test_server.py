@@ -2,7 +2,7 @@ from unittest import mock
 
 import pytest
 
-from llama_deploy.control_plane import ControlPlaneServer
+from llama_deploy.control_plane import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.message_queues import SimpleMessageQueue
 
 
@@ -26,7 +26,7 @@ def test_control_plane_init_state_store() -> None:
         ControlPlaneServer(
             SimpleMessageQueue(),
             state_store=mocked_store,
-            state_store_uri="test/uri",
+            config=ControlPlaneConfig(state_store_uri="test/uri"),
         )
 
     cp = ControlPlaneServer(SimpleMessageQueue(), state_store=mocked_store)
@@ -35,5 +35,7 @@ def test_control_plane_init_state_store() -> None:
     with mock.patch(
         "llama_deploy.control_plane.server.parse_state_store_uri"
     ) as mocked_parse:
-        ControlPlaneServer(SimpleMessageQueue(), state_store_uri="test/uri")
+        ControlPlaneServer(
+            SimpleMessageQueue(), config=ControlPlaneConfig(state_store_uri="test/uri")
+        )
         mocked_parse.assert_called_with("test/uri")

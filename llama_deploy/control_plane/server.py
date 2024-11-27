@@ -84,24 +84,23 @@ class ControlPlaneServer(BaseControlPlane):
         orchestrator: BaseOrchestrator | None = None,
         publish_callback: PublishCallback | None = None,
         state_store: BaseKVStore | None = None,
-        state_store_uri: str | None = None,
         config: ControlPlaneConfig | None = None,
     ) -> None:
         self._orchestrator = orchestrator or SimpleOrchestrator(
             **SimpleOrchestratorConfig().model_dump()
         )
+        self._config = config or ControlPlaneConfig()
 
-        if state_store is not None and state_store_uri is not None:
+        if state_store is not None and self._config.state_store_uri is not None:
             raise ValueError("Please use either 'state_store' or 'state_store_uri'.")
 
         if state_store:
             self._state_store = state_store
-        elif state_store_uri:
-            self._state_store = parse_state_store_uri(state_store_uri)
+        elif self._config.state_store_uri:
+            self._state_store = parse_state_store_uri(self._config.state_store_uri)
         else:
             self._state_store = state_store or SimpleKVStore()
 
-        self._config = config or ControlPlaneConfig()
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback

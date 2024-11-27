@@ -23,6 +23,7 @@ class ControlPlaneConfig(BaseSettings):
     running: bool = True
     cors_origins: List[str] | None = None
     topic_namespace: str = "llama_deploy"
+    state_store_uri: str | None = None
 
     @property
     def url(self) -> str:
