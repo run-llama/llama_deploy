@@ -1,10 +1,39 @@
+from unittest import mock
+
+import pytest
+
 from llama_deploy.control_plane import ControlPlaneServer
 from llama_deploy.message_queues import SimpleMessageQueue
 
 
 def test_control_plane_init() -> None:
-    cp = ControlPlaneServer(SimpleMessageQueue())
+    mq = SimpleMessageQueue()
+    cp = ControlPlaneServer(mq)
     assert cp._orchestrator is not None
-    assert cp._publish_callback is None
     assert cp._state_store is not None
     assert cp._config is not None
+
+    assert cp.message_queue == mq
+    assert cp.publisher_id.startswith("ControlPlaneServer-")
+    assert cp.publish_callback is None
+
+    assert cp.get_topic("msg_type") == "llama_deploy.msg_type"
+
+
+def test_control_plane_init_state_store() -> None:
+    mocked_store = mock.MagicMock()
+    with pytest.raises(ValueError):
+        ControlPlaneServer(
+            SimpleMessageQueue(),
+            state_store=mocked_store,
+            state_store_uri="test/uri",
+        )
+
+    cp = ControlPlaneServer(SimpleMessageQueue(), state_store=mocked_store)
+    assert cp._state_store == mocked_store
+
+    with mock.patch(
+        "llama_deploy.control_plane.server.parse_state_store_uri"
+    ) as mocked_parse:
+        ControlPlaneServer(SimpleMessageQueue(), state_store_uri="test/uri")
+        mocked_parse.assert_called_with("test/uri")
