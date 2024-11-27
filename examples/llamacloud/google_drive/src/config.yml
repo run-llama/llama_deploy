@@ -1,0 +1,4 @@
+llamacloud:
+  index_name: "<YOUR INDEX NAME>"
+  project_name: "<YOUR PROJECT NAME>"
+  organization_id: "<YOUR ORGANIZATION ID>"

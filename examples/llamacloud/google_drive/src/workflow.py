@@ -1,5 +1,6 @@
 import asyncio
-import argparse
+from pathlib import Path
+import yaml
 from dataclasses import dataclass
 
 import nest_asyncio
@@ -14,10 +15,26 @@ nest_asyncio.apply()
 class LlamaCloudConfig:
     """Configuration class for LlamaCloud settings"""
 
-    project_name: str
     index_name: str
+    project_name: str
     organization_id: str
-    query: str
+
+    @classmethod
+    def from_yaml(cls, config_path: str = "src/config.yml") -> "LlamaCloudConfig":
+        """Load configuration from YAML file"""
+        config_path = Path(config_path)
+        if not config_path.exists():
+            raise FileNotFoundError(f"Config file not found: {config_path}")
+
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+
+        llamacloud_config = config.get("llamacloud", {})
+        return cls(
+            index_name=llamacloud_config.get("index_name"),
+            project_name=llamacloud_config.get("project_name"),
+            organization_id=llamacloud_config.get("organization_id"),
+        )
 
 
 class QueryIndexEvent(Event):
@@ -41,64 +58,43 @@ class LlamaCloudQueryWorkflow(Workflow):
             project_name=self.config.project_name,
             organization_id=self.config.organization_id,
         )
-        return QueryIndexEvent(index=index)
+        return QueryIndexEvent(index=index, query=ev.get("query"))
 
     @step
     async def query_index(self, ev: QueryIndexEvent) -> StopEvent:
         """Query the created index"""
         index = ev.get("index")
+        query = ev.get("query")
         query_engine = index.as_query_engine()
-        response = query_engine.query(self.config.query)
-        return StopEvent(result=str(response))
+        response = query_engine.query(query)
+        return StopEvent(result={"query": query, "response": str(response)})
 
 
-def parse_arguments():
-    """Parse command line arguments"""
-    parser = argparse.ArgumentParser(description="LlamaCloud Index Query Tool")
+# Load configuration from YAML file
+config = LlamaCloudConfig.from_yaml()
 
-    parser.add_argument(
-        "--project-name", default="Default", help="Name of the LlamaCloud project"
-    )
-    parser.add_argument(
-        "--index-name", required=True, help="Name of the index to query"
-    )
-    parser.add_argument(
-        "--organization-id", required=True, help="LlamaCloud organization ID"
-    )
-    parser.add_argument("--query", required=True, help="Query to run against the index")
-
-    return parser.parse_args()
+# Create workflow with configuration
+llamacloud_workflow = LlamaCloudQueryWorkflow(config)
 
 
 async def main():
     try:
-        # Parse command line arguments
-        args = parse_arguments()
-
-        # Create configuration with API key from environment
-        config = LlamaCloudConfig(
-            project_name=args.project_name,
-            index_name=args.index_name,
-            organization_id=args.organization_id,
-            query=args.query,
+        # Run workflow
+        result = await llamacloud_workflow.run(
+            query="Hello. What information do you have?"
         )
 
-        # Create and run workflow
-        workflow = LlamaCloudQueryWorkflow(config)
-        result = await workflow.run()
-
-        # print query
+        # Print results
         print("\nQuery:")
         print("-" * 50)
-        print(config.query)
+        print(result["query"])
         print("-" * 50)
-        # Print the query result
         print("\nAnswer:")
         print("-" * 50)
-        print(result)
+        print(result["response"])
         print("-" * 50)
 
-    except ValueError as e:
+    except FileNotFoundError as e:
         print(f"Configuration error: {str(e)}")
         exit(1)
     except Exception as e:
