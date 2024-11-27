@@ -1,5 +1,7 @@
 from typing import List
+from urllib.parse import urlparse
 
+from llama_index.core.storage.kvstore.types import BaseKVStore
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,7 +26,36 @@ class ControlPlaneConfig(BaseSettings):
 
     @property
     def url(self) -> str:
-        if self.port:
-            return f"http://{self.host}:{self.port}"
-        else:
-            return f"http://{self.host}"
+        return f"http://{self.host}:{self.port}"
+
+
+def parse_state_store_uri(uri: str) -> BaseKVStore:
+    bits = urlparse(uri)
+
+    if bits.scheme == "redis":
+        try:
+            from llama_index.storage.kvstore.redis import RedisKVStore  # type: ignore
+
+            return RedisKVStore(uri=uri)
+        except ImportError:
+            msg = (
+                f"key-value store {bits.scheme} is not available, please install the required "
+                "llama_index integration with 'pip install llama-index-storage-kvstore-redis'."
+            )
+            raise ValueError(msg)
+    elif bits.scheme == "mongodb+srv":
+        try:
+            from llama_index.storage.kvstore.mongodb import (  # type:ignore
+                MongoDBKVStore,
+            )
+
+            return MongoDBKVStore(uri=uri)
+        except ImportError:
+            msg = (
+                f"key-value store {bits.scheme} is not available, please install the required "
+                "llama_index integration with 'pip install llama-index-storage-kvstore-mongodb'."
+            )
+            raise ValueError(msg)
+    else:
+        msg = f"key-value store '{bits.scheme}' is not supported."
+        raise ValueError(msg)
