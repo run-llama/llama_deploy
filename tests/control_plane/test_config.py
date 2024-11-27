@@ -1,4 +1,3 @@
-from typing import Any
 from unittest import mock
 
 import pytest
@@ -20,13 +19,9 @@ def test_parse_state_store_uri_malformed() -> None:
         parse_state_store_uri("foo://user:pass@host/database")
 
 
-def test_parse_state_store_uri_redis_not_installed(monkeypatch: Any) -> None:
-    try:
-        # Ensure the module is never available, even if the package is installed
-        monkeypatch.delattr("llama_index.storage.kvstore.redis")
-    except Exception:
-        pass
-
+# Ensure the module is never available, even if the package is installed
+@mock.patch.dict("sys.modules", {"llama_index.storage.kvstore.redis": None})
+def test_parse_state_store_uri_redis_not_installed() -> None:
     with pytest.raises(
         ValueError, match="pip install llama-index-storage-kvstore-redis"
     ):
@@ -42,16 +37,12 @@ def test_parse_state_store_uri_redis() -> None:
         parse_state_store_uri("redis://localhost/")
         calls = redis_mock.mock_calls
         assert len(calls) == 1
-        assert calls[0].kwargs == {"uri": "redis://localhost/"}
+        assert calls[0].kwargs == {"redis_uri": "redis://localhost/"}
 
 
-def test_parse_state_store_uri_mongodb_not_installed(monkeypatch: Any) -> None:
-    try:
-        # Ensure the module is never available, even if the package is installed
-        monkeypatch.delattr("llama_index.storage.kvstore.mongodb")
-    except Exception:
-        pass
-
+# Ensure the module is never available, even if the package is installed
+@mock.patch.dict("sys.modules", {"llama_index.storage.kvstore.mongodb": None})
+def test_parse_state_store_uri_mongodb_not_installed() -> None:
     with pytest.raises(
         ValueError, match="pip install llama-index-storage-kvstore-mongodb"
     ):

@@ -37,7 +37,7 @@ def parse_state_store_uri(uri: str) -> BaseKVStore:
         try:
             from llama_index.storage.kvstore.redis import RedisKVStore  # type: ignore
 
-            return RedisKVStore(uri=uri)
+            return RedisKVStore(redis_uri=uri)
         except ImportError:
             msg = (
                 f"key-value store {bits.scheme} is not available, please install the required "
