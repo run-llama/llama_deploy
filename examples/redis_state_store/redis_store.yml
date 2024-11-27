@@ -1,0 +1,15 @@
+name: QuickStart
+
+control-plane:
+  port: 8000
+  state_store_uri: redis://localhost:6379
+
+default-service: dummy_workflow
+
+services:
+  dummy_workflow:
+    name: Dummy Workflow
+    source:
+      type: local
+      name: src
+    path: workflow:echo_workflow
