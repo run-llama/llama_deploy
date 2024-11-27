@@ -1,15 +1,16 @@
 import asyncio
 import json
-import pytest
-from pydantic import PrivateAttr
 from typing import Any, List
-from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
-from llama_index.core.workflow.events import HumanResponseEvent, InputRequiredEvent
-from llama_index.core.workflow.context_serializers import JsonSerializer
 
-from llama_deploy.messages import QueueMessage
+import pytest
+from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+from llama_index.core.workflow.context_serializers import JsonSerializer
+from llama_index.core.workflow.events import HumanResponseEvent, InputRequiredEvent
+from pydantic import PrivateAttr
+
 from llama_deploy.message_consumers import BaseMessageQueueConsumer
 from llama_deploy.message_queues import SimpleMessageQueue
+from llama_deploy.messages import QueueMessage
 from llama_deploy.services.workflow import WorkflowService
 from llama_deploy.types import CONTROL_PLANE_NAME, ActionTypes, TaskDefinition
 
@@ -100,6 +101,9 @@ async def test_workflow_service(
     assert result.action == ActionTypes.COMPLETED_TASK
     assert result.data["result"] == "test_arg1_result"
 
+    # allow a clean shutdown
+    await asyncio.sleep(0)
+
 
 @pytest.mark.asyncio()
 async def test_hitl_workflow_service(
@@ -162,3 +166,6 @@ async def test_hitl_workflow_service(
     result = human_output_consumer.processed_messages[-1]
     assert result.action == ActionTypes.COMPLETED_TASK
     assert result.data["result"] == "42"
+
+    # allow a clean shutdown
+    await asyncio.sleep(0)
