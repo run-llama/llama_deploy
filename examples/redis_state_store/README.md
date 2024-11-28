@@ -22,22 +22,22 @@ $ pip install -r requirements.txt
 This is the code defining our deployment, with comments to the relevant bits:
 
 ```yaml
-name: QuickStart
+name: RedisStateStore
 
 control-plane:
   port: 8000
   # Here we tell the Control Plane to use Redis
   state_store_uri: redis://localhost:6379
 
-default-service: echo_workflow
+default-service: counter_workflow_service
 
 services:
-  echo_workflow:
-    name: Echo Workflow
+  counter_workflow_service:
+    name: Counter Workflow
     source:
       type: local
-      name: ./src
-    path: workflow:echo_workflow
+      name: src
+    path: workflow:counter_workflow
 ```
 
 Note how we provide a connection URI for Redis in the `state_store_uri` field of the control plane configuration.
@@ -57,14 +57,23 @@ INFO:     Uvicorn running on http://0.0.0.0:4501 (Press CTRL+C to quit)
 From another shell, use the CLI, `llamactl`, to create the deployment:
 
 ```
-$ llamactl deploy quick_start.yml
-Deployment successful: QuickStart
+$ llamactl deploy redis_store.yml
+Deployment successful: RedisStateStore
 ```
 
-Our workflow is now part of the `QuickStart` deployment and ready to serve requests! We can use `llamactl` to interact
-with this deployment:
+Our workflow is now part of the `RedisStateStore` deployment and ready to serve requests! Since we want to persist
+a counter across workflow runs, first we manually create a session:
 
 ```
-$ llamactl run --deployment QuickStart --arg message 'Hello from my shell!'
-Message received: Hello from my shell!
+$ llamactl sessions create -d RedisStateStore
+session_id='<YOUR_SESSION_ID>' task_ids=[] state={}
+```
+
+Then we run the workflow multiple times, always using the same session we created in the previous step:
+
+```
+$ lamactl run --deployment RedisStateStore --arg amount 3 -i <YOUR_SESSION_ID>
+Current balance: 3.0
+$ lamactl run --deployment RedisStateStore --arg amount 3 -i <YOUR_SESSION_ID>
+Current balance: 3.5
 ```
