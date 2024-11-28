@@ -102,7 +102,7 @@ async def test_workflow_service(
     assert result.data["result"] == "test_arg1_result"
 
     # allow a clean shutdown
-    await asyncio.sleep(0)
+    await asyncio.gather(mq_task, server_task, return_exceptions=True)
 
 
 @pytest.mark.asyncio()
