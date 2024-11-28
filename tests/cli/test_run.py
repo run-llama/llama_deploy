@@ -17,7 +17,7 @@ def test_run(runner: CliRunner) -> None:
 
         result = runner.invoke(
             llamactl,
-            ["run", "-d", "deployment_name", "-s", "service_name"],
+            ["run", "-d", "deployment_name", "-s", "service_name", "-i", "session_id"],
         )
 
         mocked_client.assert_called_with(
@@ -29,7 +29,7 @@ def test_run(runner: CliRunner) -> None:
         expected = TaskDefinition(agent_id="service_name", input="{}")
         assert expected.input == actual.input
         assert expected.agent_id == actual.agent_id
-        assert actual.session_id is None
+        assert actual.session_id is not None
         assert result.exit_code == 0
 
 

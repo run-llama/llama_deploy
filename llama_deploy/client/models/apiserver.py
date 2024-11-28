@@ -118,6 +118,8 @@ class TaskCollection(Collection):
         run_url = (
             f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/run"
         )
+        if task.session_id:
+            run_url += f"?session_id={task.session_id}"
 
         r = await self.client.request(
             "POST",
