@@ -168,4 +168,4 @@ async def test_hitl_workflow_service(
     assert result.data["result"] == "42"
 
     # allow a clean shutdown
-    await asyncio.sleep(0)
+    await asyncio.gather(mq_task, server_task, return_exceptions=True)
