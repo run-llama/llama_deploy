@@ -4,7 +4,8 @@
 > This example is mostly based on the [Quick Start](../quick_start/README.md), see there for more details.
 
 We'll be deploying a simple workflow on a local instance of Llama Deploy using Redis as a scalable storage for the
-global state. This is mostly needed when you have more than one control plane running concurrently.
+global state. See [the Control Plane documentation](https://docs.llamaindex.ai/en/stable/module_guides/llama_deploy/20_core_components/#control-plane)
+for an overview of what the global state consists of and when the default storage might not be enough.
 
 Before starting Llama Deploy, use Docker compose to start the Redis container and run it in the background:
 

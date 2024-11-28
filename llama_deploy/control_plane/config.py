@@ -2,6 +2,7 @@ from typing import List
 from urllib.parse import urlparse
 
 from llama_index.core.storage.kvstore.types import BaseKVStore
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,14 +17,25 @@ class ControlPlaneConfig(BaseSettings):
     tasks_store_key: str = "tasks"
     session_store_key: str = "sessions"
     step_interval: float = 0.1
-    host: str = "127.0.0.1"
-    port: int = 8000
+    host: str = Field(
+        default="127.0.0.1",
+        description="The host where to run the control plane server",
+    )
+    port: int = Field(
+        default=8000, description="The TCP port where to bind the control plane server"
+    )
     internal_host: str | None = None
     internal_port: int | None = None
     running: bool = True
     cors_origins: List[str] | None = None
-    topic_namespace: str = "llama_deploy"
-    state_store_uri: str | None = None
+    topic_namespace: str = Field(
+        default="llama_deploy",
+        description="The prefix used in the message queue topic to namespace messages from this control plane",
+    )
+    state_store_uri: str | None = Field(
+        default=None,
+        description="The connection URI of the database where to store state. If None, SimpleKVStore will be used",
+    )
 
     @property
     def url(self) -> str:
