@@ -1,0 +1,15 @@
+name: RedisStateStore
+
+control-plane:
+  port: 8000
+  state_store_uri: redis://localhost:6379
+
+default-service: counter_workflow_service
+
+services:
+  counter_workflow_service:
+    name: Counter Workflow
+    source:
+      type: local
+      name: src
+    path: workflow:counter_workflow

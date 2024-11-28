@@ -20,6 +20,7 @@ from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import BaseMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
+from llama_deploy.orchestrators import SimpleOrchestrator, SimpleOrchestratorConfig
 from llama_deploy.orchestrators.base import BaseOrchestrator
 from llama_deploy.orchestrators.utils import get_result_key, get_stream_key
 from llama_deploy.types import (
@@ -32,7 +33,7 @@ from llama_deploy.types import (
     TaskStream,
 )
 
-from .config import ControlPlaneConfig
+from .config import ControlPlaneConfig, parse_state_store_uri
 
 logger = getLogger(__name__)
 
@@ -80,15 +81,26 @@ class ControlPlaneServer(BaseControlPlane):
     def __init__(
         self,
         message_queue: BaseMessageQueue,
-        orchestrator: BaseOrchestrator,
+        orchestrator: BaseOrchestrator | None = None,
         publish_callback: PublishCallback | None = None,
         state_store: BaseKVStore | None = None,
         config: ControlPlaneConfig | None = None,
     ) -> None:
-        self.orchestrator = orchestrator
-        self.state_store = state_store or SimpleKVStore()
-
+        self._orchestrator = orchestrator or SimpleOrchestrator(
+            **SimpleOrchestratorConfig().model_dump()
+        )
         self._config = config or ControlPlaneConfig()
+
+        if state_store is not None and self._config.state_store_uri is not None:
+            raise ValueError("Please use either 'state_store' or 'state_store_uri'.")
+
+        if state_store:
+            self._state_store = state_store
+        elif self._config.state_store_uri:
+            self._state_store = parse_state_store_uri(self._config.state_store_uri)
+        else:
+            self._state_store = state_store or SimpleKVStore()
+
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
@@ -286,7 +298,7 @@ class ControlPlaneServer(BaseControlPlane):
     async def register_service(
         self, service_def: ServiceDefinition
     ) -> ControlPlaneConfig:
-        await self.state_store.aput(
+        await self._state_store.aput(
             service_def.service_name,
             service_def.model_dump(),
             collection=self._config.services_store_key,
@@ -294,12 +306,12 @@ class ControlPlaneServer(BaseControlPlane):
         return self._config
 
     async def deregister_service(self, service_name: str) -> None:
-        await self.state_store.adelete(
+        await self._state_store.adelete(
             service_name, collection=self._config.services_store_key
         )
 
     async def get_service(self, service_name: str) -> ServiceDefinition:
-        service_dict = await self.state_store.aget(
+        service_dict = await self._state_store.aget(
             service_name, collection=self._config.services_store_key
         )
         if service_dict is None:
@@ -308,7 +320,7 @@ class ControlPlaneServer(BaseControlPlane):
         return ServiceDefinition.model_validate(service_dict)
 
     async def get_all_services(self) -> Dict[str, ServiceDefinition]:
-        service_dicts = await self.state_store.aget_all(
+        service_dicts = await self._state_store.aget_all(
             collection=self._config.services_store_key
         )
 
@@ -319,7 +331,7 @@ class ControlPlaneServer(BaseControlPlane):
 
     async def create_session(self) -> str:
         session = SessionDefinition()
-        await self.state_store.aput(
+        await self._state_store.aput(
             session.session_id,
             session.model_dump(),
             collection=self._config.session_store_key,
@@ -328,7 +340,7 @@ class ControlPlaneServer(BaseControlPlane):
         return session.session_id
 
     async def get_session(self, session_id: str) -> SessionDefinition:
-        session_dict = await self.state_store.aget(
+        session_dict = await self._state_store.aget(
             session_id, collection=self._config.session_store_key
         )
         if session_dict is None:
@@ -337,12 +349,12 @@ class ControlPlaneServer(BaseControlPlane):
         return SessionDefinition.model_validate(session_dict)
 
     async def delete_session(self, session_id: str) -> None:
-        await self.state_store.adelete(
+        await self._state_store.adelete(
             session_id, collection=self._config.session_store_key
         )
 
     async def get_all_sessions(self) -> Dict[str, SessionDefinition]:
-        session_dicts = await self.state_store.aget_all(
+        session_dicts = await self._state_store.aget_all(
             collection=self._config.session_store_key
         )
 
@@ -367,7 +379,7 @@ class ControlPlaneServer(BaseControlPlane):
     async def add_task_to_session(
         self, session_id: str, task_def: TaskDefinition
     ) -> str:
-        session_dict = await self.state_store.aget(
+        session_dict = await self._state_store.aget(
             session_id, collection=self._config.session_store_key
         )
         if session_dict is None:
@@ -378,11 +390,11 @@ class ControlPlaneServer(BaseControlPlane):
 
         session = SessionDefinition(**session_dict)
         session.task_ids.append(task_def.task_id)
-        await self.state_store.aput(
+        await self._state_store.aput(
             session_id, session.model_dump(), collection=self._config.session_store_key
         )
 
-        await self.state_store.aput(
+        await self._state_store.aput(
             task_def.task_id,
             task_def.model_dump(),
             collection=self._config.tasks_store_key,
@@ -398,7 +410,7 @@ class ControlPlaneServer(BaseControlPlane):
 
         session = await self.get_session(task_def.session_id)
 
-        next_messages, session_state = await self.orchestrator.get_next_messages(
+        next_messages, session_state = await self._orchestrator.get_next_messages(
             task_def, session.state
         )
 
@@ -409,7 +421,7 @@ class ControlPlaneServer(BaseControlPlane):
 
         session.state.update(session_state)
 
-        await self.state_store.aput(
+        await self._state_store.aput(
             task_def.session_id,
             session.model_dump(),
             collection=self._config.session_store_key,
@@ -427,11 +439,11 @@ class ControlPlaneServer(BaseControlPlane):
             raise ValueError(f"Task with id {task_result.task_id} has no session")
 
         session = await self.get_session(task_def.session_id)
-        state = await self.orchestrator.add_result_to_state(task_result, session.state)
+        state = await self._orchestrator.add_result_to_state(task_result, session.state)
 
         # update session state
         session.state.update(state)
-        await self.state_store.aput(
+        await self._state_store.aput(
             session.session_id,
             session.model_dump(),
             collection=self._config.session_store_key,
@@ -440,14 +452,14 @@ class ControlPlaneServer(BaseControlPlane):
         # generate and send new tasks when needed
         task_def = await self.send_task_to_service(task_def)
 
-        await self.state_store.aput(
+        await self._state_store.aput(
             task_def.task_id,
             task_def.model_dump(),
             collection=self._config.tasks_store_key,
         )
 
     async def get_task(self, task_id: str) -> TaskDefinition:
-        state_dict = await self.state_store.aget(
+        state_dict = await self._state_store.aget(
             task_id, collection=self._config.tasks_store_key
         )
         if state_dict is None:
@@ -506,7 +518,7 @@ class ControlPlaneServer(BaseControlPlane):
         session.state[get_stream_key(task_stream.task_id)] = existing_stream
 
         # update session state in store
-        await self.state_store.aput(
+        await self._state_store.aput(
             task_stream.session_id,
             session.model_dump(),
             collection=self._config.session_store_key,
@@ -592,7 +604,7 @@ class ControlPlaneServer(BaseControlPlane):
         session = await self.get_session(session_id)
 
         session.state.update(state)
-        await self.state_store.aput(
+        await self._state_store.aput(
             session_id, session.model_dump(), collection=self._config.session_store_key
         )
 

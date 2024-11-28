@@ -56,6 +56,21 @@ The control plane is responsible for managing the state of the system, including
 - Handling service completion.
 - Launching the control plane server.
 
+The state of the system is persisted in a key-value store that by default consists of a simple mapping in memory.
+In particular, the state store contains:
+
+- The name and definition of the registered services.
+- The active sessions and their relative tasks and event streams.
+- The Context, in case the service is of type Workflow,
+
+In case you need a more scalable storage for the system state, you can set the `state_store_uri` field in the Control
+Plane configuration to point to one of the databases we support (see
+[the Python API reference](../../api_reference/llama_deploy/control_plane.md)) for more details.
+Using a scalable storage for the global state is mostly needed when:
+- You want to scale the control plane horizontally, and you want every instance to share the same global state.
+- The control plane has to deal with high traffic (many services, sessions and tasks).
+- The global state needs to be persisted across restarts (for example, workflow contexts are stored in the global state).
+
 ## Service
 
 The general structure of a service is as follows:
