@@ -3,9 +3,8 @@
 import asyncio
 import random
 from collections import deque
-from contextlib import asynccontextmanager
 from logging import getLogger
-from typing import Any, AsyncGenerator, Dict, List, Literal, Optional, Sequence
+from typing import Any, Dict, List, Literal, Optional, Sequence
 from urllib.parse import urljoin
 
 import httpx
@@ -197,7 +196,7 @@ class SimpleMessageQueue(BaseMessageQueue):
             internal_port=internal_port,
         )
 
-        self._app = FastAPI(lifespan=self.lifespan)
+        self._app = FastAPI()
 
         self._app.add_api_route(
             "/", self.home, methods=["GET"], tags=["Message Queue State"]
@@ -392,13 +391,6 @@ class SimpleMessageQueue(BaseMessageQueue):
                     )  # TODO dedicated ack
             await asyncio.sleep(0.1)
 
-    @asynccontextmanager
-    async def lifespan(self, app: FastAPI) -> AsyncGenerator[None, None]:
-        """Starts the processing loop when the fastapi app starts."""
-        asyncio.create_task(self.processing_loop())
-        yield
-        self.running = False
-
     async def launch_local(self) -> asyncio.Task:
         """Launch the message queue locally, in-process."""
         logger.info("Launching message queue locally")
@@ -417,7 +409,13 @@ class SimpleMessageQueue(BaseMessageQueue):
 
         cfg = uvicorn.Config(self._app, host=host, port=port)
         server = CustomServer(cfg)
-        await server.serve()
+        pl_task = asyncio.create_task(self.processing_loop())
+
+        try:
+            await server.serve()
+        except asyncio.CancelledError:
+            self.running = False
+            await asyncio.gather(server.shutdown(), pl_task, return_exceptions=True)
 
     async def home(self) -> Dict[str, str]:
         return {
