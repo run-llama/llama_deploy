@@ -4,7 +4,7 @@ import yaml
 from dataclasses import dataclass
 
 import nest_asyncio
-from llama_index.core.workflow import Workflow, StartEvent, StopEvent, Event, step
+from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
 
 # Apply nest_asyncio at the start
@@ -35,6 +35,7 @@ class LlamaCloudConfig:
             project_name=llamacloud_config.get("project_name"),
             organization_id=llamacloud_config.get("organization_id"),
         )
+
 
 class LlamaCloudQueryWorkflow(Workflow):
     """Workflow for creating and querying a LlamaCloud index"""
