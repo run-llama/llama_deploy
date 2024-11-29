@@ -122,6 +122,8 @@ At this point we have all we need to run this deployment. Ideally, we would have
 somewhere in the cloud, but to get started let's start an instance locally. Run the following python script
 from a shell:
 
+NOTE: You need to set up `OPENAI_API_KEY` and `LLAMA_CLOUD_API_KEY` again here.
+
 ```
 $ python -m llama_deploy.apiserver
 INFO:     Started server process [10842]

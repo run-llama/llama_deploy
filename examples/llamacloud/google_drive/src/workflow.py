@@ -4,7 +4,7 @@ import yaml
 from dataclasses import dataclass
 
 import nest_asyncio
-from llama_index.core.workflow import Workflow, StartEvent, StopEvent, Event, step
+from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
 
 # Apply nest_asyncio at the start
@@ -37,12 +37,6 @@ class LlamaCloudConfig:
         )
 
 
-class QueryIndexEvent(Event):
-    """Event for querying the index"""
-
-    pass
-
-
 class LlamaCloudQueryWorkflow(Workflow):
     """Workflow for creating and querying a LlamaCloud index"""
 
@@ -51,19 +45,13 @@ class LlamaCloudQueryWorkflow(Workflow):
         self.config = config
 
     @step
-    async def create_index(self, ev: StartEvent) -> QueryIndexEvent:
-        """Create LlamaCloud index"""
+    async def query_index(self, ev: StartEvent) -> StopEvent:
+        """Query the created index"""
         index = LlamaCloudIndex(
             name=self.config.index_name,
             project_name=self.config.project_name,
             organization_id=self.config.organization_id,
         )
-        return QueryIndexEvent(index=index, query=ev.get("query"))
-
-    @step
-    async def query_index(self, ev: QueryIndexEvent) -> StopEvent:
-        """Query the created index"""
-        index = ev.get("index")
         query = ev.get("query")
         query_engine = index.as_query_engine()
         response = query_engine.query(query)
