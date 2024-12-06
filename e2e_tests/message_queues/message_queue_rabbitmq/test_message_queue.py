@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 
+from llama_deploy import Client
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.messages import QueueMessage
 
@@ -31,3 +32,14 @@ async def test_roundtrip(mq):
 
     assert len(received_messages) == 1
     assert test_message in received_messages
+
+
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_workflow(control_plane):
+    client = Client(control_plane_url="http://localhost:8001")
+
+    session = await client.core.sessions.create()
+    r1 = await session.run("basic", arg="Hello!")
+    await client.core.sessions.delete(session.id)
+    assert r1 == "Workflow one received Hello!"
