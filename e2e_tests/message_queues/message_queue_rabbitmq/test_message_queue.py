@@ -36,10 +36,16 @@ async def test_roundtrip(mq):
 
 @pytest.mark.e2e
 @pytest.mark.asyncio
-async def test_workflow(control_plane):
-    client = Client(control_plane_url="http://localhost:8001")
+async def test_multiple_control_planes(control_planes):
+    c1 = Client(control_plane_url="http://localhost:8001")
+    c2 = Client(control_plane_url="http://localhost:8002")
 
-    session = await client.core.sessions.create()
-    r1 = await session.run("basic", arg="Hello!")
-    await client.core.sessions.delete(session.id)
-    assert r1 == "Workflow one received Hello!"
+    session = await c1.core.sessions.create()
+    r1 = await session.run("basic", arg="Hello One!")
+    await c1.core.sessions.delete(session.id)
+    assert r1 == "Workflow one received Hello One!"
+
+    session = await c2.core.sessions.create()
+    r2 = await session.run("basic", arg="Hello Two!")
+    await c2.core.sessions.delete(session.id)
+    assert r2 == "Workflow two received Hello Two!"

@@ -29,7 +29,7 @@ def mq(rabbitmq_service):
     return RabbitMQMessageQueue(RabbitMQMessageQueueConfig())
 
 
-def run_workflow():
+def run_workflow_one():
     asyncio.run(
         deploy_workflow(
             BasicWorkflow(timeout=10, name="Workflow one"),
@@ -43,7 +43,21 @@ def run_workflow():
     )
 
 
-def run_core():
+def run_workflow_two():
+    asyncio.run(
+        deploy_workflow(
+            BasicWorkflow(timeout=10, name="Workflow two"),
+            WorkflowServiceConfig(
+                host="127.0.0.1",
+                port=8004,
+                service_name="basic",
+            ),
+            ControlPlaneConfig(topic_namespace="core_two", port=8002),
+        )
+    )
+
+
+def run_core_one():
     asyncio.run(
         deploy_core(
             ControlPlaneConfig(topic_namespace="core_one", port=8001),
@@ -52,17 +66,36 @@ def run_core():
     )
 
 
+def run_core_two():
+    asyncio.run(
+        deploy_core(
+            ControlPlaneConfig(topic_namespace="core_two", port=8002),
+            RabbitMQMessageQueueConfig(),
+        )
+    )
+
+
 @pytest.fixture
-def control_plane(rabbitmq_service):
-    p1 = multiprocessing.Process(target=run_core)
+def control_planes(rabbitmq_service):
+    p1 = multiprocessing.Process(target=run_core_one)
     p1.start()
+
+    p2 = multiprocessing.Process(target=run_core_two)
+    p2.start()
 
     time.sleep(3)
 
-    p2 = multiprocessing.Process(target=run_workflow)
-    p2.start()
+    p3 = multiprocessing.Process(target=run_workflow_one)
+    p3.start()
+
+    p4 = multiprocessing.Process(target=run_workflow_two)
+    p4.start()
+
+    time.sleep(3)
 
     yield
 
     p1.kill()
     p2.kill()
+    p3.kill()
+    p4.kill()
