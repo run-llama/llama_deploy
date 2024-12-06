@@ -207,17 +207,32 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
                     queue_message = QueueMessage.model_validate(decoded_message)
                     await consumer.process_message(queue_message)
 
-            connection = await _establish_connection(self._config.url)
-            async with connection:
-                channel = await connection.channel()
-                exchange = await channel.declare_exchange(
-                    self._config.exchange_name,
-                    ExchangeType.DIRECT,
-                )
-                queue = cast(Queue, await channel.declare_queue(name=topic))
-                await queue.bind(exchange)
-                await queue.consume(on_message)
-                await asyncio.Future()
+            # The while loop will reconnect if the connection is lost
+            while True:
+                connection = await _establish_connection(self._config.url)
+                try:
+                    async with connection:
+                        channel = await connection.channel()
+                        exchange = await channel.declare_exchange(
+                            self._config.exchange_name,
+                            ExchangeType.DIRECT,
+                        )
+                        queue = cast(Queue, await channel.declare_queue(name=topic))
+                        await queue.bind(exchange)
+                        await queue.consume(on_message)
+                        await asyncio.Future()
+                except asyncio.CancelledError:
+                    logger.info(
+                        f"Cancellation requested, exiting consumer {consumer.id_} for topic: {topic}"
+                    )
+                    break
+                except Exception as e:
+                    logger.error(f"Unexpected error: {e}", exc_info=True)
+                    # Wait before reconnecting. Ideally we'd want exponential backoff here.
+                    await asyncio.sleep(10)
+                finally:
+                    if connection:
+                        await connection.close()
 
         return start_consuming_callable
 
