@@ -217,6 +217,7 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
                 queue = cast(Queue, await channel.declare_queue(name=topic))
                 await queue.bind(exchange)
                 await queue.consume(on_message)
+                await asyncio.Future()
 
         return start_consuming_callable
 

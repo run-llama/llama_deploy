@@ -93,4 +93,4 @@ async def test_publish(mock_connect: MagicMock) -> None:
     assert args[0].body == aio_pika_message.body
     assert args[0].body_size == aio_pika_message.body_size
     assert args[0].delivery_mode == aio_pika_message.delivery_mode
-    assert kwargs["routing_key"] == queue_message.type
+    assert kwargs["routing_key"] == "test"
