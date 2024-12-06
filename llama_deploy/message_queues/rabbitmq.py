@@ -155,7 +155,6 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
         from aio_pika import DeliveryMode, ExchangeType
         from aio_pika import Message as AioPikaMessage
 
-        message_type_str = message.type
         connection = await _establish_connection(self._config.url)
 
         async with connection:
@@ -171,8 +170,8 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
                 delivery_mode=DeliveryMode.PERSISTENT,
             )
             # Sending the message
-            await exchange.publish(aio_pika_message, routing_key=message_type_str)
-            logger.info(f"published message {message.id_}")
+            await exchange.publish(aio_pika_message, routing_key=topic)
+            logger.info(f"published message {message.id_} to {topic}")
 
     async def register_consumer(
         self, consumer: BaseMessageQueueConsumer, topic: str | None = None
@@ -188,11 +187,11 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
                 self._config.exchange_name,
                 ExchangeType.DIRECT,
             )
-            queue = cast(Queue, await channel.declare_queue(name=consumer.message_type))
+            queue = cast(Queue, await channel.declare_queue(name=topic))
             await queue.bind(exchange)
 
         logger.info(
-            f"Registered consumer {consumer.id_}: {consumer.message_type}",
+            f"Registered consumer {consumer.id_} for topic: {topic}",
         )
 
         async def start_consuming_callable() -> None:
@@ -215,9 +214,7 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
                     self._config.exchange_name,
                     ExchangeType.DIRECT,
                 )
-                queue = cast(
-                    Queue, await channel.declare_queue(name=consumer.message_type)
-                )
+                queue = cast(Queue, await channel.declare_queue(name=topic))
                 await queue.bind(exchange)
                 await queue.consume(on_message)
 
