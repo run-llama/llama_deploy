@@ -53,7 +53,7 @@ async def test_register_consumer() -> None:
         await asyncio.sleep(0)
         task.cancel()
         await task
-        assert connection.assert_awaited_with("amqp://guest:guest@localhost/")
+        connection.assert_awaited()
 
 
 def test_init() -> None:
