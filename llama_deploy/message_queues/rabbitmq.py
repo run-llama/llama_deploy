@@ -15,7 +15,7 @@ from llama_deploy.message_consumers.base import (
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from aio_pika import Connection
 
 logger = getLogger(__name__)
