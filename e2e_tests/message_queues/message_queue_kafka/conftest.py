@@ -26,6 +26,7 @@ def kafka_service():
     proc.communicate()
     yield
     subprocess.Popen(["docker", "compose", "-f", f"{compose_file}", "down"])
+    proc.communicate()
 
 
 @pytest.fixture
@@ -97,7 +98,7 @@ def control_planes(kafka_service):
 
     yield
 
-    p1.kill()
-    p2.kill()
-    p3.kill()
-    p4.kill()
+    p1.terminate()
+    p2.terminate()
+    p3.terminate()
+    p4.terminate()

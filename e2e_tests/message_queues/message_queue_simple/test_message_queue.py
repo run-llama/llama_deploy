@@ -8,7 +8,7 @@ from llama_deploy import SimpleMessageQueue
 @pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_cancel_launch_server():
-    mq = SimpleMessageQueue()
+    mq = SimpleMessageQueue(port=8009)
     t = asyncio.create_task(mq.launch_server())
 
     # Make sure the queue starts

@@ -1,17 +1,12 @@
 services:
   rabbitmq:
-    image: rabbitmq:3.13-management
+    image: rabbitmq:3-management-alpine
     hostname: "rabbitmq"
-    environment:
-      RABBITMQ_HOST: "rabbitmq"
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USERNAME: "guest"
-      RABBITMQ_PASSWORD: "guest"
     ports:
       - "5672:5672"
       - "15672:15672"
     healthcheck:
       test: rabbitmq-diagnostics -q ping
-      interval: 30s
-      timeout: 10s
+      interval: 5s
+      timeout: 3s
       retries: 5

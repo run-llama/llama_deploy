@@ -1,7 +1,11 @@
+import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import aio_pika
 import pytest
+from aio_pika import DeliveryMode
+from aio_pika import Message as AioPikaMessage
 
 from llama_deploy import QueueMessage
 from llama_deploy.message_queues.rabbitmq import (
@@ -9,12 +13,47 @@ from llama_deploy.message_queues.rabbitmq import (
     RabbitMQMessageQueueConfig,
 )
 
-try:
-    import aio_pika
-    from aio_pika import DeliveryMode
-    from aio_pika import Message as AioPikaMessage
-except (ModuleNotFoundError, ImportError):
-    aio_pika = None  # type: ignore
+
+def test_config_init() -> None:
+    cfg = RabbitMQMessageQueueConfig(
+        host="localhost", username="test_user", password="test_pass"
+    )
+    assert cfg.url == "amqp://test_user:test_pass@localhost"
+
+    cfg = RabbitMQMessageQueueConfig(
+        host="localhost", username="test_user", password="test_pass", port=999
+    )
+    assert cfg.url == "amqp://test_user:test_pass@localhost:999"
+
+    cfg = RabbitMQMessageQueueConfig(
+        host="localhost", username="test_user", password="test_pass", vhost="vhost"
+    )
+    assert cfg.url == "amqp://test_user:test_pass@localhost/vhost"
+
+    # Passing both vhost and port will ignore vhost, not sure if a bug but let's test
+    # current behaviour.'
+    cfg = RabbitMQMessageQueueConfig(
+        host="localhost",
+        username="test_user",
+        password="test_pass",
+        vhost="vhost",
+        port=999,
+    )
+    assert cfg.url == "amqp://test_user:test_pass@localhost:999"
+
+
+@pytest.mark.asyncio
+async def test_register_consumer() -> None:
+    with patch(
+        "llama_deploy.message_queues.rabbitmq._establish_connection"
+    ) as connection:
+        mq = RabbitMQMessageQueue()
+        consumer_func = await mq.register_consumer(MagicMock())
+        task = asyncio.create_task(consumer_func())
+        await asyncio.sleep(0)
+        task.cancel()
+        await task
+        connection.assert_awaited()
 
 
 def test_init() -> None:
@@ -93,4 +132,4 @@ async def test_publish(mock_connect: MagicMock) -> None:
     assert args[0].body == aio_pika_message.body
     assert args[0].body_size == aio_pika_message.body_size
     assert args[0].delivery_mode == aio_pika_message.delivery_mode
-    assert kwargs["routing_key"] == queue_message.type
+    assert kwargs["routing_key"] == "test"
