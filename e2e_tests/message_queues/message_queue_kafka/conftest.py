@@ -26,6 +26,7 @@ def kafka_service():
     proc.communicate()
     yield
     subprocess.Popen(["docker", "compose", "-f", f"{compose_file}", "down"])
+    proc.communicate()
 
 
 @pytest.fixture
