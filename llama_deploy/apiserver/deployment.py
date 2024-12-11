@@ -189,11 +189,12 @@ class Deployment:
         env_vars: dict[str, str | None] = {}
 
         if service_config.env:
-            config = {
-                f"{service_id.upper()}_{k.upper()}": v
-                for k, v in service_config.env.items()
-            }
-            env_vars.update(**config)
+            env_vars.update(
+                **{
+                    f"{service_id.upper()}_{k.upper()}": v
+                    for k, v in service_config.env.items()
+                }
+            )
 
         if service_config.env_files:
             for env_file in service_config.env_files:
