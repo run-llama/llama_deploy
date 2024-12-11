@@ -1,10 +1,13 @@
 import asyncio
 import importlib
+import os
 import subprocess
 import sys
+from dotenv import dotenv_values
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import Any
+
 
 from llama_deploy import (
     Client,
@@ -154,6 +157,9 @@ class Deployment:
             # Install dependencies
             self._install_dependencies(service_config)
 
+            # Set environment variables
+            self._set_environment_variables(service_id, service_config)
+
             # Search for a workflow instance in the service path
             pythonpath = (destination / service_config.path).parent.resolve()
             sys.path.append(str(pythonpath))
@@ -176,6 +182,27 @@ class Deployment:
             )
 
         return workflow_services
+
+    @staticmethod
+    def _set_environment_variables(service_id: str, service_config: Service) -> None:
+        """Sets environment variables for the service."""
+        env_vars: dict[str, str | None] = {}
+
+        if service_config.env:
+            config = {
+                f"{service_id.upper()}_{k.upper()}": v
+                for k, v in service_config.env.items()
+            }
+            env_vars.update(**config)
+
+        if service_config.env_files:
+            for env_file in service_config.env_files:
+                # use dotenv to parse env_file
+                env_vars.update(**dotenv_values(env_file))
+
+        for k, v in env_vars.items():
+            if v:
+                os.environ[k] = v
 
     @staticmethod
     def _install_dependencies(service_config: Service) -> None:

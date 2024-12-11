@@ -58,6 +58,8 @@ class Service(BaseModel):
     path: str | None = None
     host: str | None = None
     port: int | None = None
+    env: dict[str, str] | None = Field(None)
+    env_files: list[str] | None = Field(None, alias="env-files")
     python_dependencies: list[str] | None = Field(None, alias="python-dependencies")
     ts_dependencies: dict[str, str] | None = Field(None, alias="ts-dependencies")
 
