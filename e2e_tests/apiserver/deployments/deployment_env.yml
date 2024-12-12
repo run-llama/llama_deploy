@@ -12,9 +12,10 @@ services:
       type: local
       name: ./e2e_tests/apiserver/deployments/src
     env:
-      VAR_1: x
+      VAR_1: x  # this gets overwritten because VAR_1 also exists in the provided .env
       VAR_2: y
-      API_KEY: "123"
+    env-files:
+      - ./e2e_tests/apiserver/.env
     path: workflow_env:workflow
 
   another_workflow:

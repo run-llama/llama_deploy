@@ -21,7 +21,6 @@ class MyWorkflow(Workflow):
     def __init__(self, settings: WorkflowSettings, **kwargs) -> None:
         super().__init__(**kwargs)
         self.settings = settings
-        print(f"{settings.model_dump()}")
 
     @step()
     async def run_step(self, ctx: Context, ev: StartEvent) -> StopEvent:

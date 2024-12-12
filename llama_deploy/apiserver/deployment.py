@@ -204,7 +204,12 @@ class Deployment:
         if service_config.env_files:
             for env_file in service_config.env_files:
                 # use dotenv to parse env_file
-                env_vars.update(**dotenv_values(env_file))
+                env_vars.update(
+                    **{
+                        f"{service_id.upper()}_{k.upper()}": v
+                        for k, v in dotenv_values(env_file).items()
+                    }
+                )
 
         for k, v in env_vars.items():
             if v:
