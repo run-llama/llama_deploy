@@ -29,6 +29,8 @@ services:
     env:
       VAR_1: x
       VAR_2: y
+    env-files:
+      - ./.env
 
   another-workflow:
     # A LITS workflow available in a git repo (might be the same)

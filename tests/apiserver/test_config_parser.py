@@ -22,6 +22,7 @@ def do_assert(config: Config) -> None:
     assert wf_config.python_dependencies
     assert len(wf_config.python_dependencies) == 3
     assert wf_config.env == {"VAR_1": "x", "VAR_2": "y"}
+    assert wf_config.env_files == ["./.env"]
 
     wf_config = config.services["another-workflow"]
     assert wf_config.name == "My LITS Workflow"
