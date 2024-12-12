@@ -1,0 +1,18 @@
+name: EnvironmentVariables
+
+control-plane:
+  port: 8000
+
+default-service: test_env_workflow
+
+services:
+  test_env_workflow:
+    name: Workflow
+    source:
+      type: local
+      name: ./e2e_tests/apiserver/deployments/src
+    env:
+      VAR_1: x
+      VAR_2: y
+      API_KEY: "123"
+    path: workflow_env:workflow
