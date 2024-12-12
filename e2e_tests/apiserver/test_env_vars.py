@@ -15,6 +15,8 @@ async def test_read_env_vars(apiserver, client):
     session = await client.core.sessions.create()
 
     # run workflow
-    result = await session.run("test_env_workflow")
+    result_1 = await session.run("test_env_workflow")
+    result_2 = await session.run("another_workflow")
 
-    assert result == "var_1: x, var_2: y, api_key: 123"
+    assert result_1 == "var_1: x, var_2: y, api_key: 123"
+    assert result_2 == "var_1: w, var_2: z, api_key: 456"

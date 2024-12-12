@@ -7,12 +7,11 @@ from llama_index.core.workflow import (
     Workflow,
     step,
 )
-from llama_index.core.bridge.pydantic_settings import BaseSettings, SettingsConfigDict
+from llama_index.core.bridge.pydantic_settings import BaseSettings
 from llama_index.core.bridge.pydantic import Field, SecretStr
 
 
 class WorkflowSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="TEST_ENV_WORKFLOW_")
     var_1: str | None = Field(None)
     var_2: str | None = Field(None)
     api_key: SecretStr = ""
@@ -22,6 +21,7 @@ class MyWorkflow(Workflow):
     def __init__(self, settings: WorkflowSettings, **kwargs) -> None:
         super().__init__(**kwargs)
         self.settings = settings
+        print(f"{settings.model_dump()}")
 
     @step()
     async def run_step(self, ctx: Context, ev: StartEvent) -> StopEvent:
@@ -35,11 +35,18 @@ class MyWorkflow(Workflow):
         )
 
 
-workflow = MyWorkflow(settings=WorkflowSettings())
+# env prefix is f"{service_id}_"
+workflow = MyWorkflow(
+    settings=WorkflowSettings(_env_prefix="test_env_workflow_".upper())
+)
+
+another_workflow = MyWorkflow(
+    settings=WorkflowSettings(_env_prefix="another_workflow_".upper())
+)
 
 
-async def main():
-    h = workflow.run()
+async def main(w: Workflow):
+    h = w.run()
     print(await h)
 
 
@@ -47,10 +54,9 @@ if __name__ == "__main__":
     import os
 
     # set env variables
-    os.environ["TEST_ENV_WORKFLOW_VAR_1"] = "x"
-    os.environ["TEST_ENV_WORKFLOW_API_KEY"] = "123"
+    os.environ["VAR_1"] = "x"
+    os.environ["API_KEY"] = "123"
 
-    # reload settings
-    workflow.settings.__init__()
+    w = MyWorkflow(settings=WorkflowSettings())
 
-    asyncio.run(main())
+    asyncio.run(main(w))
