@@ -15,7 +15,6 @@ from llama_index.core.workflow.context_serializers import (
     JsonSerializer,
 )
 from llama_index.core.workflow.handler import WorkflowHandler
-from llama_index.core.workflow.utils import get_qualified_name
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -214,15 +213,6 @@ class WorkflowService(BaseService):
     def lock(self) -> asyncio.Lock:
         return self._lock
 
-    def _get_ctx_hash(self, context_dict: Dict[Any, Any]):
-        for key in context_dict:
-            if isinstance(key, BaseModel):
-                context_dict[get_qualified_name(key)] = context_dict[key]
-                del context_dict[key]
-
-        context_str = json.dumps(context_dict)
-        return hash(context_str + hash_secret)
-
     async def get_workflow_state(self, state: WorkflowState) -> Optional[Context]:
         """Load the existing context from the workflow state.
 
@@ -245,7 +235,7 @@ class WorkflowService(BaseService):
             return None
 
         context_dict = workflow_state.state
-        context_hash = self._get_ctx_hash(context_dict)
+        context_hash = hash(str(context_dict) + hash_secret)
 
         if workflow_state.hash is not None and context_hash != workflow_state.hash:
             raise ValueError("Context hash does not match!")
@@ -261,7 +251,7 @@ class WorkflowService(BaseService):
     ) -> None:
         """Set the workflow state for this session."""
         context_dict = ctx.to_dict(serializer=JsonPickleSerializer())
-        context_hash = self._get_ctx_hash(context_dict)
+        context_hash = hash(str(context_dict) + hash_secret)
 
         workflow_state = WorkflowState(
             hash=context_hash,

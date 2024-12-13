@@ -1,9 +1,9 @@
 import asyncio
 import json
-from typing import Any, List
+from typing import Any, List, Optional
 
 import pytest
-from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step, Context, Event
 from llama_index.core.workflow.context_serializers import JsonSerializer
 from llama_index.core.workflow.events import HumanResponseEvent, InputRequiredEvent
 from pydantic import PrivateAttr
@@ -22,6 +22,18 @@ class MockMessageConsumer(BaseMessageQueueConsumer):
     async def _process_message(self, message: QueueMessage, **kwargs: Any) -> None:
         async with self._lock:
             self.processed_messages.append(message)
+
+
+class ProgressEvent(Event):
+    progress: str
+
+
+class ResultEvent(Event):
+    result: str
+
+
+class ProcessEvent(Event):
+    data: str
 
 
 @pytest.fixture()
@@ -55,6 +67,43 @@ def test_hitl_workflow() -> Workflow:
             return StopEvent(result=ev.response)
 
     return TestHumanInTheLoopWorklow()
+
+
+@pytest.fixture()
+def test_streaming_workflow() -> Workflow:
+    class TestWorklow(Workflow):
+        @step()
+        async def start(self, ctx: Context, ev: StartEvent) -> Optional[ProcessEvent]:
+            data_list = ["A", "B", "C"]
+            await ctx.set("num_to_collect", len(data_list))
+            ctx.write_event_to_stream(ProgressEvent(progress=f"Started processing"))
+            for item in data_list:
+                ctx.send_event(ProcessEvent(data=item))
+            return None
+
+        @step(num_workers=3)
+        async def process_data(self, ev: ProcessEvent) -> ResultEvent:
+            # Simulate some time-consuming processing
+            # processing_time = 2 + random.random()
+            # await asyncio.sleep(processing_time)
+            result = f"Processed: {ev.data}"
+            return ResultEvent(result=result)
+
+        @step()
+        async def combine_results(
+            self, ctx: Context, ev: ResultEvent
+        ) -> StopEvent | None:
+            num_to_collect = await ctx.get("num_to_collect")
+            results = ctx.collect_events(ev, [ResultEvent] * num_to_collect)
+            if results is None:
+                return None
+
+            combined_result = ", ".join([event.result for event in results])
+            ctx.write_event_to_stream(ProgressEvent(progress=f"Completed processing with result: {combined_result}"))
+            return StopEvent(result=combined_result)
+
+
+    return TestWorklow()
 
 
 @pytest.mark.asyncio
@@ -100,6 +149,54 @@ async def test_workflow_service(
     result = human_output_consumer.processed_messages[-1]
     assert result.action == ActionTypes.COMPLETED_TASK
     assert result.data["result"] == "test_arg1_result"
+
+    # allow a clean shutdown
+    await asyncio.gather(mq_task, server_task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_streaming_workflow_service(
+    test_streaming_workflow: Workflow, human_output_consumer: MockMessageConsumer
+) -> None:
+    message_queue = SimpleMessageQueue()
+    _ = await message_queue.register_consumer(human_output_consumer)
+
+    # create the service
+    workflow_service = WorkflowService(
+        test_streaming_workflow,
+        message_queue,
+        service_name="test_workflow",
+        description="Test Workflow Service",
+        host="localhost",
+        port=8001,
+    )
+
+    # launch it
+    mq_task = await message_queue.launch_local()
+    server_task = await workflow_service.launch_local()
+
+    # pass a task to the service
+    task = TaskDefinition(
+        input="{}",
+        session_id="test_session_id",
+    )
+
+    await workflow_service.process_message(
+        QueueMessage(
+            action=ActionTypes.NEW_TASK,
+            data=task.model_dump(),
+        )
+    )
+
+    # let the service process the message
+    await asyncio.sleep(1)
+    mq_task.cancel()
+    server_task.cancel()
+
+    # check the result
+    result = human_output_consumer.processed_messages[-1]
+    assert result.action == ActionTypes.COMPLETED_TASK
+    assert result.data["result"] == "Processed: A, Processed: B, Processed: C"
 
     # allow a clean shutdown
     await asyncio.gather(mq_task, server_task, return_exceptions=True)
@@ -158,6 +255,7 @@ async def test_hitl_workflow_service(
     )
 
     # give time to process and shutdown afterwards
+    workflow_service.running
     await asyncio.sleep(1)
     mq_task.cancel()
     server_task.cancel()
