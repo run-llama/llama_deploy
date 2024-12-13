@@ -158,7 +158,7 @@ class Deployment:
             self._install_dependencies(service_config)
 
             # Set environment variables
-            self._set_environment_variables(service_id, service_config, destination)
+            self._set_environment_variables(service_config, destination)
 
             # Search for a workflow instance in the service path
             pythonpath = (destination / service_config.path).parent.resolve()
@@ -190,7 +190,7 @@ class Deployment:
 
     @staticmethod
     def _set_environment_variables(
-        service_id: str, service_config: Service, destination: Path
+        service_config: Service, root: Path | None = None
     ) -> None:
         """Sets environment variables for the service."""
         env_vars: dict[str, str | None] = {}
@@ -201,11 +201,12 @@ class Deployment:
         if service_config.env_files:
             for env_file in service_config.env_files:
                 # use dotenv to parse env_file
-                env_file_path = destination / env_file
+                env_file_path = root / env_file if root else Path(env_file)
                 env_vars.update(**dotenv_values(env_file_path))
 
         for k, v in env_vars.items():
             if v:
+                os.environ.__setitem__
                 os.environ[k] = v
 
     @staticmethod
