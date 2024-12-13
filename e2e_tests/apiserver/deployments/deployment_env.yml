@@ -17,14 +17,3 @@ services:
     env-files:
       - ./e2e_tests/apiserver/.env
     path: workflow_env:workflow
-
-  another_workflow:
-    name: Another Workflow
-    source:
-      type: local
-      name: ./e2e_tests/apiserver/deployments/src
-    env:
-      VAR_1: w
-      VAR_2: z
-      API_KEY: "456"
-    path: workflow_env:another_workflow

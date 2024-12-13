@@ -34,14 +34,7 @@ class MyWorkflow(Workflow):
         )
 
 
-# env prefix is f"{service_id}_"
-workflow = MyWorkflow(
-    settings=WorkflowSettings(_env_prefix="test_env_workflow_".upper())
-)
-
-another_workflow = MyWorkflow(
-    settings=WorkflowSettings(_env_prefix="another_workflow_".upper())
-)
+workflow = MyWorkflow(settings=WorkflowSettings())
 
 
 async def main(w: Workflow):

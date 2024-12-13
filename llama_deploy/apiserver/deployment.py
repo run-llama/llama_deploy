@@ -194,22 +194,12 @@ class Deployment:
         env_vars: dict[str, str | None] = {}
 
         if service_config.env:
-            env_vars.update(
-                **{
-                    f"{service_id.upper()}_{k.upper()}": v
-                    for k, v in service_config.env.items()
-                }
-            )
+            env_vars.update(**service_config.env)
 
         if service_config.env_files:
             for env_file in service_config.env_files:
                 # use dotenv to parse env_file
-                env_vars.update(
-                    **{
-                        f"{service_id.upper()}_{k.upper()}": v
-                        for k, v in dotenv_values(env_file).items()
-                    }
-                )
+                env_vars.update(**dotenv_values(env_file))
 
         for k, v in env_vars.items():
             if v:
