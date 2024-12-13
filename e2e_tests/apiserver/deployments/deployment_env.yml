@@ -15,5 +15,5 @@ services:
       VAR_1: x  # this gets overwritten because VAR_1 also exists in the provided .env
       VAR_2: y
     env-files:
-      - ./e2e_tests/apiserver/.env
+      - .env  # relative to source path
     path: workflow_env:workflow
