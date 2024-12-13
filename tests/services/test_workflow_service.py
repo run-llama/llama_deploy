@@ -3,7 +3,14 @@ import json
 from typing import Any, List, Optional
 
 import pytest
-from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step, Context, Event
+from llama_index.core.workflow import (
+    StartEvent,
+    StopEvent,
+    Workflow,
+    step,
+    Context,
+    Event,
+)
 from llama_index.core.workflow.context_serializers import JsonSerializer
 from llama_index.core.workflow.events import HumanResponseEvent, InputRequiredEvent
 from pydantic import PrivateAttr
@@ -76,7 +83,7 @@ def test_streaming_workflow() -> Workflow:
         async def start(self, ctx: Context, ev: StartEvent) -> Optional[ProcessEvent]:
             data_list = ["A", "B", "C"]
             await ctx.set("num_to_collect", len(data_list))
-            ctx.write_event_to_stream(ProgressEvent(progress=f"Started processing"))
+            ctx.write_event_to_stream(ProgressEvent(progress="Started processing"))
             for item in data_list:
                 ctx.send_event(ProcessEvent(data=item))
             return None
@@ -99,9 +106,12 @@ def test_streaming_workflow() -> Workflow:
                 return None
 
             combined_result = ", ".join([event.result for event in results])
-            ctx.write_event_to_stream(ProgressEvent(progress=f"Completed processing with result: {combined_result}"))
+            ctx.write_event_to_stream(
+                ProgressEvent(
+                    progress=f"Completed processing with result: {combined_result}"
+                )
+            )
             return StopEvent(result=combined_result)
-
 
     return TestWorklow()
 
