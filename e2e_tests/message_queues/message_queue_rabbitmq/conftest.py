@@ -20,8 +20,6 @@ def rabbitmq_service():
         ["docker", "compose", "-f", f"{compose_file}", "up", "-d", "--wait"]
     )
     proc.communicate()
-    # Give some time to further boot
-    time.sleep(5)
     yield
     subprocess.Popen(["docker", "compose", "-f", f"{compose_file}", "down"])
     proc.communicate()
