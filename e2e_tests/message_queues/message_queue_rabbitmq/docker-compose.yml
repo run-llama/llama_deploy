@@ -6,7 +6,7 @@ services:
       - "5672:5672"
       - "15672:15672"
     healthcheck:
-      test: rabbitmq-diagnostics -q check_running
+      test: rabbitmq-diagnostics -q check_running && rabbitmq-diagnostics -q check_port_connectivity
       interval: 5s
       timeout: 3s
       retries: 5
