@@ -13,8 +13,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
-      # You can use PyPy versions in python-version.
-      # For example, pypy-2.7 and pypy-3.8
+      # Let the matrix finish to see if the failure was transient
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
     steps:
