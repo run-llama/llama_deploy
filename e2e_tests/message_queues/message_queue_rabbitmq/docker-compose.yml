@@ -7,7 +7,7 @@ services:
       - "15672:15672"
     healthcheck:
       test:
-        - sh
+        - CMD-SHELL
         - -c
         - |
           rabbitmq-diagnostics -q check_running
