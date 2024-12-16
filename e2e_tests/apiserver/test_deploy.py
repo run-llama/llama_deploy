@@ -3,7 +3,6 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_deploy(apiserver, client):
     here = Path(__file__).parent
@@ -14,7 +13,6 @@ async def test_deploy(apiserver, client):
     assert "TestDeployment1" in status.deployments
 
 
-@pytest.mark.e2e
 def test_deploy_sync(apiserver, client):
     here = Path(__file__).parent
     with open(here / "deployments" / "deployment2.yml") as f:

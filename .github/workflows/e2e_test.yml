@@ -33,4 +33,4 @@ jobs:
         shell: bash
         run: poetry install --with dev
       - name: Run All E2E Tests
-        run: poetry run pytest -m"e2e"
+        run: poetry run pytest e2e_tests/

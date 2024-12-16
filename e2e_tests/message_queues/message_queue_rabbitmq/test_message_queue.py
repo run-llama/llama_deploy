@@ -7,7 +7,6 @@ from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.messages import QueueMessage
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_roundtrip(mq):
     received_messages = []
@@ -35,7 +34,6 @@ async def test_roundtrip(mq):
     assert test_message in received_messages
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_multiple_control_planes(control_planes):
     c1 = Client(control_plane_url="http://localhost:8001")

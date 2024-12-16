@@ -7,7 +7,6 @@ from llama_index.core.workflow.events import HumanResponseEvent
 from llama_deploy import Client
 
 
-@pytest.mark.e2e
 def test_run_client(services):
     client = Client(timeout=10)
 
@@ -41,7 +40,6 @@ def test_run_client(services):
     assert len(sessions) == 0, "Sessions list is not empty"
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_run_client_async(services):
     client = Client(timeout=10)
