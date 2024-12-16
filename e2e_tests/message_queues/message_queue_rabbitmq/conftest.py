@@ -13,7 +13,7 @@ from llama_deploy.message_queues import RabbitMQMessageQueue, RabbitMQMessageQue
 from .workflow import BasicWorkflow
 
 
-@pytest.fixture(scope="package")
+@pytest.fixture(scope="session")
 def rabbitmq_service():
     compose_file = Path(__file__).resolve().parent / "docker-compose.yml"
     proc = subprocess.Popen(
