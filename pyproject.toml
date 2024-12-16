@@ -52,6 +52,7 @@ gitpython = "^3.1.43"
 python-multipart = "^0.0.18"
 typing_extensions = "^4.0.0"
 asgiref = "^3.8.1"
+python-dotenv = "^1.0.1"
 
 [tool.poetry.extras]
 kafka = ["aiokafka", "kafka-python-ng"]

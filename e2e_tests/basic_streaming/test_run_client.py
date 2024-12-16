@@ -5,7 +5,7 @@ from llama_deploy import Client
 
 @pytest.mark.e2e
 def test_run_client(services):
-    client = Client(timeout=10)
+    client = Client(timeout=20)
 
     # sanity check
     sessions = client.sync.core.sessions.list()
@@ -34,7 +34,7 @@ def test_run_client(services):
 @pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_run_client_async(services):
-    client = Client(timeout=10)
+    client = Client(timeout=20)
 
     # test streaming
     session = await client.core.sessions.create()

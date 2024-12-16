@@ -136,6 +136,21 @@ def test__install_dependencies(data_path: Path) -> None:
         mocked_subp.check_call.assert_not_called()
 
 
+def test__set_environment_variables(data_path: Path) -> None:
+    config = Config.from_yaml(data_path / "env_variables.yaml")
+    service_config = config.services["myworkflow"]
+    with mock.patch("llama_deploy.apiserver.deployment.os.environ") as mocked_osenviron:
+        # Assert the sub process cmd receives the list of dependencies
+        Deployment._set_environment_variables(service_config, root=data_path)
+        mocked_osenviron.__setitem__.assert_has_calls(
+            [
+                mock.call("VAR_1", "x"),
+                mock.call("VAR_2", "y"),
+                mock.call("API_KEY", "123"),
+            ]
+        )
+
+
 def test__install_dependencies_raises(data_path: Path) -> None:
     config = Config.from_yaml(data_path / "python_dependencies.yaml")
     service_config = config.services["myworkflow"]
