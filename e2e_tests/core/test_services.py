@@ -4,7 +4,6 @@ from llama_deploy import Client
 from llama_deploy.types.core import ServiceDefinition
 
 
-@pytest.mark.e2e
 def test_services(workflow):
     client = Client()
 
@@ -21,7 +20,6 @@ def test_services(workflow):
     assert len(services.items) == 1
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_services_async(workflow):
     client = Client()

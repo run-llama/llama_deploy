@@ -3078,4 +3078,4 @@ solace = ["solace-pubsubplus"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.10,<4.0"
-content-hash = "4bd6c9526b331b24bdd7209a26797d91174b86e71d7ef5a072aec8b1b43fcf03"
+content-hash = "51bc5b5556f3cbc9b13ec3b3cdb7bd98ecb7e597a7fe79de33e7c78c2c831488"
