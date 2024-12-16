@@ -6,6 +6,7 @@ import pytest
 from llama_deploy.types import TaskDefinition
 
 
+@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_stream(apiserver, client):
     here = Path(__file__).parent
