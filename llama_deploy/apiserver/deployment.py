@@ -164,12 +164,8 @@ class Deployment:
             pythonpath = (destination / service_config.path).parent.resolve()
             sys.path.append(str(pythonpath))
             module_name, workflow_name = Path(service_config.path).name.split(":")
-            if module := sys.modules.get(module_name):
-                module = importlib.reload(
-                    module
-                )  # reload module in case new setup actions performed like setting env vars
-            else:
-                module = importlib.import_module(module_name)
+            module = importlib.import_module(module_name)
+
             workflow = getattr(module, workflow_name)
             workflow_config = WorkflowServiceConfig(
                 host=service_config.host,

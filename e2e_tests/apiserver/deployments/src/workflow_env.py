@@ -1,4 +1,5 @@
 import asyncio
+import os
 
 from llama_index.core.workflow import (
     Context,
@@ -7,34 +8,21 @@ from llama_index.core.workflow import (
     Workflow,
     step,
 )
-from llama_index.core.bridge.pydantic_settings import BaseSettings
-from llama_index.core.bridge.pydantic import Field, SecretStr
-
-
-class WorkflowSettings(BaseSettings):
-    var_1: str | None = Field(None)
-    var_2: str | None = Field(None)
-    api_key: SecretStr = ""
 
 
 class MyWorkflow(Workflow):
-    def __init__(self, settings: WorkflowSettings, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.settings = settings
-
     @step()
     async def run_step(self, ctx: Context, ev: StartEvent) -> StopEvent:
+        var_1 = os.environ.get("VAR_1")
+        var_2 = os.environ.get("VAR_2")
+        api_key = os.environ.get("API_KEY")
         return StopEvent(
             # result depends on variables read from environment
-            result=(
-                f"var_1: {self.settings.var_1}, "
-                f"var_2: {self.settings.var_2}, "
-                f"api_key: {self.settings.api_key.get_secret_value()}"
-            )
+            result=(f"var_1: {var_1}, " f"var_2: {var_2}, " f"api_key: {api_key}")
         )
 
 
-workflow = MyWorkflow(settings=WorkflowSettings())
+workflow = MyWorkflow()
 
 
 async def main(w: Workflow):
@@ -47,8 +35,9 @@ if __name__ == "__main__":
 
     # set env variables
     os.environ["VAR_1"] = "x"
+    os.environ["VAR_1"] = "y"
     os.environ["API_KEY"] = "123"
 
-    w = MyWorkflow(settings=WorkflowSettings())
+    w = MyWorkflow()
 
     asyncio.run(main(w))
