@@ -94,6 +94,7 @@ async def create_deployment_task_nowait(
         session = await deployment.client.core.sessions.get(session_id)
     else:
         session = await deployment.client.core.sessions.create()
+        session_id = session.id
 
     task_definition.session_id = session_id
     task_definition.task_id = await session.run_nowait(
