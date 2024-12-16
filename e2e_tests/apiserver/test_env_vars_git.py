@@ -4,7 +4,6 @@ from pathlib import Path
 import pytest
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_read_env_vars_git(apiserver, client):
     here = Path(__file__).parent
