@@ -1,4 +1,4 @@
-from .workflow_test import MyWorkflow, TestEnvWorkflow
+from .workflow_test import MyWorkflow, _TestEnvWorkflow
 
 my_workflow = MyWorkflow()
-env_reader_workflow = TestEnvWorkflow()
+env_reader_workflow = _TestEnvWorkflow()

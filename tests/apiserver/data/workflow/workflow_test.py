@@ -8,7 +8,7 @@ class MyWorkflow(Workflow):
         return StopEvent(result=f"Received: {ev.data}")
 
 
-class TestEnvWorkflow(Workflow):
+class _TestEnvWorkflow(Workflow):
     @step()
     async def read_env_vars(self, ctx: Context, ev: StartEvent) -> StopEvent:
         env_vars = [f"{v}: {os.environ.get(v)}" for v in ev.get("env_vars_to_read")]

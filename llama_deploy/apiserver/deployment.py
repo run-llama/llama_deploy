@@ -206,7 +206,6 @@ class Deployment:
 
         for k, v in env_vars.items():
             if v:
-                os.environ.__setitem__
                 os.environ[k] = v
 
     @staticmethod
