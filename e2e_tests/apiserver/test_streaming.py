@@ -14,7 +14,7 @@ async def test_stream(apiserver, client):
         deployment = await client.apiserver.deployments.create(f)
         await asyncio.sleep(5)
 
-    tasks = await deployment.tasks()
+    tasks = deployment.tasks
     task = await tasks.create(TaskDefinition(input='{"a": "b"}'))
     read_events = []
     async for ev in task.events():
