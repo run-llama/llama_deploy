@@ -3,7 +3,6 @@ import pytest
 from llama_deploy import Client
 
 
-@pytest.mark.e2e
 def test_run_client(services):
     client = Client(timeout=20)
 
@@ -31,7 +30,6 @@ def test_run_client(services):
     client.sync.core.sessions.delete(session.id)
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_run_client_async(services):
     client = Client(timeout=20)

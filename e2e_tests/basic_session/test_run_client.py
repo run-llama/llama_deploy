@@ -3,7 +3,6 @@ import pytest
 from llama_deploy import Client
 
 
-@pytest.mark.e2e
 def test_run_client(workflow):
     client = Client(timeout=10)
 
@@ -24,7 +23,6 @@ def test_run_client(workflow):
     assert result == "1"
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_run_client_async(workflow):
     client = Client(timeout=10)
