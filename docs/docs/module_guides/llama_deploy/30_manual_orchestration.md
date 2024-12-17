@@ -1,18 +1,18 @@
 # Manual orchestration
 
-Llama Deploy offers different abstraction layers for maximum flexibility. For example, if you don't need the [API
+LlamaDeploy offers different abstraction layers for maximum flexibility. For example, if you don't need the [API
 server](./20_core_components.md#api-server), you can go down one layer and orchestrate the core components on your own.
-Llama Deploy provides a simple way to self-manage the required services using configuration objects and helper functions.
+LlamaDeploy provides a simple way to self-manage the required services using configuration objects and helper functions.
 
 ## Manual orchestration with Python wrappers
 
-Llama Deploy provides a set of utility functions that wrap the lower-level Python API in order to simplify certain
+LlamaDeploy provides a set of utility functions that wrap the lower-level Python API in order to simplify certain
 operations that are common when you need to orchestrate the different core components, let's see how to use them.
 
 ### Running the Core System
 
 !!! note
-    When manually orchestrating a Llama Deploy instance, generally you'll want to deploy the core components and
+    When manually orchestrating a LlamaDeploy instance, generally you'll want to deploy the core components and
     workflows services each from their own python scripts (or docker images, etc.).
 
 To manually orchestrate an instance, the first thing to do is to run the core services: message queue, control plane,
@@ -40,13 +40,13 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-This will set up the basic infrastructure for your Llama Deploy instance. You can customize the configuration to
+This will set up the basic infrastructure for your LlamaDeploy instance. You can customize the configuration to
 adjust TCP port numbers and basic settings, and choose the message queue backend of choice among those currently
 supported, for example Redis, Kafka or RabbiMQ.
 
 ### Deploying a Workflow
 
-To run a workflow as a Llama Deploy service, you need another Python process. You can easily have Llama Deploy serving
+To run a workflow as a LlamaDeploy service, you need another Python process. You can easily have LlamaDeploy serving
 your workflow by invoking the `deploy_workflow` function like this:
 
 ```python
@@ -183,7 +183,7 @@ outer = OuterWorkflow()
 outer.add_workflows(inner=InnerWorkflow())
 ```
 
-Llama Deploy makes it dead simple to spin up each workflow above as a service, and run everything without any changes
+LlamaDeploy makes it dead simple to spin up each workflow above as a service, and run everything without any changes
 to your code!
 
 Just deploy each workflow:
@@ -250,7 +250,7 @@ async def run_task():
 
 ## Manual orchestration using the lower level Python API
 
-For more control over the Llama Deploy setup process, you can use the lower-level API. In this section we'll see what
+For more control over the LlamaDeploy setup process, you can use the lower-level API. In this section we'll see what
 happens under the hood when you use wrappers like `deploy_core` and `deploy_workflow` that we saw in the previous
 section.
 

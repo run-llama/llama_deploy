@@ -268,7 +268,7 @@ class ApiServer(Model):
             body = r.json()
             return Status(status=StatusEnum.UNHEALTHY, status_message=r.text)
 
-        description = "Llama Deploy is up and running."
+        description = "LlamaDeploy is up and running."
         body = r.json()
         deployments = body.get("deployments") or []
         if deployments:
