@@ -15,9 +15,8 @@ from llama_index.core.workflow.context_serializers import (
     JsonSerializer,
 )
 from llama_index.core.workflow.handler import WorkflowHandler
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 from llama_deploy.control_plane.server import CONTROL_PLANE_MESSAGE_TYPE
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
@@ -65,10 +64,10 @@ class WorkflowState(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    hash: Optional[int] = Field(
-        default=None, description="Hash of the context, if any."
-    )
     state: dict = Field(default_factory=dict, description="Pickled state, if any.")
+    hash: Optional[int] = Field(
+        default=None, description="Hash of the context, if any.", validate_default=True
+    )
     run_kwargs: Dict[str, Any] = Field(
         default_factory=dict, description="Run kwargs needed to run the workflow."
     )
@@ -76,6 +75,14 @@ class WorkflowState(BaseModel):
         default=None, description="Session ID for the current task."
     )
     task_id: str = Field(description="Task ID for the current run.")
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_hash(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "state" in data:
+                data["hash"] = hash(str(data["state"]) + hash_secret)
+        return data
 
 
 class WorkflowService(BaseService):
@@ -251,10 +258,8 @@ class WorkflowService(BaseService):
     ) -> None:
         """Set the workflow state for this session."""
         context_dict = ctx.to_dict(serializer=JsonPickleSerializer())
-        context_hash = hash(str(context_dict) + hash_secret)
 
         workflow_state = WorkflowState(
-            hash=context_hash,
             state=context_dict,
             run_kwargs=current_state.run_kwargs,
             session_id=current_state.session_id,
