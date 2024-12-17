@@ -20,10 +20,10 @@ markdown_extensions:
 nav:
   - Home: index.md
   - API Reference:
-      - Llama Deploy:
+      - LlamaDeploy:
           - api_reference/llama_deploy
   - Component Guides:
-      - Llama Deploy:
+      - LlamaDeploy:
           - module_guides/llama_deploy
 plugins:
   - search

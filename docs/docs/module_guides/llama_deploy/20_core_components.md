@@ -1,12 +1,12 @@
 # Core Components
 
-Llama Deploy consists of several core components acting as services in order to provide the environment where
+LlamaDeploy consists of several core components acting as services in order to provide the environment where
 multi-agent applications can run and communicate with each other. This sections details each and every component and
 will help you navigate the rest of the documentation.
 
 ## Deployment
 
-In Llama Deploy each workflow is wrapped in a [_Service_](#service) object, endlessly processing incoming requests in
+In LlamaDeploy each workflow is wrapped in a [_Service_](#service) object, endlessly processing incoming requests in
 form of [_Task_](#task) objects. Each service pulls and publishes messages to and from a [_Message Queue_](#message-queue).
 An internal component called [_Control Plane_](#control-plane) handles ongoing tasks, manages the internal state, keeps
 track of which services are available, and decides which service should handle the next step of a task using another
@@ -37,7 +37,7 @@ For more details, see the API reference for the deployment [`Config`](../../api_
 
 ## API Server
 
-The API Server is a core component of Llama Deploy responsible for serving and managing multiple deployments. It is
+The API Server is a core component of LlamaDeploy responsible for serving and managing multiple deployments. It is
 responsible for running and managing multiple deployments at the same time, and it exposes a HTTP API that can be used
 for administrative purposes as well as for querying the deployed services. You can interact with the administrative
 API through [`llamactl`](./50_llamactl.md) or the [Python SDK](./40_python_sdk.md).

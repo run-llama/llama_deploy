@@ -89,7 +89,7 @@ python src/workflow.py
 
 Note: You need to change the default query in `workflow.py`.
 
-To be able to run the workflow above within Llama Deploy, a deployment must be defined in YAML format. This is the code
+To be able to run the workflow above within LlamaDeploy, a deployment must be defined in YAML format. This is the code
 you'll find in the file `deployment.yml` from the current folder, with comments to the relevant bits:
 
 ```yaml
@@ -103,9 +103,9 @@ default-service: llamacloud_workflow
 services:
   llamacloud_workflow:
     name: LlamaCloud GoogleDrive Data Source Workflow
-    # We tell Llama Deploy where to look for our workflow
+    # We tell LlamaDeploy where to look for our workflow
     source:
-      # In this case, we instruct Llama Deploy to look in the local filesystem
+      # In this case, we instruct LlamaDeploy to look in the local filesystem
       type: local
       # The path in the local filesystem where to look. This assumes there's an src folder in the
       # current working directory containing the file workflow.py we created previously
@@ -114,7 +114,7 @@ services:
     path: workflow:llamacloud_workflow
 ```
 
-The YAML code above defines the deployment that Llama Deploy will create and run as a service. As you can
+The YAML code above defines the deployment that LlamaDeploy will create and run as a service. As you can
 see, this deployment has a name, some configuration for the control plane and one service to wrap our workflow. The
 service will look for a Python variable named `llamacloud_workflow` in a Python module named `workflow` and run the workflow.
 

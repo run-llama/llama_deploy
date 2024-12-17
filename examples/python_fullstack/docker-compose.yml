@@ -9,7 +9,7 @@ services:
       - qdrant_data:/qdrant/storage
 
   redis:
-    # Llama Deploy message queue
+    # LlamaDeploy message queue
     image: redis:latest
     hostname: redis
     ports:
@@ -21,7 +21,7 @@ services:
       retries: 5
 
   apiserver:
-    # Llama Deploy API server, will run the workflows
+    # LlamaDeploy API server, will run the workflows
     image: llamaindex/llama-deploy:main
     environment:
       QDRANT_HOST: qdrant

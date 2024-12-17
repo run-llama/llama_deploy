@@ -3,17 +3,17 @@
 > [!NOTE]
 > This example is mostly based on the [Quick Start](../quick_start/README.md), see there for more details.
 
-We'll be deploying a simple workflow on a local instance of Llama Deploy using Redis as a scalable storage for the
+We'll be deploying a simple workflow on a local instance of LlamaDeploy using Redis as a scalable storage for the
 global state. See [the Control Plane documentation](https://docs.llamaindex.ai/en/stable/module_guides/llama_deploy/20_core_components/#control-plane)
 for an overview of what the global state consists of and when the default storage might not be enough.
 
-Before starting Llama Deploy, use Docker compose to start the Redis container and run it in the background:
+Before starting LlamaDeploy, use Docker compose to start the Redis container and run it in the background:
 
 ```
 $ docker compose up -d
 ```
 
-Make sure to install the package to support the Redis KV store in the virtual environment where we'll run Llama Deploy:
+Make sure to install the package to support the Redis KV store in the virtual environment where we'll run LlamaDeploy:
 
 ```
 $ pip install -r requirements.txt
