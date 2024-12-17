@@ -1,6 +1,6 @@
 # Python Fullstack Example
 
-This example demonstrates a fullstack application using Llama Deploy to create and manage a deployment consisting of
+This example demonstrates a fullstack application using LlamaDeploy to create and manage a deployment consisting of
 two workflows: a RAG (Retrieval-Augmented Generation) and an Agentic workflow.
 
 ![A sample of the deployed frontend.](./llama_deploy_frontend.png)
@@ -12,7 +12,7 @@ The deployment consists of two main workflows:
 1. RAG Workflow: A basic retrieval-augmented generation system.
 2. Agentic Workflow: An advanced workflow that incorporates the RAG system and adds agentic capabilities.
 
-These workflows are deployed as separate services using Llama Deploy, allowing for flexible and scalable deployment
+These workflows are deployed as separate services using LlamaDeploy, allowing for flexible and scalable deployment
 options.
 
 Then, a simple frontend is built using [reflex](https://reflex.dev/) to allow you to chat with the agentic workflow.
@@ -21,12 +21,12 @@ Then, a simple frontend is built using [reflex](https://reflex.dev/) to allow yo
 
 Let's walk through the important files and folders:
 
-- `python_fullstack.yaml`: The deployment definition. It instructs Llama Deploy about which services to deploy and
+- `python_fullstack.yaml`: The deployment definition. It instructs LlamaDeploy about which services to deploy and
   how to retrieve the source code for them.
 - `frontend/`: A simple frontend built using [reflex](https://reflex.dev/) to allow you to chat with the deployed agentic workflow.
   - `frontend/frontend/frontend.py`: The `reflex` app definition. Builds a basic chat UI.
   - `frontend/frontend/state.py`: The state management for the frontend. This is where we actually connect to the
-    Llama Deploy API server to chat with the workflows.
+    LlamaDeploy API server to chat with the workflows.
   - `frontend/frontend/style.py`: The style management for the frontend. This is where we define the style of the chat UI.
 - `workflows/`: The workflows themselves, including the RAG workflow and the agentic workflow.
   - `workflows/agent_workflow.py`: The agentic workflow that uses the RAG workflow.
@@ -34,9 +34,9 @@ Let's walk through the important files and folders:
 
 The application relies on different components:
 
-- A Redis instance used by the Llama Deploy message queue
+- A Redis instance used by the LlamaDeploy message queue
 - A Qdrant instance used by the RAG workflow
-- A Llama Deploy API server instance managing the deployment
+- A LlamaDeploy API server instance managing the deployment
 - The Reflex application serving the UI at http://localhost:3000
 
 A `docker-compose.yml` file is provided to orchestrate all these components, see the "Usage" section below.
@@ -58,7 +58,7 @@ The project relies on several key libraries:
 
 ## Network topology
 
-- Llama Deploy API server:
+- LlamaDeploy API server:
 
   - Port: 8000
   - RAG Workflow Service:

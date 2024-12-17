@@ -20,9 +20,7 @@ def test_status_server_down(runner: CliRunner) -> None:
         )
         result = runner.invoke(llamactl, ["-s", "https://test", "status"])
         assert result.exit_code == 0
-        assert (
-            "Llama Deploy is unhealthy: API Server is down for tests" in result.output
-        )
+        assert "LlamaDeploy is unhealthy: API Server is down for tests" in result.output
 
 
 def test_status_unhealthy(runner: CliRunner) -> None:
@@ -33,7 +31,7 @@ def test_status_unhealthy(runner: CliRunner) -> None:
 
         result = runner.invoke(llamactl, ["status"])
         assert result.exit_code == 0
-        assert "Llama Deploy is unhealthy: test_message" in result.output
+        assert "LlamaDeploy is unhealthy: test_message" in result.output
 
 
 def test_status(runner: CliRunner) -> None:
@@ -45,7 +43,7 @@ def test_status(runner: CliRunner) -> None:
         assert result.exit_code == 0
         assert (
             result.output
-            == "Llama Deploy is up and running.\n\nCurrently there are no active deployments\n"
+            == "LlamaDeploy is up and running.\n\nCurrently there are no active deployments\n"
         )
 
 
@@ -61,5 +59,5 @@ def test_status_with_deployments(runner: CliRunner) -> None:
 
         assert result.exit_code == 0
         assert result.output == (
-            "Llama Deploy is up and running.\n\nActive deployments:\n- foo\n- bar\n"
+            "LlamaDeploy is up and running.\n\nActive deployments:\n- foo\n- bar\n"
         )

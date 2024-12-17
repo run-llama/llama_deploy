@@ -6,7 +6,7 @@ from .models import ApiServer, Core, make_sync
 
 
 class Client(_BaseClient):
-    """The Llama Deploy Python client.
+    """The LlamaDeploy Python client.
 
     The client is gives access to both the asyncio and non-asyncio APIs. To access the sync
     API just use methods of `client.sync`.

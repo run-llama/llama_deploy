@@ -283,7 +283,7 @@ async def test_status_healthy_no_deployments(client: Any) -> None:
     assert res.status.value == "Healthy"
     assert (
         res.status_message
-        == "Llama Deploy is up and running.\nCurrently there are no active deployments"
+        == "LlamaDeploy is up and running.\nCurrently there are no active deployments"
     )
 
 
@@ -302,7 +302,7 @@ async def test_status_healthy(client: Any) -> None:
     assert res.status.value == "Healthy"
     assert (
         res.status_message
-        == "Llama Deploy is up and running.\nActive deployments:\n- foo\n- bar"
+        == "LlamaDeploy is up and running.\nActive deployments:\n- foo\n- bar"
     )
 
 
