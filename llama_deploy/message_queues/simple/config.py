@@ -15,5 +15,3 @@ class SimpleMessageQueueConfig(BaseSettings):
     type: Literal["simple"] = Field(default="simple", exclude=True)
     host: str = "127.0.0.1"
     port: int | None = 8001
-    internal_host: str | None = None
-    internal_port: int | None = None

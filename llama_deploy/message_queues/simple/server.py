@@ -63,8 +63,6 @@ class SimpleMessageQueue(BaseMessageQueue):
     running: bool = True
     port: int = 8001
     host: str = "127.0.0.1"
-    internal_host: Optional[str] = None
-    internal_port: Optional[int] = None
 
     _app: FastAPI = PrivateAttr()
 
@@ -74,16 +72,12 @@ class SimpleMessageQueue(BaseMessageQueue):
         queues: Dict[str, deque] = {},
         host: str = "127.0.0.1",
         port: Optional[int] = 8001,
-        internal_host: Optional[str] = None,
-        internal_port: Optional[int] = None,
     ):
         super().__init__(
             consumers=consumers,
             queues=queues,
             host=host,
             port=port,
-            internal_host=internal_host,
-            internal_port=internal_port,
         )
 
         self._app = FastAPI()
@@ -288,16 +282,14 @@ class SimpleMessageQueue(BaseMessageQueue):
 
     async def launch_server(self) -> None:
         """Launch the message queue as a FastAPI server."""
-        host = self.internal_host or self.host
-        port = self.internal_port or self.port
-        logger.info(f"Launching message queue server at {host}:{port}")
+        logger.info(f"Launching message queue server at {self.host}:{self.port}")
 
         # uvicorn.run(self._app, host=self.host, port=self.port)
         class CustomServer(uvicorn.Server):
             def install_signal_handlers(self) -> None:
                 pass
 
-        cfg = uvicorn.Config(self._app, host=host, port=port)
+        cfg = uvicorn.Config(self._app, host=self.host, port=self.port)
         server = CustomServer(cfg)
         pl_task = asyncio.create_task(self.processing_loop())
 
@@ -319,14 +311,4 @@ class SimpleMessageQueue(BaseMessageQueue):
         pass
 
     def as_config(self) -> BaseModel:
-        return SimpleMessageQueueConfig(
-            host=self.host,
-            port=self.port,
-            internal_host=self.internal_host,
-            internal_port=self.internal_port,
-        )
-
-
-if __name__ == "__main__":
-    mq = SimpleMessageQueue()
-    asyncio.run(mq.launch_server())
+        return SimpleMessageQueueConfig(host=self.host, port=self.port)
