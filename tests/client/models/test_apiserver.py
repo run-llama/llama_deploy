@@ -90,7 +90,7 @@ async def test_session_collection_list(client: Any) -> None:
 @pytest.mark.asyncio
 async def test_task_results(client: Any) -> None:
     res = TaskResult(task_id="a_result", history=[], result="some_text", data={})
-    client.request.return_value = mock.MagicMock(json=lambda: res.model_dump_json())
+    client.request.return_value = mock.MagicMock(json=lambda: res.model_dump())
 
     t = Task(
         client=client,
