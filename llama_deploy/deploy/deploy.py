@@ -67,7 +67,7 @@ def _get_message_queue_config(config_dict: dict) -> BaseSettings:
 def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
     if isinstance(config, SimpleMessageQueueConfig):
         queue = SimpleMessageQueue(**config.model_dump())
-        return queue.client
+        return queue.client  # type: ignore
     elif isinstance(config, AWSMessageQueueConfig):
         return AWSMessageQueue(**config.model_dump())
     elif isinstance(config, KafkaMessageQueueConfig):

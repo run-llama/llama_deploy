@@ -18,6 +18,7 @@ from llama_deploy.message_consumers.remote import (
 )
 from llama_deploy.message_queues.simple import (
     SimpleMessageQueue,
+    SimpleMessageQueueConfig,
     SimpleRemoteClientMessageQueue,
 )
 from llama_deploy.messages.base import QueueMessage
@@ -29,7 +30,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture()
 def message_queue() -> SimpleMessageQueue:
-    return SimpleMessageQueue(host="https://mock-url.io", port=8001)
+    return SimpleMessageQueue(host="mock-url.io", port=8001)
 
 
 @pytest.fixture()
@@ -72,7 +73,10 @@ async def test_remote_client_register_consumer(
 ) -> None:
     # Arrange
     remote_mq = SimpleRemoteClientMessageQueue(
-        base_url="https://mock-url.io", host=message_queue.host, port=message_queue.port
+        SimpleMessageQueueConfig(
+            host="mock-url.io",
+            port=message_queue.port,
+        )
     )
     remote_consumer = RemoteMessageConsumer(
         message_type="mock_type", url="remote-consumer.io"
@@ -85,7 +89,8 @@ async def test_remote_client_register_consumer(
 
     # assert
     mock_post.assert_called_once_with(
-        "https://mock-url.io/register_consumer", json=remote_consumer_def.model_dump()
+        "http://mock-url.io:8001/register_consumer",
+        json=remote_consumer_def.model_dump(),
     )
     assert len(message_queue.consumers) == 1
     assert result == default_start_consuming_callable
@@ -98,7 +103,10 @@ async def test_remote_client_deregister_consumer(
 ) -> None:
     # Arrange
     remote_mq = SimpleRemoteClientMessageQueue(
-        base_url="https://mock-url.io", host=message_queue.host, port=message_queue.port
+        SimpleMessageQueueConfig(
+            host="mock-url.io",
+            port=message_queue.port,
+        )
     )
     remote_consumer = RemoteMessageConsumer(
         message_type="mock_type", url="remote-consumer.io"
@@ -112,7 +120,8 @@ async def test_remote_client_deregister_consumer(
 
     # assert
     mock_post.assert_called_once_with(
-        "https://mock-url.io/deregister_consumer", json=remote_consumer_def.model_dump()
+        "http://mock-url.io:8001/deregister_consumer",
+        json=remote_consumer_def.model_dump(),
     )
     assert len(message_queue.consumers) == 0
     assert result.status_code == 200
@@ -125,7 +134,10 @@ async def test_remote_client_get_consumers(
 ) -> None:
     # Arrange
     remote_mq = SimpleRemoteClientMessageQueue(
-        base_url="https://mock-url.io", host=message_queue.host, port=message_queue.port
+        SimpleMessageQueueConfig(
+            host="mock-url.io",
+            port=message_queue.port,
+        )
     )
     remote_consumer = RemoteMessageConsumer(
         message_type="mock_type", url="remote-consumer.io"
@@ -137,7 +149,7 @@ async def test_remote_client_get_consumers(
     result = await remote_mq.get_consumers(message_type="mock_type")
 
     # assert
-    mock_get.assert_called_once_with("https://mock-url.io/get_consumers/mock_type")
+    mock_get.assert_called_once_with("http://mock-url.io:8001/get_consumers/mock_type")
     assert len(message_queue.consumers) == 1
     assert result[0] == remote_consumer
 
@@ -151,7 +163,10 @@ async def test_remote_client_publish(
     consumer = MockMessageConsumer(message_type="mock_type")
     await message_queue.register_consumer(consumer)
     remote_mq = SimpleRemoteClientMessageQueue(
-        base_url=message_queue.host, host=message_queue.host, port=message_queue.port
+        SimpleMessageQueueConfig(
+            host=message_queue.host,
+            port=message_queue.port,
+        )
     )
     mock_post.side_effect = post_side_effect
 
@@ -163,6 +178,6 @@ async def test_remote_client_publish(
 
     # assert
     mock_post.assert_called_once_with(
-        "https://mock-url.io/publish/mock_type", json=message.model_dump()
+        "http://mock-url.io:8001/publish/mock_type", json=message.model_dump()
     )
     assert message_queue.queues["mock_type"][0] == message

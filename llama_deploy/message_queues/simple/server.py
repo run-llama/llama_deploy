@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import Field, PrivateAttr
 
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
@@ -19,7 +19,7 @@ from llama_deploy.message_consumers.remote import (
     RemoteMessageConsumer,
     RemoteMessageConsumerDef,
 )
-from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.message_queues.base import AbstractMessageQueue, BaseMessageQueue
 from llama_deploy.messages.base import QueueMessage
 
 from .client import SimpleRemoteClientMessageQueue
@@ -115,15 +115,10 @@ class SimpleMessageQueue(BaseMessageQueue):
         )
 
     @property
-    def client(self) -> BaseMessageQueue:
+    def client(self) -> AbstractMessageQueue:
         """Returns a client for the message queue server."""
-        base_url = (
-            f"http://{self.host}:{self.port}" if self.port else f"http://{self.host}"
-        )
         return SimpleRemoteClientMessageQueue(
-            base_url=base_url,
-            host=self.host,
-            port=self.port,
+            SimpleMessageQueueConfig(host=self.host, port=self.port)
         )
 
     def _select_consumer(self, message: QueueMessage) -> BaseMessageQueueConsumer:
@@ -310,5 +305,5 @@ class SimpleMessageQueue(BaseMessageQueue):
     ) -> None:
         pass
 
-    def as_config(self) -> BaseModel:
+    def as_config(self) -> SimpleMessageQueueConfig:
         return SimpleMessageQueueConfig(host=self.host, port=self.port)
