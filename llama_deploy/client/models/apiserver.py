@@ -81,7 +81,7 @@ class Task(Model):
             params={"session_id": self.session_id},
             timeout=self.client.timeout,
         )
-        return TaskResult.model_validate_json(r.json())
+        return TaskResult.model_validate(r.json())
 
     async def send_human_response(
         self, response: str, service_name: str
@@ -97,7 +97,7 @@ class Task(Model):
             json={"response": response},
             timeout=self.client.timeout,
         )
-        return HumanResponseEvent.model_validate_json(r.json())
+        return HumanResponseEvent.model_validate(r.json())
 
     async def events(self) -> AsyncGenerator[dict[str, Any], None]:  # pragma: no cover
         """Returns a generator object to consume the events streamed from a service."""
