@@ -94,6 +94,7 @@ class Task(Model):
             url,
             verify=not self.client.disable_ssl,
             params={"session_id": self.session_id, "service_name": service_name},
+            json={"response": response},
             timeout=self.client.timeout,
         )
         return HumanResponseEvent.model_validate_json(r.json())
