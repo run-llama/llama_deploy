@@ -16,7 +16,7 @@ def status(global_config: tuple) -> None:
         raise click.ClickException(str(e))
 
     if status.status == StatusEnum.HEALTHY:
-        click.echo("Llama Deploy is up and running.")
+        click.echo("LlamaDeploy is up and running.")
         if status.deployments:
             click.echo("\nActive deployments:")
             for d in status.deployments:
@@ -24,4 +24,4 @@ def status(global_config: tuple) -> None:
         else:
             click.echo("\nCurrently there are no active deployments")
     else:
-        click.echo(f"Llama Deploy is unhealthy: {status.status_message}")
+        click.echo(f"LlamaDeploy is unhealthy: {status.status_message}")

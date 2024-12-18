@@ -1,6 +1,6 @@
 # Python SDK
 
-Llama Deploy provides a Python SDK for interacting with deployed systems. The SDK supports both synchronous and
+LlamaDeploy provides a Python SDK for interacting with deployed systems. The SDK supports both synchronous and
 asynchronous operations through a unified client interface. The asynchronous API is recommended for production use.
 
 ## Getting started

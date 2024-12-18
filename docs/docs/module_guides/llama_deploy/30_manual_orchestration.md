@@ -1,22 +1,22 @@
 # Manual orchestration
 
-Llama Deploy offers different abstraction layers for maximum flexibility. For example, if you don't need the [API
+LlamaDeploy offers different abstraction layers for maximum flexibility. For example, if you don't need the [API
 server](./20_core_components.md#api-server), you can go down one layer and orchestrate the core components on your own.
-Llama Deploy provides a simple way to self-manage a deployment using configuration objects and helper functions.
+LlamaDeploy provides a simple way to self-manage the required services using configuration objects and helper functions.
 
 ## Manual orchestration with Python wrappers
 
-Llama Deploy provides a set of utility functions that wrap the lower-level Python API in order to simplify certain
+LlamaDeploy provides a set of utility functions that wrap the lower-level Python API in order to simplify certain
 operations that are common when you need to orchestrate the different core components, let's see how to use them.
 
-### Deploying the Core System
+### Running the Core System
 
 !!! note
-    When manually orchestrating a deployment, generally you'll want to deploy the core components and workflows services
-    each from their own python scripts (or docker images, etc.).
+    When manually orchestrating a LlamaDeploy instance, generally you'll want to deploy the core components and
+    workflows services each from their own python scripts (or docker images, etc.).
 
-To manually orchestrate a deployment, the first thing to do is to deploy the core system: message queue, control plane,
-and orchestrator. You can use the `deploy_core` function:
+To manually orchestrate an instance, the first thing to do is to run the core services: message queue, control plane,
+and orchestrator. To do so, you can use the `deploy_core` function:
 
 ```python
 from llama_deploy import (
@@ -27,6 +27,7 @@ from llama_deploy import (
 
 
 async def main():
+    # This will run forever until you interrupt the process, like by pressing CTRL+C
     await deploy_core(
         control_plane_config=ControlPlaneConfig(),
         message_queue_config=SimpleMessageQueueConfig(),
@@ -39,12 +40,14 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-This will set up the basic infrastructure for your deployment. You can customize the configs to adjust ports and basic
-settings, as well as swap in different message queue configs (Redis, Kafka, RabbiMQ, etc.).
+This will set up the basic infrastructure for your LlamaDeploy instance. You can customize the configuration to
+adjust TCP port numbers and basic settings, and choose the message queue backend of choice among those currently
+supported, for example Redis, Kafka or RabbiMQ.
 
 ### Deploying a Workflow
 
-To deploy a workflow as a service, you can use the `deploy_workflow` function:
+To run a workflow as a LlamaDeploy service, you need another Python process. You can easily have LlamaDeploy serving
+your workflow by invoking the `deploy_workflow` function like this:
 
 ```python
 from llama_deploy import (
@@ -73,7 +76,7 @@ class MyWorkflow(Workflow):
     async def run_step(self, ctx: Context, ev: StartEvent) -> StopEvent:
         # Your workflow logic here
         arg1 = str(ev.get("arg1", ""))
-        result = arg1 + "_result"
+        result = arg1 + " result"
 
         # stream events as steps run
         ctx.write_event_to_stream(
@@ -84,6 +87,7 @@ class MyWorkflow(Workflow):
 
 
 async def main():
+    # This will run forever until you interrupt the process, like by pressing CTRL+C
     await deploy_workflow(
         workflow=MyWorkflow(),
         workflow_config=WorkflowServiceConfig(
@@ -99,41 +103,47 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-This will deploy your workflow as a service and register it with the existing control plane and message queue.
+Assuming the previous Python snippet is still running, this will run your workflow as a service and register it with
+the existing control plane and message queue.
 
 ### Interacting with your Deployment
 
-Once deployed, you can interact with your deployment using a client.
+With all the building blocks running, you can interact with your workflow service using `Client` from the Python SDK.
+From another Python snippet:
 
 ```python
-from llama_deploy import LlamaDeployClient, ControlPlaneConfig
+from llama_deploy import Client, ControlPlaneConfig
 
-# points to deployed control plane
-client = LlamaDeployClient(ControlPlaneConfig())
+# point the client to the running control plane from the previous steps
+client = Client(control_plane_url="http://localhost:8001")
 
-session = client.create_session()
-result = session.run("my_workflow", arg1="hello_world")
-print(result)
-# prints 'hello_world_result'
+
+async def run_task():
+    session = await c1.core.sessions.create()
+    result = await session.run("my_workflow", arg="Hello World!")
+    print(result.result)
+    # prints 'Hello World! result'
 ```
 
 If you want to see the event stream as well, you can do:
 
 ```python
-# create a session
-session = client.create_session()
+async def run_task_and_stream():
+    # create a session
+    session = await c1.core.sessions.create()
 
-# kick off run
-task_id = session.run_nowait("streaming_workflow", arg1="hello_world")
+    # kick off task run
+    task_id = session.run_nowait("my_workflow", arg="Hello Streaming!")
 
-# stream events -- the will yield a dict representing each event
-for event in session.get_task_result_stream(task_id):
-    print(event)
+    # stream events
+    async for event in session.get_task_result_stream(task_id):
+        print(event)
 
-# get final result
-result = session.get_task_result(task_id)
-print(result)
-# prints 'hello_world_result'
+    # get final result
+    final_result = await session.get_task_result(task_id)
+
+    print(final_result.result)
+    # prints 'Hello Streaming! result'
 ```
 
 ### Deploying Nested Workflows
@@ -173,7 +183,7 @@ outer = OuterWorkflow()
 outer.add_workflows(inner=InnerWorkflow())
 ```
 
-Llama Deploy makes it dead simple to spin up each workflow above as a service, and run everything without any changes
+LlamaDeploy makes it dead simple to spin up each workflow above as a service, and run everything without any changes
 to your code!
 
 Just deploy each workflow:
@@ -212,6 +222,7 @@ async def main():
         )
     )
 
+    # This will run forever until you interrupt the process, like by pressing CTRL+C
     await asyncio.gather(inner_task, outer_task)
 
 
@@ -224,21 +235,24 @@ if __name__ == "__main__":
 And then use it as before:
 
 ```python
-from llama_deploy import LlamaDeployClient
+from llama_deploy import Client
 
 # points to deployed control plane
-client = LlamaDeployClient(ControlPlaneConfig())
+client = Client(control_plane_url="http://localhost:8001")
 
-session = client.create_session()
-result = session.run("outer", arg1="hello_world")
-print(result)
-# prints 'hello_world_result_result'
+
+async def run_task():
+    session = await c1.core.sessions.create()
+    result = await session.run("outer", arg="Hello World!")
+    print(result.result)
+    # prints 'Hello World! result result'
 ```
 
 ## Manual orchestration using the lower level Python API
 
-For more control over the deployment process, you can use the lower-level API. In this section we'll see what happens
-under the hood when you use wrappers like `deploy_core` and `deploy_workflow` that we saw in the previous section.
+For more control over the LlamaDeploy setup process, you can use the lower-level API. In this section we'll see what
+happens under the hood when you use wrappers like `deploy_core` and `deploy_workflow` that we saw in the previous
+section.
 
 ### deploy_core
 
