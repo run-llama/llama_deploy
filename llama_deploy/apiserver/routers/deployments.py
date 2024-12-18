@@ -6,8 +6,14 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from llama_deploy.apiserver.config_parser import Config
 from llama_deploy.apiserver.server import manager
-from llama_deploy.types import DeploymentDefinition, SessionDefinition, TaskDefinition
+from llama_deploy.types import (
+    DeploymentDefinition,
+    SessionDefinition,
+    TaskDefinition,
+)
 from llama_deploy.types.core import TaskResult
+
+from llama_index.core.workflow.events import HumanResponseEvent
 
 deployments_router = APIRouter(
     prefix="/deployments",
@@ -102,6 +108,26 @@ async def create_deployment_task_nowait(
     )
 
     return task_definition
+
+
+@deployments_router.post("/{deployment_name}/tasks/{task_id}/human_response_event")
+async def send_human_response_event(
+    deployment_name: str,
+    task_id: str,
+    session_id: str,
+    service_name: str,
+    event: HumanResponseEvent,
+) -> HumanResponseEvent:
+    """Send a human response event to a service for a specific task and session."""
+    deployment = manager.get_deployment(deployment_name)
+    if deployment is None:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    session = await deployment.client.core.sessions.get(session_id)
+
+    await session.send_event(service_name=service_name, task_id=task_id, ev=event)
+
+    return event
 
 
 @deployments_router.get("/{deployment_name}/tasks/{task_id}/events")

@@ -4,6 +4,8 @@ from typing import Any, AsyncGenerator, TextIO
 
 import httpx
 
+from llama_index.core.workflow.events import HumanResponseEvent
+
 from llama_deploy.types.apiserver import Status, StatusEnum
 from llama_deploy.types.core import SessionDefinition, TaskDefinition, TaskResult
 
@@ -79,7 +81,23 @@ class Task(Model):
             params={"session_id": self.session_id},
             timeout=self.client.timeout,
         )
-        return TaskResult.model_validate_json(r.json())
+        return TaskResult.model_validate(r.json())
+
+    async def send_human_response(
+        self, response: str, service_name: str
+    ) -> HumanResponseEvent:
+        """Sends a human response event."""
+        url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/human_response_event"
+
+        r = await self.client.request(
+            "POST",
+            url,
+            verify=not self.client.disable_ssl,
+            params={"session_id": self.session_id, "service_name": service_name},
+            json={"response": response},
+            timeout=self.client.timeout,
+        )
+        return HumanResponseEvent.model_validate(r.json())
 
     async def events(self) -> AsyncGenerator[dict[str, Any], None]:  # pragma: no cover
         """Returns a generator object to consume the events streamed from a service."""
