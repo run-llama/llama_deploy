@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 from fastapi.testclient import TestClient
-from llama_index.core.workflow import Event
+from llama_index.core.workflow.events import Event, HumanResponseEvent
 
 from llama_deploy.apiserver import Config
 from llama_deploy.types import TaskResult
@@ -120,6 +120,25 @@ def test_create_deployment_task(http_client: TestClient, data_path: Path) -> Non
         assert response.status_code == 200
         td = TaskDefinition(**response.json())
         assert td.task_id == "test_task_id"
+
+
+def test_send_human_response_event(http_client: TestClient, data_path: Path) -> None:
+    with mock.patch(
+        "llama_deploy.apiserver.routers.deployments.manager"
+    ) as mocked_manager:
+        deployment = mock.AsyncMock()
+        deployment.default_service = "TestService"
+        session = mock.AsyncMock()
+        deployment.client.core.sessions.create.return_value = session
+        session.id = "42"
+        mocked_manager.get_deployment.return_value = deployment
+        response = http_client.post(
+            "/deployments/test-deployment/tasks/test_task_id/human_response_event/?session_id=42&service_name=TestService",
+            json={"response": "test human response"},
+        )
+        assert response.status_code == 200
+        ev = HumanResponseEvent(**response.json())
+        assert ev.response == "test human response"
 
 
 @pytest.mark.asyncio
