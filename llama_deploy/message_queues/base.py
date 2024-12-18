@@ -5,44 +5,28 @@ import inspect
 from abc import ABC, abstractmethod
 from logging import getLogger
 from typing import (
-    TYPE_CHECKING,
     Any,
     Awaitable,
     Callable,
     Dict,
     List,
-    Optional,
-    Protocol,
     Sequence,
 )
 
 from pydantic import BaseModel, ConfigDict
 
+from llama_deploy.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+)
 from llama_deploy.messages.base import QueueMessage
 
-if TYPE_CHECKING:
-    from llama_deploy.message_consumers.base import (
-        BaseMessageQueueConsumer,
-        StartConsumingCallable,
-    )
-
 logger = getLogger(__name__)
-AsyncProcessMessageCallable = Callable[[QueueMessage], Awaitable[Any]]
 
 
-class MessageProcessor(Protocol):
-    """Protocol for a callable that processes messages."""
-
-    def __call__(self, message: QueueMessage, **kwargs: Any) -> None: ...
-
-
-class PublishCallback(Protocol):
-    """Protocol for a callable that processes messages.
-
-    TODO: Variant for Async Publish Callback.
-    """
-
-    def __call__(self, message: QueueMessage, **kwargs: Any) -> None: ...
+PublishCallback = (
+    Callable[[QueueMessage], Any] | Callable[[QueueMessage], Awaitable[Any]]
+)
 
 
 class AbstractMessageQueue(ABC):
@@ -56,7 +40,7 @@ class AbstractMessageQueue(ABC):
         self,
         message: QueueMessage,
         topic: str,
-        callback: Optional[PublishCallback] = None,
+        callback: PublishCallback | None = None,
         **kwargs: Any,
     ) -> Any:
         """Send message to a consumer."""
@@ -76,18 +60,17 @@ class AbstractMessageQueue(ABC):
 
     @abstractmethod
     async def register_consumer(
-        self, consumer: "BaseMessageQueueConsumer", topic: str | None = None
-    ) -> "StartConsumingCallable":
+        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
+    ) -> StartConsumingCallable:
         """Register consumer to start consuming messages."""
 
     @abstractmethod
-    async def deregister_consumer(self, consumer: "BaseMessageQueueConsumer") -> Any:
+    async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         """Deregister consumer to stop publishing messages)."""
 
     async def get_consumers(
-        self,
-        message_type: str,
-    ) -> Sequence["BaseMessageQueueConsumer"]:
+        self, message_type: str
+    ) -> Sequence[BaseMessageQueueConsumer]:
         """Gets list of consumers according to a message type."""
         raise NotImplementedError(
             "`get_consumers()` is not implemented for this class."
