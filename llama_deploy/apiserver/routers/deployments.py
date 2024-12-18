@@ -6,7 +6,12 @@ from fastapi.responses import JSONResponse, StreamingResponse
 
 from llama_deploy.apiserver.config_parser import Config
 from llama_deploy.apiserver.server import manager
-from llama_deploy.types import DeploymentDefinition, SessionDefinition, TaskDefinition
+from llama_deploy.types import (
+    DeploymentDefinition,
+    SessionDefinition,
+    TaskDefinition,
+    EventDefinition,
+)
 from llama_deploy.types.core import TaskResult
 
 deployments_router = APIRouter(
@@ -102,6 +107,12 @@ async def create_deployment_task_nowait(
     )
 
     return task_definition
+
+
+@deployments_router.post("/{deployment_name}/tasks/{task_id}/events")
+async def send_event(
+    deployment_name: str, session_id: str, task_id: str, event_def: EventDefinition
+) -> None: ...
 
 
 @deployments_router.get("/{deployment_name}/tasks/{task_id}/events")
