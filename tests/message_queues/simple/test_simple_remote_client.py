@@ -66,7 +66,7 @@ class MockMessageConsumer(BaseMessageQueueConsumer):
 
 
 @pytest.mark.asyncio
-@patch("llama_deploy.message_queues.simple.httpx.AsyncClient.post")
+@patch("llama_deploy.message_queues.simple.client.httpx.AsyncClient.post")
 async def test_remote_client_register_consumer(
     mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
@@ -92,7 +92,7 @@ async def test_remote_client_register_consumer(
 
 
 @pytest.mark.asyncio
-@patch("llama_deploy.message_queues.simple.httpx.AsyncClient.post")
+@patch("llama_deploy.message_queues.simple.client.httpx.AsyncClient.post")
 async def test_remote_client_deregister_consumer(
     mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
@@ -119,7 +119,7 @@ async def test_remote_client_deregister_consumer(
 
 
 @pytest.mark.asyncio
-@patch("llama_deploy.message_queues.simple.httpx.AsyncClient.get")
+@patch("llama_deploy.message_queues.simple.client.httpx.AsyncClient.get")
 async def test_remote_client_get_consumers(
     mock_get: MagicMock, message_queue: SimpleMessageQueue, get_side_effect: Callable
 ) -> None:
@@ -143,7 +143,7 @@ async def test_remote_client_get_consumers(
 
 
 @pytest.mark.asyncio
-@patch("llama_deploy.message_queues.simple.httpx.AsyncClient.post")
+@patch("llama_deploy.message_queues.simple.client.httpx.AsyncClient.post")
 async def test_remote_client_publish(
     mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
 ) -> None:
