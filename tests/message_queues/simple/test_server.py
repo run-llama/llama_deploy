@@ -1,28 +1,15 @@
 import asyncio
-from typing import Any, List
 
 import pytest
 from fastapi.testclient import TestClient
-from pydantic import PrivateAttr
 
-from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_queues.simple import (
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
 )
 from llama_deploy.messages.base import QueueMessage
 
-
-class MockMessageConsumer(BaseMessageQueueConsumer):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-
-    processed_messages: List[QueueMessage] = []
-    _lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
-
-    async def _process_message(self, message: QueueMessage, **kwargs: Any) -> None:
-        async with self._lock:
-            self.processed_messages.append(message)
+from .conftest import MockMessageConsumer
 
 
 def test_home(http_client: TestClient) -> None:

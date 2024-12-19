@@ -77,18 +77,6 @@ class AbstractMessageQueue(ABC):
         )
 
     @abstractmethod
-    async def processing_loop(self) -> None:
-        """The processing loop for the service."""
-
-    @abstractmethod
-    async def launch_local(self) -> asyncio.Task:
-        """Launch the service in-process."""
-
-    @abstractmethod
-    async def launch_server(self) -> None:
-        """Launch the service as a server."""
-
-    @abstractmethod
     async def cleanup_local(
         self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
     ) -> None:
@@ -104,3 +92,15 @@ class BaseMessageQueue(BaseModel, AbstractMessageQueue):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
+
+    @abstractmethod
+    async def processing_loop(self) -> None:
+        """The processing loop for the service."""
+
+    @abstractmethod
+    async def launch_local(self) -> asyncio.Task:
+        """Launch the service in-process."""
+
+    @abstractmethod
+    async def launch_server(self) -> None:
+        """Launch the service as a server."""

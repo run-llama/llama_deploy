@@ -1,5 +1,4 @@
 import asyncio
-import random
 from logging import getLogger
 from typing import Any, Dict, List
 
@@ -84,33 +83,6 @@ class SimpleMessageQueue(AbstractMessageQueue):
             if consumer.id_ in consumers:
                 del self._consumers[topic][consumer.id_]
 
-    async def _publish_to_consumer(
-        self, message: QueueMessage, topic: str, **kwargs: Any
-    ) -> Any:
-        """Publish message to a consumer."""
-        consumer = self._select_consumer(message, topic)
-        try:
-            await consumer.process_message(message, **kwargs)
-            logger.info(f"Successfully published message '{message.type}' to consumer.")
-        except Exception as e:
-            logger.debug(
-                f"Failed to publish message of type '{message.type}' to consumer. Message: {str(e)}"
-            )
-            raise
-
-    async def processing_loop(self) -> None:
-        raise NotImplementedError(
-            "`procesing_loop()` is not implemented for this class."
-        )
-
-    async def launch_local(self) -> asyncio.Task:
-        raise NotImplementedError("`launch_local()` is not implemented for this class.")
-
-    async def launch_server(self) -> None:
-        raise NotImplementedError(
-            "`launch_server()` is not implemented for this class."
-        )
-
     async def cleanup_local(
         self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
     ) -> None:
@@ -120,10 +92,3 @@ class SimpleMessageQueue(AbstractMessageQueue):
 
     def as_config(self) -> SimpleMessageQueueConfig:
         return self._config
-
-    def _select_consumer(
-        self, message: QueueMessage, topic: str
-    ) -> BaseMessageQueueConsumer:
-        """Select a single consumer to publish a message to."""
-        consumer_id = random.choice(list(self._consumers[topic].keys()))
-        return self._consumers[topic][consumer_id]
