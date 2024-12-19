@@ -9,7 +9,7 @@ from llama_index.core.workflow.events import HumanResponseEvent, InputRequiredEv
 from pydantic import PrivateAttr
 
 from llama_deploy.message_consumers import BaseMessageQueueConsumer
-from llama_deploy.message_queues import SimpleMessageQueue
+from llama_deploy.message_queues import SimpleMessageQueueServer
 from llama_deploy.messages import QueueMessage
 from llama_deploy.services.workflow import WorkflowService
 from llama_deploy.types import CONTROL_PLANE_NAME, ActionTypes, TaskDefinition
@@ -61,7 +61,7 @@ def test_hitl_workflow() -> Workflow:
 async def test_workflow_service(
     test_workflow: Workflow, human_output_consumer: MockMessageConsumer
 ) -> None:
-    message_queue = SimpleMessageQueue()
+    message_queue = SimpleMessageQueueServer()
     _ = await message_queue.register_consumer(human_output_consumer)
 
     # create the service
@@ -111,7 +111,7 @@ async def test_hitl_workflow_service(
     human_output_consumer: MockMessageConsumer,
 ) -> None:
     # arrange
-    message_queue = SimpleMessageQueue()
+    message_queue = SimpleMessageQueueServer()
     _ = await message_queue.register_consumer(human_output_consumer)
 
     # create the service

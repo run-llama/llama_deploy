@@ -9,7 +9,7 @@ from llama_deploy.message_consumers.remote import (
     BaseMessageQueueConsumer,
     RemoteMessageConsumerDef,
 )
-from llama_deploy.message_queues.simple import SimpleMessageQueue
+from llama_deploy.message_queues.simple import SimpleMessageQueueServer
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.types import ActionTypes
 
@@ -25,7 +25,7 @@ class MockMessageConsumer(BaseMessageQueueConsumer):
 
 def test_register_consumer() -> None:
     # arrange
-    mq = SimpleMessageQueue()
+    mq = SimpleMessageQueueServer()
     remote_consumer_def = RemoteMessageConsumerDef(
         message_type="mock_type", url="https://mock-url.io"
     )
@@ -44,7 +44,7 @@ def test_register_consumer() -> None:
 
 def test_deregister_consumer() -> None:
     # arrange
-    mq = SimpleMessageQueue()
+    mq = SimpleMessageQueueServer()
     remote_consumer_def = RemoteMessageConsumerDef(
         message_type="mock_type", url="https://mock-url.io"
     )
@@ -63,7 +63,7 @@ def test_deregister_consumer() -> None:
 
 def test_get_consumers() -> None:
     # arrange
-    mq = SimpleMessageQueue()
+    mq = SimpleMessageQueueServer()
     remote_consumer_def = RemoteMessageConsumerDef(
         message_type="mock_type", url="https://mock-url.io"
     )
@@ -81,7 +81,7 @@ def test_get_consumers() -> None:
 @pytest.mark.asyncio
 async def test_publish() -> None:
     # arrange
-    mq = SimpleMessageQueue()
+    mq = SimpleMessageQueueServer()
     consumer = MockMessageConsumer(message_type="mock_type")
     await mq.register_consumer(consumer)
 

@@ -5,7 +5,7 @@ import pytest
 from pydantic import PrivateAttr
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
-from llama_deploy.message_queues.simple import SimpleMessageQueue
+from llama_deploy.message_queues.simple import SimpleMessageQueueServer
 from llama_deploy.messages.base import QueueMessage
 
 
@@ -22,7 +22,7 @@ class MockMessageConsumer(BaseMessageQueueConsumer):
 async def test_consumer_consumes_messages() -> None:
     # Arrange
     consumer_one = MockMessageConsumer()
-    mq = SimpleMessageQueue()
+    mq = SimpleMessageQueueServer()
     task = await mq.launch_local()
 
     # Act

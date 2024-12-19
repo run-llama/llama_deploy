@@ -2,12 +2,12 @@ import asyncio
 
 import pytest
 
-from llama_deploy import SimpleMessageQueue
+from llama_deploy import SimpleMessageQueueServer
 
 
 @pytest.mark.asyncio
 async def test_cancel_launch_server():
-    mq = SimpleMessageQueue(port=8009)
+    mq = SimpleMessageQueueServer(port=8009)
     t = asyncio.create_task(mq.launch_server())
 
     # Make sure the queue starts

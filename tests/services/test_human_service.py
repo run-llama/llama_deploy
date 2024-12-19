@@ -6,7 +6,7 @@ import pytest
 from pydantic import PrivateAttr, ValidationError
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
-from llama_deploy.message_queues.simple import SimpleMessageQueue
+from llama_deploy.message_queues.simple import SimpleMessageQueueServer
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services import HumanService
 from llama_deploy.services.human import HELP_REQUEST_TEMPLATE_STR
@@ -37,7 +37,7 @@ async def test_init() -> None:
     # arrange
     # act
     human_service = HumanService(
-        message_queue=SimpleMessageQueue(),
+        message_queue=SimpleMessageQueueServer(),
         running=False,
         description="Test Human Service",
         service_name="Test Human Service",
@@ -57,7 +57,7 @@ def test_invalid_human_prompt_raises_validation_error() -> None:
     # arrange
     invalid_human_prompt_input_str = "{incorrect_param}"
     human_service = HumanService(
-        message_queue=SimpleMessageQueue(), host="localhost", port=8001
+        message_queue=SimpleMessageQueueServer(), host="localhost", port=8001
     )
 
     # act/assert
@@ -65,7 +65,7 @@ def test_invalid_human_prompt_raises_validation_error() -> None:
         # using invalid prompt at construction should fail
         _ = HumanService(
             human_input_prompt=invalid_human_prompt_input_str,
-            message_queue=SimpleMessageQueue(),
+            message_queue=SimpleMessageQueueServer(),
         )
     with pytest.raises(ValueError):
         # updating prompt should fail
@@ -77,7 +77,7 @@ def test_invalid_human_prompt_raises_validation_error() -> None:
 async def test_create_task(mock_uuid: MagicMock) -> None:
     # arrange
     human_service = HumanService(
-        message_queue=SimpleMessageQueue(),
+        message_queue=SimpleMessageQueueServer(),
         running=False,
         description="Test Human Service",
         service_name="Test Human Service",
@@ -102,7 +102,7 @@ async def test_process_task(
     mock_input: MagicMock, human_output_consumer: MockMessageConsumer
 ) -> None:
     # arrange
-    mq = SimpleMessageQueue()
+    mq = SimpleMessageQueueServer()
     human_service = HumanService(
         message_queue=mq,
         host="localhost",
@@ -144,7 +144,7 @@ async def test_process_human_req_from_queue(
     mock_input: MagicMock, human_output_consumer: MockMessageConsumer
 ) -> None:
     # arrange
-    mq = SimpleMessageQueue()
+    mq = SimpleMessageQueueServer()
     human_service = HumanService(
         message_queue=mq, service_name="test_human_service", host="localhost", port=8001
     )
@@ -185,7 +185,7 @@ async def test_process_task_with_custom_human_input_fn(
     human_output_consumer: MockMessageConsumer,
 ) -> None:
     # arrange
-    mq = SimpleMessageQueue()
+    mq = SimpleMessageQueueServer()
 
     async def my_custom_human_input_fn(prompt: str, task_id: str, **kwargs: Any) -> str:
         return " ".join([prompt, prompt[::-1]])
@@ -228,7 +228,7 @@ async def test_process_task_as_tool_call(
     mock_input: MagicMock,
 ) -> None:
     # arrange
-    mq = SimpleMessageQueue()
+    mq = SimpleMessageQueueServer()
     human_service = HumanService(
         message_queue=mq,
         service_name="test_human_service",

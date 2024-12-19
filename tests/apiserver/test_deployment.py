@@ -13,7 +13,7 @@ from llama_deploy.apiserver.config_parser import (
 from llama_deploy.apiserver.deployment import Deployment, DeploymentError, Manager
 from llama_deploy.control_plane import ControlPlaneServer
 from llama_deploy.message_queues import (
-    SimpleRemoteClientMessageQueue,
+    SimpleMessageQueue,
 )
 
 
@@ -73,7 +73,7 @@ def test_deployment_ctor_skip_default_service(data_path: Path) -> None:
 
 def test_deployment___load_message_queue_default(mocked_deployment: Deployment) -> None:
     q = mocked_deployment._load_message_queue_client(None)
-    assert type(q) is SimpleRemoteClientMessageQueue
+    assert type(q) is SimpleMessageQueue
     assert q.port == 8001
     assert q.host == "127.0.0.1"
 

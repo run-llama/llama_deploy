@@ -19,7 +19,7 @@ from llama_deploy.message_consumers.remote import (
 from llama_deploy.message_queues.simple import (
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
-    SimpleRemoteClientMessageQueue,
+    SimpleMessageQueueServer,
 )
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.types import ActionTypes
@@ -29,12 +29,12 @@ if TYPE_CHECKING:
 
 
 @pytest.fixture()
-def message_queue() -> SimpleMessageQueue:
-    return SimpleMessageQueue(host="mock-url.io", port=8001)
+def message_queue() -> SimpleMessageQueueServer:
+    return SimpleMessageQueueServer(host="mock-url.io", port=8001)
 
 
 @pytest.fixture()
-def post_side_effect(message_queue: SimpleMessageQueue) -> Callable:
+def post_side_effect(message_queue: SimpleMessageQueueServer) -> Callable:
     test_client = TestClient(message_queue._app)
 
     def side_effect(url: str, json: Dict) -> httpx.Response:
@@ -48,7 +48,7 @@ def post_side_effect(message_queue: SimpleMessageQueue) -> Callable:
 
 
 @pytest.fixture()
-def get_side_effect(message_queue: SimpleMessageQueue) -> Callable:
+def get_side_effect(message_queue: SimpleMessageQueueServer) -> Callable:
     test_client = TestClient(message_queue._app)
 
     def side_effect(url: str) -> Any:
@@ -69,10 +69,12 @@ class MockMessageConsumer(BaseMessageQueueConsumer):
 @pytest.mark.asyncio
 @patch("llama_deploy.message_queues.simple.client.httpx.AsyncClient.post")
 async def test_remote_client_register_consumer(
-    mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
+    mock_post: MagicMock,
+    message_queue: SimpleMessageQueueServer,
+    post_side_effect: Callable,
 ) -> None:
     # Arrange
-    remote_mq = SimpleRemoteClientMessageQueue(
+    remote_mq = SimpleMessageQueue(
         SimpleMessageQueueConfig(
             host="mock-url.io",
             port=message_queue.port,
@@ -99,10 +101,12 @@ async def test_remote_client_register_consumer(
 @pytest.mark.asyncio
 @patch("llama_deploy.message_queues.simple.client.httpx.AsyncClient.post")
 async def test_remote_client_deregister_consumer(
-    mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
+    mock_post: MagicMock,
+    message_queue: SimpleMessageQueueServer,
+    post_side_effect: Callable,
 ) -> None:
     # Arrange
-    remote_mq = SimpleRemoteClientMessageQueue(
+    remote_mq = SimpleMessageQueue(
         SimpleMessageQueueConfig(
             host="mock-url.io",
             port=message_queue.port,
@@ -130,10 +134,12 @@ async def test_remote_client_deregister_consumer(
 @pytest.mark.asyncio
 @patch("llama_deploy.message_queues.simple.client.httpx.AsyncClient.get")
 async def test_remote_client_get_consumers(
-    mock_get: MagicMock, message_queue: SimpleMessageQueue, get_side_effect: Callable
+    mock_get: MagicMock,
+    message_queue: SimpleMessageQueueServer,
+    get_side_effect: Callable,
 ) -> None:
     # Arrange
-    remote_mq = SimpleRemoteClientMessageQueue(
+    remote_mq = SimpleMessageQueue(
         SimpleMessageQueueConfig(
             host="mock-url.io",
             port=message_queue.port,
@@ -157,12 +163,14 @@ async def test_remote_client_get_consumers(
 @pytest.mark.asyncio
 @patch("llama_deploy.message_queues.simple.client.httpx.AsyncClient.post")
 async def test_remote_client_publish(
-    mock_post: MagicMock, message_queue: SimpleMessageQueue, post_side_effect: Callable
+    mock_post: MagicMock,
+    message_queue: SimpleMessageQueueServer,
+    post_side_effect: Callable,
 ) -> None:
     # Arrange
     consumer = MockMessageConsumer(message_type="mock_type")
     await message_queue.register_consumer(consumer)
-    remote_mq = SimpleRemoteClientMessageQueue(
+    remote_mq = SimpleMessageQueue(
         SimpleMessageQueueConfig(
             host=message_queue.host,
             port=message_queue.port,
@@ -181,3 +189,46 @@ async def test_remote_client_publish(
         "http://mock-url.io:8001/publish/mock_type", json=message.model_dump()
     )
     assert message_queue.queues["mock_type"][0] == message
+
+
+@pytest.mark.asyncio()
+async def test_simple_register_consumer(message_queue_server) -> None:
+    # Arrange
+    consumer_one = MockMessageConsumer(type="one")
+    consumer_two = MockMessageConsumer(type="two")
+    mq = SimpleMessageQueue(SimpleMessageQueueConfig(raise_exceptions=True))
+
+    # Act
+    await mq.register_consumer(consumer_one)
+    await mq.register_consumer(consumer_two)
+    with pytest.raises(
+        ValueError, match="A consumer with the same url has previously been registered"
+    ):
+        await mq.register_consumer(consumer_two)
+
+    # Assert
+    assert consumer_one.id_ in [c.id_ for c in await mq.get_consumers("topic_one")]
+    assert consumer_two.id_ in [c.id_ for c in await mq.get_consumers("topic_two")]
+
+
+@pytest.mark.asyncio()
+async def test_simple_deregister_consumer(message_queue_server) -> None:
+    # Arrange
+    consumer_one = MockMessageConsumer()
+    consumer_two = MockMessageConsumer(message_type="one")
+    consumer_three = MockMessageConsumer(message_type="two")
+    mq = SimpleMessageQueue(SimpleMessageQueueConfig(raise_exceptions=True))
+
+    await mq.register_consumer(consumer_one, topic="topic_one")
+    await mq.register_consumer(consumer_two, topic="topic_two")
+    await mq.register_consumer(consumer_three, topic="topic_three")
+
+    # Act
+    await mq.deregister_consumer(consumer_one)
+    await mq.deregister_consumer(consumer_three)
+    with pytest.raises(ValueError, match="No consumer found"):
+        await mq.deregister_consumer(consumer_three)
+
+    # Assert
+    assert len(await mq.get_consumers("topic_two")) == 1
+    assert len(await mq.get_consumers("topic_three")) == 0

@@ -14,7 +14,7 @@ class SimpleMessageQueueConfig(BaseSettings):
 
     type: Literal["simple"] = Field(default="simple", exclude=True)
     host: str = "127.0.0.1"
-    port: int | None = 8001
+    port: int = 8001
     client_kwargs: dict[str, Any] = Field(default_factory=dict)
     raise_exceptions: bool = False
     use_ssl: bool = False
@@ -22,6 +22,6 @@ class SimpleMessageQueueConfig(BaseSettings):
     @property
     def base_url(self) -> str:
         protocol = "https" if self.use_ssl else "http"
-        if self.port:
+        if self.port != 80:
             return f"{protocol}://{self.host}:{self.port}/"
         return f"{protocol}://{self.host}/"

@@ -5,7 +5,10 @@ from llama_deploy.client import AsyncLlamaDeployClient, Client, LlamaDeployClien
 from llama_deploy.control_plane import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.deploy import deploy_core, deploy_workflow
 from llama_deploy.message_consumers import CallableMessageConsumer
-from llama_deploy.message_queues import SimpleMessageQueue, SimpleMessageQueueConfig
+from llama_deploy.message_queues import (
+    SimpleMessageQueueConfig,
+    SimpleMessageQueueServer,
+)
 from llama_deploy.messages import QueueMessage
 from llama_deploy.orchestrators import SimpleOrchestrator, SimpleOrchestratorConfig
 from llama_deploy.services import (
@@ -52,7 +55,7 @@ __all__ = [
     # message consumers
     "CallableMessageConsumer",
     # message queues
-    "SimpleMessageQueue",
+    "SimpleMessageQueueServer",
     "SimpleMessageQueueConfig",
     # deployment
     "deploy_core",

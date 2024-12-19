@@ -12,10 +12,12 @@ from llama_deploy.message_queues.redis import RedisMessageQueue, RedisMessageQue
 from llama_deploy.message_queues.simple import (
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
-    SimpleRemoteClientMessageQueue,
+    SimpleMessageQueueServer,
 )
 from llama_deploy.message_queues.solace import (
     SolaceMessageQueue as SolaceMessageQueue,
+)
+from llama_deploy.message_queues.solace import (
     SolaceMessageQueueConfig as SolaceMessageQueueConfig,
 )
 
@@ -28,9 +30,9 @@ __all__ = [
     "RabbitMQMessageQueueConfig",
     "RedisMessageQueue",
     "RedisMessageQueueConfig",
-    "SimpleMessageQueue",
+    "SimpleMessageQueueServer",
     "SimpleMessageQueueConfig",
-    "SimpleRemoteClientMessageQueue",
+    "SimpleMessageQueue",
     "AWSMessageQueue",
     "AWSMessageQueueConfig",
 ]

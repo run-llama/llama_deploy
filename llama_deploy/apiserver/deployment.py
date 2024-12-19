@@ -3,16 +3,16 @@ import importlib
 import os
 import subprocess
 import sys
-from dotenv import dotenv_values
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import Any
 
+from dotenv import dotenv_values
 
 from llama_deploy import (
     Client,
     ControlPlaneServer,
-    SimpleMessageQueue,
+    SimpleMessageQueueServer,
     SimpleOrchestrator,
     SimpleOrchestratorConfig,
     WorkflowService,
@@ -56,7 +56,7 @@ class Deployment:
         """
         self._name = config.name
         self._path = root_path / config.name
-        self._simple_message_queue: SimpleMessageQueue | None = None
+        self._simple_message_queue: SimpleMessageQueueServer | None = None
         self._queue_client = self._load_message_queue_client(config.message_queue)
         self._control_plane_config = config.control_plane
         self._control_plane = ControlPlaneServer(
@@ -241,7 +241,7 @@ class Deployment:
         elif cfg.type == "redis":
             return RedisMessageQueue(**cfg.model_dump())
         elif cfg.type == "simple":
-            self._simple_message_queue = SimpleMessageQueue(**cfg.model_dump())
+            self._simple_message_queue = SimpleMessageQueueServer(**cfg.model_dump())
             return self._simple_message_queue.client
         elif cfg.type == "solace":
             return SolaceMessageQueue(**cfg.model_dump())

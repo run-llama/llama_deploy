@@ -1,8 +1,9 @@
 """Message consumers."""
 
 from abc import ABC, abstractmethod
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Any, Callable, TYPE_CHECKING, Coroutine
+from typing import TYPE_CHECKING, Any, Callable, Coroutine
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.types import generate_id
@@ -42,7 +43,8 @@ class BaseMessageQueueConsumer(BaseModel, ABC):
     async def process_message(self, message: QueueMessage, **kwargs: Any) -> Any:
         """Logic for processing message."""
         if message.type != self.message_type:
-            raise ValueError("Consumer cannot process the given kind of Message.")
+            msg = f"Consumer cannot process messages of type '{message.type}'."
+            raise ValueError(msg)
         return await self._process_message(message, **kwargs)
 
     async def start_consuming(

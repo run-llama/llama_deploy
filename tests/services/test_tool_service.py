@@ -6,7 +6,7 @@ from llama_index.core.tools import BaseTool, FunctionTool
 from pydantic import PrivateAttr
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
-from llama_deploy.message_queues.simple import SimpleMessageQueue
+from llama_deploy.message_queues.simple import SimpleMessageQueueServer
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services import ToolService
 from llama_deploy.types import ActionTypes, ToolCall, ToolCallBundle
@@ -49,7 +49,7 @@ def tool_output_consumer() -> MockMessageConsumer:
 async def test_init(tools: List[BaseTool]) -> None:
     # arrange
     server = ToolService(
-        SimpleMessageQueue(),
+        SimpleMessageQueueServer(),
         tools=tools,
         running=False,
         description="Test Tool Server",
@@ -74,7 +74,7 @@ async def test_init(tools: List[BaseTool]) -> None:
 async def test_create_tool_call(tools: List[BaseTool], tool_call: ToolCall) -> None:
     # arrange
     server = ToolService(
-        SimpleMessageQueue(),
+        SimpleMessageQueueServer(),
         tools=tools,
         running=False,
         description="Test Tool Server",
@@ -98,7 +98,7 @@ async def test_process_tool_call(
     tool_output_consumer: MockMessageConsumer,
 ) -> None:
     # arrange
-    mq = SimpleMessageQueue()
+    mq = SimpleMessageQueueServer()
     server = ToolService(
         mq,
         tools=tools,
@@ -135,7 +135,7 @@ async def test_process_tool_call_from_queue(
     tool_output_consumer: MockMessageConsumer,
 ) -> None:
     # arrange
-    mq = SimpleMessageQueue()
+    mq = SimpleMessageQueueServer()
     server = ToolService(
         mq,
         tools=tools,
