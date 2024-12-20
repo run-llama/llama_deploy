@@ -91,7 +91,7 @@ class Task(Model):
 
     async def send_event(self, ev: Event, service_name: str) -> EventDefinition:
         """Sends a human response event."""
-        url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/send_event"
+        url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/events"
 
         serializer = JsonSerializer()
         event_def = EventDefinition(
@@ -102,7 +102,7 @@ class Task(Model):
             "POST",
             url,
             verify=not self.client.disable_ssl,
-            params={"session_id": self.session_id, "service_name": service_name},
+            params={"session_id": self.session_id},
             json=event_def.model_dump(),
             timeout=self.client.timeout,
         )
