@@ -1,24 +1,24 @@
-import pytest
 import json
 import os
-from unittest.mock import Mock, patch, AsyncMock
 from typing import Dict, Generator
+from unittest.mock import AsyncMock, Mock, patch
 
-from solace.messaging.resources.topic import Topic
+import pytest
 from solace.messaging.publisher.persistent_message_publisher import (
     PersistentMessagePublisher,
 )
 from solace.messaging.receiver.persistent_message_receiver import (
     PersistentMessageReceiver,
 )
+from solace.messaging.resources.topic import Topic
 
+from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_queues.solace import (
+    MessageHandlerImpl,
     SolaceMessageQueue,
     SolaceMessageQueueConfig,
-    MessageHandlerImpl,
 )
 from llama_deploy.messages.base import QueueMessage
-from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 
 
 @pytest.fixture(autouse=True)
@@ -178,13 +178,14 @@ async def test_deregister_consumer(
     solace_queue: SolaceMessageQueue, mock_receiver: Mock
 ) -> None:
     """Test deregistering a consumer."""
-    mock_consumer = Mock(spec=BaseMessageQueueConsumer)
-    mock_consumer.message_type = "test_topic"
+    with patch("llama_deploy.message_queues.solace.MAX_SLEEP", 0.1):
+        mock_consumer = Mock(spec=BaseMessageQueueConsumer)
+        mock_consumer.message_type = "test_topic"
 
-    await solace_queue.deregister_consumer(mock_consumer)
+        await solace_queue.deregister_consumer(mock_consumer)
 
-    mock_receiver.remove_subscription.assert_called_once()
-    mock_receiver.terminate.assert_called_once()
+        mock_receiver.remove_subscription.assert_called_once()
+        mock_receiver.terminate.assert_called_once()
 
 
 def test_disconnect(
