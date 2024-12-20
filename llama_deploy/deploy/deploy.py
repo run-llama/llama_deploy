@@ -46,7 +46,7 @@ async def _deploy_local_message_queue(config: SimpleMessageQueueConfig) -> async
 
 def _get_message_queue_config(config_dict: dict) -> BaseSettings:
     key = next(iter(config_dict.keys()))
-    if key == SimpleMessageQueue.__name__:
+    if key == SimpleMessageQueueConfig.__name__:
         return SimpleMessageQueueConfig(**config_dict[key])
     elif key == AWSMessageQueueConfig.__name__:
         return AWSMessageQueueConfig(**config_dict[key])
