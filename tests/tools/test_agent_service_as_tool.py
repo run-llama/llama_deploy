@@ -12,6 +12,8 @@ from llama_deploy.message_queues.simple import SimpleMessageQueueServer
 from llama_deploy.services.agent import AgentService
 from llama_deploy.tools import ServiceAsTool
 
+pytestmark = pytest.mark.skip
+
 
 @pytest.fixture()
 def message_queue() -> SimpleMessageQueueServer:

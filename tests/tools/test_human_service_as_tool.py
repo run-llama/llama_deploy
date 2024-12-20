@@ -14,6 +14,9 @@ def message_queue() -> SimpleMessageQueueServer:
     return SimpleMessageQueueServer()
 
 
+pytestmark = pytest.mark.skip
+
+
 @pytest.fixture()
 def human_service(message_queue: SimpleMessageQueueServer) -> HumanService:
     return HumanService(

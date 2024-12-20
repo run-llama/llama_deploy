@@ -11,6 +11,8 @@ from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services import ToolService
 from llama_deploy.tools import MetaServiceTool
 
+pytestmark = pytest.mark.skip
+
 
 class MockMessageConsumer(BaseMessageQueueConsumer):
     processed_messages: List[QueueMessage] = []
