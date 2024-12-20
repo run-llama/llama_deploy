@@ -124,7 +124,7 @@ async def send_event(
 
     session = await deployment.client.core.sessions.get(session_id)
 
-    await session.send_event(task_id=task_id, event_def=event_def)
+    await session.send_event_def(task_id=task_id, ev_def=event_def)
 
     return event_def
 
