@@ -4,6 +4,8 @@ import time
 from typing import Any, AsyncGenerator
 
 import httpx
+from llama_index.core.workflow import Event
+from llama_index.core.workflow.context_serializers import JsonSerializer
 
 from llama_deploy.types.core import (
     EventDefinition,
@@ -90,9 +92,7 @@ class Session(Model):
         response = await self.client.request("GET", url)
         return [TaskDefinition(**task) for task in response.json()]
 
-    async def send_event(
-        self, service_name: str, task_id: str, event_def: EventDefinition
-    ) -> None:
+    async def send_event(self, service_name: str, task_id: str, ev: Event) -> None:
         """Send event to a Workflow service.
 
         Args:
@@ -101,6 +101,11 @@ class Session(Model):
         Returns:
             None
         """
+        serializer = JsonSerializer()
+        event_def = EventDefinition(
+            event_obj_str=serializer.serialize(ev), agent_id=service_name
+        )
+
         url = f"{self.client.control_plane_url}/sessions/{self.id}/tasks/{task_id}/send_event"
         await self.client.request("POST", url, json=event_def.model_dump())
 
