@@ -9,7 +9,7 @@ def test_init() -> None:
     agent = ReActAgent.from_tools([], llm=MockLLM())
     server = AgentService(
         agent,
-        SimpleMessageQueueServer(),
+        SimpleMessageQueueServer(),  # type:ignore
         running=False,
         description="Test Agent Server",
         step_interval=0.5,

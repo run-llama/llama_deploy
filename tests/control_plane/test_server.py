@@ -8,7 +8,7 @@ from llama_deploy.message_queues import SimpleMessageQueueServer
 
 def test_control_plane_init() -> None:
     mq = SimpleMessageQueueServer()
-    cp = ControlPlaneServer(mq)
+    cp = ControlPlaneServer(mq)  # type: ignore
     assert cp._orchestrator is not None
     assert cp._state_store is not None
     assert cp._config is not None
@@ -24,19 +24,19 @@ def test_control_plane_init_state_store() -> None:
     mocked_store = mock.MagicMock()
     with pytest.raises(ValueError):
         ControlPlaneServer(
-            SimpleMessageQueueServer(),
+            SimpleMessageQueueServer(),  # type: ignore
             state_store=mocked_store,
             config=ControlPlaneConfig(state_store_uri="test/uri"),
         )
 
-    cp = ControlPlaneServer(SimpleMessageQueueServer(), state_store=mocked_store)
+    cp = ControlPlaneServer(SimpleMessageQueueServer(), state_store=mocked_store)  # type: ignore
     assert cp._state_store == mocked_store
 
     with mock.patch(
         "llama_deploy.control_plane.server.parse_state_store_uri"
     ) as mocked_parse:
         ControlPlaneServer(
-            SimpleMessageQueueServer(),
+            SimpleMessageQueueServer(),  # type: ignore
             config=ControlPlaneConfig(state_store_uri="test/uri"),
         )
         mocked_parse.assert_called_with("test/uri")

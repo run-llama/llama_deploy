@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from llama_deploy.message_queues.simple import (
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
+    SimpleMessageQueueServer,
 )
 from llama_deploy.messages.base import QueueMessage
 
@@ -21,25 +22,25 @@ def test_home(http_client: TestClient) -> None:
     }
 
 
-def test_create_topic(http_client: TestClient):
+def test_create_topic(http_client: TestClient) -> None:
     response = http_client.post("/topics/test_topic")
     assert response.status_code == 200
     response = http_client.post("/topics/test_topic")
     assert response.status_code == 409
 
 
-def test_publish(http_client: TestClient):
+def test_publish(http_client: TestClient) -> None:
     response = http_client.post("/messages/foo", json=QueueMessage().model_dump())
     assert response.status_code == 404
 
 
-def test_get_messages(http_client: TestClient):
+def test_get_messages(http_client: TestClient) -> None:
     response = http_client.get("/messages/foo")
     assert response.status_code == 404
 
 
 @pytest.mark.asyncio()
-async def test_roundtrip(message_queue_server) -> None:
+async def test_roundtrip(message_queue_server: SimpleMessageQueueServer) -> None:
     # Arrange
     mq = SimpleMessageQueue(SimpleMessageQueueConfig(raise_exceptions=True))
 

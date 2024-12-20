@@ -2,12 +2,15 @@ import pytest
 
 from llama_deploy.message_queues.simple.client import SimpleMessageQueue
 from llama_deploy.message_queues.simple.config import SimpleMessageQueueConfig
+from llama_deploy.message_queues.simple.server import SimpleMessageQueueServer
 
 from .conftest import MockMessageConsumer
 
 
 @pytest.mark.asyncio
-async def test_register_consumer(message_queue_server):
+async def test_register_consumer(
+    message_queue_server: SimpleMessageQueueServer,
+) -> None:
     mq = SimpleMessageQueue()
     consumer = MockMessageConsumer()
     await mq.register_consumer(consumer, topic="test_topic")
@@ -20,13 +23,13 @@ async def test_register_consumer(message_queue_server):
 
 
 @pytest.mark.asyncio
-async def test_cleanup_local():
+async def test_cleanup_local() -> None:
     mq = SimpleMessageQueue()
     with pytest.raises(NotImplementedError):
         await mq.cleanup_local([])
 
 
-def test_as_config():
+def test_as_config() -> None:
     cfg = SimpleMessageQueueConfig()
     mq = SimpleMessageQueue(cfg)
     assert mq.as_config() == cfg
