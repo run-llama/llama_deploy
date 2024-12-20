@@ -4,10 +4,16 @@ from typing import Any, AsyncGenerator, TextIO
 
 import httpx
 
-from llama_index.core.workflow.events import HumanResponseEvent
+from llama_index.core.workflow.events import Event
+from llama_index.core.workflow.context_serializers import JsonSerializer
 
 from llama_deploy.types.apiserver import Status, StatusEnum
-from llama_deploy.types.core import SessionDefinition, TaskDefinition, TaskResult
+from llama_deploy.types.core import (
+    EventDefinition,
+    SessionDefinition,
+    TaskDefinition,
+    TaskResult,
+)
 
 from .model import Collection, Model
 
@@ -83,21 +89,24 @@ class Task(Model):
         )
         return TaskResult.model_validate(r.json())
 
-    async def send_human_response(
-        self, response: str, service_name: str
-    ) -> HumanResponseEvent:
+    async def send_event(self, ev: Event, service_name: str) -> EventDefinition:
         """Sends a human response event."""
-        url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/human_response_event"
+        url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/send_event"
+
+        serializer = JsonSerializer()
+        event_def = EventDefinition(
+            event_obj_str=serializer.serialize(ev), agent_id=service_name
+        )
 
         r = await self.client.request(
             "POST",
             url,
             verify=not self.client.disable_ssl,
             params={"session_id": self.session_id, "service_name": service_name},
-            json={"response": response},
+            json=event_def.model_dump(),
             timeout=self.client.timeout,
         )
-        return HumanResponseEvent.model_validate(r.json())
+        return EventDefinition.model_validate(r.json())
 
     async def events(self) -> AsyncGenerator[dict[str, Any], None]:  # pragma: no cover
         """Returns a generator object to consume the events streamed from a service."""
