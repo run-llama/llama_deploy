@@ -4,8 +4,16 @@ from typing import Any, AsyncGenerator, TextIO
 
 import httpx
 
+from llama_index.core.workflow.events import Event
+from llama_index.core.workflow.context_serializers import JsonSerializer
+
 from llama_deploy.types.apiserver import Status, StatusEnum
-from llama_deploy.types.core import SessionDefinition, TaskDefinition, TaskResult
+from llama_deploy.types.core import (
+    EventDefinition,
+    SessionDefinition,
+    TaskDefinition,
+    TaskResult,
+)
 
 from .model import Collection, Model
 
@@ -79,7 +87,26 @@ class Task(Model):
             params={"session_id": self.session_id},
             timeout=self.client.timeout,
         )
-        return TaskResult.model_validate_json(r.json())
+        return TaskResult.model_validate(r.json())
+
+    async def send_event(self, ev: Event, service_name: str) -> EventDefinition:
+        """Sends a human response event."""
+        url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/events"
+
+        serializer = JsonSerializer()
+        event_def = EventDefinition(
+            event_obj_str=serializer.serialize(ev), agent_id=service_name
+        )
+
+        r = await self.client.request(
+            "POST",
+            url,
+            verify=not self.client.disable_ssl,
+            params={"session_id": self.session_id},
+            json=event_def.model_dump(),
+            timeout=self.client.timeout,
+        )
+        return EventDefinition.model_validate(r.json())
 
     async def events(self) -> AsyncGenerator[dict[str, Any], None]:  # pragma: no cover
         """Returns a generator object to consume the events streamed from a service."""
