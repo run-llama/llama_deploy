@@ -1,22 +1,21 @@
 import pytest
-
-from llama_deploy.message_queues.simple import SimpleMessageQueue
-from llama_deploy.services.human import HumanService
-from llama_deploy.services.agent import AgentService
-from llama_deploy.tools.service_as_tool import ServiceAsTool
-
 from llama_index.core.agent import ReActAgent
 from llama_index.core.llms import MockLLM
 from llama_index.core.tools import FunctionTool, ToolMetadata
 
+from llama_deploy.message_queues.simple import SimpleMessageQueueServer
+from llama_deploy.services.agent import AgentService
+from llama_deploy.services.human import HumanService
+from llama_deploy.tools.service_as_tool import ServiceAsTool
+
 
 @pytest.fixture()
-def message_queue() -> SimpleMessageQueue:
-    return SimpleMessageQueue()
+def message_queue() -> SimpleMessageQueueServer:
+    return SimpleMessageQueueServer()
 
 
 @pytest.fixture()
-def human_service(message_queue: SimpleMessageQueue) -> HumanService:
+def human_service(message_queue: SimpleMessageQueueServer) -> HumanService:
     return HumanService(
         message_queue=message_queue,
         running=False,
@@ -28,7 +27,7 @@ def human_service(message_queue: SimpleMessageQueue) -> HumanService:
 
 
 @pytest.fixture()
-def agent_service(message_queue: SimpleMessageQueue) -> AgentService:
+def agent_service(message_queue: SimpleMessageQueueServer) -> AgentService:
     # create an agent
     def get_the_secret_fact() -> str:
         """Returns the secret fact."""
@@ -51,7 +50,7 @@ def agent_service(message_queue: SimpleMessageQueue) -> AgentService:
     ["human_service", "agent_service"],
 )
 def test_init(
-    message_queue: SimpleMessageQueue,
+    message_queue: SimpleMessageQueueServer,
     service_type: str,
     request: pytest.FixtureRequest,
 ) -> None:
@@ -84,7 +83,7 @@ def test_init(
     ["human_service", "agent_service"],
 )
 def test_init_invalid_tool_name_should_raise_error(
-    message_queue: SimpleMessageQueue,
+    message_queue: SimpleMessageQueueServer,
     service_type: str,
     request: pytest.FixtureRequest,
 ) -> None:
@@ -108,7 +107,7 @@ def test_init_invalid_tool_name_should_raise_error(
     ["human_service", "agent_service"],
 )
 def test_from_service_definition(
-    message_queue: SimpleMessageQueue,
+    message_queue: SimpleMessageQueueServer,
     service_type: str,
     request: pytest.FixtureRequest,
 ) -> None:

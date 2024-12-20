@@ -3,16 +3,16 @@ import importlib
 import os
 import subprocess
 import sys
-from dotenv import dotenv_values
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import Any
 
+from dotenv import dotenv_values
 
 from llama_deploy import (
     Client,
     ControlPlaneServer,
-    SimpleMessageQueue,
+    SimpleMessageQueueServer,
     SimpleOrchestrator,
     SimpleOrchestratorConfig,
     WorkflowService,
@@ -24,6 +24,7 @@ from llama_deploy.message_queues import (
     KafkaMessageQueue,
     RabbitMQMessageQueue,
     RedisMessageQueue,
+    SimpleMessageQueue,
     SimpleMessageQueueConfig,
     SolaceMessageQueue,
 )
@@ -56,7 +57,7 @@ class Deployment:
         """
         self._name = config.name
         self._path = root_path / config.name
-        self._simple_message_queue: SimpleMessageQueue | None = None
+        self._simple_message_queue_server: SimpleMessageQueueServer | None = None
         self._queue_client = self._load_message_queue_client(config.message_queue)
         self._control_plane_config = config.control_plane
         self._control_plane = ControlPlaneServer(
@@ -96,10 +97,10 @@ class Deployment:
         tasks = []
 
         # Spawn SimpleMessageQueue if needed
-        if self._simple_message_queue:
+        if self._simple_message_queue_server:
             # If SimpleMessageQueue was selected in the config file we take care of running the task
             tasks.append(
-                asyncio.create_task(self._simple_message_queue.launch_server())
+                asyncio.create_task(self._simple_message_queue_server.launch_server())
             )
             # the other components need the queue to run in order to start, give the queue some time to start
             # FIXME: having to await a magic number of seconds is very brittle, we should rethink the bootstrap process
@@ -241,8 +242,8 @@ class Deployment:
         elif cfg.type == "redis":
             return RedisMessageQueue(**cfg.model_dump())
         elif cfg.type == "simple":
-            self._simple_message_queue = SimpleMessageQueue(**cfg.model_dump())
-            return self._simple_message_queue.client
+            self._simple_message_queue_server = SimpleMessageQueueServer(cfg)
+            return SimpleMessageQueue(cfg)  # type: ignore
         elif cfg.type == "solace":
             return SolaceMessageQueue(**cfg.model_dump())
         else:

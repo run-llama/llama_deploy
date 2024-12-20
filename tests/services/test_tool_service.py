@@ -49,7 +49,7 @@ def tool_output_consumer() -> MockMessageConsumer:
 async def test_init(tools: List[BaseTool]) -> None:
     # arrange
     server = ToolService(
-        SimpleMessageQueue(),
+        SimpleMessageQueue(),  # type: ignore
         tools=tools,
         running=False,
         description="Test Tool Server",
@@ -74,7 +74,7 @@ async def test_init(tools: List[BaseTool]) -> None:
 async def test_create_tool_call(tools: List[BaseTool], tool_call: ToolCall) -> None:
     # arrange
     server = ToolService(
-        SimpleMessageQueue(),
+        SimpleMessageQueue(),  # type:ignore
         tools=tools,
         running=False,
         description="Test Tool Server",
@@ -96,11 +96,12 @@ async def test_process_tool_call(
     tools: List[BaseTool],
     tool_call: ToolCall,
     tool_output_consumer: MockMessageConsumer,
+    message_queue_server: Any,
 ) -> None:
     # arrange
     mq = SimpleMessageQueue()
     server = ToolService(
-        mq,
+        mq,  # type:ignore
         tools=tools,
         running=True,
         description="Test Tool Server",
@@ -108,9 +109,10 @@ async def test_process_tool_call(
         host="localhost",
         port=8001,
     )
-    await mq.register_consumer(tool_output_consumer)
-
-    mq_task = await mq.launch_local()
+    consumer_fn = await mq.register_consumer(
+        tool_output_consumer, topic="llama_deploy.mock-source"
+    )
+    consumer_task = asyncio.create_task(consumer_fn())
     server_task = await server.launch_local()
 
     # act
@@ -118,8 +120,9 @@ async def test_process_tool_call(
 
     # Give some time for last message to get published and sent to consumers
     await asyncio.sleep(1)
-    mq_task.cancel()
+    consumer_task.cancel()
     server_task.cancel()
+    await asyncio.gather(consumer_task, server_task)
 
     # assert
     assert server.message_queue == mq
@@ -133,11 +136,12 @@ async def test_process_tool_call_from_queue(
     tools: List[BaseTool],
     tool_call: ToolCall,
     tool_output_consumer: MockMessageConsumer,
+    message_queue_server: Any,
 ) -> None:
     # arrange
     mq = SimpleMessageQueue()
     server = ToolService(
-        mq,
+        mq,  # type:ignore
         tools=tools,
         running=True,
         service_name="test_tool_service",
@@ -146,10 +150,14 @@ async def test_process_tool_call_from_queue(
         host="localhost",
         port=8001,
     )
-    await mq.register_consumer(tool_output_consumer)
-    await mq.register_consumer(server.as_consumer())
-
-    mq_task = await mq.launch_local()
+    consumer_fn = await mq.register_consumer(
+        tool_output_consumer, topic="llama_deploy.mock-source"
+    )
+    consumer_task = asyncio.create_task(consumer_fn())
+    service_consumer_fn = await mq.register_consumer(
+        server.as_consumer(), topic="test_tool_service"
+    )
+    service_consumer_task = asyncio.create_task(service_consumer_fn())
     server_task = await server.launch_local()
 
     # act
@@ -162,8 +170,10 @@ async def test_process_tool_call_from_queue(
 
     # Give some time for last message to get published and sent to consumers
     await asyncio.sleep(1)
-    mq_task.cancel()
+    consumer_task.cancel()
+    service_consumer_task.cancel()
     server_task.cancel()
+    await asyncio.gather(consumer_task, service_consumer_task, server_task)
 
     # assert
     assert server.message_queue == mq

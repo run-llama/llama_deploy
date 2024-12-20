@@ -1,18 +1,19 @@
 import asyncio
 import uuid
-import uvicorn
 from asyncio import Lock
+from asyncio.exceptions import CancelledError
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
-from pydantic import PrivateAttr
 from logging import getLogger
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
+import uvicorn
+from fastapi import FastAPI
 from llama_index.core.agent.function_calling.step import (
     get_function_by_name,
 )
 from llama_index.core.llms import MessageRole
-from llama_index.core.tools import BaseTool, AsyncBaseTool, adapt_to_async_tool
+from llama_index.core.tools import AsyncBaseTool, BaseTool, adapt_to_async_tool
+from pydantic import PrivateAttr
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
@@ -24,9 +25,9 @@ from llama_deploy.services.base import BaseService
 from llama_deploy.types import (
     ActionTypes,
     ChatMessage,
+    ServiceDefinition,
     ToolCall,
     ToolCallResult,
-    ServiceDefinition,
 )
 
 logger = getLogger(__name__)
@@ -182,6 +183,12 @@ class ToolService(BaseService):
     async def processing_loop(self) -> None:
         """The processing loop for the service."""
         logger.info("Processing initiated.")
+        try:
+            await self._processing_loop()
+        except CancelledError:
+            logger.info("Processing loop cancelled...")
+
+    async def _processing_loop(self) -> None:
         while True:
             if not self.running:
                 await asyncio.sleep(self.step_interval)

@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from asyncio import Lock
+from asyncio.exceptions import CancelledError
 from contextlib import asynccontextmanager
 from logging import getLogger
 from typing import (
@@ -203,6 +204,13 @@ class HumanService(BaseService):
 
     async def processing_loop(self) -> None:
         """The processing loop for the service."""
+        try:
+            await self._processing_loop()
+        except CancelledError:
+            logger.info("Processing cancelled.")
+            return
+
+    async def _processing_loop(self) -> None:
         logger.info("Processing initiated.")
         while True:
             if not self.running:

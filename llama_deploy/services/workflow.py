@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import uuid
+from asyncio.exceptions import CancelledError
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from logging import getLogger
@@ -418,19 +419,10 @@ class WorkflowService(BaseService):
     async def processing_loop(self) -> None:
         """The processing loop for the service with non-blocking concurrent task execution."""
         logger.info("Processing initiated.")
-
-        while True:
-            if not self.running:
-                await asyncio.sleep(self.step_interval)
-                continue
-
-            task_manager = asyncio.create_task(self.manage_tasks())
-
-            try:
-                await task_manager
-            finally:
-                task_manager.cancel()
-                await asyncio.gather(task_manager, return_exceptions=True)
+        try:
+            await self.manage_tasks()
+        except CancelledError:
+            return
 
     async def process_message(self, message: QueueMessage) -> None:
         """Process a message received from the message queue."""

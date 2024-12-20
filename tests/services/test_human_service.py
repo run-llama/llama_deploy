@@ -37,7 +37,7 @@ async def test_init() -> None:
     # arrange
     # act
     human_service = HumanService(
-        message_queue=SimpleMessageQueue(),
+        message_queue=SimpleMessageQueue(),  # type:ignore
         running=False,
         description="Test Human Service",
         service_name="Test Human Service",
@@ -57,7 +57,9 @@ def test_invalid_human_prompt_raises_validation_error() -> None:
     # arrange
     invalid_human_prompt_input_str = "{incorrect_param}"
     human_service = HumanService(
-        message_queue=SimpleMessageQueue(), host="localhost", port=8001
+        message_queue=SimpleMessageQueue(),  # type: ignore
+        host="localhost",
+        port=8001,
     )
 
     # act/assert
@@ -65,7 +67,7 @@ def test_invalid_human_prompt_raises_validation_error() -> None:
         # using invalid prompt at construction should fail
         _ = HumanService(
             human_input_prompt=invalid_human_prompt_input_str,
-            message_queue=SimpleMessageQueue(),
+            message_queue=SimpleMessageQueue(),  # type: ignore
         )
     with pytest.raises(ValueError):
         # updating prompt should fail
@@ -77,7 +79,7 @@ def test_invalid_human_prompt_raises_validation_error() -> None:
 async def test_create_task(mock_uuid: MagicMock) -> None:
     # arrange
     human_service = HumanService(
-        message_queue=SimpleMessageQueue(),
+        message_queue=SimpleMessageQueue(),  # type: ignore
         running=False,
         description="Test Human Service",
         service_name="Test Human Service",
@@ -99,29 +101,35 @@ async def test_create_task(mock_uuid: MagicMock) -> None:
 @pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_process_task(
-    mock_input: MagicMock, human_output_consumer: MockMessageConsumer
+    mock_input: MagicMock,
+    human_output_consumer: MockMessageConsumer,
+    message_queue_server: Any,
 ) -> None:
     # arrange
     mq = SimpleMessageQueue()
     human_service = HumanService(
-        message_queue=mq,
+        message_queue=mq,  # type: ignore
         host="localhost",
         port=8001,
     )
-    await mq.register_consumer(human_output_consumer)
 
-    mq_task = asyncio.create_task(mq.processing_loop())
-    server_task = asyncio.create_task(human_service.processing_loop())
+    consumer_fn = await mq.register_consumer(
+        human_output_consumer, topic="llama_deploy.control_plane"
+    )
+    consumer_task = asyncio.create_task(consumer_fn())
+    service_task = asyncio.create_task(human_service.processing_loop())
+    await asyncio.sleep(0.5)
     mock_input.return_value = "Test human input."
 
     # act
     req = TaskDefinition(task_id="1", input="Mock human req.")
     result = await human_service.create_task(req)
+    await asyncio.sleep(0.5)
 
-    # give time to process and shutdown afterwards
-    await asyncio.sleep(1)
-    mq_task.cancel()
-    server_task.cancel()
+    # tear down
+    consumer_task.cancel()
+    service_task.cancel()
+    await asyncio.gather(consumer_task, service_task)
 
     # assert
     mock_input.assert_called_once()
@@ -141,18 +149,30 @@ async def test_process_task(
 @pytest.mark.asyncio()
 @patch("builtins.input")
 async def test_process_human_req_from_queue(
-    mock_input: MagicMock, human_output_consumer: MockMessageConsumer
+    mock_input: MagicMock,
+    human_output_consumer: MockMessageConsumer,
+    message_queue_server: Any,
 ) -> None:
     # arrange
     mq = SimpleMessageQueue()
     human_service = HumanService(
-        message_queue=mq, service_name="test_human_service", host="localhost", port=8001
+        message_queue=mq,  # type: ignore
+        service_name="test_human_service",
+        host="localhost",
+        port=8001,
     )
-    await mq.register_consumer(human_output_consumer)
-    await mq.register_consumer(human_service.as_consumer())
 
-    mq_task = asyncio.create_task(mq.processing_loop())
-    server_task = asyncio.create_task(human_service.processing_loop())
+    consumer_fn = await mq.register_consumer(
+        human_output_consumer, topic="llama_deploy.control_plane"
+    )
+    consumer_task = asyncio.create_task(consumer_fn())
+
+    service_task = asyncio.create_task(human_service.processing_loop())
+    service_consumer_fn = await mq.register_consumer(
+        human_service.as_consumer(), topic="test_human_service"
+    )
+    service_consumer_task = asyncio.create_task(service_consumer_fn())
+    await asyncio.sleep(0.5)
     mock_input.return_value = "Test human input."
 
     # act
@@ -163,11 +183,13 @@ async def test_process_human_req_from_queue(
         type="test_human_service",
     )
     await mq.publish(human_req_message, topic="test_human_service")
+    await asyncio.sleep(0.5)
 
-    # Give some time for last message to get published and sent to consumers
-    await asyncio.sleep(1)
-    mq_task.cancel()
-    server_task.cancel()
+    # tear down
+    consumer_task.cancel()
+    service_task.cancel()
+    service_consumer_task.cancel()
+    await asyncio.gather(consumer_task, service_task, service_consumer_task)
 
     # assert
     assert human_service.message_queue == mq
@@ -182,7 +204,7 @@ async def test_process_human_req_from_queue(
 
 @pytest.mark.asyncio()
 async def test_process_task_with_custom_human_input_fn(
-    human_output_consumer: MockMessageConsumer,
+    human_output_consumer: MockMessageConsumer, message_queue_server: Any
 ) -> None:
     # arrange
     mq = SimpleMessageQueue()
@@ -191,25 +213,29 @@ async def test_process_task_with_custom_human_input_fn(
         return " ".join([prompt, prompt[::-1]])
 
     human_service = HumanService(
-        message_queue=mq,
+        message_queue=mq,  # type:ignore
         fn_input=my_custom_human_input_fn,
         human_input_prompt="{input_str}",
         host="localhost",
         port=8001,
     )
-    await mq.register_consumer(human_output_consumer)
 
-    mq_task = asyncio.create_task(mq.processing_loop())
-    server_task = asyncio.create_task(human_service.processing_loop())
+    consumer_fn = await mq.register_consumer(
+        human_output_consumer, topic="llama_deploy.control_plane"
+    )
+    consumer_task = asyncio.create_task(consumer_fn())
+    service_task = asyncio.create_task(human_service.processing_loop())
+    await asyncio.sleep(0.5)
 
     # act
     req = TaskDefinition(task_id="1", input="Mock human req.")
     result = await human_service.create_task(req)
+    await asyncio.sleep(0.5)
 
-    # give time to process and shutdown afterwards
-    await asyncio.sleep(1)
-    mq_task.cancel()
-    server_task.cancel()
+    # tear down
+    consumer_task.cancel()
+    service_task.cancel()
+    await asyncio.gather(consumer_task, service_task)
 
     # assert
     assert len(human_output_consumer.processed_messages) == 1
@@ -226,21 +252,29 @@ async def test_process_task_with_custom_human_input_fn(
 @patch("builtins.input")
 async def test_process_task_as_tool_call(
     mock_input: MagicMock,
+    message_queue_server: Any,
 ) -> None:
     # arrange
     mq = SimpleMessageQueue()
     human_service = HumanService(
-        message_queue=mq,
+        message_queue=mq,  # type: ignore
         service_name="test_human_service",
         host="localhost",
         port=8001,
     )
     output_consumer = MockMessageConsumer(message_type="tool_call_source")
-    await mq.register_consumer(output_consumer)
-    await mq.register_consumer(human_service.as_consumer())
+    consumer_fn = await mq.register_consumer(
+        output_consumer, topic="llama_deploy.tool_call_source"
+    )
+    consumer_task = asyncio.create_task(consumer_fn())
 
-    mq_task = asyncio.create_task(mq.processing_loop())
-    server_task = asyncio.create_task(human_service.processing_loop())
+    service_task = asyncio.create_task(human_service.processing_loop())
+    service_consumer_fn = await mq.register_consumer(
+        human_service.as_consumer(), topic="test_human_service"
+    )
+    service_consumer_task = asyncio.create_task(service_consumer_fn())
+    await asyncio.sleep(0.5)
+
     mock_input.return_value = "Test human input."
 
     # act
@@ -252,11 +286,13 @@ async def test_process_task_as_tool_call(
         type="test_human_service",
     )
     await mq.publish(human_req_message, topic="test_human_service")
+    await asyncio.sleep(0.5)
 
-    # Give some time for last message to get published and sent to consumers
-    await asyncio.sleep(1)
-    mq_task.cancel()
-    server_task.cancel()
+    # tear down
+    consumer_task.cancel()
+    service_task.cancel()
+    service_consumer_task.cancel()
+    await asyncio.gather(consumer_task, service_task, service_consumer_task)
 
     # assert
     assert human_service.tool_name == "test_human_service-as-tool"

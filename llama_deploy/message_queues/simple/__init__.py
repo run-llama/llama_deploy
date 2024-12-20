@@ -1,11 +1,11 @@
+from .client import SimpleMessageQueue
 from .server import (
-    SimpleMessageQueue,
     SimpleMessageQueueConfig,
-    SimpleRemoteClientMessageQueue,
+    SimpleMessageQueueServer,
 )
 
 __all__ = [
-    "SimpleMessageQueue",
+    "SimpleMessageQueueServer",
     "SimpleMessageQueueConfig",
-    "SimpleRemoteClientMessageQueue",
+    "SimpleMessageQueue",
 ]

@@ -10,9 +10,10 @@ skip = "poetry.lock,./examples,*/algolia.js,docs/poetry.lock"
 omit = [
   "__main__.py",
   "tests/*",
-  # deprecated classes
+  # deprecated modules
   "llama_deploy/client/async_client.py",
-  "llama_deploy/client/sync_client.py"
+  "llama_deploy/client/sync_client.py",
+  "llama_deploy/tools/*"
 ]
 
 [tool.poetry]

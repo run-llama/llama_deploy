@@ -19,12 +19,12 @@ from llama_deploy.message_queues import (
     RabbitMQMessageQueueConfig,
     RedisMessageQueue,
     RedisMessageQueueConfig,
-    SimpleMessageQueue,
     SimpleMessageQueueConfig,
+    SimpleMessageQueueServer,
     SolaceMessageQueue,
     SolaceMessageQueueConfig,
 )
-from llama_deploy.message_queues.simple import SimpleRemoteClientMessageQueue
+from llama_deploy.message_queues.simple import SimpleMessageQueue
 from llama_deploy.orchestrators.simple import (
     SimpleOrchestrator,
     SimpleOrchestratorConfig,
@@ -35,7 +35,7 @@ DEFAULT_TIMEOUT = 120.0
 
 
 async def _deploy_local_message_queue(config: SimpleMessageQueueConfig) -> asyncio.Task:
-    queue = SimpleMessageQueue(**config.model_dump())
+    queue = SimpleMessageQueueServer(config)
     task = asyncio.create_task(queue.launch_server())
 
     # let message queue boot up
@@ -47,8 +47,6 @@ async def _deploy_local_message_queue(config: SimpleMessageQueueConfig) -> async
 def _get_message_queue_config(config_dict: dict) -> BaseSettings:
     key = next(iter(config_dict.keys()))
     if key == SimpleMessageQueueConfig.__name__:
-        return SimpleMessageQueueConfig(**config_dict[key])
-    elif key == SimpleRemoteClientMessageQueue.__name__:
         return SimpleMessageQueueConfig(**config_dict[key])
     elif key == AWSMessageQueueConfig.__name__:
         return AWSMessageQueueConfig(**config_dict[key])
@@ -66,8 +64,7 @@ def _get_message_queue_config(config_dict: dict) -> BaseSettings:
 
 def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
     if isinstance(config, SimpleMessageQueueConfig):
-        queue = SimpleMessageQueue(**config.model_dump())
-        return queue.client
+        return SimpleMessageQueue(config)  # type: ignore
     elif isinstance(config, AWSMessageQueueConfig):
         return AWSMessageQueue(**config.model_dump())
     elif isinstance(config, KafkaMessageQueueConfig):
