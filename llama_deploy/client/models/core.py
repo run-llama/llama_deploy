@@ -90,11 +90,13 @@ class Session(Model):
         response = await self.client.request("GET", url)
         return [TaskDefinition(**task) for task in response.json()]
 
-    async def send_event(self, task_id: str, event_def: EventDefinition) -> None:
+    async def send_event(
+        self, service_name: str, task_id: str, event_def: EventDefinition
+    ) -> None:
         """Send event to a Workflow service.
 
         Args:
-            event_def (EventDefinition): Contains serialized str of Event and target service name.
+            event (Event): The event to be submitted to the workflow.
 
         Returns:
             None
