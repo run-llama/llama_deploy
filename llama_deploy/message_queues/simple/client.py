@@ -69,7 +69,6 @@ class SimpleMessageQueue(AbstractMessageQueue):
                         result = await client.get(url)
                         result.raise_for_status()
                         if result.json():
-                            print(result.json())
                             message = QueueMessage.model_validate(result.json())
                             await consumer.process_message(message)
                         await asyncio.sleep(0.1)

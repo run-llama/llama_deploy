@@ -26,7 +26,7 @@ def test_deployment_ctor(data_path: Path) -> None:
         sm_dict["git"].sync.assert_called_once()
         assert d.name == "TestDeployment"
         assert d.path.name == "TestDeployment"
-        assert d._simple_message_queue is not None
+        assert d._simple_message_queue_server is not None
         assert type(d._control_plane) is ControlPlaneServer
         assert len(d._workflow_services) == 1
         assert d.client is not None
@@ -74,8 +74,8 @@ def test_deployment_ctor_skip_default_service(data_path: Path) -> None:
 def test_deployment___load_message_queue_default(mocked_deployment: Deployment) -> None:
     q = mocked_deployment._load_message_queue_client(None)
     assert type(q) is SimpleMessageQueue
-    assert q.port == 8001
-    assert q.host == "127.0.0.1"
+    assert q._config.port == 8001
+    assert q._config.host == "127.0.0.1"
 
 
 def test_deployment___load_message_queue_not_supported(
