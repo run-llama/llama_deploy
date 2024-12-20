@@ -5,10 +5,11 @@ from unittest import mock
 import pytest
 from fastapi.testclient import TestClient
 from llama_index.core.workflow.events import Event, HumanResponseEvent
+from llama_index.core.workflow.context_serializers import JsonSerializer
 
 from llama_deploy.apiserver import Config
 from llama_deploy.types import TaskResult
-from llama_deploy.types.core import TaskDefinition
+from llama_deploy.types.core import TaskDefinition, EventDefinition
 
 
 def test_read_deployments(http_client: TestClient) -> None:
@@ -122,7 +123,7 @@ def test_create_deployment_task(http_client: TestClient, data_path: Path) -> Non
         assert td.task_id == "test_task_id"
 
 
-def test_send_human_response_event(http_client: TestClient, data_path: Path) -> None:
+def test_send_event(http_client: TestClient, data_path: Path) -> None:
     with mock.patch(
         "llama_deploy.apiserver.routers.deployments.manager"
     ) as mocked_manager:
@@ -132,13 +133,22 @@ def test_send_human_response_event(http_client: TestClient, data_path: Path) -> 
         deployment.client.core.sessions.create.return_value = session
         session.id = "42"
         mocked_manager.get_deployment.return_value = deployment
+
+        serializer = JsonSerializer()
+        ev = HumanResponseEvent(response="test human response")
+        event_def = EventDefinition(
+            event_obj_str=serializer.serialize(ev), agent_id="TestService"
+        )
+
         response = http_client.post(
-            "/deployments/test-deployment/tasks/test_task_id/human_response_event/?session_id=42&service_name=TestService",
-            json={"response": "test human response"},
+            "/deployments/test-deployment/tasks/test_task_id/events",
+            json=event_def.model_dump(),
+            params={"session_id": 42},
         )
         assert response.status_code == 200
-        ev = HumanResponseEvent(**response.json())
-        assert ev.response == "test human response"
+        ev_def = EventDefinition(**response.json())
+        assert ev_def.agent_id == event_def.agent_id
+        assert ev_def.event_obj_str == event_def.event_obj_str
 
 
 @pytest.mark.asyncio
