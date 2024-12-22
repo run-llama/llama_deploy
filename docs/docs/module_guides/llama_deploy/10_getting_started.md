@@ -98,7 +98,7 @@ if you have Docker installed, you can replace running the API server locally wit
 with:
 
 ```
-$ docker run -p 4501:4501 -v .:/opt/quickstart -w /opt/quickstart llamaindex/llama-deploy
+$ docker run -p 4501:4501 -v .:/opt/quickstart -w /opt/quickstart llamaindex/llama-deploy:main
 INFO:     Started server process [1]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
@@ -107,3 +107,8 @@ INFO:     Uvicorn running on http://0.0.0.0:4501 (Press CTRL+C to quit)
 
 The API server will be available at `http://localhost:4501` on your host, so `llamactl` will work the same as if you
 run `python -m llama_deploy.apiserver`.
+
+> [!NOTE]
+> The `llamaindex/llama-deploy:main` Docker image is continuously built from the latest commit in the `main`
+> branch of the git repository. While this ensures you get the most recent version of the project, the
+> image might contain unreleased features that are not fully stable, use with caution!
