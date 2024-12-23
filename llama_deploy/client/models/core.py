@@ -109,6 +109,18 @@ class Session(Model):
         url = f"{self.client.control_plane_url}/sessions/{self.id}/tasks/{task_id}/send_event"
         await self.client.request("POST", url, json=event_def.model_dump())
 
+    async def send_event_def(self, task_id: str, ev_def: EventDefinition) -> None:
+        """Send event to a Workflow service.
+
+        Args:
+            event (Event): The event to be submitted to the workflow.
+
+        Returns:
+            None
+        """
+        url = f"{self.client.control_plane_url}/sessions/{self.id}/tasks/{task_id}/send_event"
+        await self.client.request("POST", url, json=ev_def.model_dump())
+
     async def get_task_result_stream(
         self, task_id: str
     ) -> AsyncGenerator[dict[str, Any], None]:

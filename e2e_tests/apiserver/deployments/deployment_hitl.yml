@@ -1,0 +1,14 @@
+name: HumanInTheLoop
+
+control-plane:
+  port: 8000
+
+default-service: hitl_workflow
+
+services:
+  hitl_workflow:
+    name: HITL Workflow
+    source:
+      type: local
+      name: ./e2e_tests/apiserver/deployments/src
+    path: workflow_hitl:workflow
