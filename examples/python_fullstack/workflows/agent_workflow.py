@@ -3,16 +3,16 @@ from typing import List
 
 from llama_index.core.llms import ChatMessage
 from llama_index.core.memory import ChatMemoryBuffer
+from llama_index.core.tools import FunctionTool
 from llama_index.core.workflow import (
     Context,
     Event,
-    Workflow,
     StartEvent,
     StopEvent,
+    Workflow,
     step,
 )
 from llama_index.llms.openai import OpenAI
-from llama_index.core.tools import FunctionTool
 
 from .rag_workflow import RAGWorkflow
 

@@ -48,7 +48,7 @@ repos:
             --ignore-missing-imports,
             --python-version=3.11,
           ]
-        exclude: ^(examples/|e2e_tests/|tests/tools/)
+        exclude: ^(examples/|e2e_tests/)
 
   - repo: https://github.com/adamchainz/blacken-docs
     rev: 1.16.0
