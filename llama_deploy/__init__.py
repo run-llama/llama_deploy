@@ -12,8 +12,6 @@ from llama_deploy.message_queues import (
 from llama_deploy.messages import QueueMessage
 from llama_deploy.orchestrators import SimpleOrchestrator, SimpleOrchestratorConfig
 from llama_deploy.services import (
-    ComponentService,
-    ToolService,
     WorkflowService,
     WorkflowServiceConfig,
 )
@@ -35,8 +33,6 @@ __all__ = [
     "AsyncLlamaDeployClient",
     "Client",
     # services
-    "ToolService",
-    "ComponentService",
     "WorkflowService",
     "WorkflowServiceConfig",
     # messages
