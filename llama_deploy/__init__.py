@@ -12,19 +12,8 @@ from llama_deploy.message_queues import (
 from llama_deploy.messages import QueueMessage
 from llama_deploy.orchestrators import SimpleOrchestrator, SimpleOrchestratorConfig
 from llama_deploy.services import (
-    AgentService,
-    ComponentService,
-    HumanService,
-    ToolService,
     WorkflowService,
     WorkflowServiceConfig,
-)
-from llama_deploy.tools import (
-    AgentServiceTool,
-    MetaServiceTool,
-    ServiceAsTool,
-    ServiceComponent,
-    ServiceTool,
 )
 
 root_logger = logging.getLogger("llama_deploy")
@@ -44,10 +33,6 @@ __all__ = [
     "AsyncLlamaDeployClient",
     "Client",
     # services
-    "AgentService",
-    "HumanService",
-    "ToolService",
-    "ComponentService",
     "WorkflowService",
     "WorkflowServiceConfig",
     # messages
@@ -66,10 +51,4 @@ __all__ = [
     # orchestrators
     "SimpleOrchestrator",
     "SimpleOrchestratorConfig",
-    # various utils
-    "AgentServiceTool",
-    "ServiceAsTool",
-    "ServiceComponent",
-    "ServiceTool",
-    "MetaServiceTool",
 ]
