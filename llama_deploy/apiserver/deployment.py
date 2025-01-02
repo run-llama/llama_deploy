@@ -124,6 +124,9 @@ class Deployment:
         # Run allthethings
         await asyncio.gather(*tasks)
 
+    def reload(self) -> None:
+        pass
+
     def _load_services(self, config: Config) -> list[WorkflowService]:
         """Creates WorkflowService instances according to the configuration object."""
         workflow_services = []
@@ -278,7 +281,7 @@ class Manager:
         self._deployments_path = deployments_path
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
-        self._control_plane_port = 8002
+        self._last_control_plane_port = 8002
 
     @property
     def deployment_names(self) -> list[str]:
@@ -297,34 +300,46 @@ class Manager:
         except asyncio.CancelledError:
             pass
 
-    def deploy(self, config: Config) -> None:
+    def deploy(self, config: Config, reload: bool = False) -> None:
         """Creates a Deployment instance and starts the relative runtime.
 
         Args:
             config: The deployment configuration.
+            reload: Reload an existing deployment instead of raising an error.
 
         Raises:
             ValueError: If a deployment with the same name already exists or the maximum number of deployment exceeded.
             DeploymentError: If it wasn't possible to create a deployment.
         """
-        if config.name in self._deployments:
-            msg = f"Deployment already exists: {config.name}"
-            raise ValueError(msg)
+        if not reload:
+            # Raise an error if deployment already exists
+            if config.name in self._deployments:
+                msg = f"Deployment already exists: {config.name}"
+                raise ValueError(msg)
 
-        if len(self._deployments) == self._max_deployments:
-            msg = "Reached the maximum number of deployments, cannot schedule more"
-            raise ValueError(msg)
+            # Raise an error if we can't create any new deployment
+            if len(self._deployments) == self._max_deployments:
+                msg = "Reached the maximum number of deployments, cannot schedule more"
+                raise ValueError(msg)
 
-        self._assign_control_plane_address(config)
+            # Set the control plane TCP port in the config where not specified
+            self._assign_control_plane_address(config)
 
-        deployment = Deployment(config=config, root_path=self._deployments_path)
-        self._deployments[config.name] = deployment
-        self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
+            deployment = Deployment(config=config, root_path=self._deployments_path)
+            self._deployments[config.name] = deployment
+            self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
+        else:
+            if config.name not in self._deployments:
+                msg = f"Cannot find deployment to reload: {config.name}"
+                raise ValueError(msg)
+
+            deployment = self._deployments[config.name]
+            deployment.reload()
 
     def _assign_control_plane_address(self, config: Config) -> None:
         for service in config.services.values():
             if not service.port:
-                service.port = self._control_plane_port
-                self._control_plane_port += 1
+                service.port = self._last_control_plane_port
+                self._last_control_plane_port += 1
             if not service.host:
                 service.host = "localhost"

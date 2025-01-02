@@ -3,9 +3,8 @@ import json
 from typing import Any, AsyncGenerator, TextIO
 
 import httpx
-
-from llama_index.core.workflow.events import Event
 from llama_index.core.workflow.context_serializers import JsonSerializer
+from llama_index.core.workflow.events import Event
 
 from llama_deploy.types.apiserver import Status, StatusEnum
 from llama_deploy.types.core import (
@@ -227,8 +226,11 @@ class Deployment(Model):
 class DeploymentCollection(Collection):
     """A model representing a collection of deployments currently active."""
 
-    async def create(self, config: TextIO) -> Deployment:
+    async def create(self, config: TextIO, reload: bool = False) -> Deployment:
         """Creates a new deployment from a deployment file.
+
+        If `reload` is true, an existing deployment will be reloaded, otherwise
+        an error will be raised.
 
         Example:
             ```
@@ -243,6 +245,7 @@ class DeploymentCollection(Collection):
             "POST",
             create_url,
             files=files,
+            params={"reload": reload},
             verify=not self.client.disable_ssl,
             timeout=self.client.timeout,
         )

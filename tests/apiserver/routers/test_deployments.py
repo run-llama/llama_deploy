@@ -4,12 +4,12 @@ from unittest import mock
 
 import pytest
 from fastapi.testclient import TestClient
-from llama_index.core.workflow.events import Event, HumanResponseEvent
 from llama_index.core.workflow.context_serializers import JsonSerializer
+from llama_index.core.workflow.events import Event, HumanResponseEvent
 
 from llama_deploy.apiserver import Config
 from llama_deploy.types import TaskResult
-from llama_deploy.types.core import TaskDefinition, EventDefinition
+from llama_deploy.types.core import EventDefinition, TaskDefinition
 
 
 def test_read_deployments(http_client: TestClient) -> None:
@@ -47,7 +47,7 @@ def test_create_deployment(http_client: TestClient, data_path: Path) -> None:
             )
 
         assert response.status_code == 200
-        mocked_manager.deploy.assert_called_with(actual_config)
+        mocked_manager.deploy.assert_called_with(actual_config, False)
 
 
 def test_create_deployment_task_not_found(
