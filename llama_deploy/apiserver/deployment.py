@@ -124,6 +124,7 @@ class Deployment:
         self._running = False
 
     async def reload(self, config: Config) -> None:
+        """Reload this deployment by restarting its services."""
         self._workflow_services = self._load_services(config)
         self._default_service = config.default_service
 
