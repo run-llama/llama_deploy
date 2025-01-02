@@ -5,6 +5,7 @@ import subprocess
 import sys
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
+from shutil import rmtree
 from typing import Any
 
 from dotenv import dotenv_values
@@ -68,6 +69,9 @@ class Deployment:
         self._workflow_services: list[WorkflowService] = self._load_services(config)
         self._client = Client(control_plane_url=config.control_plane.url)
         self._default_service = config.default_service
+        self._running = False
+        self._service_tasks: list[asyncio.Task] = []
+        self._service_startup_complete = asyncio.Event()
 
     @property
     def default_service(self) -> str | None:
@@ -95,6 +99,7 @@ class Deployment:
         All the tasks are gathered before returning.
         """
         tasks = []
+        self._running = True
 
         # Spawn SimpleMessageQueue if needed
         if self._simple_message_queue_server:
@@ -112,20 +117,34 @@ class Deployment:
         tasks.append(asyncio.create_task(cp_consumer_fn()))
 
         # Services
-        for wfs in self._workflow_services:
-            service_task = asyncio.create_task(wfs.launch_server())
-            tasks.append(service_task)
-            consumer_fn = await wfs.register_to_message_queue()
-            control_plane_url = f"http://{self._control_plane_config.host}:{self._control_plane_config.port}"
-            await wfs.register_to_control_plane(control_plane_url)
-            consumer_task = asyncio.create_task(consumer_fn())
-            tasks.append(consumer_task)
+        tasks.append(asyncio.create_task(self._run_services()))
 
         # Run allthethings
         await asyncio.gather(*tasks)
+        self._running = False
 
-    def reload(self) -> None:
-        pass
+    async def reload(self, config: Config) -> None:
+        self._workflow_services = self._load_services(config)
+        self._default_service = config.default_service
+
+        for t in self._service_tasks:
+            t.cancel()
+
+        await self._service_startup_complete.wait()
+
+    async def _run_services(self) -> None:
+        while self._running:
+            self._service_tasks = []
+            for wfs in self._workflow_services:
+                service_task = asyncio.create_task(wfs.launch_server())
+                self._service_tasks.append(service_task)
+                consumer_fn = await wfs.register_to_message_queue()
+                control_plane_url = f"http://{self._control_plane_config.host}:{self._control_plane_config.port}"
+                await wfs.register_to_control_plane(control_plane_url)
+                consumer_task = asyncio.create_task(consumer_fn())
+                self._service_tasks.append(consumer_task)
+            self._service_startup_complete.set()
+            await asyncio.gather(*self._service_tasks)
 
     def _load_services(self, config: Config) -> list[WorkflowService]:
         """Creates WorkflowService instances according to the configuration object."""
@@ -154,9 +173,13 @@ class Deployment:
                 raise ValueError(msg)
 
             # Sync the service source
-            destination = self._path / service_id
+            destination = (self._path / service_id).resolve()
+
+            if destination.exists():
+                rmtree(str(destination))
+
             source_manager = SOURCE_MANAGERS[source.type]
-            source_manager.sync(source.name, str(destination.resolve()))
+            source_manager.sync(source.name, str(destination))
 
             # Install dependencies
             self._install_dependencies(service_config)
@@ -300,7 +323,7 @@ class Manager:
         except asyncio.CancelledError:
             pass
 
-    def deploy(self, config: Config, reload: bool = False) -> None:
+    async def deploy(self, config: Config, reload: bool = False) -> None:
         """Creates a Deployment instance and starts the relative runtime.
 
         Args:
@@ -334,7 +357,7 @@ class Manager:
                 raise ValueError(msg)
 
             deployment = self._deployments[config.name]
-            deployment.reload()
+            await deployment.reload(config)
 
     def _assign_control_plane_address(self, config: Config) -> None:
         for service in config.services.values():

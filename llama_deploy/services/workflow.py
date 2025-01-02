@@ -284,15 +284,15 @@ class WorkflowService(BaseService):
             current_call (WorkflowState):
                 The state of the current task, including run_kwargs and other session state.
         """
+        # create send_event background task
+        close_send_events = asyncio.Event()
+
         try:
             # load the state
             ctx = await self.get_workflow_state(current_call)
 
             # run the workflow
             handler = self.workflow.run(ctx=ctx, **current_call.run_kwargs)
-
-            # create send_event background task
-            close_send_events = asyncio.Event()
 
             async def send_events(
                 handler: WorkflowHandler, close_event: asyncio.Event
@@ -512,4 +512,8 @@ class WorkflowService(BaseService):
 
         cfg = uvicorn.Config(self._app, host=host, port=port)
         server = CustomServer(cfg)
-        await server.serve()
+
+        try:
+            await server.serve()
+        except asyncio.CancelledError:
+            await asyncio.gather(server.shutdown(), return_exceptions=True)

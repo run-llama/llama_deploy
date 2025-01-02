@@ -40,7 +40,7 @@ async def create_deployment(
 ) -> DeploymentDefinition:
     """Creates a new deployment by uploading a configuration file."""
     config = Config.from_yaml_bytes(await config_file.read())
-    manager.deploy(config, reload)
+    await manager.deploy(config, reload)
 
     return DeploymentDefinition(name=config.name)
 
