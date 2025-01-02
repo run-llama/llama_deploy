@@ -37,6 +37,7 @@ def test_create_deployment(http_client: TestClient, data_path: Path) -> None:
     with mock.patch(
         "llama_deploy.apiserver.routers.deployments.manager"
     ) as mocked_manager:
+        mocked_manager.deploy = mock.AsyncMock()
         config_file = data_path / "git_service.yaml"
 
         with open(config_file, "rb") as f:
@@ -47,7 +48,7 @@ def test_create_deployment(http_client: TestClient, data_path: Path) -> None:
             )
 
         assert response.status_code == 200
-        mocked_manager.deploy.assert_called_with(actual_config, False)
+        mocked_manager.deploy.assert_awaited_with(actual_config, False)
 
 
 def test_create_deployment_task_not_found(

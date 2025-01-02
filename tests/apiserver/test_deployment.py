@@ -178,17 +178,19 @@ def test_manager_ctor() -> None:
     assert m.get_deployment("foo") is None
 
 
-def test_manager_deploy_duplicate(data_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_manager_deploy_duplicate(data_path: Path) -> None:
     config = Config.from_yaml(data_path / "git_service.yaml")
 
     m = Manager()
     m._deployments["TestDeployment"] = mock.MagicMock()
 
     with pytest.raises(ValueError, match="Deployment already exists: TestDeployment"):
-        m.deploy(config)
+        await m.deploy(config)
 
 
-def test_manager_deploy_maximum_reached(data_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_manager_deploy_maximum_reached(data_path: Path) -> None:
     config = Config.from_yaml(data_path / "git_service.yaml")
 
     m = Manager(max_deployments=1)
@@ -198,16 +200,17 @@ def test_manager_deploy_maximum_reached(data_path: Path) -> None:
         ValueError,
         match="Reached the maximum number of deployments, cannot schedule more",
     ):
-        m.deploy(config)
+        await m.deploy(config)
 
 
-def test_manager_deploy(data_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_manager_deploy(data_path: Path) -> None:
     config = Config.from_yaml(data_path / "git_service.yaml")
     with mock.patch(
         "llama_deploy.apiserver.deployment.Deployment"
     ) as mocked_deployment:
         m = Manager()
-        m.deploy(config)
+        await m.deploy(config)
         mocked_deployment.assert_called_once()
         assert m.deployment_names == ["TestDeployment"]
         assert m.get_deployment("TestDeployment") is not None
