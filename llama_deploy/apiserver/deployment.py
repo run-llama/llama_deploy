@@ -124,18 +124,33 @@ class Deployment:
         self._running = False
 
     async def reload(self, config: Config) -> None:
-        """Reload this deployment by restarting its services."""
+        """Reload this deployment by restarting its services.
+
+        The reload process consists in cancelling the services tasks
+        and rely on the fact that _run_services() will restart them
+        with the new configuration. This function won't return until
+        _run_services will trigger the _service_startup_complete signal.
+        """
         self._workflow_services = self._load_services(config)
         self._default_service = config.default_service
 
         for t in self._service_tasks:
+            # t is awaited in _run_services(), we don't need to await here
             t.cancel()
 
+        # Hold until _run_services() has restarted all the tasks
         await self._service_startup_complete.wait()
 
     async def _run_services(self) -> None:
+        """Start an asyncio task for each service and gather them.
+
+        For the time self._running holds true, the tasks will be restarted
+        if they are all cancelled. This is to support the reload process
+        (see reload() for more details).
+        """
         while self._running:
             self._service_tasks = []
+            # If this is a reload, self._workflow_services contains the updated configurations
             for wfs in self._workflow_services:
                 service_task = asyncio.create_task(wfs.launch_server())
                 self._service_tasks.append(service_task)
@@ -144,6 +159,7 @@ class Deployment:
                 await wfs.register_to_control_plane(control_plane_url)
                 consumer_task = asyncio.create_task(consumer_fn())
                 self._service_tasks.append(consumer_task)
+            # If this is a reload, unblock the reload() function signalling that tasks are up and running
             self._service_startup_complete.set()
             await asyncio.gather(*self._service_tasks)
 
