@@ -3,24 +3,19 @@
 import asyncio
 import json
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
-from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
 
-if TYPE_CHECKING:
-    import redis.asyncio as redis
-
 logger = getLogger(__name__)
-
-DEFAULT_URL = "redis://localhost:6379"
 
 
 class RedisMessageQueueConfig(BaseSettings):
@@ -29,13 +24,13 @@ class RedisMessageQueueConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="REDIS_")
 
     type: Literal["redis"] = Field(default="redis", exclude=True)
-    url: str = DEFAULT_URL
-    host: Optional[str] = None
-    port: Optional[int] = None
-    db: Optional[int] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
-    ssl: Optional[bool] = None
+    url: str = "redis://localhost:6379"
+    host: str | None = None
+    port: int | None = None
+    db: int | None = None
+    username: str | None = None
+    password: str | None = None
+    ssl: bool | None = None
 
     def model_post_init(self, __context: Any) -> None:
         if self.host and self.port:
@@ -48,32 +43,16 @@ class RedisMessageQueueConfig(BaseSettings):
             self.url = f"{scheme}://{auth}{self.host}:{self.port}/{self.db or ''}"
 
 
-async def _establish_connection(url: str) -> "redis.Redis":
-    try:
-        import redis.asyncio as redis
-    except ImportError:
-        raise ValueError(
-            "Missing redis optional dep. Please install by running `pip install llama-deploy[redis]`."
-        )
-    return redis.from_url(
-        url,
-    )
-
-
 class RedisConsumerMetadata(BaseModel):
     message_type: str
     start_consuming_callable: StartConsumingCallable
     pubsub: Any = None
 
 
-class RedisMessageQueue(BaseMessageQueue):
+class RedisMessageQueue(AbstractMessageQueue):
     """Redis integration for message queue.
 
     This class uses Redis Pub/Sub functionality for message distribution.
-
-    Attributes:
-        url (str): The Redis URL string to connect to the Redis server
-        redis (redis.Redis): The Redis connection
 
     Examples:
         ```python
@@ -83,46 +62,22 @@ class RedisMessageQueue(BaseMessageQueue):
         ```
     """
 
-    url: str = DEFAULT_URL
-    _redis: Optional["redis.Redis"] = PrivateAttr(None)
+    def __init__(self, config: RedisMessageQueueConfig | None = None) -> None:
+        self._config = config or RedisMessageQueueConfig()
+        self._consumers: dict[str, RedisConsumerMetadata] = {}
 
-    def __init__(
-        self,
-        url: str = DEFAULT_URL,
-        redis: Optional["redis.Redis"] = None,
-        **kwargs: Any,
-    ) -> None:
-        super().__init__(url=url)
-        self._redis = redis
-        self._consumers: Dict[str, RedisConsumerMetadata] = {}
+        try:
+            import redis.asyncio as redis
 
-    @classmethod
-    def from_url_params(
-        cls,
-        host: str,
-        port: int = 6379,
-        db: int = 0,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        ssl: bool = False,
-    ) -> "RedisMessageQueue":
-        """Convenience constructor from url params."""
-        scheme = "rediss" if ssl else "redis"
-        auth = f"{username}:{password}@" if username and password else ""
-        url = f"{scheme}://{auth}{host}:{port}/{db}"
-        return cls(url=url)
-
-    async def new_connection(self) -> "redis.Redis":
-        """Returns a new connection to the Redis server."""
-        if self._redis is None:
-            self._redis = await _establish_connection(self.url)
-        return self._redis
+            self._redis: redis.Redis = redis.from_url(self._config.url)
+        except ImportError:
+            msg = "Missing redis optional dependency. Please install by running `pip install llama-deploy[redis]`."
+            raise ValueError(msg)
 
     async def _publish(self, message: QueueMessage, topic: str) -> Any:
         """Publish message to the Redis channel."""
-        redis = await self.new_connection()
         message_json = json.dumps(message.model_dump())
-        result = await redis.publish(message.type, message_json)
+        result = await self._redis.publish(message.type, message_json)
         logger.info(
             f"Published message {message.id_} to {message.type} channel with {result} subscribers"
         )
@@ -138,8 +93,7 @@ class RedisMessageQueue(BaseMessageQueue):
             )
             return self._consumers[consumer.id_].start_consuming_callable
 
-        redis = await self.new_connection()
-        pubsub = redis.pubsub()
+        pubsub = self._redis.pubsub()
         await pubsub.subscribe(consumer.message_type)
 
         async def start_consuming_callable() -> None:
@@ -183,15 +137,14 @@ class RedisMessageQueue(BaseMessageQueue):
 
         Not relevant for this class as Redis uses pub/sub model.
         """
-        pass
+        pass  # pragma: no cover
 
     async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
         """Perform any cleanup before shutting down."""
         if self._redis:
             await self._redis.close()
 
-        self._redis = None
         self._consumers = {}
 
     def as_config(self) -> BaseModel:
-        return RedisMessageQueueConfig(url=self.url)
+        return self._config
