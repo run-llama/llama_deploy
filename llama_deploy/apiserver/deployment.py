@@ -193,6 +193,12 @@ class Deployment:
             destination = (self._path / service_id).resolve()
 
             if destination.exists():
+                # FIXME: this could be managed at the source manager level, so that
+                # each implementation can decide what to do with existing data. For
+                # example, the git source manager might decide to perform a git pull
+                # instead of a brand new git clone. Leaving these optimnizations for
+                # later, for the time being having an empty data folder works smoothly
+                # for any source manager currently supported.
                 rmtree(str(destination))
 
             source_manager = SOURCE_MANAGERS[source.type]
