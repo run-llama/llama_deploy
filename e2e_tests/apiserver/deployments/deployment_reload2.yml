@@ -1,8 +1,8 @@
-name: TestDeployment2
+name: ReloadMe
 
 control-plane: {}
 
-default-service: dummy_workflow
+default-service: test-workflow
 
 services:
   test-workflow:
@@ -12,4 +12,4 @@ services:
     source:
       type: git
       name: https://github.com/run-llama/llama_deploy.git@massi/322
-    path: e2e_tests/apiserver/deployments/src:my_workflow
+    path: e2e_tests/apiserver/deployments/src:echo_workflow_it
