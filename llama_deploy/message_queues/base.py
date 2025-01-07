@@ -1,6 +1,5 @@
 """Message queue module."""
 
-import asyncio
 import inspect
 from abc import ABC, abstractmethod
 from logging import getLogger
@@ -8,8 +7,6 @@ from typing import (
     Any,
     Awaitable,
     Callable,
-    Dict,
-    List,
     Sequence,
 )
 
@@ -77,9 +74,7 @@ class AbstractMessageQueue(ABC):
         )
 
     @abstractmethod
-    async def cleanup_local(
-        self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
-    ) -> None:
+    async def cleanup(self, *args: Any, **kwargs: dict[str, Any]) -> None:
         """Perform any cleanup before shutting down."""
 
     @abstractmethod
@@ -96,11 +91,3 @@ class BaseMessageQueue(BaseModel, AbstractMessageQueue):
     @abstractmethod
     async def processing_loop(self) -> None:
         """The processing loop for the service."""
-
-    @abstractmethod
-    async def launch_local(self) -> asyncio.Task:
-        """Launch the service in-process."""
-
-    @abstractmethod
-    async def launch_server(self) -> None:
-        """Launch the service as a server."""

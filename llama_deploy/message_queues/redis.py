@@ -3,7 +3,7 @@
 import asyncio
 import json
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Any, Dict, Literal, Optional
 
 from pydantic import BaseModel, Field, PrivateAttr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -185,22 +185,7 @@ class RedisMessageQueue(BaseMessageQueue):
         """
         pass
 
-    async def launch_local(self) -> asyncio.Task:
-        """Launch the message queue locally, in-process.
-
-        Launches a dummy task.
-        """
-        return asyncio.create_task(self.processing_loop())
-
-    async def launch_server(self) -> None:
-        """Launch the message queue server.
-
-        Not relevant for this class. Redis server should be running separately."""
-        pass
-
-    async def cleanup_local(
-        self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
-    ) -> None:
+    async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
         """Perform any cleanup before shutting down."""
         if self._redis:
             await self._redis.close()

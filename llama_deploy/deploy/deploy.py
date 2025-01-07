@@ -1,7 +1,5 @@
 import asyncio
-import signal
-import sys
-from typing import Any, Callable, List, Optional
+from asyncio.exceptions import CancelledError
 
 import httpx
 from llama_index.core.workflow import Workflow
@@ -83,20 +81,10 @@ def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
         raise ValueError(f"Invalid message queue config: {config}")
 
 
-def _get_shutdown_handler(tasks: List[asyncio.Task]) -> Callable:
-    def signal_handler(sig: Any, frame: Any) -> None:
-        print("\nShutting down.")
-        for task in tasks:
-            task.cancel()
-        sys.exit(0)
-
-    return signal_handler
-
-
 async def deploy_core(
-    control_plane_config: Optional[ControlPlaneConfig] = None,
-    message_queue_config: Optional[BaseSettings] = None,
-    orchestrator_config: Optional[SimpleOrchestratorConfig] = None,
+    control_plane_config: ControlPlaneConfig | None = None,
+    message_queue_config: BaseSettings | None = None,
+    orchestrator_config: SimpleOrchestratorConfig | None = None,
     disable_message_queue: bool = False,
     disable_control_plane: bool = False,
 ) -> None:
@@ -130,19 +118,13 @@ async def deploy_core(
         config=control_plane_config,
     )
 
-    if (
-        isinstance(message_queue_config, SimpleMessageQueueConfig)
-        and not disable_message_queue
-    ):
-        message_queue_task = await _deploy_local_message_queue(message_queue_config)
-    elif (
-        isinstance(message_queue_config, SimpleMessageQueueConfig)
-        and disable_message_queue
+    if disable_message_queue or not isinstance(
+        message_queue_config, SimpleMessageQueueConfig
     ):
         # create a dummy task to keep the event loop running
         message_queue_task = asyncio.create_task(asyncio.sleep(0))
     else:
-        message_queue_task = asyncio.create_task(asyncio.sleep(0))
+        message_queue_task = await _deploy_local_message_queue(message_queue_config)
 
     if not disable_control_plane:
         control_plane_task = asyncio.create_task(control_plane.launch_server())
@@ -163,15 +145,14 @@ async def deploy_core(
     await asyncio.sleep(1)
 
     # let things run
-    all_tasks = [control_plane_task, consumer_task, message_queue_task]
-
-    shutdown_handler = _get_shutdown_handler(all_tasks)
-    loop = asyncio.get_event_loop()
-    while loop.is_running():
-        await asyncio.sleep(0.1)
-        signal.signal(signal.SIGINT, shutdown_handler)
-
-        for task in all_tasks:
+    try:
+        await asyncio.gather(control_plane_task, consumer_task)
+    except CancelledError:
+        await message_queue_client.cleanup()
+        message_queue_task.cancel()
+        await message_queue_task
+        # Propagate the exception if any of the tasks exited with an error
+        for task in (control_plane_task, consumer_task, message_queue_task):
             if task.done() and task.exception():  # type: ignore
                 raise task.exception()  # type: ignore
 
@@ -179,7 +160,7 @@ async def deploy_core(
 async def deploy_workflow(
     workflow: Workflow,
     workflow_config: WorkflowServiceConfig,
-    control_plane_config: Optional[ControlPlaneConfig] = None,
+    control_plane_config: ControlPlaneConfig | None = None,
 ) -> None:
     """
     Deploy a workflow as a service within the llama_deploy system.
@@ -240,12 +221,8 @@ async def deploy_workflow(
 
     all_tasks = [consumer_task, service_task]
 
-    shutdown_handler = _get_shutdown_handler(all_tasks)
-    loop = asyncio.get_event_loop()
-    while loop.is_running():
-        await asyncio.sleep(0.1)
-        signal.signal(signal.SIGINT, shutdown_handler)
-
-        for task in all_tasks:
-            if task.done() and task.exception():  # type: ignore
-                raise task.exception()  # type: ignore
+    await asyncio.gather(*all_tasks)
+    # Propagate the exception if any of the tasks exited with an error
+    for task in all_tasks:
+        if task.done() and task.exception():  # type: ignore
+            raise task.exception()  # type: ignore

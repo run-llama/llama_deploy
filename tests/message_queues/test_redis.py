@@ -107,7 +107,7 @@ async def test_cleanup_local(
     mock_establish_connection.return_value = mock_redis
 
     await redis_queue.new_connection()
-    await redis_queue.cleanup_local([])
+    await redis_queue.cleanup()
 
     mock_redis.close.assert_called_once()
     assert redis_queue._redis is None
