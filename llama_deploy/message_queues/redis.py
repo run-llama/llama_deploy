@@ -112,7 +112,7 @@ class RedisMessageQueue(AbstractMessageQueue):
                         decoded_message = json.loads(message["data"])
                         queue_message = QueueMessage.model_validate(decoded_message)
                         await consumer.process_message(queue_message)
-                    await asyncio.sleep(0)
+                    await asyncio.sleep(0.01)
             finally:
                 return
 
@@ -150,7 +150,7 @@ class RedisMessageQueue(AbstractMessageQueue):
         for consumer_metadata in self._consumers.values():
             if consumer_metadata.pubsub:
                 await consumer_metadata.pubsub.unsubscribe()
-                await consumer_metadata.pubsub.close()
+                await consumer_metadata.pubsub.aclose()
 
         # Clear consumers
         self._consumers = {}

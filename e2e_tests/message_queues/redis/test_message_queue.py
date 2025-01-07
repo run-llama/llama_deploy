@@ -20,6 +20,7 @@ async def test_roundtrip(mq: RedisMessageQueue):
     )
     start_consuming_callable = await mq.register_consumer(test_consumer, topic="test")
     t = asyncio.create_task(start_consuming_callable())
+    await asyncio.sleep(1.0)
 
     # produce a message
     test_message = QueueMessage(type="test_message", data={"message": "this is a test"})
