@@ -34,7 +34,7 @@ def redis_service():
 async def mq(redis_service):
     mq = RedisMessageQueue()
     yield mq
-    await mq.cleanup_local([])
+    await mq.cleanup()
 
 
 def run_workflow_one():
