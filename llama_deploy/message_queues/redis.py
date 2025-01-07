@@ -185,19 +185,6 @@ class RedisMessageQueue(BaseMessageQueue):
         """
         pass
 
-    async def launch_local(self) -> asyncio.Task:
-        """Launch the message queue locally, in-process.
-
-        Launches a dummy task.
-        """
-        return asyncio.create_task(self.processing_loop())
-
-    async def launch_server(self) -> None:
-        """Launch the message queue server.
-
-        Not relevant for this class. Redis server should be running separately."""
-        pass
-
     async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
         """Perform any cleanup before shutting down."""
         if self._redis:

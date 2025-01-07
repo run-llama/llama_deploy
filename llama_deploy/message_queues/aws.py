@@ -1,6 +1,5 @@
 """AWS SNS and SQS Message Queue."""
 
-import asyncio
 import json
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
@@ -361,19 +360,5 @@ class AWSMessageQueue(BaseMessageQueue):
         """A loop for getting messages from queues and sending to consumer.
 
         Not relevant for this class.
-        """
-        pass
-
-    async def launch_local(self) -> asyncio.Task:
-        """Launch the message queue locally, in-process.
-
-        Launches a dummy task.
-        """
-        return asyncio.create_task(self.processing_loop())
-
-    async def launch_server(self) -> None:
-        """Launch the message queue server.
-
-        Not relevant for this class. AWS SQS server should already be available.
         """
         pass

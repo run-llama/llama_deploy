@@ -1,6 +1,5 @@
 """Message queue module."""
 
-import asyncio
 import inspect
 from abc import ABC, abstractmethod
 from logging import getLogger
@@ -92,11 +91,3 @@ class BaseMessageQueue(BaseModel, AbstractMessageQueue):
     @abstractmethod
     async def processing_loop(self) -> None:
         """The processing loop for the service."""
-
-    @abstractmethod
-    async def launch_local(self) -> asyncio.Task:
-        """Launch the service in-process."""
-
-    @abstractmethod
-    async def launch_server(self) -> None:
-        """Launch the service as a server."""

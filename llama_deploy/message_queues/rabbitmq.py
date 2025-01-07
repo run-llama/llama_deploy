@@ -253,20 +253,6 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
         """
         pass
 
-    async def launch_local(self) -> asyncio.Task:
-        """Launch the message queue locally, in-process.
-
-        Launches a dummy task.
-        """
-        return asyncio.create_task(self.processing_loop())
-
-    async def launch_server(self) -> None:
-        """Launch the message queue server.
-
-        Not relevant for this class. RabbitMQ server should already be launched.
-        """
-        pass
-
     async def cleanup(self, *args: Any, **kwargs: dict[str, Any]) -> None:
         """Perform any clean up of queues and exchanges."""
         connection = await self.new_connection()

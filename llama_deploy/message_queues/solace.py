@@ -379,14 +379,6 @@ class SolaceMessageQueue(BaseMessageQueue):
         """A loop for getting messages from queues and sending to consumer."""
         pass
 
-    async def launch_local(self) -> asyncio.Task:
-        """Launch the message queue locally, in-process."""
-        return asyncio.create_task(self.processing_loop())
-
-    async def launch_server(self) -> None:
-        """Launch the message queue server."""
-        pass
-
     async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
         """Perform any clean up of queues and exchanges."""
         pass

@@ -171,17 +171,6 @@ class KafkaMessageQueue(AbstractMessageQueue):
         if consumer.id_ in self._kafka_consumers:
             await self._kafka_consumers[consumer.id_].stop()
 
-    async def launch_local(self) -> asyncio.Task:
-        """Launch the message queue locally, in-process.
-
-        Launches a dummy task.
-        """
-        return asyncio.create_task(self.processing_loop())
-
-    async def launch_server(self) -> None:
-        """Launch server."""
-        pass
-
     async def processing_loop(self) -> None:
         pass
 
