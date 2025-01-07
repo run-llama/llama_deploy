@@ -284,7 +284,11 @@ class ControlPlaneServer(BaseControlPlane):
 
         cfg = uvicorn.Config(self.app, host=host, port=port)
         server = CustomServer(cfg)
-        await server.serve()
+        try:
+            await server.serve()
+        except asyncio.CancelledError:
+            self._running = False
+            await asyncio.gather(server.shutdown(), return_exceptions=True)
 
     async def home(self) -> Dict[str, str]:
         return {
