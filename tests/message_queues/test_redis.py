@@ -52,13 +52,7 @@ async def test_deregister_consumer(redis_queue: RedisMessageQueue) -> None:
 
 
 @pytest.mark.asyncio
-@mock.patch("llama_deploy.message_queues.redis._establish_connection")
-async def test_cleanup_local(
-    mock_establish_connection: mock.AsyncMock, redis_queue: RedisMessageQueue
-) -> None:
-    mock_redis = mock.AsyncMock()
-    mock_establish_connection.return_value = mock_redis
-
+async def test_cleanup(redis_queue: RedisMessageQueue) -> None:
     await redis_queue.cleanup()
 
     redis_queue._redis.aclose.assert_called_once()  # type:ignore

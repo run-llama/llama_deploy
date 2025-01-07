@@ -145,7 +145,7 @@ class RedisMessageQueue(AbstractMessageQueue):
         """
         pass  # pragma: no cover
 
-    async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
+    async def cleanup(self, *args: Any, **kwargs: dict[str, Any]) -> None:
         """Perform any cleanup before shutting down."""
         for consumer_metadata in self._consumers.values():
             if consumer_metadata.pubsub:
