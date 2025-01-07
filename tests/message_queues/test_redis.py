@@ -36,7 +36,7 @@ async def test_publish(redis_queue: RedisMessageQueue) -> None:
 @pytest.mark.asyncio
 async def test_register_consumer(redis_queue: RedisMessageQueue) -> None:
     consumer = MockConsumer(message_type="test_channel")
-    start_consuming = await redis_queue.register_consumer(consumer)
+    start_consuming = await redis_queue.register_consumer(consumer, "topic")
 
     assert callable(start_consuming)
     assert consumer.id_ in redis_queue._consumers
@@ -45,7 +45,7 @@ async def test_register_consumer(redis_queue: RedisMessageQueue) -> None:
 @pytest.mark.asyncio
 async def test_deregister_consumer(redis_queue: RedisMessageQueue) -> None:
     consumer = MockConsumer(message_type="test_channel")
-    await redis_queue.register_consumer(consumer)
+    await redis_queue.register_consumer(consumer, "topic")
     await redis_queue.deregister_consumer(consumer)
 
     assert consumer.id_ not in redis_queue._consumers
@@ -61,7 +61,7 @@ async def test_cleanup_local(
 
     await redis_queue.cleanup()
 
-    redis_queue._redis.close.assert_called_once()  # type:ignore
+    redis_queue._redis.aclose.assert_called_once()  # type:ignore
     assert redis_queue._consumers == {}
 
 
@@ -69,8 +69,8 @@ async def test_cleanup_local(
 async def test_register_same_consumer_twice(redis_queue: RedisMessageQueue) -> None:
     consumer = MockConsumer(message_type="test_channel")
 
-    start_consuming_1 = await redis_queue.register_consumer(consumer)
-    start_consuming_2 = await redis_queue.register_consumer(consumer)
+    start_consuming_1 = await redis_queue.register_consumer(consumer, "topic")
+    start_consuming_2 = await redis_queue.register_consumer(consumer, "topic")
 
     assert callable(start_consuming_1)
     assert callable(start_consuming_2)
