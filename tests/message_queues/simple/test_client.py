@@ -25,8 +25,7 @@ async def test_register_consumer(
 @pytest.mark.asyncio
 async def test_cleanup_local() -> None:
     mq = SimpleMessageQueue()
-    with pytest.raises(NotImplementedError):
-        await mq.cleanup_local([])
+    await mq.cleanup()
 
 
 def test_as_config() -> None:

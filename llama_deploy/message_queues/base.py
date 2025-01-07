@@ -8,8 +8,6 @@ from typing import (
     Any,
     Awaitable,
     Callable,
-    Dict,
-    List,
     Sequence,
 )
 
@@ -77,9 +75,7 @@ class AbstractMessageQueue(ABC):
         )
 
     @abstractmethod
-    async def cleanup_local(
-        self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
-    ) -> None:
+    async def cleanup(self, *args: Any, **kwargs: dict[str, Any]) -> None:
         """Perform any cleanup before shutting down."""
 
     @abstractmethod

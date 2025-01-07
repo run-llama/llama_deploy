@@ -284,15 +284,14 @@ class AWSMessageQueue(BaseMessageQueue):
             logger.error(f"Could not publish message to SQS queue: {e}")
             raise
 
-    async def cleanup_local(
-        self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
-    ) -> None:
+    async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
         """Perform cleanup of queues and topics."""
         from botocore.exceptions import ClientError
 
-        async with self._get_client("sqs") as sqs_client, self._get_client(
-            "sns"
-        ) as sns_client:
+        async with (
+            self._get_client("sqs") as sqs_client,
+            self._get_client("sns") as sns_client,
+        ):
             # Delete all SQS queues
             for queue in self.queues:
                 try:
@@ -378,7 +377,3 @@ class AWSMessageQueue(BaseMessageQueue):
         Not relevant for this class. AWS SQS server should already be available.
         """
         pass
-
-    async def cleanup(self, message_types: List[str]) -> None:
-        """Clean up resources associated with the given message types."""
-        await self.cleanup_local(message_types)

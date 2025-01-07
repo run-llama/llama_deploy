@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from logging import getLogger
-from typing import Any, Callable, Coroutine, Dict, List, Literal
+from typing import Any, Callable, Coroutine, Dict, Literal
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -65,6 +65,7 @@ class KafkaMessageQueue(AbstractMessageQueue):
     def __init__(self, config: KafkaMessageQueueConfig | None = None) -> None:
         self._config = config or KafkaMessageQueueConfig()
         self._kafka_consumers: dict[str, Any] = {}
+        self._registered_topics: set[str] = set()
 
     @classmethod
     def from_url_params(
@@ -117,6 +118,7 @@ class KafkaMessageQueue(AbstractMessageQueue):
                 **kwargs,
             )
             admin_client.create_topics(new_topics=[topic])
+            self._registered_topics.add(topic_name)
             logger.info(f"New topic {topic_name} created.")
         except TopicAlreadyExistsError:
             logger.info(f"Topic {topic_name} already exists.")
@@ -141,9 +143,7 @@ class KafkaMessageQueue(AbstractMessageQueue):
         finally:
             await producer.stop()
 
-    async def cleanup_local(
-        self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
-    ) -> None:
+    async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
         """Cleanup for local runs.
 
         Use kafka-python-ng instead of aio-kafka as latter has issues with
@@ -161,7 +161,7 @@ class KafkaMessageQueue(AbstractMessageQueue):
 
         admin_client = KafkaAdminClient(bootstrap_servers=self._config.url)
         active_topics = admin_client.list_topics()
-        topics_to_delete = [el for el in message_types if el in active_topics]
+        topics_to_delete = [el for el in self._registered_topics if el in active_topics]
         admin_client.delete_consumer_groups(DEFAULT_GROUP_ID)
         if topics_to_delete:
             admin_client.delete_topics(topics_to_delete)

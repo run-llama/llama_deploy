@@ -1,6 +1,6 @@
 import asyncio
 from logging import getLogger
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 import httpx
 
@@ -82,12 +82,9 @@ class SimpleMessageQueue(AbstractMessageQueue):
             if consumer.id_ in consumers:
                 del self._consumers[topic][consumer.id_]
 
-    async def cleanup_local(
-        self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
-    ) -> None:
-        raise NotImplementedError(
-            "`cleanup_local()` is not implemented for this class."
-        )
+    async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
+        # Nothing to clean up
+        pass
 
     def as_config(self) -> SimpleMessageQueueConfig:
         return self._config

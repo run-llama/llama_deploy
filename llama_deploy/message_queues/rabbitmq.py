@@ -109,6 +109,7 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
         **kwargs: Any,
     ) -> None:
         self._config = config or RabbitMQMessageQueueConfig()
+        self._registered_topics: set[str] = set()
 
     @classmethod
     def from_url_params(
@@ -190,6 +191,7 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
             queue = cast(Queue, await channel.declare_queue(name=topic))
             await queue.bind(exchange)
 
+        self._registered_topics.add(topic or consumer.message_type)
         logger.info(
             f"Registered consumer {consumer.id_} for topic: {topic}",
         )
@@ -265,15 +267,13 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
         """
         pass
 
-    async def cleanup_local(
-        self, message_types: list[str], *args: Any, **kwargs: dict[str, Any]
-    ) -> None:
+    async def cleanup(self, *args: Any, **kwargs: dict[str, Any]) -> None:
         """Perform any clean up of queues and exchanges."""
         connection = await self.new_connection()
         async with connection:
             channel = await connection.channel()
-            for message_type in message_types:
-                await channel.queue_delete(queue_name=message_type)
+            for queue_name in self._registered_topics:
+                await channel.queue_delete(queue_name=queue_name)
             await channel.exchange_delete(exchange_name=self._config.exchange_name)
 
     def as_config(self) -> BaseModel:

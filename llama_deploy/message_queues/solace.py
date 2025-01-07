@@ -3,30 +3,30 @@
 import asyncio
 import json
 import time
-from string import Template
 from logging import getLogger
-from typing import Any, Dict, List, Literal, TYPE_CHECKING
+from string import Template
+from typing import TYPE_CHECKING, Any, Dict, Literal
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_queues.base import BaseMessageQueue
-from llama_deploy.messages.base import QueueMessage
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
+from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.messages.base import QueueMessage
 
 if TYPE_CHECKING:
-    from solace.messaging.receiver.message_receiver import InboundMessage
-    from solace.messaging.publisher.persistent_message_publisher import PublishReceipt
     from solace.messaging.connections.connectable import Connectable
     from solace.messaging.messaging_service import MessagingService
-    from solace.messaging.receiver.persistent_message_receiver import (
-        PersistentMessageReceiver,
-    )
     from solace.messaging.publisher.persistent_message_publisher import (
         PersistentMessagePublisher,
+        PublishReceipt,
+    )
+    from solace.messaging.receiver.message_receiver import InboundMessage
+    from solace.messaging.receiver.persistent_message_receiver import (
+        PersistentMessageReceiver,
     )
 
 # Constants
@@ -39,16 +39,14 @@ logger = getLogger(__name__)
 SOLACE_INSTALLED = True
 
 try:
+    from solace.messaging.messaging_service import MessagingService
     from solace.messaging.publisher.persistent_message_publisher import (
         MessagePublishReceiptListener,
+        PersistentMessagePublisher,
     )
     from solace.messaging.receiver.message_receiver import MessageHandler
-    from solace.messaging.messaging_service import MessagingService
     from solace.messaging.receiver.persistent_message_receiver import (
         PersistentMessageReceiver,
-    )
-    from solace.messaging.publisher.persistent_message_publisher import (
-        PersistentMessagePublisher,
     )
 
     class MessagePublishReceiptListenerImpl(MessagePublishReceiptListener):
@@ -263,11 +261,11 @@ class SolaceMessageQueue(BaseMessageQueue):
     def bind_to_queue(self, subscriptions: list = []) -> None:
         """Bind to a queue and subscribe to topics."""
         try:
-            from solace.messaging.errors.pubsubplus_client_error import (
-                PubSubPlusClientError,
-            )
             from solace.messaging.config.missing_resources_creation_configuration import (
                 MissingResourcesCreationStrategy,
+            )
+            from solace.messaging.errors.pubsubplus_client_error import (
+                PubSubPlusClientError,
             )
             from solace.messaging.resources.queue import Queue
         except ImportError:
@@ -323,8 +321,8 @@ class SolaceMessageQueue(BaseMessageQueue):
         """Register a new consumer."""
         try:
             from solace.messaging.errors.pubsubplus_client_error import (
-                PubSubPlusClientError,
                 IllegalStateError,
+                PubSubPlusClientError,
             )
             from solace.messaging.resources.topic_subscription import TopicSubscription
         except ImportError:
@@ -389,9 +387,7 @@ class SolaceMessageQueue(BaseMessageQueue):
         """Launch the message queue server."""
         pass
 
-    async def cleanup_local(
-        self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
-    ) -> None:
+    async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
         """Perform any clean up of queues and exchanges."""
         pass
 
