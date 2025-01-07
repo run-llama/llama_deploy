@@ -289,7 +289,7 @@ class Deployment:
         elif cfg.type == "rabbitmq":
             return RabbitMQMessageQueue(cfg)  # type: ignore
         elif cfg.type == "redis":
-            return RedisMessageQueue(**cfg.model_dump())
+            return RedisMessageQueue(cfg)  # type: ignore
         elif cfg.type == "simple":
             self._simple_message_queue_server = SimpleMessageQueueServer(cfg)
             return SimpleMessageQueue(cfg)  # type: ignore
