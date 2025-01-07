@@ -2,6 +2,7 @@ import asyncio
 
 import pytest
 
+from llama_deploy import Client
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.message_queues.redis import RedisMessageQueue
 from llama_deploy.messages import QueueMessage
@@ -36,18 +37,17 @@ async def test_roundtrip(mq: RedisMessageQueue):
     assert test_message in received_messages
 
 
-# FIXME: uncomment after adding proper shutdown logic for the message queue to deploy()
-# @pytest.mark.asyncio
-# async def test_multiple_control_planes(control_planes):
-#     c1 = Client(control_plane_url="http://localhost:8001")
-#     c2 = Client(control_plane_url="http://localhost:8002")
+@pytest.mark.asyncio
+async def test_multiple_control_planes(control_planes):
+    c1 = Client(control_plane_url="http://localhost:8001")
+    c2 = Client(control_plane_url="http://localhost:8002")
 
-#     session = await c1.core.sessions.create()
-#     r1 = await session.run("basic", arg="Hello One!")
-#     await c1.core.sessions.delete(session.id)
-#     assert r1 == "Workflow one received Hello One!"
+    session = await c1.core.sessions.create()
+    r1 = await session.run("basic", arg="Hello One!")
+    await c1.core.sessions.delete(session.id)
+    assert r1 == "Workflow one received Hello One!"
 
-#     session = await c2.core.sessions.create()
-#     r2 = await session.run("basic", arg="Hello Two!")
-#     await c2.core.sessions.delete(session.id)
-#     assert r2 == "Workflow two received Hello Two!"
+    session = await c2.core.sessions.create()
+    r2 = await session.run("basic", arg="Hello Two!")
+    await c2.core.sessions.delete(session.id)
+    assert r2 == "Workflow two received Hello Two!"

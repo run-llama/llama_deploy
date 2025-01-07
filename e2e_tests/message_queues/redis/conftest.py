@@ -99,6 +99,8 @@ def control_planes(redis_service):
     p4 = multiprocessing.Process(target=run_workflow_two)
     p4.start()
 
+    time.sleep(3)
+
     yield
 
     p1.terminate()
