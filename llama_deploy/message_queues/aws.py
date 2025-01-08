@@ -92,10 +92,7 @@ class AWSMessageQueue(AbstractMessageQueue):
         self._aio_session: "AioSession | None" = None
         # AWS retry configuration with exponential backoff
         self._retry_config = Config(retries={"max_attempts": 5, "mode": "adaptive"})
-        if (
-            not self._config.aws_access_key_id
-            and not self._config.aws_secret_access_key
-        ):
+        if not self._config.aws_access_key_id or not self._config.aws_secret_access_key:
             logger.info(
                 "Using default AWS credential provider chain (IAM Role or environment variables)."
             )
@@ -139,6 +136,7 @@ class AWSMessageQueue(AbstractMessageQueue):
             try:
                 # First, check if the topic exists
                 response = await client.list_topics()  # type: ignore
+                print(response)
                 for topic in response.get("Topics", []):
                     if f"{topic_name}.fifo" in topic["TopicArn"]:
                         logger.info(f"SNS topic {topic_name} already exists.")

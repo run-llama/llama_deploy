@@ -36,6 +36,7 @@ repos:
             "llama_index_core",
             "types-Deprecated",
             "types-PyYAML",
+            "types-botocore",
             "types-aiobotocore",
             "types-protobuf==4.24.0.4",
             "types-redis",
@@ -48,7 +49,7 @@ repos:
             --ignore-missing-imports,
             --python-version=3.11,
           ]
-        exclude: ^(examples/|e2e_tests/)
+        exclude: ^(examples/|e2e_tests/|tests/message_queues/test_aws.py)
 
   - repo: https://github.com/adamchainz/blacken-docs
     rev: 1.16.0
