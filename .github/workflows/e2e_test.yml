@@ -34,6 +34,6 @@ jobs:
         run: poetry install --with dev
       - name: Run All E2E Tests
         env:
-          AWS_ACCESS_KEY_ID: ${{ AWS_ACCESS_KEY_ID }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         run: poetry run pytest e2e_tests/
