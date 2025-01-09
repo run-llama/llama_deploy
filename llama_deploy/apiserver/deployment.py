@@ -294,7 +294,7 @@ class Deployment:
             self._simple_message_queue_server = SimpleMessageQueueServer(cfg)
             return SimpleMessageQueue(cfg)  # type: ignore
         elif cfg.type == "solace":
-            return SolaceMessageQueue(**cfg.model_dump())
+            return SolaceMessageQueue(cfg)  # type: ignore
         else:
             msg = f"Unsupported message queue: {cfg.type}"
             raise ValueError(msg)

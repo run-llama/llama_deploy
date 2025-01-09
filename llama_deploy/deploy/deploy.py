@@ -72,9 +72,7 @@ def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
     elif isinstance(config, RedisMessageQueueConfig):
         return RedisMessageQueue(config)  # type: ignore
     elif isinstance(config, SolaceMessageQueueConfig):
-        return SolaceMessageQueue(
-            **config.model_dump(),
-        )
+        return SolaceMessageQueue(config)  # type: ignore
     else:
         raise ValueError(f"Invalid message queue config: {config}")
 
