@@ -45,11 +45,11 @@ async def test_roundtrip(message_queue_server: SimpleMessageQueueServer) -> None
     mq = SimpleMessageQueue(SimpleMessageQueueConfig(raise_exceptions=True))
 
     consumer_one = MockMessageConsumer(message_type="test_one")
-    consumer_one_fn = await mq.register_consumer(consumer_one)
+    consumer_one_fn = await mq.register_consumer(consumer_one, "test_one")
     consumer_one_task = asyncio.create_task(consumer_one_fn())
 
     consumer_two = MockMessageConsumer(message_type="test_two")
-    consumer_two_fn = await mq.register_consumer(consumer_two)
+    consumer_two_fn = await mq.register_consumer(consumer_two, "test_two")
     consumer_two_task = asyncio.create_task(consumer_two_fn())
 
     # Act
