@@ -70,9 +70,7 @@ def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
     elif isinstance(config, RabbitMQMessageQueueConfig):
         return RabbitMQMessageQueue(config)  # type: ignore
     elif isinstance(config, RedisMessageQueueConfig):
-        return RedisMessageQueue(
-            **config.model_dump(),
-        )
+        return RedisMessageQueue(config)  # type: ignore
     elif isinstance(config, SolaceMessageQueueConfig):
         return SolaceMessageQueue(
             **config.model_dump(),

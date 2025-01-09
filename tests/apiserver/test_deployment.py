@@ -109,7 +109,7 @@ def test_deployment__load_message_queues(mocked_deployment: Deployment) -> None:
         mocked_config = mock.MagicMock(type="redis")
         mocked_config.model_dump.return_value = {"foo": "redis"}
         mocked_deployment._load_message_queue_client(mocked_config)
-        m.assert_called_with(**{"foo": "redis"})
+        m.assert_called_with(mocked_config)
 
 
 def test__install_dependencies(data_path: Path) -> None:

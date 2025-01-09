@@ -1,0 +1,15 @@
+services:
+  redis:
+    image: redis:latest
+    hostname: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - -c
+        - |
+          redis-cli --raw incr ping
+      interval: 5s
+      timeout: 3s
+      retries: 5
