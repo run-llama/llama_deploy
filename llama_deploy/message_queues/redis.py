@@ -85,12 +85,9 @@ class RedisMessageQueue(AbstractMessageQueue):
         return result
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
+        self, consumer: BaseMessageQueueConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register a new consumer."""
-        if topic is None:
-            raise ValueError("Topic must be a valid string")
-
         if consumer.id_ in self._consumers:
             logger.debug(
                 f"Consumer {consumer.id_} already registered for topic {topic}",
@@ -137,13 +134,6 @@ class RedisMessageQueue(AbstractMessageQueue):
             logger.info(
                 f"Deregistered consumer {consumer.id_} for topic {consumer_metadata.topic}",
             )
-
-    async def processing_loop(self) -> None:
-        """A loop for getting messages from queues and sending to consumer.
-
-        Not relevant for this class as Redis uses pub/sub model.
-        """
-        pass  # pragma: no cover
 
     async def cleanup(self, *args: Any, **kwargs: dict[str, Any]) -> None:
         """Perform any cleanup before shutting down."""

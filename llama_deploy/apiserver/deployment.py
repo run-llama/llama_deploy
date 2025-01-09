@@ -20,8 +20,8 @@ from llama_deploy import (
     WorkflowServiceConfig,
 )
 from llama_deploy.message_queues import (
+    AbstractMessageQueue,
     AWSMessageQueue,
-    BaseMessageQueue,
     KafkaMessageQueue,
     RabbitMQMessageQueue,
     RedisMessageQueue,
@@ -276,25 +276,25 @@ class Deployment:
 
     def _load_message_queue_client(
         self, cfg: MessageQueueConfig | None
-    ) -> BaseMessageQueue:
+    ) -> AbstractMessageQueue:
         # Use the SimpleMessageQueue as the default
         if cfg is None:
             # we use model_validate instead of __init__ to avoid static checkers complaining over field aliases
             cfg = SimpleMessageQueueConfig()
 
         if cfg.type == "aws":
-            return AWSMessageQueue(cfg)  # type: ignore
+            return AWSMessageQueue(cfg)
         elif cfg.type == "kafka":
-            return KafkaMessageQueue(cfg)  # type: ignore
+            return KafkaMessageQueue(cfg)
         elif cfg.type == "rabbitmq":
-            return RabbitMQMessageQueue(cfg)  # type: ignore
+            return RabbitMQMessageQueue(cfg)
         elif cfg.type == "redis":
-            return RedisMessageQueue(cfg)  # type: ignore
+            return RedisMessageQueue(cfg)
         elif cfg.type == "simple":
             self._simple_message_queue_server = SimpleMessageQueueServer(cfg)
-            return SimpleMessageQueue(cfg)  # type: ignore
+            return SimpleMessageQueue(cfg)
         elif cfg.type == "solace":
-            return SolaceMessageQueue(cfg)  # type: ignore
+            return SolaceMessageQueue(cfg)
         else:
             msg = f"Unsupported message queue: {cfg.type}"
             raise ValueError(msg)

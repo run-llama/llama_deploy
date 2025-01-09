@@ -18,7 +18,7 @@ from llama_deploy.message_consumers.base import (
 )
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
-from llama_deploy.message_queues.base import BaseMessageQueue, PublishCallback
+from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.orchestrators import SimpleOrchestrator, SimpleOrchestratorConfig
 from llama_deploy.orchestrators.base import BaseOrchestrator
@@ -51,7 +51,7 @@ class ControlPlaneServer(BaseControlPlane):
     - Launching the control plane server.
 
     Args:
-        message_queue (BaseMessageQueue): Message queue for the system.
+        message_queue (AbstractMessageQueue): Message queue for the system.
         orchestrator (BaseOrchestrator): Orchestrator for the system.
         publish_callback (Optional[PublishCallback], optional): Callback for publishing messages. Defaults to None.
         state_store (Optional[BaseKVStore], optional): State store for the system. Defaults to None.
@@ -80,7 +80,7 @@ class ControlPlaneServer(BaseControlPlane):
 
     def __init__(
         self,
-        message_queue: BaseMessageQueue,
+        message_queue: AbstractMessageQueue,
         orchestrator: BaseOrchestrator | None = None,
         publish_callback: PublishCallback | None = None,
         state_store: BaseKVStore | None = None,
@@ -226,7 +226,7 @@ class ControlPlaneServer(BaseControlPlane):
         )
 
     @property
-    def message_queue(self) -> BaseMessageQueue:
+    def message_queue(self) -> AbstractMessageQueue:
         return self._message_queue
 
     @property

@@ -6,7 +6,7 @@ from llama_deploy.message_consumers.base import (
     StartConsumingCallable,
 )
 from llama_deploy.message_publishers.publisher import MessageQueuePublisherMixin
-from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.types import (
     ServiceDefinition,
     SessionDefinition,
@@ -29,7 +29,7 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
 
     @property
     @abstractmethod
-    def message_queue(self) -> BaseMessageQueue:
+    def message_queue(self) -> AbstractMessageQueue:
         """Return associated message queue."""
 
     @abstractmethod
