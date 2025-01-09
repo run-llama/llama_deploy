@@ -24,7 +24,7 @@ console_handler.setFormatter(formatter)
 root_logger.addHandler(console_handler)
 
 root_logger.setLevel(logging.INFO)
-root_logger.propagate = False
+root_logger.propagate = True
 
 
 __all__ = [

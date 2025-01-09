@@ -283,7 +283,7 @@ class Deployment:
             cfg = SimpleMessageQueueConfig()
 
         if cfg.type == "aws":
-            return AWSMessageQueue(**cfg.model_dump())
+            return AWSMessageQueue(cfg)  # type: ignore
         elif cfg.type == "kafka":
             return KafkaMessageQueue(cfg)  # type: ignore
         elif cfg.type == "rabbitmq":

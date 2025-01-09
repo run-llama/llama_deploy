@@ -1,22 +1,22 @@
 """AWS SNS and SQS Message Queue."""
 
 import json
+from asyncio import CancelledError
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal
 
-from pydantic import BaseModel, Field, PrivateAttr, SecretStr
+from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
-from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from aiobotocore.session import AioSession, ClientCreatorContext
-    from botocore.config import Config
 
 logger = getLogger(__name__)
 
@@ -48,12 +48,12 @@ class AWSMessageQueueConfig(BaseSettings):
     model_config = SettingsConfigDict()
 
     type: Literal["aws"] = Field(default="aws", exclude=True)
-    aws_region: str
-    aws_access_key_id: Optional[str] = Field(default=None, exclude=True)
-    aws_secret_access_key: Optional[str] = Field(default=None, exclude=True)
+    aws_region: str = "us-east-1"
+    aws_access_key_id: SecretStr | None = Field(default=None, exclude=True)
+    aws_secret_access_key: SecretStr | None = Field(default=None, exclude=True)
 
 
-class AWSMessageQueue(BaseMessageQueue):
+class AWSMessageQueue(AbstractMessageQueue):
     """AWS SQS integration with aiobotocore client.
 
     This class creates and interacts with SNS topics and SQS queues. It includes methods
@@ -77,17 +77,7 @@ class AWSMessageQueue(BaseMessageQueue):
         aws_secret_access_key (Optional[SecretStr]): AWS secret access key (fallback to environment variables).
     """
 
-    aws_region: str
-    aws_access_key_id: Optional[SecretStr] = None
-    aws_secret_access_key: Optional[SecretStr] = None
-    topics: List["Topic"] = []
-    queues: List["Queue"] = []
-    subscriptions: List["Subscription"] = []
-
-    _aio_session: Optional["AioSession"] = PrivateAttr(None)
-    _retry_config: "Config" = PrivateAttr()
-
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, config: AWSMessageQueueConfig | None = None) -> None:
         """Initialize AWSMessageQueue with config."""
         try:
             from botocore.config import Config
@@ -95,17 +85,14 @@ class AWSMessageQueue(BaseMessageQueue):
             raise ValueError(
                 "Missing `botocore` package. Please install by running `pip install llama-deploy[aws]`."
             )
-
-        super().__init__(**kwargs)
-        self._aio_session = None
-
+        self._config = config or AWSMessageQueueConfig()
+        self._topics: list["Topic"] = []
+        self._queues: list["Queue"] = []
+        self._subscriptions: list["Subscription"] = []
+        self._aio_session: "AioSession | None" = None
         # AWS retry configuration with exponential backoff
         self._retry_config = Config(retries={"max_attempts": 5, "mode": "adaptive"})
-
-        if not self.aws_region:
-            raise ValueError("AWS region must be provided.")
-
-        if not self.aws_access_key_id and not self.aws_secret_access_key:
+        if not self._config.aws_access_key_id or not self._config.aws_secret_access_key:
             logger.info(
                 "Using default AWS credential provider chain (IAM Role or environment variables)."
             )
@@ -125,17 +112,17 @@ class AWSMessageQueue(BaseMessageQueue):
         """Returns a client context manager."""
         session = self._get_aio_session()
         client_kwargs = {
-            "region_name": self.aws_region,
+            "region_name": self._config.aws_region,
             "config": self._retry_config,
             "service_name": service_name,
         }
 
         # IAM Role or environment variable fallback
-        if self.aws_access_key_id and self.aws_secret_access_key:
+        if self._config.aws_access_key_id and self._config.aws_secret_access_key:
             client_kwargs.update(
                 {
-                    "aws_access_key_id": self.aws_access_key_id.get_secret_value(),
-                    "aws_secret_access_key": self.aws_secret_access_key.get_secret_value(),
+                    "aws_access_key_id": self._config.aws_access_key_id.get_secret_value(),
+                    "aws_secret_access_key": self._config.aws_secret_access_key.get_secret_value(),
                 }
             )
 
@@ -149,6 +136,7 @@ class AWSMessageQueue(BaseMessageQueue):
             try:
                 # First, check if the topic exists
                 response = await client.list_topics()  # type: ignore
+                print(response)
                 for topic in response.get("Topics", []):
                     if f"{topic_name}.fifo" in topic["TopicArn"]:
                         logger.info(f"SNS topic {topic_name} already exists.")
@@ -180,8 +168,8 @@ class AWSMessageQueue(BaseMessageQueue):
                 raise
 
         topic = Topic(arn=response["TopicArn"], name=topic_name)
-        if topic.arn not in [t.arn for t in self.topics]:
-            self.topics.append(topic)
+        if topic.arn not in [t.arn for t in self._topics]:
+            self._topics.append(topic)
         return topic
 
     async def _create_sqs_queue(self, queue_name: str) -> "Queue":
@@ -211,8 +199,8 @@ class AWSMessageQueue(BaseMessageQueue):
                 raise
 
         queue = Queue(arn=queue_arn, url=queue_url, name=queue_name)
-        if queue.arn not in [q.arn for q in self.queues]:
-            self.queues.append(queue)
+        if queue.arn not in [q.arn for q in self._queues]:
+            self._queues.append(queue)
         return queue
 
     async def _update_queue_policy(self, queue: "Queue", topic: "Topic") -> None:
@@ -253,8 +241,8 @@ class AWSMessageQueue(BaseMessageQueue):
                 )
                 raise
         subscription = Subscription(arn=response["SubscriptionArn"])
-        if subscription.arn not in [s.arn for s in self.subscriptions]:
-            self.subscriptions.append(subscription)
+        if subscription.arn not in [s.arn for s in self._subscriptions]:
+            self._subscriptions.append(subscription)
 
         # Update the SQS queue policy to allow SNS topic to send messages
         await self._update_queue_policy(queue, topic)
@@ -266,7 +254,7 @@ class AWSMessageQueue(BaseMessageQueue):
         from botocore.exceptions import ClientError
 
         message_body = json.dumps(message.model_dump())
-        _topic = await self.get_topic_by_name(message.type)
+        _topic = await self.get_topic_by_name(topic)
 
         try:
             async with self._get_client("sns") as client:
@@ -277,13 +265,15 @@ class AWSMessageQueue(BaseMessageQueue):
                     MessageGroupId=message.id_,  # Assigning message id as the group id for simplicity
                     MessageDeduplicationId=message.id_,
                 )
-                logger.info(f"Published {message.type} message {message.id_}")
+                logger.info(
+                    f"Published message {message.id_} of type {message.type} on topic {topic}"
+                )
                 return response
         except ClientError as e:
             logger.error(f"Could not publish message to SQS queue: {e}")
             raise
 
-    async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
+    async def cleanup(self, *args: Any, **kwargs: dict[str, Any]) -> None:
         """Perform cleanup of queues and topics."""
         from botocore.exceptions import ClientError
 
@@ -292,7 +282,7 @@ class AWSMessageQueue(BaseMessageQueue):
             self._get_client("sns") as sns_client,
         ):
             # Delete all SQS queues
-            for queue in self.queues:
+            for queue in self._queues:
                 try:
                     await sqs_client.delete_queue(QueueUrl=queue.url)  # type: ignore
                     logger.info(f"Deleted SQS queue {queue.name}")
@@ -300,7 +290,7 @@ class AWSMessageQueue(BaseMessageQueue):
                     logger.error(f"Could not delete SQS queue {queue.name}: {e}")
 
             # Delete all SNS topics
-            for topic in self.topics:
+            for topic in self._topics:
                 try:
                     await sns_client.delete_topic(TopicArn=topic.arn)  # type: ignore
                     logger.info(f"Deleted SNS topic {topic.name}")
@@ -313,41 +303,46 @@ class AWSMessageQueue(BaseMessageQueue):
         """Register a new consumer."""
         from botocore.exceptions import ClientError
 
-        _topic = await self._create_sns_topic(topic_name=consumer.message_type)
-        queue = await self._create_sqs_queue(queue_name=consumer.message_type)
+        topic = topic or consumer.message_type
+        _topic = await self._create_sns_topic(topic_name=topic)
+        queue = await self._create_sqs_queue(queue_name=topic)
         await self._subscribe_queue_to_topic(queue=queue, topic=_topic)
-        logger.info(f"Registered consumer {consumer.id_}: {consumer.message_type}")
+        logger.info(f"Registered consumer {consumer.id_} for topic {topic}")
 
         async def start_consuming_callable() -> None:
             """Start consuming messages."""
             while True:
-                async with self._get_client("sqs") as client:
-                    try:
-                        response = await client.receive_message(  # type: ignore
-                            QueueUrl=queue.url,
-                            WaitTimeSeconds=2,
-                        )
-                        messages = response.get("Messages", [])
-                        for msg in messages:
-                            receipt_handle = msg["ReceiptHandle"]
-                            message_body = json.loads(msg["Body"])
-                            queue_message_data = json.loads(message_body["Message"])
-                            queue_message = QueueMessage.model_validate(
-                                queue_message_data
+                try:
+                    async with self._get_client("sqs") as client:
+                        try:
+                            response = await client.receive_message(  # type: ignore
+                                QueueUrl=queue.url,
+                                WaitTimeSeconds=2,
                             )
-                            await consumer.process_message(queue_message)
-                            await client.delete_message(  # type: ignore
-                                QueueUrl=queue.url, ReceiptHandle=receipt_handle
+                            messages = response.get("Messages", [])
+                            for msg in messages:
+                                receipt_handle = msg["ReceiptHandle"]
+                                message_body = json.loads(msg["Body"])
+                                queue_message_data = json.loads(message_body["Message"])
+                                queue_message = QueueMessage.model_validate(
+                                    queue_message_data
+                                )
+                                await consumer.process_message(queue_message)
+                                await client.delete_message(  # type: ignore
+                                    QueueUrl=queue.url, ReceiptHandle=receipt_handle
+                                )
+                        except ClientError as e:
+                            logger.error(
+                                f"Error receiving messages from SQS queue: {e}"
                             )
-                    except ClientError as e:
-                        logger.error(f"Error receiving messages from SQS queue: {e}")
+                except CancelledError:
+                    return
 
         return start_consuming_callable
 
     def as_config(self) -> BaseModel:
         """Return the current configuration as an AWSMessageQueueConfig object."""
-        config = AWSMessageQueueConfig(aws_region=self.aws_region)
-        return config
+        return self._config
 
     async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
         """Deregister a consumer.
