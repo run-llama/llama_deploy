@@ -8,9 +8,9 @@ from pydantic_settings import BaseSettings
 from llama_deploy.control_plane.server import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.deploy.network_workflow import NetworkServiceManager
 from llama_deploy.message_queues import (
+    AbstractMessageQueue,
     AWSMessageQueue,
     AWSMessageQueueConfig,
-    BaseMessageQueue,
     KafkaMessageQueue,
     KafkaMessageQueueConfig,
     RabbitMQMessageQueue,
@@ -60,19 +60,19 @@ def _get_message_queue_config(config_dict: dict) -> BaseSettings:
         raise ValueError(f"Unknown message queue: {key}")
 
 
-def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
+def _get_message_queue_client(config: BaseSettings) -> AbstractMessageQueue:
     if isinstance(config, SimpleMessageQueueConfig):
-        return SimpleMessageQueue(config)  # type: ignore
+        return SimpleMessageQueue(config)
     elif isinstance(config, AWSMessageQueueConfig):
-        return AWSMessageQueue(config)  # type: ignore
+        return AWSMessageQueue(config)
     elif isinstance(config, KafkaMessageQueueConfig):
-        return KafkaMessageQueue(config)  # type: ignore
+        return KafkaMessageQueue(config)
     elif isinstance(config, RabbitMQMessageQueueConfig):
-        return RabbitMQMessageQueue(config)  # type: ignore
+        return RabbitMQMessageQueue(config)
     elif isinstance(config, RedisMessageQueueConfig):
-        return RedisMessageQueue(config)  # type: ignore
+        return RedisMessageQueue(config)
     elif isinstance(config, SolaceMessageQueueConfig):
-        return SolaceMessageQueue(config)  # type: ignore
+        return SolaceMessageQueue(config)
     else:
         raise ValueError(f"Invalid message queue config: {config}")
 

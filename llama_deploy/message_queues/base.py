@@ -10,7 +10,7 @@ from typing import (
     Sequence,
 )
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
@@ -57,7 +57,7 @@ class AbstractMessageQueue(ABC):
 
     @abstractmethod
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
+        self, consumer: BaseMessageQueueConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register consumer to start consuming messages."""
 
@@ -80,14 +80,3 @@ class AbstractMessageQueue(ABC):
     @abstractmethod
     def as_config(self) -> BaseModel:
         """Returns the config dict to reconstruct the message queue."""
-
-
-class BaseMessageQueue(BaseModel, AbstractMessageQueue):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-
-    @abstractmethod
-    async def processing_loop(self) -> None:
-        """The processing loop for the service."""

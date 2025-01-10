@@ -33,12 +33,10 @@ class SimpleMessageQueue(AbstractMessageQueue):
         return result
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
+        self, consumer: BaseMessageQueueConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         # register topic
-        topic = topic or consumer.message_type
-
         if topic not in self._consumers:
             # call the server to create it
             url = f"{self._config.base_url}topics/{topic}"

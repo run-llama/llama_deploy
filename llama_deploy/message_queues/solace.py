@@ -311,12 +311,9 @@ class SolaceMessageQueue(AbstractMessageQueue):
         return
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
+        self, consumer: BaseMessageQueueConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register a new consumer."""
-        if topic is None:
-            raise ValueError("Topic must be a valid string")
-
         try:
             from solace.messaging.errors.pubsubplus_client_error import (
                 IllegalStateError,
@@ -374,10 +371,6 @@ class SolaceMessageQueue(AbstractMessageQueue):
             raise
         finally:
             self._persistent_receiver.terminate()  # type:ignore
-
-    async def processing_loop(self) -> None:
-        """A loop for getting messages from queues and sending to consumer."""
-        pass
 
     async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
         """Perform any clean up of queues and exchanges."""

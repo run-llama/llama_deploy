@@ -24,7 +24,7 @@ from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_publishers.publisher import PublishCallback
-from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services.base import BaseService
 from llama_deploy.types import (
@@ -125,7 +125,7 @@ class WorkflowService(BaseService):
     internal_port: Optional[int] = None
     raise_exceptions: bool = False
 
-    _message_queue: BaseMessageQueue = PrivateAttr()
+    _message_queue: AbstractMessageQueue = PrivateAttr()
     _app: FastAPI = PrivateAttr()
     _publisher_id: str = PrivateAttr()
     _publish_callback: Optional[PublishCallback] = PrivateAttr()
@@ -136,7 +136,7 @@ class WorkflowService(BaseService):
     def __init__(
         self,
         workflow: Workflow,
-        message_queue: BaseMessageQueue,
+        message_queue: AbstractMessageQueue,
         running: bool = True,
         description: str = "Component Server",
         service_name: str = "default_workflow_service",
@@ -196,7 +196,7 @@ class WorkflowService(BaseService):
         )
 
     @property
-    def message_queue(self) -> BaseMessageQueue:
+    def message_queue(self) -> AbstractMessageQueue:
         """Message queue."""
         return self._message_queue
 

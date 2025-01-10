@@ -4,12 +4,15 @@ import asyncio
 import json
 import logging
 from logging import getLogger
-from typing import Any, Callable, Coroutine, Dict, Literal
+from typing import Any, Dict, Literal
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
+from llama_deploy.message_consumers.base import (
+    BaseMessageQueueConsumer,
+    StartConsumingCallable,
+)
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
 
@@ -171,12 +174,9 @@ class KafkaMessageQueue(AbstractMessageQueue):
         if consumer.id_ in self._kafka_consumers:
             await self._kafka_consumers[consumer.id_].stop()
 
-    async def processing_loop(self) -> None:
-        pass
-
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
-    ) -> Callable[..., Coroutine[Any, Any, None]]:
+        self, consumer: BaseMessageQueueConsumer, topic: str
+    ) -> StartConsumingCallable:
         """Register a new consumer."""
         try:
             from aiokafka import AIOKafkaConsumer
@@ -185,10 +185,6 @@ class KafkaMessageQueue(AbstractMessageQueue):
                 "aiokafka is not installed. "
                 "Please install it using `pip install aiokafka`."
             )
-
-        # register topic
-        if topic is None:
-            raise ValueError("Topic must be a valid string")
 
         if consumer.id_ in self._kafka_consumers:
             msg = f"Consumer {consumer.id_} already registered for topic {topic}"

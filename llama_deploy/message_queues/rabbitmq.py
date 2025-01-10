@@ -175,7 +175,7 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
             logger.info(f"published message {message.id_} to {topic}")
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
+        self, consumer: BaseMessageQueueConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         from aio_pika import Channel, ExchangeType, IncomingMessage, Queue
@@ -243,13 +243,6 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
 
         Not implemented for this integration, as once the connection/channel is
         closed, the consumer is deregistered.
-        """
-        pass
-
-    async def processing_loop(self) -> None:
-        """A loop for getting messages from queues and sending to consumer.
-
-        Not relevant for this class.
         """
         pass
 

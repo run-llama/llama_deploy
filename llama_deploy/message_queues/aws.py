@@ -298,12 +298,11 @@ class AWSMessageQueue(AbstractMessageQueue):
                     logger.error(f"Could not delete SNS topic {topic.name}: {e}")
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
+        self, consumer: BaseMessageQueueConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         from botocore.exceptions import ClientError
 
-        topic = topic or consumer.message_type
         _topic = await self._create_sns_topic(topic_name=topic)
         queue = await self._create_sqs_queue(queue_name=topic)
         await self._subscribe_queue_to_topic(queue=queue, topic=_topic)
@@ -348,12 +347,5 @@ class AWSMessageQueue(AbstractMessageQueue):
         """Deregister a consumer.
 
         Not implemented for this integration, as SQS does not maintain persistent consumers.
-        """
-        pass
-
-    async def processing_loop(self) -> None:
-        """A loop for getting messages from queues and sending to consumer.
-
-        Not relevant for this class.
         """
         pass
