@@ -36,9 +36,15 @@ class ControlPlaneConfig(BaseSettings):
         default=None,
         description="The connection URI of the database where to store state. If None, SimpleKVStore will be used",
     )
+    use_tls: bool = Field(
+        default=False,
+        description="Use TLS (HTTPS) to communicate with the control plane",
+    )
 
     @property
     def url(self) -> str:
+        if self.use_tls:
+            return f"https://{self.host}:{self.port}"
         return f"http://{self.host}:{self.port}"
 
 
