@@ -201,9 +201,6 @@ async def deploy_workflow(
     await asyncio.sleep(1)
 
     # register to control plane
-    control_plane_url = (
-        f"http://{control_plane_config.host}:{control_plane_config.port}"
-    )
     await service.register_to_control_plane(control_plane_url)
 
     # register to message queue
