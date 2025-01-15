@@ -1,10 +1,15 @@
 import asyncio
+import os
 
 import pytest
 
 from llama_deploy import Client
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.messages import QueueMessage
+
+pytestmark = pytest.mark.skipif(
+    "AWS_SECRET_ACCESS_KEY" not in os.environ, reason="AWS_SECRET_ACCESS_KEY not set"
+)
 
 
 @pytest.mark.asyncio
