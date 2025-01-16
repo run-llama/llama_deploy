@@ -1,8 +1,8 @@
 """Simple Message Queue."""
 
 import asyncio
+import logging
 from collections import deque
-from logging import getLogger
 from typing import Any, Dict
 
 import uvicorn
@@ -15,7 +15,24 @@ from llama_deploy.messages.base import QueueMessage
 
 from .config import SimpleMessageQueueConfig
 
-logger = getLogger(__name__)
+logger = logging.getLogger(__name__)
+
+
+class MessagesPollFilter(logging.Filter):
+    """Filters out access logs for /messages/.
+
+    The message queue client works with plain HTTP and as a form of pubsub
+    subscription indefintely polls the /messages/ endpoint on the server. To
+    avoid cluttering the logs, we filter out GET requests on that specific
+    endpoint.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "GET /messages/" not in record.getMessage()
+
+
+uvicorn_logger = logging.getLogger("uvicorn.access")
+uvicorn_logger.addFilter(MessagesPollFilter())
 
 
 class SimpleMessageQueueServer:
