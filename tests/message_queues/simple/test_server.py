@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 import pytest
 from fastapi.testclient import TestClient
@@ -8,6 +9,7 @@ from llama_deploy.message_queues.simple import (
     SimpleMessageQueueConfig,
     SimpleMessageQueueServer,
 )
+from llama_deploy.message_queues.simple.server import MessagesPollFilter
 from llama_deploy.messages.base import QueueMessage
 
 from .conftest import MockMessageConsumer
@@ -74,3 +76,28 @@ async def test_roundtrip(message_queue_server: SimpleMessageQueueServer) -> None
     # Assert
     assert ["1", "2"] == [m.id_ for m in consumer_one.processed_messages]
     assert ["3"] == [m.id_ for m in consumer_two.processed_messages]
+
+
+def test_log_filter() -> None:
+    f = MessagesPollFilter()
+    r = logging.LogRecord(
+        "",
+        logging.INFO,
+        "",
+        42,
+        "GET /messages/llama_deploy.control_plane HTTP/1.1",
+        None,
+        None,
+    )
+    assert f.filter(r) is False
+
+    r = logging.LogRecord(
+        "",
+        logging.INFO,
+        "",
+        42,
+        "POST /messages/llama_deploy.control_plane HTTP/1.1",
+        None,
+        None,
+    )
+    assert f.filter(r) is True
