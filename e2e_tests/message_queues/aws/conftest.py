@@ -24,7 +24,7 @@ def mq():
 @pytest.fixture
 def topic_prefix() -> str:
     """Use different SQS queues to allow tests to run in parallel"""
-    return os.environ.get("TOPIC_PREFIX", "")
+    return os.environ.get("TOPIC_PREFIX", "").replace(".", "_")
 
 
 def run_workflow_one(topic_prefix):
