@@ -13,8 +13,9 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.mark.asyncio
-async def test_roundtrip(mq):
+async def test_roundtrip(mq, topic_prefix):
     received_messages = []
+    topic = f"{topic_prefix}test"
 
     # register a consumer
     def message_handler(message: QueueMessage) -> None:
@@ -23,13 +24,13 @@ async def test_roundtrip(mq):
     test_consumer = CallableMessageConsumer(
         message_type="test_message", handler=message_handler
     )
-    start_consuming_callable = await mq.register_consumer(test_consumer, topic="test")
+    start_consuming_callable = await mq.register_consumer(test_consumer, topic=topic)
     t = asyncio.create_task(start_consuming_callable())
     await asyncio.sleep(1)
 
     # produce a message
     test_message = QueueMessage(type="test_message", data={"message": "this is a test"})
-    await mq.publish(test_message, topic="test")
+    await mq.publish(test_message, topic=topic)
     await asyncio.sleep(1)
 
     t.cancel()
