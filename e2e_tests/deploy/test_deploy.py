@@ -22,7 +22,10 @@ async def test_deploy_core(caplog):
     assert "Launching control plane server at" in caplog.text
 
     t.cancel()
-    await asyncio.gather(t, return_exceptions=True)
+    try:
+        await asyncio.wait_for(t, timeout=5)
+    except asyncio.TimeoutError:
+        pass
 
 
 @pytest.mark.asyncio
@@ -41,4 +44,7 @@ async def test_deploy_core_disable_control_plane(caplog):
     assert "Launching control plane server at" not in caplog.text
 
     t.cancel()
-    await asyncio.gather(t, return_exceptions=True)
+    try:
+        await asyncio.wait_for(t, timeout=5)
+    except asyncio.TimeoutError:
+        pass
