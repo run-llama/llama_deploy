@@ -132,6 +132,7 @@ async def deploy_core(
         for task in tasks:
             if task.done() and task.exception():  # type: ignore
                 raise task.exception()  # type: ignore
+            task.cancel()
             await task
 
 

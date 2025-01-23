@@ -8,7 +8,7 @@ from llama_deploy.deploy import deploy_core
 
 
 @pytest.mark.asyncio
-async def _test_deploy_core(caplog):
+async def test_deploy_core(caplog):
     caplog.set_level(logging.INFO)
     t = asyncio.create_task(
         deploy_core(
@@ -26,7 +26,7 @@ async def _test_deploy_core(caplog):
 
 
 @pytest.mark.asyncio
-async def _test_deploy_core_disable_control_plane(caplog):
+async def test_deploy_core_disable_control_plane(caplog):
     caplog.set_level(logging.INFO)
     t = asyncio.create_task(
         deploy_core(
