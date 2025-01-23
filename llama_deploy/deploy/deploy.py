@@ -1,5 +1,4 @@
 import asyncio
-from asyncio.exceptions import CancelledError
 
 import httpx
 from llama_index.core.workflow import Workflow
@@ -125,15 +124,13 @@ async def deploy_core(
     # let things run
     try:
         await asyncio.gather(*tasks)
-    except CancelledError:
+    except (Exception, asyncio.CancelledError):
         await message_queue_client.cleanup()
-
-        # Propagate the exception if any of the tasks exited with an error
         for task in tasks:
-            if task.done() and task.exception():  # type: ignore
-                raise task.exception()  # type: ignore
-            task.cancel()
-            await task
+            if not task.done():
+                task.cancel()
+
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def deploy_workflow(
