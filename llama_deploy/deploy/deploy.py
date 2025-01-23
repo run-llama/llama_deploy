@@ -32,16 +32,6 @@ from llama_deploy.services.workflow import WorkflowService, WorkflowServiceConfi
 DEFAULT_TIMEOUT = 120.0
 
 
-async def _deploy_local_message_queue(config: SimpleMessageQueueConfig) -> asyncio.Task:
-    queue = SimpleMessageQueueServer(config)
-    task = asyncio.create_task(queue.launch_server())
-
-    # let message queue boot up
-    await asyncio.sleep(2)
-
-    return task
-
-
 def _get_message_queue_config(config_dict: dict) -> BaseSettings:
     key = next(iter(config_dict.keys()))
     if key == SimpleMessageQueueConfig.__name__:
@@ -106,51 +96,43 @@ async def deploy_core(
     message_queue_config = message_queue_config or SimpleMessageQueueConfig()
     orchestrator_config = orchestrator_config or SimpleOrchestratorConfig()
 
+    tasks = []
+
     message_queue_client = _get_message_queue_client(message_queue_config)
-
-    control_plane = ControlPlaneServer(
-        message_queue_client,
-        SimpleOrchestrator(**orchestrator_config.model_dump()),
-        config=control_plane_config,
-    )
-
-    if disable_message_queue or not isinstance(
-        message_queue_config, SimpleMessageQueueConfig
+    # If needed, start the SimpleMessageQueueServer
+    if (
+        isinstance(message_queue_config, SimpleMessageQueueConfig)
+        and not disable_message_queue
     ):
-        # create a dummy task to keep the event loop running
-        message_queue_task = asyncio.create_task(asyncio.sleep(0))
-    else:
-        message_queue_task = await _deploy_local_message_queue(message_queue_config)
+        queue = SimpleMessageQueueServer(message_queue_config)
+        tasks.append(asyncio.create_task(queue.launch_server()))
+        # let message queue boot up
+        await asyncio.sleep(2)
 
     if not disable_control_plane:
-        control_plane_task = asyncio.create_task(control_plane.launch_server())
-
-        # let services spin up
-        await asyncio.sleep(1)
-
+        control_plane = ControlPlaneServer(
+            message_queue_client,
+            SimpleOrchestrator(**orchestrator_config.model_dump()),
+            config=control_plane_config,
+        )
+        tasks.append(asyncio.create_task(control_plane.launch_server()))
+        # let service spin up
+        await asyncio.sleep(2)
         # register the control plane as a consumer
         control_plane_consumer_fn = await control_plane.register_to_message_queue()
-
-        consumer_task = asyncio.create_task(control_plane_consumer_fn())
-    else:
-        # create a dummy task to keep the event loop running
-        control_plane_task = asyncio.create_task(asyncio.sleep(0))
-        consumer_task = asyncio.create_task(asyncio.sleep(0))
-
-    # let things sync up
-    await asyncio.sleep(1)
+        tasks.append(asyncio.create_task(control_plane_consumer_fn()))
 
     # let things run
     try:
-        await asyncio.gather(control_plane_task, consumer_task)
+        await asyncio.gather(*tasks)
     except CancelledError:
         await message_queue_client.cleanup()
-        message_queue_task.cancel()
-        await message_queue_task
+
         # Propagate the exception if any of the tasks exited with an error
-        for task in (control_plane_task, consumer_task, message_queue_task):
+        for task in tasks:
             if task.done() and task.exception():  # type: ignore
                 raise task.exception()  # type: ignore
+            await task
 
 
 async def deploy_workflow(
