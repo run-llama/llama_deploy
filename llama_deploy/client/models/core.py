@@ -146,7 +146,10 @@ class Session(Model):
             except httpx.HTTPStatusError as e:
                 if e.response.status_code != 404:
                     raise  # Re-raise if it's not a 404 error
-                if time.time() - start_time < self.client.timeout:
+                if (
+                    self.client.timeout is None  # means no timeout, always poll
+                    or time.time() - start_time < self.client.timeout
+                ):
                     await asyncio.sleep(self.client.poll_interval)
                 else:
                     raise TimeoutError(
