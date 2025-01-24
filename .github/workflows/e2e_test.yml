@@ -17,6 +17,17 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
+        test-package:
+          [
+            "basic_hitl",
+            "basic_streaming",
+            "deploy",
+            "apiserver",
+            "basic_session",
+            "basic_workflow",
+            "core",
+            "message_queues",
+          ]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -37,4 +48,4 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           TOPIC_PREFIX: ${{ matrix.python-version }}
-        run: poetry run pytest e2e_tests/
+        run: poetry run pytest e2e_tests/${{ matrix.test-package }} -s
