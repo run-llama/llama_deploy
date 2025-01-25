@@ -55,15 +55,6 @@ class ControlPlaneServer(BaseControlPlane):
         orchestrator (BaseOrchestrator): Orchestrator for the system.
         publish_callback (Optional[PublishCallback], optional): Callback for publishing messages. Defaults to None.
         state_store (Optional[BaseKVStore], optional): State store for the system. Defaults to None.
-        services_store_key (str, optional): Key for the services store. Defaults to "services".
-        tasks_store_key (str, optional): Key for the tasks store. Defaults to "tasks".
-        step_interval (float, optional): The interval in seconds to poll for tool call results. Defaults to 0.1s.
-        host (str, optional): The host of the service. Defaults to "127.0.0.1".
-        port (Optional[int], optional): The port of the service. Defaults to 8000.
-        internal_host (Optional[str], optional): The host for external networking as in Docker-Compose or K8s.
-        internal_port (Optional[int], optional): The port for external networking as in Docker-Compose or K8s.
-        running (bool, optional): Whether the service is running. Defaults to True.
-        cors_origins (Optional[List[str]], optional): List of hosts from which the service will accept CORS requests.  Use '["*"]' for all hosts.
 
     Examples:
         ```python

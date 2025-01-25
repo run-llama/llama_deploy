@@ -44,7 +44,7 @@ async def check_status():
 
 The client provides access to two main components:
 
-- `apiserver`: Interact with the [API server](./20_core_components.md#apiserver)
+- `apiserver`: Interact with the [API server](./20_core_components.md#api-server)
 - `core`: Access [core functionalities](./20_core_components.md#control-plane) like the Control Plane.
 
 Each component exposes specific methods for managing and interacting with the deployed system.

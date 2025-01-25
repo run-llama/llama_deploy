@@ -13,10 +13,19 @@ class ControlPlaneConfig(BaseSettings):
         env_prefix="CONTROL_PLANE_", arbitrary_types_allowed=True
     )
 
-    services_store_key: str = "services"
-    tasks_store_key: str = "tasks"
+    services_store_key: str = Field(
+        default="services",
+        description="Key for the services store. Defaults to 'services'.",
+    )
+    tasks_store_key: str = Field(
+        default="tasks",
+        description="Key for the tasks store. Defaults to 'tasks'.",
+    )
     session_store_key: str = "sessions"
-    step_interval: float = 0.1
+    step_interval: float = Field(
+        default=0.1,
+        description="The interval in seconds to poll for tool call results. Defaults to 0.1s.",
+    )
     host: str = Field(
         default="127.0.0.1",
         description="The host where to run the control plane server",
@@ -27,7 +36,10 @@ class ControlPlaneConfig(BaseSettings):
     internal_host: str | None = None
     internal_port: int | None = None
     running: bool = True
-    cors_origins: List[str] | None = None
+    cors_origins: List[str] | None = Field(
+        default=None,
+        description="List of hosts from which the service will accept CORS requests. Use ['*'] for all hosts.",
+    )
     topic_namespace: str = Field(
         default="llama_deploy",
         description="The prefix used in the message queue topic to namespace messages from this control plane",
