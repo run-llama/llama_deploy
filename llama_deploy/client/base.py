@@ -16,7 +16,7 @@ class _BaseClient(BaseSettings):
     api_server_url: str = "http://localhost:4501"
     control_plane_url: str = "http://localhost:8000"
     disable_ssl: bool = False
-    timeout: float = 120.0
+    timeout: float | None = 120.0
     poll_interval: float = 0.5
 
     async def request(

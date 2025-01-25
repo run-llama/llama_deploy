@@ -166,7 +166,7 @@ async def deploy_workflow(
 
     # override the service manager, while maintaining dict of existing services
     workflow._service_manager = NetworkServiceManager(
-        control_plane_config, workflow._service_manager._services
+        workflow._service_manager._services
     )
 
     service = WorkflowService(
