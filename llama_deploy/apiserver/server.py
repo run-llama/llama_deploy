@@ -22,8 +22,10 @@ manager = Manager(
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
     settings = ApiserverSettings()
     t = manager.serve()
+    logger.info(f"rc folder: {settings.rc_path}")
+
     if settings.rc_path.exists():
-        logger.debug(
+        logger.info(
             f"Browsing the rc folder {settings.rc_path} for deployments to start"
         )
         # match both .yml and .yaml files with the glob
