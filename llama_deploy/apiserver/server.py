@@ -9,6 +9,8 @@ from typing import Any, AsyncGenerator
 from fastapi import FastAPI
 
 from .deployment import Manager
+from .deployment_config_parser import DeploymentConfig
+from .settings import ApiserverSettings
 
 logger = logging.getLogger("uvicorn.info")
 manager = Manager(
@@ -18,9 +20,23 @@ manager = Manager(
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
+    settings = ApiserverSettings()
     t = manager.serve()
-    # TODO: load default deployments
+    if settings.rc_path.exists():
+        logger.debug(
+            f"Browsing the rc folder {settings.rc_path} for deployments to start"
+        )
+        # match both .yml and .yaml files with the glob
+        for yaml_file in Path(settings.rc_path).glob("*.y*ml"):
+            try:
+                logger.info(f"Deploying startup configuration from {yaml_file}")
+                config = DeploymentConfig.from_yaml(yaml_file)
+                await manager.deploy(config)
+            except Exception as e:
+                logger.error(f"Failed to deploy {yaml_file}: {str(e)}")
+
     yield
+
     t.close()
     # Clean up deployments folder
     if os.path.exists(manager._deployments_path.resolve()):
