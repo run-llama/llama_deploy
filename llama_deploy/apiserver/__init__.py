@@ -1,4 +1,4 @@
-from .config_parser import Config
 from .app import app
+from .deployment_config_parser import DeploymentConfig
 
-__all__ = ["Config", "app"]
+__all__ = ["DeploymentConfig", "app"]

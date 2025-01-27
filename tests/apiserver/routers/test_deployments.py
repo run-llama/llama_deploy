@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from llama_index.core.workflow.context_serializers import JsonSerializer
 from llama_index.core.workflow.events import Event, HumanResponseEvent
 
-from llama_deploy.apiserver import Config
+from llama_deploy.apiserver import DeploymentConfig
 from llama_deploy.types import TaskResult
 from llama_deploy.types.core import EventDefinition, TaskDefinition
 
@@ -41,7 +41,7 @@ def test_create_deployment(http_client: TestClient, data_path: Path) -> None:
         config_file = data_path / "git_service.yaml"
 
         with open(config_file, "rb") as f:
-            actual_config = Config.from_yaml_bytes(f.read())
+            actual_config = DeploymentConfig.from_yaml_bytes(f.read())
             response = http_client.post(
                 "/deployments/create/",
                 files={"config_file": ("git_service.yaml", f, "application/x-yaml")},

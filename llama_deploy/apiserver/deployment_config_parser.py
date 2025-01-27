@@ -64,7 +64,7 @@ class Service(BaseModel):
     ts_dependencies: dict[str, str] | None = Field(None, alias="ts-dependencies")
 
 
-class Config(BaseModel):
+class DeploymentConfig(BaseModel):
     """Model definition mapping a deployment config file."""
 
     name: str

@@ -30,7 +30,12 @@ from llama_deploy.message_queues import (
     SolaceMessageQueue,
 )
 
-from .config_parser import Config, MessageQueueConfig, Service, SourceType
+from .deployment_config_parser import (
+    DeploymentConfig,
+    MessageQueueConfig,
+    Service,
+    SourceType,
+)
 from .source_managers import GitSourceManager, LocalSourceManager, SourceManager
 
 SOURCE_MANAGERS: dict[SourceType, SourceManager] = {
@@ -49,7 +54,7 @@ class Deployment:
     and the message queue along with any service defined in the configuration object.
     """
 
-    def __init__(self, *, config: Config, root_path: Path) -> None:
+    def __init__(self, *, config: DeploymentConfig, root_path: Path) -> None:
         """Creates a Deployment instance.
 
         Args:
@@ -123,7 +128,7 @@ class Deployment:
         await asyncio.gather(*tasks)
         self._running = False
 
-    async def reload(self, config: Config) -> None:
+    async def reload(self, config: DeploymentConfig) -> None:
         """Reload this deployment by restarting its services.
 
         The reload process consists in cancelling the services tasks
@@ -163,7 +168,7 @@ class Deployment:
             self._service_startup_complete.set()
             await asyncio.gather(*self._service_tasks)
 
-    def _load_services(self, config: Config) -> list[WorkflowService]:
+    def _load_services(self, config: DeploymentConfig) -> list[WorkflowService]:
         """Creates WorkflowService instances according to the configuration object."""
         workflow_services = []
         for service_id, service_config in config.services.items():
@@ -346,7 +351,7 @@ class Manager:
         except asyncio.CancelledError:
             pass
 
-    async def deploy(self, config: Config, reload: bool = False) -> None:
+    async def deploy(self, config: DeploymentConfig, reload: bool = False) -> None:
         """Creates a Deployment instance and starts the relative runtime.
 
         Args:
@@ -382,7 +387,7 @@ class Manager:
             deployment = self._deployments[config.name]
             await deployment.reload(config)
 
-    def _assign_control_plane_address(self, config: Config) -> None:
+    def _assign_control_plane_address(self, config: DeploymentConfig) -> None:
         for service in config.services.values():
             if not service.port:
                 service.port = self._last_control_plane_port

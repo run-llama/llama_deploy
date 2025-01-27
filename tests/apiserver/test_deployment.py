@@ -7,10 +7,10 @@ from unittest import mock
 
 import pytest
 
-from llama_deploy.apiserver.config_parser import (
-    Config,
-)
 from llama_deploy.apiserver.deployment import Deployment, DeploymentError, Manager
+from llama_deploy.apiserver.deployment_config_parser import (
+    DeploymentConfig,
+)
 from llama_deploy.control_plane import ControlPlaneServer
 from llama_deploy.message_queues import (
     SimpleMessageQueue,
@@ -18,7 +18,7 @@ from llama_deploy.message_queues import (
 
 
 def test_deployment_ctor(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "git_service.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         sm_dict["git"] = mock.MagicMock()
         d = Deployment(config=config, root_path=Path("."))
@@ -34,7 +34,7 @@ def test_deployment_ctor(data_path: Path) -> None:
 
 
 def test_deployment_ctor_missing_service_path(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "git_service.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     config.services["test-workflow"].path = None
     with pytest.raises(
         ValueError, match="path field in service definition must be set"
@@ -43,7 +43,7 @@ def test_deployment_ctor_missing_service_path(data_path: Path) -> None:
 
 
 def test_deployment_ctor_missing_service_port(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "git_service.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     config.services["test-workflow"].port = None
     with pytest.raises(
         ValueError, match="port field in service definition must be set"
@@ -52,7 +52,7 @@ def test_deployment_ctor_missing_service_port(data_path: Path) -> None:
 
 
 def test_deployment_ctor_missing_service_host(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "git_service.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     config.services["test-workflow"].host = None
     with pytest.raises(
         ValueError, match="host field in service definition must be set"
@@ -61,7 +61,7 @@ def test_deployment_ctor_missing_service_host(data_path: Path) -> None:
 
 
 def test_deployment_ctor_skip_default_service(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "git_service.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     config.services["test-workflow2"] = deepcopy(config.services["test-workflow"])
     config.services["test-workflow2"].source = None
 
@@ -113,7 +113,7 @@ def test_deployment__load_message_queues(mocked_deployment: Deployment) -> None:
 
 
 def test__install_dependencies(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "python_dependencies.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "python_dependencies.yaml")
     service_config = config.services["myworkflow"]
     with mock.patch("llama_deploy.apiserver.deployment.subprocess") as mocked_subp:
         # Assert the sub process cmd receives the list of dependencies
@@ -137,7 +137,7 @@ def test__install_dependencies(data_path: Path) -> None:
 
 
 def test__set_environment_variables(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "env_variables.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "env_variables.yaml")
     service_config = config.services["myworkflow"]
     with mock.patch("llama_deploy.apiserver.deployment.os.environ") as mocked_osenviron:
         # Assert the sub process cmd receives the list of dependencies
@@ -152,7 +152,7 @@ def test__set_environment_variables(data_path: Path) -> None:
 
 
 def test__install_dependencies_raises(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "python_dependencies.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "python_dependencies.yaml")
     service_config = config.services["myworkflow"]
     error_class = subprocess.CalledProcessError
     error = error_class(1, "cmd", output=None, stderr="There was an error")
@@ -180,7 +180,7 @@ def test_manager_ctor() -> None:
 
 @pytest.mark.asyncio
 async def test_manager_deploy_duplicate(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "git_service.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
 
     m = Manager()
     m._deployments["TestDeployment"] = mock.MagicMock()
@@ -191,7 +191,7 @@ async def test_manager_deploy_duplicate(data_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_manager_deploy_maximum_reached(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "git_service.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
 
     m = Manager(max_deployments=1)
     m._deployments["AnotherDeployment"] = mock.MagicMock()
@@ -205,7 +205,7 @@ async def test_manager_deploy_maximum_reached(data_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_manager_deploy(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "git_service.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     with mock.patch(
         "llama_deploy.apiserver.deployment.Deployment"
     ) as mocked_deployment:
@@ -235,7 +235,7 @@ async def test_manager_serve_loop() -> None:
 
 def test_manager_assign_control_plane_port(data_path: Path) -> None:
     m = Manager()
-    config = Config.from_yaml(data_path / "service_ports.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "service_ports.yaml")
     m._assign_control_plane_address(config)
     assert config.services["no-port"].port == 8002
     assert config.services["has-port"].port == 9999
