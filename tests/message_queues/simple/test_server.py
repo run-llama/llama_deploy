@@ -28,7 +28,7 @@ def test_create_topic(http_client: TestClient) -> None:
     response = http_client.post("/topics/test_topic")
     assert response.status_code == 200
     response = http_client.post("/topics/test_topic")
-    assert response.status_code == 409
+    assert response.status_code == 200  # topic already exists, no-op
 
 
 def test_publish(http_client: TestClient) -> None:
