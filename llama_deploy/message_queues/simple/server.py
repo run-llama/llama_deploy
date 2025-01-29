@@ -106,13 +106,9 @@ class SimpleMessageQueueServer:
         }
 
     async def _create_topic(self, topic: str) -> Any:
-        if topic in self._queues:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="A consumer with the same url has previously been registered.",
-            )
-
-        self._queues[topic] = deque()
+        """If topic already exists, this is a no-op."""
+        if topic not in self._queues:
+            self._queues[topic] = deque()
 
     async def _publish(self, message: QueueMessage, topic: str) -> Any:
         """Publish message to a queue."""

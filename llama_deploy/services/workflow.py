@@ -485,8 +485,12 @@ class WorkflowService(BaseService):
     @asynccontextmanager
     async def lifespan(self, app: FastAPI) -> AsyncGenerator[None, None]:
         """Starts the processing loop when the fastapi app starts."""
-        asyncio.create_task(self.processing_loop())
+        t = asyncio.create_task(self.processing_loop())
+
         yield
+
+        t.cancel()
+        await t
         self.running = False
 
     async def home(self) -> Dict[str, str]:

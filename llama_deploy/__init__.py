@@ -6,6 +6,7 @@ from llama_deploy.control_plane import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.deploy import deploy_core, deploy_workflow
 from llama_deploy.message_consumers import CallableMessageConsumer
 from llama_deploy.message_queues import (
+    SimpleMessageQueue,
     SimpleMessageQueueConfig,
     SimpleMessageQueueServer,
 )
@@ -42,6 +43,7 @@ __all__ = [
     # message queues
     "SimpleMessageQueueServer",
     "SimpleMessageQueueConfig",
+    "SimpleMessageQueue",
     # deployment
     "deploy_core",
     "deploy_workflow",
