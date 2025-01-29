@@ -1,4 +1,4 @@
-FROM llamaindex/llama-deploy:local
+FROM llamaindex/llama-deploy:main
 
 # This will be passed at build time
 ARG SOURCE_DIR=""
@@ -6,7 +6,7 @@ ARG SOURCE_DIR=""
 COPY ${SOURCE_DIR} /app/code
 WORKDIR  /app/code
 # Deploy deployment.yml at startup
-ENV LLAMA_DEPLOY_RC_PATH="/app/code"
+ENV LLAMA_DEPLOY_APISERVER_RC_PATH="/app/code"
 
 # Cloud Run requires the container to listen to port 8080
 EXPOSE 8080

@@ -12,7 +12,7 @@ class ApiserverSettings(BaseSettings):
         description="The host where to run the API Server",
     )
     port: int = Field(
-        default=8000,
+        default=4501,
         description="The TCP port where to bind the API Server",
     )
     rc_path: Path = Field(
