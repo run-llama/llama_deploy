@@ -75,11 +75,10 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
     async def register_to_control_plane(self, control_plane_url: str) -> None:
         """Register the service to the control plane."""
         self._control_plane_url = control_plane_url
-        service_def = self.service_definition
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{control_plane_url}/services/register",
-                json=service_def.model_dump(),
+                json=self.service_definition.model_dump(),
             )
             response.raise_for_status()
             self._control_plane_config = ControlPlaneConfig(**response.json())
@@ -93,7 +92,7 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{self._control_plane_url}/services/deregister",
-                json={"service_name": self.service_name},
+                params={"service_name": self.service_name},
             )
             response.raise_for_status()
 
@@ -131,6 +130,11 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
         """Register the service to the message queue."""
         return await self.message_queue.register_consumer(
             self.as_consumer(remote=True), topic=self.get_topic(self.service_name)
+        )
+
+    async def deregister_from_message_queue(self) -> None:
+        return await self.message_queue.deregister_consumer(
+            self.as_consumer(remote=True)
         )
 
     def get_topic(self, msg_type: str) -> str:

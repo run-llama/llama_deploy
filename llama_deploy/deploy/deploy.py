@@ -192,10 +192,11 @@ async def deploy_workflow(
     # let things sync up
     await asyncio.sleep(1)
 
-    all_tasks = [consumer_task, service_task]
+    try:
+        # Propagate the exception if any of the tasks exited with an error
+        await asyncio.gather(service_task, consumer_task, return_exceptions=True)
+    except asyncio.CancelledError:
+        consumer_task.cancel()
+        service_task.cancel()
 
-    await asyncio.gather(*all_tasks)
-    # Propagate the exception if any of the tasks exited with an error
-    for task in all_tasks:
-        if task.done() and task.exception():  # type: ignore
-            raise task.exception()  # type: ignore
+        await asyncio.gather(service_task, consumer_task)

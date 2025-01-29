@@ -172,3 +172,20 @@ async def test_hitl_workflow_service(
 
     # allow a clean shutdown
     await asyncio.gather(consumer_task, server_task, return_exceptions=True)
+
+
+def test_defaults(
+    test_workflow: Workflow,
+) -> None:
+    workflow_service = WorkflowService(
+        test_workflow,
+        None,  # type: ignore
+        service_name="test_workflow",
+        description="Test Workflow Service",
+        host="localhost",
+        port=8001,
+    )
+    assert workflow_service.publisher_id.startswith("WorkflowService-")
+    assert workflow_service.publish_callback is None
+    sd = workflow_service.service_definition
+    assert sd.service_name == "test_workflow"
