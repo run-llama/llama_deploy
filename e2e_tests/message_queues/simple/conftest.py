@@ -12,7 +12,7 @@ from llama_deploy import (
 
 @pytest_asyncio.fixture()
 async def simple_server():
-    queue = SimpleMessageQueueServer(SimpleMessageQueueConfig())
+    queue = SimpleMessageQueueServer(SimpleMessageQueueConfig(port=8009))
     t = asyncio.create_task(queue.launch_server())
     # let message queue boot up
     await asyncio.sleep(1)
@@ -25,4 +25,4 @@ async def simple_server():
 
 @pytest.fixture
 def mq(simple_server):
-    return SimpleMessageQueue(SimpleMessageQueueConfig())
+    return SimpleMessageQueue(SimpleMessageQueueConfig(port=8009))
