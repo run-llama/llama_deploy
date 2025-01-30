@@ -3,6 +3,7 @@ import json
 import os
 import uuid
 import zlib
+from asyncio.exceptions import CancelledError
 from collections import defaultdict
 from contextlib import asynccontextmanager
 from logging import getLogger
@@ -23,7 +24,7 @@ from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_publishers.publisher import PublishCallback
-from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services.base import BaseService
 from llama_deploy.types import (
@@ -127,7 +128,7 @@ class WorkflowService(BaseService):
     internal_port: Optional[int] = None
     raise_exceptions: bool = False
 
-    _message_queue: BaseMessageQueue = PrivateAttr()
+    _message_queue: AbstractMessageQueue = PrivateAttr()
     _app: FastAPI = PrivateAttr()
     _publisher_id: str = PrivateAttr()
     _publish_callback: Optional[PublishCallback] = PrivateAttr()
@@ -138,7 +139,7 @@ class WorkflowService(BaseService):
     def __init__(
         self,
         workflow: Workflow,
-        message_queue: BaseMessageQueue,
+        message_queue: AbstractMessageQueue,
         running: bool = True,
         description: str = "Component Server",
         service_name: str = "default_workflow_service",
@@ -198,7 +199,7 @@ class WorkflowService(BaseService):
         )
 
     @property
-    def message_queue(self) -> BaseMessageQueue:
+    def message_queue(self) -> AbstractMessageQueue:
         """Message queue."""
         return self._message_queue
 
@@ -285,15 +286,15 @@ class WorkflowService(BaseService):
             current_call (WorkflowState):
                 The state of the current task, including run_kwargs and other session state.
         """
+        # create send_event background task
+        close_send_events = asyncio.Event()
+
         try:
             # load the state
             ctx = await self.get_workflow_state(current_call)
 
             # run the workflow
             handler = self.workflow.run(ctx=ctx, **current_call.run_kwargs)
-
-            # create send_event background task
-            close_send_events = asyncio.Event()
 
             async def send_events(
                 handler: WorkflowHandler, close_event: asyncio.Event
@@ -420,19 +421,10 @@ class WorkflowService(BaseService):
     async def processing_loop(self) -> None:
         """The processing loop for the service with non-blocking concurrent task execution."""
         logger.info("Processing initiated.")
-
-        while True:
-            if not self.running:
-                await asyncio.sleep(self.step_interval)
-                continue
-
-            task_manager = asyncio.create_task(self.manage_tasks())
-
-            try:
-                await task_manager
-            finally:
-                task_manager.cancel()
-                await asyncio.gather(task_manager, return_exceptions=True)
+        try:
+            await self.manage_tasks()
+        except CancelledError:
+            return
 
     async def process_message(self, message: QueueMessage) -> None:
         """Process a message received from the message queue."""
@@ -495,8 +487,12 @@ class WorkflowService(BaseService):
     @asynccontextmanager
     async def lifespan(self, app: FastAPI) -> AsyncGenerator[None, None]:
         """Starts the processing loop when the fastapi app starts."""
-        asyncio.create_task(self.processing_loop())
+        t = asyncio.create_task(self.processing_loop())
+
         yield
+
+        t.cancel()
+        await t
         self.running = False
 
     async def home(self) -> Dict[str, str]:
@@ -522,4 +518,8 @@ class WorkflowService(BaseService):
 
         cfg = uvicorn.Config(self._app, host=host, port=port)
         server = CustomServer(cfg)
-        await server.serve()
+
+        try:
+            await server.serve()
+        except asyncio.CancelledError:
+            await asyncio.gather(server.shutdown(), return_exceptions=True)

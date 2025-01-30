@@ -1,31 +1,13 @@
 import json
-from typing import Any
-from unittest.mock import AsyncMock, patch
+import sys
+from typing import Any, cast
+from unittest import mock
 
 import pytest
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
-from llama_deploy.message_queues.redis import RedisMessageQueue
+from llama_deploy.message_queues.redis import RedisMessageQueue, RedisMessageQueueConfig
 from llama_deploy.messages.base import QueueMessage
-
-
-class MockPubSub:
-    async def subscribe(self, channel: str) -> None:
-        pass
-
-    async def get_message(self, ignore_subscribe_messages: bool = True) -> None:
-        return None
-
-    async def unsubscribe(self, channel: str) -> None:
-        pass
-
-
-class MockRedisConnection:
-    async def publish(self, channel: str, message: str) -> int:
-        return 1
-
-    def pubsub(self) -> MockPubSub:
-        return MockPubSub()
 
 
 class MockConsumer(BaseMessageQueueConsumer):
@@ -34,111 +16,84 @@ class MockConsumer(BaseMessageQueueConsumer):
 
 
 @pytest.fixture
-def redis_queue() -> RedisMessageQueue:
-    return RedisMessageQueue(url="redis://localhost:6379")
+def redis_queue(monkeypatch: Any) -> RedisMessageQueue:
+    monkeypatch.setitem(sys.modules, "redis.asyncio", mock.MagicMock())
+    rmq = RedisMessageQueue()
+    rmq._redis = mock.AsyncMock(pubsub=mock.MagicMock(return_value=mock.AsyncMock()))
+    return rmq
 
 
 @pytest.mark.asyncio
-@patch("llama_deploy.message_queues.redis._establish_connection")
-async def test_new_connection(
-    mock_establish_connection: AsyncMock, redis_queue: RedisMessageQueue
-) -> None:
-    mock_establish_connection.return_value = MockRedisConnection()
-
-    connection = await redis_queue.new_connection()
-
-    assert isinstance(connection, MockRedisConnection)
-    mock_establish_connection.assert_called_once_with("redis://localhost:6379")
-
-
-@pytest.mark.asyncio
-@patch("llama_deploy.message_queues.redis._establish_connection")
-async def test_publish(
-    mock_establish_connection: AsyncMock, redis_queue: RedisMessageQueue
-) -> None:
-    mock_redis = AsyncMock()
-    mock_establish_connection.return_value = mock_redis
-
+async def test_publish(redis_queue: RedisMessageQueue) -> None:
     test_message = QueueMessage(type="test_channel", data={"key": "value"})
     expected_json = json.dumps(test_message.model_dump())
 
     await redis_queue._publish(test_message, topic="test_channel")
 
-    mock_establish_connection.assert_called_once_with("redis://localhost:6379")
-    mock_redis.publish.assert_called_once_with(test_message.type, expected_json)
+    redis_queue._redis.publish.assert_called_once_with(test_message.type, expected_json)  # type:ignore
 
 
 @pytest.mark.asyncio
-@patch("llama_deploy.message_queues.redis._establish_connection")
-async def test_register_consumer(
-    mock_establish_connection: AsyncMock, redis_queue: RedisMessageQueue
-) -> None:
-    mock_redis = MockRedisConnection()
-    mock_establish_connection.return_value = mock_redis
-
+async def test_register_consumer(redis_queue: RedisMessageQueue) -> None:
     consumer = MockConsumer(message_type="test_channel")
-    start_consuming = await redis_queue.register_consumer(consumer)
+    start_consuming = await redis_queue.register_consumer(consumer, "topic")
 
     assert callable(start_consuming)
     assert consumer.id_ in redis_queue._consumers
 
 
 @pytest.mark.asyncio
-@patch("llama_deploy.message_queues.redis._establish_connection")
-async def test_deregister_consumer(
-    mock_establish_connection: AsyncMock, redis_queue: RedisMessageQueue
-) -> None:
-    mock_redis = MockRedisConnection()
-    mock_establish_connection.return_value = mock_redis
-
+async def test_deregister_consumer(redis_queue: RedisMessageQueue) -> None:
     consumer = MockConsumer(message_type="test_channel")
-    await redis_queue.register_consumer(consumer)
+    await redis_queue.register_consumer(consumer, "topic")
     await redis_queue.deregister_consumer(consumer)
 
     assert consumer.id_ not in redis_queue._consumers
 
 
 @pytest.mark.asyncio
-@patch("llama_deploy.message_queues.redis._establish_connection")
-async def test_cleanup_local(
-    mock_establish_connection: AsyncMock, redis_queue: RedisMessageQueue
-) -> None:
-    mock_redis = AsyncMock()
-    mock_establish_connection.return_value = mock_redis
+async def test_cleanup(redis_queue: RedisMessageQueue) -> None:
+    await redis_queue.cleanup()
 
-    await redis_queue.new_connection()
-    await redis_queue.cleanup_local([])
-
-    mock_redis.close.assert_called_once()
-    assert redis_queue._redis is None
+    redis_queue._redis.aclose.assert_called_once()  # type:ignore
     assert redis_queue._consumers == {}
 
 
 @pytest.mark.asyncio
-async def test_from_url_params() -> None:
-    queue = RedisMessageQueue.from_url_params(
-        host="localhost", port=6379, db=0, username="user", password="pass", ssl=True
-    )
-    assert queue.url == "rediss://user:pass@localhost:6379/0"
-
-    queue = RedisMessageQueue.from_url_params(host="localhost", port=6379, db=0)
-    assert queue.url == "redis://localhost:6379/0"
-
-
-@pytest.mark.asyncio
-@patch("llama_deploy.message_queues.redis._establish_connection")
-async def test_register_same_consumer_twice(
-    mock_establish_connection: AsyncMock, redis_queue: RedisMessageQueue
-) -> None:
-    mock_redis = MockRedisConnection()
-    mock_establish_connection.return_value = mock_redis
-
+async def test_register_same_consumer_twice(redis_queue: RedisMessageQueue) -> None:
     consumer = MockConsumer(message_type="test_channel")
 
-    start_consuming_1 = await redis_queue.register_consumer(consumer)
-    start_consuming_2 = await redis_queue.register_consumer(consumer)
+    start_consuming_1 = await redis_queue.register_consumer(consumer, "topic")
+    start_consuming_2 = await redis_queue.register_consumer(consumer, "topic")
 
     assert callable(start_consuming_1)
     assert callable(start_consuming_2)
     assert start_consuming_1 == start_consuming_2
     assert len(redis_queue._consumers) == 1
+
+
+def test_config() -> None:
+    cfg = RedisMessageQueueConfig(host="localhost", port=1515)
+    assert cfg.url == "redis://localhost:1515/"
+
+
+def test_missing_deps(monkeypatch: Any) -> None:
+    # Mock the import mechanism to raise ImportError for redis
+    def mock_import(name: str, *args: Any, **kwargs: Any) -> Any:
+        if name.startswith("redis"):
+            raise ImportError(f"No module named '{name}'")
+        return original_import(name, *args, **kwargs)
+
+    # Store the original import
+    original_import = __import__
+    # Replace the import mechanism with our mock
+    monkeypatch.setattr("builtins.__import__", mock_import)
+
+    with pytest.raises(ValueError, match="Missing redis optional dependency"):
+        RedisMessageQueue()
+
+
+def test_as_config(redis_queue: RedisMessageQueue) -> None:
+    default_config = RedisMessageQueueConfig()
+    res = cast(RedisMessageQueueConfig, redis_queue.as_config())
+    assert res.url == default_config.url

@@ -3,27 +3,29 @@ import importlib
 import os
 import subprocess
 import sys
-from dotenv import dotenv_values
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
+from shutil import rmtree
 from typing import Any
 
+from dotenv import dotenv_values
 
 from llama_deploy import (
     Client,
     ControlPlaneServer,
-    SimpleMessageQueue,
+    SimpleMessageQueueServer,
     SimpleOrchestrator,
     SimpleOrchestratorConfig,
     WorkflowService,
     WorkflowServiceConfig,
 )
 from llama_deploy.message_queues import (
+    AbstractMessageQueue,
     AWSMessageQueue,
-    BaseMessageQueue,
     KafkaMessageQueue,
     RabbitMQMessageQueue,
     RedisMessageQueue,
+    SimpleMessageQueue,
     SimpleMessageQueueConfig,
     SolaceMessageQueue,
 )
@@ -56,7 +58,7 @@ class Deployment:
         """
         self._name = config.name
         self._path = root_path / config.name
-        self._simple_message_queue: SimpleMessageQueue | None = None
+        self._simple_message_queue_server: SimpleMessageQueueServer | None = None
         self._queue_client = self._load_message_queue_client(config.message_queue)
         self._control_plane_config = config.control_plane
         self._control_plane = ControlPlaneServer(
@@ -67,6 +69,9 @@ class Deployment:
         self._workflow_services: list[WorkflowService] = self._load_services(config)
         self._client = Client(control_plane_url=config.control_plane.url)
         self._default_service = config.default_service
+        self._running = False
+        self._service_tasks: list[asyncio.Task] = []
+        self._service_startup_complete = asyncio.Event()
 
     @property
     def default_service(self) -> str | None:
@@ -94,12 +99,13 @@ class Deployment:
         All the tasks are gathered before returning.
         """
         tasks = []
+        self._running = True
 
         # Spawn SimpleMessageQueue if needed
-        if self._simple_message_queue:
+        if self._simple_message_queue_server:
             # If SimpleMessageQueue was selected in the config file we take care of running the task
             tasks.append(
-                asyncio.create_task(self._simple_message_queue.launch_server())
+                asyncio.create_task(self._simple_message_queue_server.launch_server())
             )
             # the other components need the queue to run in order to start, give the queue some time to start
             # FIXME: having to await a magic number of seconds is very brittle, we should rethink the bootstrap process
@@ -111,17 +117,51 @@ class Deployment:
         tasks.append(asyncio.create_task(cp_consumer_fn()))
 
         # Services
-        for wfs in self._workflow_services:
-            service_task = asyncio.create_task(wfs.launch_server())
-            tasks.append(service_task)
-            consumer_fn = await wfs.register_to_message_queue()
-            control_plane_url = f"http://{self._control_plane_config.host}:{self._control_plane_config.port}"
-            await wfs.register_to_control_plane(control_plane_url)
-            consumer_task = asyncio.create_task(consumer_fn())
-            tasks.append(consumer_task)
+        tasks.append(asyncio.create_task(self._run_services()))
 
         # Run allthethings
         await asyncio.gather(*tasks)
+        self._running = False
+
+    async def reload(self, config: Config) -> None:
+        """Reload this deployment by restarting its services.
+
+        The reload process consists in cancelling the services tasks
+        and rely on the fact that _run_services() will restart them
+        with the new configuration. This function won't return until
+        _run_services will trigger the _service_startup_complete signal.
+        """
+        self._workflow_services = self._load_services(config)
+        self._default_service = config.default_service
+
+        for t in self._service_tasks:
+            # t is awaited in _run_services(), we don't need to await here
+            t.cancel()
+
+        # Hold until _run_services() has restarted all the tasks
+        await self._service_startup_complete.wait()
+
+    async def _run_services(self) -> None:
+        """Start an asyncio task for each service and gather them.
+
+        For the time self._running holds true, the tasks will be restarted
+        if they are all cancelled. This is to support the reload process
+        (see reload() for more details).
+        """
+        while self._running:
+            self._service_tasks = []
+            # If this is a reload, self._workflow_services contains the updated configurations
+            for wfs in self._workflow_services:
+                service_task = asyncio.create_task(wfs.launch_server())
+                self._service_tasks.append(service_task)
+                consumer_fn = await wfs.register_to_message_queue()
+                control_plane_url = f"http://{self._control_plane_config.host}:{self._control_plane_config.port}"
+                await wfs.register_to_control_plane(control_plane_url)
+                consumer_task = asyncio.create_task(consumer_fn())
+                self._service_tasks.append(consumer_task)
+            # If this is a reload, unblock the reload() function signalling that tasks are up and running
+            self._service_startup_complete.set()
+            await asyncio.gather(*self._service_tasks)
 
     def _load_services(self, config: Config) -> list[WorkflowService]:
         """Creates WorkflowService instances according to the configuration object."""
@@ -150,9 +190,19 @@ class Deployment:
                 raise ValueError(msg)
 
             # Sync the service source
-            destination = self._path / service_id
+            destination = (self._path / service_id).resolve()
+
+            if destination.exists():
+                # FIXME: this could be managed at the source manager level, so that
+                # each implementation can decide what to do with existing data. For
+                # example, the git source manager might decide to perform a git pull
+                # instead of a brand new git clone. Leaving these optimnizations for
+                # later, for the time being having an empty data folder works smoothly
+                # for any source manager currently supported.
+                rmtree(str(destination))
+
             source_manager = SOURCE_MANAGERS[source.type]
-            source_manager.sync(source.name, str(destination.resolve()))
+            source_manager.sync(source.name, str(destination))
 
             # Install dependencies
             self._install_dependencies(service_config)
@@ -226,25 +276,25 @@ class Deployment:
 
     def _load_message_queue_client(
         self, cfg: MessageQueueConfig | None
-    ) -> BaseMessageQueue:
+    ) -> AbstractMessageQueue:
         # Use the SimpleMessageQueue as the default
         if cfg is None:
             # we use model_validate instead of __init__ to avoid static checkers complaining over field aliases
             cfg = SimpleMessageQueueConfig()
 
         if cfg.type == "aws":
-            return AWSMessageQueue(**cfg.model_dump())
+            return AWSMessageQueue(cfg)
         elif cfg.type == "kafka":
-            return KafkaMessageQueue(cfg)  # type: ignore
+            return KafkaMessageQueue(cfg)
         elif cfg.type == "rabbitmq":
-            return RabbitMQMessageQueue(cfg)  # type: ignore
+            return RabbitMQMessageQueue(cfg)
         elif cfg.type == "redis":
-            return RedisMessageQueue(**cfg.model_dump())
+            return RedisMessageQueue(cfg)
         elif cfg.type == "simple":
-            self._simple_message_queue = SimpleMessageQueue(**cfg.model_dump())
-            return self._simple_message_queue.client
+            self._simple_message_queue_server = SimpleMessageQueueServer(cfg)
+            return SimpleMessageQueue(cfg)
         elif cfg.type == "solace":
-            return SolaceMessageQueue(**cfg.model_dump())
+            return SolaceMessageQueue(cfg)
         else:
             msg = f"Unsupported message queue: {cfg.type}"
             raise ValueError(msg)
@@ -277,7 +327,7 @@ class Manager:
         self._deployments_path = deployments_path
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
-        self._control_plane_port = 8002
+        self._last_control_plane_port = 8002
 
     @property
     def deployment_names(self) -> list[str]:
@@ -296,34 +346,46 @@ class Manager:
         except asyncio.CancelledError:
             pass
 
-    def deploy(self, config: Config) -> None:
+    async def deploy(self, config: Config, reload: bool = False) -> None:
         """Creates a Deployment instance and starts the relative runtime.
 
         Args:
             config: The deployment configuration.
+            reload: Reload an existing deployment instead of raising an error.
 
         Raises:
             ValueError: If a deployment with the same name already exists or the maximum number of deployment exceeded.
             DeploymentError: If it wasn't possible to create a deployment.
         """
-        if config.name in self._deployments:
-            msg = f"Deployment already exists: {config.name}"
-            raise ValueError(msg)
+        if not reload:
+            # Raise an error if deployment already exists
+            if config.name in self._deployments:
+                msg = f"Deployment already exists: {config.name}"
+                raise ValueError(msg)
 
-        if len(self._deployments) == self._max_deployments:
-            msg = "Reached the maximum number of deployments, cannot schedule more"
-            raise ValueError(msg)
+            # Raise an error if we can't create any new deployment
+            if len(self._deployments) == self._max_deployments:
+                msg = "Reached the maximum number of deployments, cannot schedule more"
+                raise ValueError(msg)
 
-        self._assign_control_plane_address(config)
+            # Set the control plane TCP port in the config where not specified
+            self._assign_control_plane_address(config)
 
-        deployment = Deployment(config=config, root_path=self._deployments_path)
-        self._deployments[config.name] = deployment
-        self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
+            deployment = Deployment(config=config, root_path=self._deployments_path)
+            self._deployments[config.name] = deployment
+            self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
+        else:
+            if config.name not in self._deployments:
+                msg = f"Cannot find deployment to reload: {config.name}"
+                raise ValueError(msg)
+
+            deployment = self._deployments[config.name]
+            await deployment.reload(config)
 
     def _assign_control_plane_address(self, config: Config) -> None:
         for service in config.services.values():
             if not service.port:
-                service.port = self._control_plane_port
-                self._control_plane_port += 1
+                service.port = self._last_control_plane_port
+                self._last_control_plane_port += 1
             if not service.host:
                 service.host = "localhost"

@@ -1,11 +1,10 @@
 import uuid
 from enum import Enum
-from pydantic import BaseModel, Field, BeforeValidator, HttpUrl, TypeAdapter
-from pydantic.v1 import BaseModel as V1BaseModel
-from typing import Any, Dict, List, Optional, Union
-from typing_extensions import Annotated
+from typing import Any
 
-from llama_index.core.llms import MessageRole
+from llama_index.core.llms import ChatMessage
+from pydantic import BaseModel, BeforeValidator, Field, HttpUrl, TypeAdapter
+from typing_extensions import Annotated
 
 
 def generate_id() -> str:
@@ -13,57 +12,6 @@ def generate_id() -> str:
 
 
 CONTROL_PLANE_NAME = "control_plane"
-
-
-class ChatMessage(BaseModel):
-    """Chat message.
-
-    TODO: Temp copy of class from llama-index, to avoid pydantic v1/v2 issues.
-    """
-
-    role: MessageRole = MessageRole.USER
-    content: Optional[Any] = ""
-    additional_kwargs: dict = Field(default_factory=dict)
-
-    def __str__(self) -> str:
-        return f"{self.role.value}: {self.content}"
-
-    @classmethod
-    def from_str(
-        cls,
-        content: str,
-        role: Union[MessageRole, str] = MessageRole.USER,
-        **kwargs: Any,
-    ) -> "ChatMessage":
-        if isinstance(role, str):
-            role = MessageRole(role)
-        return cls(role=role, content=content, **kwargs)
-
-    def _recursive_serialization(self, value: Any) -> Any:
-        if isinstance(value, (V1BaseModel, BaseModel)):
-            return value.dict()
-        if isinstance(value, dict):
-            return {
-                key: self._recursive_serialization(value)
-                for key, value in value.items()
-            }
-        if isinstance(value, list):
-            return [self._recursive_serialization(item) for item in value]
-        return value
-
-    def dict(self, **kwargs: Any) -> dict:
-        # ensure all additional_kwargs are serializable
-        msg = super().dict(**kwargs)
-
-        for key, value in msg.get("additional_kwargs", {}).items():
-            value = self._recursive_serialization(value)
-            if not isinstance(value, (str, int, float, bool, dict, list, type(None))):
-                raise ValueError(
-                    f"Failed to serialize additional_kwargs value: {value}"
-                )
-            msg["additional_kwargs"][key] = value
-
-        return msg
 
 
 class ActionTypes(str, Enum):
@@ -99,8 +47,8 @@ class TaskDefinition(BaseModel):
 
     input: str
     task_id: str = Field(default_factory=generate_id)
-    session_id: Optional[str] = None
-    agent_id: Optional[str] = None
+    session_id: str | None = None
+    agent_id: str | None = None
 
 
 class SessionDefinition(BaseModel):
@@ -110,18 +58,18 @@ class SessionDefinition(BaseModel):
     Attributes:
         session_id (str):
             The session ID. Defaults to a random UUID.
-        task_definitions (List[str]):
+        task_definitions (list[str]):
             The task ids in order, representing the session.
         state (dict):
             The current session state.
     """
 
     session_id: str = Field(default_factory=generate_id)
-    task_ids: List[str] = Field(default_factory=list)
+    task_ids: list[str] = Field(default_factory=list)
     state: dict = Field(default_factory=dict)
 
     @property
-    def current_task_id(self) -> Optional[str]:
+    def current_task_id(self) -> str | None:
         if len(self.task_ids) == 0:
             return None
 
@@ -149,7 +97,7 @@ class TaskResult(BaseModel):
     Attributes:
         task_id (str):
             The task ID.
-        history (List[ChatMessage]):
+        history (list[ChatMessage]):
             The task history.
         result (str):
             The task result.
@@ -162,7 +110,7 @@ class TaskResult(BaseModel):
     """
 
     task_id: str
-    history: List[ChatMessage]
+    history: list[ChatMessage]
     result: str
     data: dict = Field(default_factory=dict)
 
@@ -174,14 +122,14 @@ class TaskStream(BaseModel):
     Attributes:
         task_id (str):
             The associated task ID.
-        data (List[dict]):
+        data (list[dict]):
             The stream data.
         index (int):
             The index of the stream data.
     """
 
     task_id: str
-    session_id: Optional[str]
+    session_id: str | None
     data: dict
     index: int
 
@@ -193,15 +141,15 @@ class ToolCallBundle(BaseModel):
     Attributes:
         tool_name (str):
             The name of the tool.
-        tool_args (List[Any]):
+        tool_args (list[Any]):
             The tool arguments.
-        tool_kwargs (Dict[str, Any]):
+        tool_kwargs (dict[str, Any]):
             The tool keyword arguments
     """
 
     tool_name: str
-    tool_args: List[Any]
-    tool_kwargs: Dict[str, Any]
+    tool_args: list[Any]
+    tool_kwargs: dict[str, Any]
 
 
 class ToolCall(BaseModel):
@@ -249,11 +197,11 @@ class ServiceDefinition(BaseModel):
             The name of the service.
         description (str):
             A description of the service and it's purpose.
-        prompt (List[ChatMessage]):
+        prompt (list[ChatMessage]):
             Specific instructions for the service.
-        host (Optional[str]):
+        host (str | None):
             The host of the service, if its a network service.
-        port (Optional[int]):
+        port (int | None):
             The port of the service, if its a network service.
     """
 
@@ -261,11 +209,11 @@ class ServiceDefinition(BaseModel):
     description: str = Field(
         description="A description of the service and it's purpose."
     )
-    prompt: List[ChatMessage] = Field(
+    prompt: list[ChatMessage] = Field(
         default_factory=list, description="Specific instructions for the service."
     )
-    host: Optional[str] = None
-    port: Optional[int] = None
+    host: str | None = None
+    port: int | None = None
 
 
 class HumanResponse(BaseModel):

@@ -13,7 +13,7 @@ from llama_deploy.apiserver.config_parser import (
 from llama_deploy.apiserver.deployment import Deployment, DeploymentError, Manager
 from llama_deploy.control_plane import ControlPlaneServer
 from llama_deploy.message_queues import (
-    SimpleRemoteClientMessageQueue,
+    SimpleMessageQueue,
 )
 
 
@@ -26,7 +26,7 @@ def test_deployment_ctor(data_path: Path) -> None:
         sm_dict["git"].sync.assert_called_once()
         assert d.name == "TestDeployment"
         assert d.path.name == "TestDeployment"
-        assert d._simple_message_queue is not None
+        assert d._simple_message_queue_server is not None
         assert type(d._control_plane) is ControlPlaneServer
         assert len(d._workflow_services) == 1
         assert d.client is not None
@@ -73,9 +73,9 @@ def test_deployment_ctor_skip_default_service(data_path: Path) -> None:
 
 def test_deployment___load_message_queue_default(mocked_deployment: Deployment) -> None:
     q = mocked_deployment._load_message_queue_client(None)
-    assert type(q) is SimpleRemoteClientMessageQueue
-    assert q.port == 8001
-    assert q.host == "127.0.0.1"
+    assert type(q) is SimpleMessageQueue
+    assert q._config.port == 8001
+    assert q._config.host == "127.0.0.1"
 
 
 def test_deployment___load_message_queue_not_supported(
@@ -91,7 +91,7 @@ def test_deployment__load_message_queues(mocked_deployment: Deployment) -> None:
         mocked_config = mock.MagicMock(type="aws")
         mocked_config.model_dump.return_value = {"foo": "aws"}
         mocked_deployment._load_message_queue_client(mocked_config)
-        m.assert_called_with(**{"foo": "aws"})
+        m.assert_called_with(mocked_config)
 
     with mock.patch("llama_deploy.apiserver.deployment.KafkaMessageQueue") as m:
         mocked_config = mock.MagicMock(type="kafka")
@@ -109,7 +109,7 @@ def test_deployment__load_message_queues(mocked_deployment: Deployment) -> None:
         mocked_config = mock.MagicMock(type="redis")
         mocked_config.model_dump.return_value = {"foo": "redis"}
         mocked_deployment._load_message_queue_client(mocked_config)
-        m.assert_called_with(**{"foo": "redis"})
+        m.assert_called_with(mocked_config)
 
 
 def test__install_dependencies(data_path: Path) -> None:
@@ -178,17 +178,19 @@ def test_manager_ctor() -> None:
     assert m.get_deployment("foo") is None
 
 
-def test_manager_deploy_duplicate(data_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_manager_deploy_duplicate(data_path: Path) -> None:
     config = Config.from_yaml(data_path / "git_service.yaml")
 
     m = Manager()
     m._deployments["TestDeployment"] = mock.MagicMock()
 
     with pytest.raises(ValueError, match="Deployment already exists: TestDeployment"):
-        m.deploy(config)
+        await m.deploy(config)
 
 
-def test_manager_deploy_maximum_reached(data_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_manager_deploy_maximum_reached(data_path: Path) -> None:
     config = Config.from_yaml(data_path / "git_service.yaml")
 
     m = Manager(max_deployments=1)
@@ -198,16 +200,17 @@ def test_manager_deploy_maximum_reached(data_path: Path) -> None:
         ValueError,
         match="Reached the maximum number of deployments, cannot schedule more",
     ):
-        m.deploy(config)
+        await m.deploy(config)
 
 
-def test_manager_deploy(data_path: Path) -> None:
+@pytest.mark.asyncio
+async def test_manager_deploy(data_path: Path) -> None:
     config = Config.from_yaml(data_path / "git_service.yaml")
     with mock.patch(
         "llama_deploy.apiserver.deployment.Deployment"
     ) as mocked_deployment:
         m = Manager()
-        m.deploy(config)
+        await m.deploy(config)
         mocked_deployment.assert_called_once()
         assert m.deployment_names == ["TestDeployment"]
         assert m.get_deployment("TestDeployment") is not None

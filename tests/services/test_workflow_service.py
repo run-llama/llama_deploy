@@ -118,24 +118,26 @@ def test_streaming_workflow() -> Workflow:
 
 @pytest.mark.asyncio
 async def test_workflow_service(
-    test_workflow: Workflow, human_output_consumer: MockMessageConsumer
+    test_workflow: Workflow,
+    human_output_consumer: MockMessageConsumer,
+    message_queue_server: Any,
 ) -> None:
     message_queue = SimpleMessageQueue()
-    _ = await message_queue.register_consumer(human_output_consumer)
+    consumer_fn = await message_queue.register_consumer(
+        human_output_consumer, topic="llama_deploy.control_plane"
+    )
+    consumer_task = asyncio.create_task(consumer_fn())
 
     # create the service
     workflow_service = WorkflowService(
         test_workflow,
-        message_queue,
+        message_queue,  # type: ignore
         service_name="test_workflow",
         description="Test Workflow Service",
         host="localhost",
         port=8001,
     )
-
-    # launch it
-    mq_task = await message_queue.launch_local()
-    server_task = await workflow_service.launch_local()
+    service_task = asyncio.create_task(workflow_service.processing_loop())
 
     # pass a task to the service
     task = TaskDefinition(
@@ -152,16 +154,14 @@ async def test_workflow_service(
 
     # let the service process the message
     await asyncio.sleep(1)
-    mq_task.cancel()
-    server_task.cancel()
+    consumer_task.cancel()
+    service_task.cancel()
+    await asyncio.gather(consumer_task, service_task)
 
     # check the result
     result = human_output_consumer.processed_messages[-1]
     assert result.action == ActionTypes.COMPLETED_TASK
     assert result.data["result"] == "test_arg1_result"
-
-    # allow a clean shutdown
-    await asyncio.gather(mq_task, server_task, return_exceptions=True)
 
 
 @pytest.mark.asyncio
@@ -216,15 +216,19 @@ async def test_streaming_workflow_service(
 async def test_hitl_workflow_service(
     test_hitl_workflow: Workflow,
     human_output_consumer: MockMessageConsumer,
+    message_queue_server: Any,
 ) -> None:
     # arrange
     message_queue = SimpleMessageQueue()
-    _ = await message_queue.register_consumer(human_output_consumer)
+    consumer_fn = await message_queue.register_consumer(
+        human_output_consumer, topic="llama_deploy.control_plane"
+    )
+    consumer_task = asyncio.create_task(consumer_fn())
 
     # create the service
     workflow_service = WorkflowService(
         test_hitl_workflow,
-        message_queue,
+        message_queue,  # type: ignore
         service_name="test_workflow",
         description="Test Workflow Service",
         host="localhost",
@@ -232,7 +236,6 @@ async def test_hitl_workflow_service(
     )
 
     # launch it
-    mq_task = await message_queue.launch_local()
     server_task = await workflow_service.launch_local()
 
     # process run task
@@ -267,7 +270,7 @@ async def test_hitl_workflow_service(
     # give time to process and shutdown afterwards
     workflow_service.running
     await asyncio.sleep(1)
-    mq_task.cancel()
+    consumer_task.cancel()
     server_task.cancel()
 
     # assert
@@ -276,4 +279,21 @@ async def test_hitl_workflow_service(
     assert result.data["result"] == "42"
 
     # allow a clean shutdown
-    await asyncio.gather(mq_task, server_task, return_exceptions=True)
+    await asyncio.gather(consumer_task, server_task, return_exceptions=True)
+
+
+def test_defaults(
+    test_workflow: Workflow,
+) -> None:
+    workflow_service = WorkflowService(
+        test_workflow,
+        None,  # type: ignore
+        service_name="test_workflow",
+        description="Test Workflow Service",
+        host="localhost",
+        port=8001,
+    )
+    assert workflow_service.publisher_id.startswith("WorkflowService-")
+    assert workflow_service.publish_callback is None
+    sd = workflow_service.service_definition
+    assert sd.service_name == "test_workflow"

@@ -1,24 +1,24 @@
-import pytest
 import json
 import os
-from unittest.mock import Mock, patch, AsyncMock
 from typing import Dict, Generator
+from unittest.mock import AsyncMock, Mock, patch
 
-from solace.messaging.resources.topic import Topic
+import pytest
 from solace.messaging.publisher.persistent_message_publisher import (
     PersistentMessagePublisher,
 )
 from solace.messaging.receiver.persistent_message_receiver import (
     PersistentMessageReceiver,
 )
+from solace.messaging.resources.topic import Topic
 
+from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_queues.solace import (
+    MessageHandlerImpl,
     SolaceMessageQueue,
     SolaceMessageQueueConfig,
-    MessageHandlerImpl,
 )
 from llama_deploy.messages.base import QueueMessage
-from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 
 
 @pytest.fixture(autouse=True)
@@ -110,10 +110,10 @@ def solace_queue(
         mock_messaging_service.create_persistent_message_publisher_builder.return_value.build.return_value = mock_publisher
         mock_messaging_service.create_persistent_message_receiver_builder.return_value.with_missing_resources_creation_strategy.return_value.build.return_value = mock_receiver
 
-        queue = SolaceMessageQueue(type="solace")
-        queue.messaging_service = mock_messaging_service
-        queue.publisher = mock_publisher
-        queue.persistent_receiver = mock_receiver
+        queue = SolaceMessageQueue(SolaceMessageQueueConfig(type="solace"))
+        queue._messaging_service = mock_messaging_service
+        queue._publisher = mock_publisher
+        queue._persistent_receiver = mock_receiver
         yield queue
 
 
@@ -140,7 +140,7 @@ async def test_establish_connection(
     assert connect_result is not None
     mock_messaging_service.connect.assert_called_once()
     mock_publisher.start.assert_called_once()
-    assert solace_queue.publisher.set_message_publish_receipt_listener.called
+    assert solace_queue._publisher.set_message_publish_receipt_listener.called  # type: ignore
 
 
 @pytest.mark.asyncio
@@ -178,13 +178,14 @@ async def test_deregister_consumer(
     solace_queue: SolaceMessageQueue, mock_receiver: Mock
 ) -> None:
     """Test deregistering a consumer."""
-    mock_consumer = Mock(spec=BaseMessageQueueConsumer)
-    mock_consumer.message_type = "test_topic"
+    with patch("llama_deploy.message_queues.solace.MAX_SLEEP", 0.1):
+        mock_consumer = Mock(spec=BaseMessageQueueConsumer)
+        mock_consumer.message_type = "test_topic"
 
-    await solace_queue.deregister_consumer(mock_consumer)
+        await solace_queue.deregister_consumer(mock_consumer)
 
-    mock_receiver.remove_subscription.assert_called_once()
-    mock_receiver.terminate.assert_called_once()
+        mock_receiver.remove_subscription.assert_called_once()
+        mock_receiver.terminate.assert_called_once()
 
 
 def test_disconnect(

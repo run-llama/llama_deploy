@@ -48,7 +48,7 @@ async def test_register_consumer() -> None:
         "llama_deploy.message_queues.rabbitmq._establish_connection"
     ) as connection:
         mq = RabbitMQMessageQueue()
-        consumer_func = await mq.register_consumer(MagicMock())
+        consumer_func = await mq.register_consumer(MagicMock(), "test_topic")
         task = asyncio.create_task(consumer_func())
         await asyncio.sleep(0)
         task.cancel()

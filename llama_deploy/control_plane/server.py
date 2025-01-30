@@ -18,7 +18,7 @@ from llama_deploy.message_consumers.base import (
 )
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
-from llama_deploy.message_queues.base import BaseMessageQueue, PublishCallback
+from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.orchestrators import SimpleOrchestrator, SimpleOrchestratorConfig
 from llama_deploy.orchestrators.base import BaseOrchestrator
@@ -51,19 +51,10 @@ class ControlPlaneServer(BaseControlPlane):
     - Launching the control plane server.
 
     Args:
-        message_queue (BaseMessageQueue): Message queue for the system.
+        message_queue (AbstractMessageQueue): Message queue for the system.
         orchestrator (BaseOrchestrator): Orchestrator for the system.
         publish_callback (Optional[PublishCallback], optional): Callback for publishing messages. Defaults to None.
         state_store (Optional[BaseKVStore], optional): State store for the system. Defaults to None.
-        services_store_key (str, optional): Key for the services store. Defaults to "services".
-        tasks_store_key (str, optional): Key for the tasks store. Defaults to "tasks".
-        step_interval (float, optional): The interval in seconds to poll for tool call results. Defaults to 0.1s.
-        host (str, optional): The host of the service. Defaults to "127.0.0.1".
-        port (Optional[int], optional): The port of the service. Defaults to 8000.
-        internal_host (Optional[str], optional): The host for external networking as in Docker-Compose or K8s.
-        internal_port (Optional[int], optional): The port for external networking as in Docker-Compose or K8s.
-        running (bool, optional): Whether the service is running. Defaults to True.
-        cors_origins (Optional[List[str]], optional): List of hosts from which the service will accept CORS requests.  Use '["*"]' for all hosts.
 
     Examples:
         ```python
@@ -80,7 +71,7 @@ class ControlPlaneServer(BaseControlPlane):
 
     def __init__(
         self,
-        message_queue: BaseMessageQueue,
+        message_queue: AbstractMessageQueue,
         orchestrator: BaseOrchestrator | None = None,
         publish_callback: PublishCallback | None = None,
         state_store: BaseKVStore | None = None,
@@ -226,7 +217,7 @@ class ControlPlaneServer(BaseControlPlane):
         )
 
     @property
-    def message_queue(self) -> BaseMessageQueue:
+    def message_queue(self) -> AbstractMessageQueue:
         return self._message_queue
 
     @property
@@ -284,7 +275,11 @@ class ControlPlaneServer(BaseControlPlane):
 
         cfg = uvicorn.Config(self.app, host=host, port=port)
         server = CustomServer(cfg)
-        await server.serve()
+        try:
+            await server.serve()
+        except asyncio.CancelledError:
+            self._running = False
+            await asyncio.gather(server.shutdown(), return_exceptions=True)
 
     async def home(self) -> Dict[str, str]:
         return {
