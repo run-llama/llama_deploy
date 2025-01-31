@@ -111,6 +111,19 @@ class Deployment:
         cp_consumer_fn = await self._control_plane.register_to_message_queue()
         tasks.append(asyncio.create_task(self._control_plane.launch_server()))
         tasks.append(asyncio.create_task(cp_consumer_fn()))
+        try:
+            # TODO: add an `url` property to WorkflowService to compute the
+            # url and properly account for TLS usage
+            async for attempt in AsyncRetrying(
+                wait=wait_exponential(min=1, max=10),
+            ):
+                with attempt:
+                    async with httpx.AsyncClient() as client:
+                        response = await client.get(self._control_plane_config.url)
+                        response.raise_for_status()
+        except RetryError:
+            msg = f"Unable to reach Control Plane at {self._control_plane_config.url}"
+            raise DeploymentError(msg)
 
         # Services
         tasks.append(asyncio.create_task(self._run_services()))
@@ -154,10 +167,10 @@ class Deployment:
                 await wfs.register_to_control_plane(self._control_plane_config.url)
                 consumer_task = asyncio.create_task(consumer_fn())
                 # Make sure the service is up and running before proceeding
+                url = f"http://{wfs.host}:{wfs.port}/"
                 try:
                     # TODO: add an `url` property to WorkflowService to compute the
                     # url and properly account for TLS usage
-                    url = f"http://{wfs.host}:{wfs.port}/"
                     async for attempt in AsyncRetrying(
                         wait=wait_exponential(min=1, max=10),
                     ):
