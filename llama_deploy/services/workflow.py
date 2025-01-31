@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import uuid
+import zlib
 from asyncio.exceptions import CancelledError
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -16,9 +17,8 @@ from llama_index.core.workflow.context_serializers import (
     JsonSerializer,
 )
 from llama_index.core.workflow.handler import WorkflowHandler
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 from llama_deploy.control_plane.server import CONTROL_PLANE_MESSAGE_TYPE
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.callable import CallableMessageConsumer
@@ -66,9 +66,6 @@ class WorkflowState(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    hash: Optional[int] = Field(
-        default=None, description="Hash of the context, if any."
-    )
     state: dict = Field(default_factory=dict, description="Pickled state, if any.")
     run_kwargs: Dict[str, Any] = Field(
         default_factory=dict, description="Run kwargs needed to run the workflow."
@@ -77,6 +74,12 @@ class WorkflowState(BaseModel):
         default=None, description="Session ID for the current task."
     )
     task_id: str = Field(description="Task ID for the current run.")
+
+    @computed_field
+    def hash(self) -> Optional[int]:
+        if not self.state:
+            return None
+        return zlib.adler32((str(self.state) + hash_secret).encode())
 
 
 class WorkflowService(BaseService):
@@ -231,16 +234,17 @@ class WorkflowService(BaseService):
         if workflow_state_json is None:
             return None
 
-        workflow_state = WorkflowState.model_validate_json(workflow_state_json)
+        workflow_state = WorkflowState.model_validate(workflow_state_json)
         if workflow_state.state is None:
             return None
 
         context_dict = workflow_state.state
-        context_str = json.dumps(context_dict)
-        context_hash = hash(context_str + hash_secret)
+        context_hash = zlib.adler32((str(context_dict) + hash_secret).encode("utf-8"))
 
         if workflow_state.hash is not None and context_hash != workflow_state.hash:
-            raise ValueError("Context hash does not match!")
+            raise ValueError(
+                f"Context hash does not match! {workflow_state.hash} != {context_hash}"
+            )
 
         return Context.from_dict(
             self.workflow,
@@ -253,11 +257,8 @@ class WorkflowService(BaseService):
     ) -> None:
         """Set the workflow state for this session."""
         context_dict = ctx.to_dict(serializer=JsonPickleSerializer())
-        context_str = json.dumps(context_dict)
-        context_hash = hash(context_str + hash_secret)
 
         workflow_state = WorkflowState(
-            hash=context_hash,
             state=context_dict,
             run_kwargs=current_state.run_kwargs,
             session_id=current_state.session_id,
@@ -269,9 +270,10 @@ class WorkflowService(BaseService):
 
         session_state = await self.get_session_state(current_state.session_id)
         if session_state:
-            session_state[current_state.session_id] = workflow_state.model_dump_json()
+            session_state[current_state.session_id] = workflow_state.model_dump()
 
             # Store the state in the control plane
+            logger.info(f"Storing session state: {session_state}")
             await self.update_session_state(current_state.session_id, session_state)
 
     async def process_call(self, current_call: WorkflowState) -> None:
