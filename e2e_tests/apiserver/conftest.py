@@ -1,10 +1,10 @@
 import multiprocessing
-import time
 from pathlib import Path
 
 import httpx
 import pytest
 import uvicorn
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 from llama_deploy.client import Client
 
@@ -13,16 +13,9 @@ def run_apiserver():
     uvicorn.run("llama_deploy.apiserver:app", host="127.0.0.1", port=4501)
 
 
+@retry(stop=stop_after_attempt(5), wait=wait_exponential(min=1, max=10))
 def wait_for_healthcheck():
-    while True:
-        retries = 1
-        try:
-            httpx.get("http://127.0.0.1:4501/status/")
-            break
-        except httpx.ConnectError:
-            if retries > 5:
-                raise
-            time.sleep(retries)
+    httpx.get("http://127.0.0.1:4501/status/")
 
 
 @pytest.fixture(scope="function")

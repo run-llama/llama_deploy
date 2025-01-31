@@ -8,7 +8,9 @@ from pathlib import Path
 from shutil import rmtree
 from typing import Any
 
+import httpx
 from dotenv import dotenv_values
+from tenacity import AsyncRetrying, RetryError, wait_exponential
 
 from llama_deploy import (
     Client,
@@ -378,9 +380,20 @@ class Manager:
                 self._simple_message_queue_server = asyncio.create_task(
                     SimpleMessageQueueServer(msg_queue).launch_server()
                 )
+
                 # the other components need the queue to run in order to start, give the queue some time to start
-                # FIXME: having to await a magic number of seconds is very brittle, we should rethink the bootstrap process
-                await asyncio.sleep(3)
+                try:
+                    async for attempt in AsyncRetrying(
+                        wait=wait_exponential(min=1, max=10),
+                    ):
+                        with attempt:
+                            async with httpx.AsyncClient() as client:
+                                response = await client.get(msg_queue.base_url)
+                                response.raise_for_status()
+
+                except RetryError:
+                    msg = f"Unable to reach SimpleMessageQueueServer at {msg_queue.base_url}"
+                    raise DeploymentError(msg)
 
             deployment = Deployment(config=config, root_path=self._deployments_path)
             self._deployments[config.name] = deployment
