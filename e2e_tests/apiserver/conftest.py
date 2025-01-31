@@ -1,5 +1,4 @@
 import multiprocessing
-from pathlib import Path
 
 import httpx
 import pytest
@@ -15,7 +14,8 @@ def run_apiserver():
 
 @retry(stop=stop_after_attempt(5), wait=wait_exponential(min=1, max=10))
 def wait_for_healthcheck():
-    httpx.get("http://127.0.0.1:4501/status/")
+    response = httpx.get("http://127.0.0.1:4501/status/")
+    response.raise_for_status()
 
 
 @pytest.fixture(scope="function")
@@ -31,21 +31,21 @@ def apiserver():
     p.close()
 
 
-@pytest.fixture(scope="function")
-def apiserver_with_rc(monkeypatch):
-    here = Path(__file__).parent
-    rc_path = here / "rc"
-    monkeypatch.setenv("LLAMA_DEPLOY_APISERVER_RC_PATH", str(rc_path))
+# @pytest.fixture(scope="function")
+# def apiserver_with_rc(monkeypatch):
+#     here = Path(__file__).parent
+#     rc_path = here / "rc"
+#     monkeypatch.setenv("LLAMA_DEPLOY_APISERVER_RC_PATH", str(rc_path))
 
-    p = multiprocessing.Process(target=run_apiserver)
-    p.start()
-    wait_for_healthcheck()
+#     p = multiprocessing.Process(target=run_apiserver)
+#     p.start()
+#     wait_for_healthcheck()
 
-    yield
+#     yield
 
-    p.terminate()
-    p.join()
-    p.close()
+#     p.terminate()
+#     p.join()
+#     p.close()
 
 
 @pytest.fixture
