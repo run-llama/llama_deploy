@@ -19,7 +19,9 @@ def apiserver():
 
     yield
 
-    p.kill()
+    p.terminate()
+    p.join()
+    p.close()
 
 
 @pytest.fixture

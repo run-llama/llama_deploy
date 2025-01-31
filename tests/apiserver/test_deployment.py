@@ -12,9 +12,7 @@ from llama_deploy.apiserver.deployment_config_parser import (
     DeploymentConfig,
 )
 from llama_deploy.control_plane import ControlPlaneServer
-from llama_deploy.message_queues import (
-    SimpleMessageQueue,
-)
+from llama_deploy.message_queues import AWSMessageQueueConfig, SimpleMessageQueue
 
 
 def test_deployment_ctor(data_path: Path) -> None:
@@ -26,7 +24,6 @@ def test_deployment_ctor(data_path: Path) -> None:
         sm_dict["git"].sync.assert_called_once()
         assert d.name == "TestDeployment"
         assert d.path.name == "TestDeployment"
-        assert d._simple_message_queue_server is not None
         assert type(d._control_plane) is ControlPlaneServer
         assert len(d._workflow_services) == 1
         assert d.client is not None
@@ -176,6 +173,7 @@ def test_manager_ctor() -> None:
     assert len(m._deployments) == 0
     assert len(m.deployment_names) == 0
     assert m.get_deployment("foo") is None
+    assert m._simple_message_queue_server is None
 
 
 @pytest.mark.asyncio
@@ -206,6 +204,9 @@ async def test_manager_deploy_maximum_reached(data_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_manager_deploy(data_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
+    # Do not use SimpleMessageQueue here, to avoid starting the server
+    config.message_queue = AWSMessageQueueConfig()
+
     with mock.patch(
         "llama_deploy.apiserver.deployment.Deployment"
     ) as mocked_deployment:

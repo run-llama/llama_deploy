@@ -63,7 +63,6 @@ class Deployment:
         """
         self._name = config.name
         self._path = root_path / config.name
-        self._simple_message_queue_server: SimpleMessageQueueServer | None = None
         self._queue_client = self._load_message_queue_client(config.message_queue)
         self._control_plane_config = config.control_plane
         self._control_plane = ControlPlaneServer(
@@ -105,16 +104,6 @@ class Deployment:
         """
         tasks = []
         self._running = True
-
-        # Spawn SimpleMessageQueue if needed
-        if self._simple_message_queue_server:
-            # If SimpleMessageQueue was selected in the config file we take care of running the task
-            tasks.append(
-                asyncio.create_task(self._simple_message_queue_server.launch_server())
-            )
-            # the other components need the queue to run in order to start, give the queue some time to start
-            # FIXME: having to await a magic number of seconds is very brittle, we should rethink the bootstrap process
-            await asyncio.sleep(1)
 
         # Control Plane
         cp_consumer_fn = await self._control_plane.register_to_message_queue()
@@ -296,7 +285,6 @@ class Deployment:
         elif cfg.type == "redis":
             return RedisMessageQueue(cfg)
         elif cfg.type == "simple":
-            self._simple_message_queue_server = SimpleMessageQueueServer(cfg)
             return SimpleMessageQueue(cfg)
         elif cfg.type == "solace":
             return SolaceMessageQueue(cfg)
@@ -333,6 +321,7 @@ class Manager:
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
         self._last_control_plane_port = 8002
+        self._simple_message_queue_server: asyncio.Task | None = None
 
     @property
     def deployment_names(self) -> list[str]:
@@ -349,7 +338,9 @@ class Manager:
             # Waits indefinitely since `event` will never be set
             await event.wait()
         except asyncio.CancelledError:
-            pass
+            if self._simple_message_queue_server is not None:
+                self._simple_message_queue_server.cancel()
+                await self._simple_message_queue_server
 
     async def deploy(self, config: DeploymentConfig, reload: bool = False) -> None:
         """Creates a Deployment instance and starts the relative runtime.
@@ -375,6 +366,21 @@ class Manager:
 
             # Set the control plane TCP port in the config where not specified
             self._assign_control_plane_address(config)
+
+            # Get the message queue configuration
+            msg_queue = config.message_queue or SimpleMessageQueueConfig()
+
+            # Spawn SimpleMessageQueue server if needed
+            if (
+                isinstance(msg_queue, SimpleMessageQueueConfig)
+                and self._simple_message_queue_server is None
+            ):
+                self._simple_message_queue_server = asyncio.create_task(
+                    SimpleMessageQueueServer(msg_queue).launch_server()
+                )
+                # the other components need the queue to run in order to start, give the queue some time to start
+                # FIXME: having to await a magic number of seconds is very brittle, we should rethink the bootstrap process
+                await asyncio.sleep(3)
 
             deployment = Deployment(config=config, root_path=self._deployments_path)
             self._deployments[config.name] = deployment
