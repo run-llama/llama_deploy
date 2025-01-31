@@ -16,7 +16,7 @@ class ApiserverSettings(BaseSettings):
         description="The TCP port where to bind the API Server",
     )
     rc_path: Path = Field(
-        default=Path("./rc"),
+        default=Path("./.llama_deploy_rc"),
         description="Path to the folder containing the deployment configs that will be loaded at startup",
     )
     deployments_path: Path = Field(

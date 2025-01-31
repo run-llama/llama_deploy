@@ -8,7 +8,9 @@ from pathlib import Path
 from shutil import rmtree
 from typing import Any
 
+import httpx
 from dotenv import dotenv_values
+from tenacity import AsyncRetrying, RetryError, wait_exponential
 
 from llama_deploy import (
     Client,
@@ -109,6 +111,18 @@ class Deployment:
         cp_consumer_fn = await self._control_plane.register_to_message_queue()
         tasks.append(asyncio.create_task(self._control_plane.launch_server()))
         tasks.append(asyncio.create_task(cp_consumer_fn()))
+        # Wait for the Control Plane to boot
+        try:
+            async for attempt in AsyncRetrying(
+                wait=wait_exponential(min=1, max=10),
+            ):
+                with attempt:
+                    async with httpx.AsyncClient() as client:
+                        response = await client.get(self._control_plane_config.url)
+                        response.raise_for_status()
+        except RetryError:
+            msg = f"Unable to reach Control Plane at {self._control_plane_config.url}"
+            raise DeploymentError(msg)
 
         # Services
         tasks.append(asyncio.create_task(self._run_services()))
@@ -149,10 +163,26 @@ class Deployment:
                 service_task = asyncio.create_task(wfs.launch_server())
                 self._service_tasks.append(service_task)
                 consumer_fn = await wfs.register_to_message_queue()
-                control_plane_url = f"http://{self._control_plane_config.host}:{self._control_plane_config.port}"
-                await wfs.register_to_control_plane(control_plane_url)
+                await wfs.register_to_control_plane(self._control_plane_config.url)
                 consumer_task = asyncio.create_task(consumer_fn())
+                # Make sure the service is up and running before proceeding
+                # TODO: add an `url` property to WorkflowService to compute the
+                # url and properly account for TLS usage
+                url = f"http://{wfs.host}:{wfs.port}/"
+                try:
+                    async for attempt in AsyncRetrying(
+                        wait=wait_exponential(min=1, max=10),
+                    ):
+                        with attempt:
+                            async with httpx.AsyncClient() as client:
+                                response = await client.get(url)
+                                response.raise_for_status()
+                except RetryError:
+                    msg = f"Unable to reach WorkflowService at {url}"
+                    raise DeploymentError(msg)
+
                 self._service_tasks.append(consumer_task)
+
             # If this is a reload, unblock the reload() function signalling that tasks are up and running
             self._service_startup_complete.set()
             await asyncio.gather(*self._service_tasks)
@@ -378,9 +408,19 @@ class Manager:
                 self._simple_message_queue_server = asyncio.create_task(
                     SimpleMessageQueueServer(msg_queue).launch_server()
                 )
+
                 # the other components need the queue to run in order to start, give the queue some time to start
-                # FIXME: having to await a magic number of seconds is very brittle, we should rethink the bootstrap process
-                await asyncio.sleep(3)
+                try:
+                    async for attempt in AsyncRetrying(
+                        wait=wait_exponential(min=1, max=10),
+                    ):
+                        with attempt:
+                            async with httpx.AsyncClient() as client:
+                                response = await client.get(msg_queue.base_url)
+                                response.raise_for_status()
+                except RetryError:
+                    msg = f"Unable to reach SimpleMessageQueueServer at {msg_queue.base_url}"
+                    raise DeploymentError(msg)
 
             deployment = Deployment(config=config, root_path=self._deployments_path)
             self._deployments[config.name] = deployment
