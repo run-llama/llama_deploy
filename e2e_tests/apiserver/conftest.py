@@ -16,7 +16,7 @@ def run_apiserver():
 def apiserver():
     p = multiprocessing.Process(target=run_apiserver)
     p.start()
-    time.sleep(3)
+    time.sleep(5)
 
     yield
 
