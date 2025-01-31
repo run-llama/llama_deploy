@@ -26,7 +26,7 @@ def apiserver():
 
     yield
 
-    p.kill()
+    p.terminate()
     p.join()
     p.close()
 
@@ -43,7 +43,7 @@ def apiserver_with_rc(monkeypatch):
 
     yield
 
-    p.kill()
+    p.terminate()
     p.join()
     p.close()
 
