@@ -151,10 +151,26 @@ class Deployment:
                 service_task = asyncio.create_task(wfs.launch_server())
                 self._service_tasks.append(service_task)
                 consumer_fn = await wfs.register_to_message_queue()
-                control_plane_url = f"http://{self._control_plane_config.host}:{self._control_plane_config.port}"
-                await wfs.register_to_control_plane(control_plane_url)
+                await wfs.register_to_control_plane(self._control_plane_config.url)
                 consumer_task = asyncio.create_task(consumer_fn())
+                # Make sure the service is up and running before proceeding
+                try:
+                    # TODO: add an `url` property to WorkflowService to compute the
+                    # url and properly account for TLS usage
+                    url = f"http://{wfs.host}:{wfs.port}/"
+                    async for attempt in AsyncRetrying(
+                        wait=wait_exponential(min=1, max=10),
+                    ):
+                        with attempt:
+                            async with httpx.AsyncClient() as client:
+                                response = await client.get(url)
+                                response.raise_for_status()
+                except RetryError:
+                    msg = f"Unable to reach WorkflowService at {url}"
+                    raise DeploymentError(msg)
+
                 self._service_tasks.append(consumer_task)
+
             # If this is a reload, unblock the reload() function signalling that tasks are up and running
             self._service_startup_complete.set()
             await asyncio.gather(*self._service_tasks)
@@ -390,7 +406,6 @@ class Manager:
                             async with httpx.AsyncClient() as client:
                                 response = await client.get(msg_queue.base_url)
                                 response.raise_for_status()
-
                 except RetryError:
                     msg = f"Unable to reach SimpleMessageQueueServer at {msg_queue.base_url}"
                     raise DeploymentError(msg)
