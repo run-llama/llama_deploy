@@ -1,12 +1,29 @@
-# import pytest
+import multiprocessing
+from pathlib import Path
 
-# from llama_deploy.apiserver.settings import ApiserverSettings
+import pytest
+
+from llama_deploy.apiserver.settings import ApiserverSettings
+
+from .conftest import run_apiserver, wait_for_healthcheck
 
 
-# @pytest.mark.asyncio
-# async def test_autodeploy(client, apiserver_with_rc):
-#     settings = ApiserverSettings()
-#     assert str(settings.rc_path).endswith("llama_deploy/e2e_tests/apiserver/rc")
+@pytest.mark.asyncio
+async def test_autodeploy(client, monkeypatch):
+    here = Path(__file__).parent
+    rc_path = here / "rc"
+    monkeypatch.setenv("LLAMA_DEPLOY_APISERVER_RC_PATH", str(rc_path))
 
-#     status = await client.apiserver.status()
-#     assert "AutoDeployed" in status.deployments
+    p = multiprocessing.Process(target=run_apiserver)
+    p.start()
+    wait_for_healthcheck()
+
+    settings = ApiserverSettings()
+    assert str(settings.rc_path).endswith("llama_deploy/e2e_tests/apiserver/rc")
+
+    status = await client.apiserver.status()
+    assert "AutoDeployed" in status.deployments
+
+    p.terminate()
+    p.join()
+    p.close()
