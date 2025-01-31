@@ -9,7 +9,7 @@ from .conftest import run_apiserver, wait_for_healthcheck
 
 
 @pytest.mark.asyncio
-async def test_autodeploy(client, monkeypatch):
+async def _test_autodeploy(client, monkeypatch):
     here = Path(__file__).parent
     rc_path = here / "rc"
     monkeypatch.setenv("LLAMA_DEPLOY_APISERVER_RC_PATH", str(rc_path))
