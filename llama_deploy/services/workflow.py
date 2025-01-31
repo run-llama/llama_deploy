@@ -286,6 +286,7 @@ class WorkflowService(BaseService):
         """
         # create send_event background task
         close_send_events = asyncio.Event()
+        handler = None
 
         try:
             # load the state
@@ -354,9 +355,13 @@ class WorkflowService(BaseService):
             if self.raise_exceptions:
                 raise e
 
-            logger.error(f"Encountered error in task {current_call.task_id}! {str(e)}")
+            logger.error(
+                f"Encountered error in task {current_call.task_id}! {str(e)}",
+                exc_info=True,
+            )
             # dump the state
-            await self.set_workflow_state(handler.ctx, current_call)
+            if handler is not None:
+                await self.set_workflow_state(handler.ctx, current_call)
 
             # return failure
             await self.message_queue.publish(
