@@ -2,9 +2,9 @@
 
 ::: llama_deploy.apiserver.deployment
 
-::: llama_deploy.apiserver.config_parser
+::: llama_deploy.apiserver.deployment_config_parser
     options:
         members:
-        - Config
+        - DeploymentConfig
 
 ::: llama_deploy.apiserver.source_managers

@@ -33,7 +33,7 @@ services:
     path: workflow:echo_workflow
 ```
 
-For more details, see the API reference for the deployment [`Config`](../../api_reference/llama_deploy/apiserver.md#llama_deploy.apiserver.config_parser.Config) object.
+For more details, see the API reference for the deployment [`Config`](../../api_reference/llama_deploy/apiserver.md#llama_deploy.apiserver.deployment_config_parser.DeploymentConfig) object.
 
 ## API Server
 

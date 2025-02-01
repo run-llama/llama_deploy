@@ -4,7 +4,7 @@ from typing import AsyncGenerator
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from llama_deploy.apiserver.config_parser import Config
+from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 from llama_deploy.apiserver.server import manager
 from llama_deploy.types import (
     DeploymentDefinition,
@@ -39,7 +39,7 @@ async def create_deployment(
     config_file: UploadFile = File(...), reload: bool = False
 ) -> DeploymentDefinition:
     """Creates a new deployment by uploading a configuration file."""
-    config = Config.from_yaml_bytes(await config_file.read())
+    config = DeploymentConfig.from_yaml_bytes(await config_file.read())
     await manager.deploy(config, reload)
 
     return DeploymentDefinition(name=config.name)
