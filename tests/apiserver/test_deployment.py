@@ -3,6 +3,7 @@ import subprocess
 import sys
 from copy import deepcopy
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -15,7 +16,7 @@ from llama_deploy.control_plane import ControlPlaneServer
 from llama_deploy.message_queues import AWSMessageQueueConfig, SimpleMessageQueue
 
 
-def test_deployment_ctor(data_path: Path) -> None:
+def test_deployment_ctor(data_path: Path, mock_importlib: Any) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         sm_dict["git"] = mock.MagicMock()
@@ -57,7 +58,9 @@ def test_deployment_ctor_missing_service_host(data_path: Path) -> None:
         Deployment(config=config, root_path=Path("."))
 
 
-def test_deployment_ctor_skip_default_service(data_path: Path) -> None:
+def test_deployment_ctor_skip_default_service(
+    data_path: Path, mock_importlib: Any
+) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     config.services["test-workflow2"] = deepcopy(config.services["test-workflow"])
     config.services["test-workflow2"].source = None
