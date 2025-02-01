@@ -104,25 +104,10 @@ class Deployment:
         This task is responsible for launching asyncio tasks for the core components and the services.
         All the tasks are gathered before returning.
         """
-        tasks = []
         self._running = True
 
         # Control Plane
-        cp_consumer_fn = await self._control_plane.register_to_message_queue()
-        tasks.append(asyncio.create_task(self._control_plane.launch_server()))
-        tasks.append(asyncio.create_task(cp_consumer_fn()))
-        # Wait for the Control Plane to boot
-        try:
-            async for attempt in AsyncRetrying(
-                wait=wait_exponential(min=1, max=10),
-            ):
-                with attempt:
-                    async with httpx.AsyncClient() as client:
-                        response = await client.get(self._control_plane_config.url)
-                        response.raise_for_status()
-        except RetryError:
-            msg = f"Unable to reach Control Plane at {self._control_plane_config.url}"
-            raise DeploymentError(msg)
+        tasks = await self._start_control_plane()
 
         # Services
         tasks.append(asyncio.create_task(self._run_services()))
@@ -148,6 +133,26 @@ class Deployment:
 
         # Hold until _run_services() has restarted all the tasks
         await self._service_startup_complete.wait()
+
+    async def _start_control_plane(self) -> list[asyncio.Task]:
+        tasks = []
+        cp_consumer_fn = await self._control_plane.register_to_message_queue()
+        tasks.append(asyncio.create_task(self._control_plane.launch_server()))
+        tasks.append(asyncio.create_task(cp_consumer_fn()))
+        # Wait for the Control Plane to boot
+        try:
+            async for attempt in AsyncRetrying(
+                wait=wait_exponential(min=1, max=10),
+            ):
+                with attempt:
+                    async with httpx.AsyncClient() as client:
+                        response = await client.get(self._control_plane_config.url)
+                        response.raise_for_status()
+        except RetryError:
+            msg = f"Unable to reach Control Plane at {self._control_plane_config.url}"
+            raise DeploymentError(msg)
+
+        return tasks
 
     async def _run_services(self) -> None:
         """Start an asyncio task for each service and gather them.
@@ -317,7 +322,7 @@ class Deployment:
         elif cfg.type == "simple":
             return SimpleMessageQueue(cfg)
         elif cfg.type == "solace":
-            return SolaceMessageQueue(cfg)
+            return SolaceMessageQueue(cfg)  # pragma: no cover
         else:
             msg = f"Unsupported message queue: {cfg.type}"
             raise ValueError(msg)

@@ -7,13 +7,25 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from tenacity import RetryError
 
 from llama_deploy.apiserver.deployment import Deployment, DeploymentError, Manager
 from llama_deploy.apiserver.deployment_config_parser import (
     DeploymentConfig,
 )
-from llama_deploy.control_plane import ControlPlaneServer
+from llama_deploy.control_plane import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.message_queues import AWSMessageQueueConfig, SimpleMessageQueue
+
+
+@pytest.fixture
+def deployment_config() -> DeploymentConfig:
+    return DeploymentConfig(  # type: ignore
+        **{  # type: ignore
+            "name": "test-deployment",
+            "control-plane": ControlPlaneConfig(),
+            "services": {},
+        }
+    )
 
 
 def test_deployment_ctor(data_path: Path, mock_importlib: Any) -> None:
@@ -244,3 +256,81 @@ def test_manager_assign_control_plane_port(data_path: Path) -> None:
     assert config.services["no-port"].port == 8002
     assert config.services["has-port"].port == 9999
     assert config.services["no-port-again"].port == 8003
+
+
+@pytest.mark.asyncio
+async def test_start_control_plane_success(deployment_config: DeploymentConfig) -> None:
+    # Create deployment instance
+    deployment = Deployment(config=deployment_config, root_path=Path("/tmp"))
+
+    # Mock control plane methods
+    deployment._control_plane.register_to_message_queue = mock.AsyncMock(  # type: ignore
+        return_value=mock.AsyncMock()
+    )
+    deployment._control_plane.launch_server = mock.AsyncMock()  # type: ignore
+
+    # Mock httpx client
+    mock_response = mock.MagicMock()
+    mock_response.raise_for_status = mock.MagicMock()
+
+    mock_client = mock.AsyncMock()
+    mock_client.__aenter__.return_value.get.return_value = mock_response
+
+    with mock.patch("httpx.AsyncClient", return_value=mock_client):
+        # Run the method
+        tasks = await deployment._start_control_plane()
+
+        # Verify tasks were created
+        assert len(tasks) == 2
+        assert all(isinstance(task, asyncio.Task) for task in tasks)
+
+        # Verify control plane methods were called
+        deployment._control_plane.register_to_message_queue.assert_called_once()
+        deployment._control_plane.launch_server.assert_called_once()
+
+        # Verify health check was performed
+        mock_client.__aenter__.return_value.get.assert_called_with(
+            deployment_config.control_plane.url
+        )
+
+
+@pytest.mark.asyncio
+async def test_start_control_plane_failure(deployment_config: DeploymentConfig) -> None:
+    # Create deployment instance
+    deployment = Deployment(config=deployment_config, root_path=Path("/tmp"))
+
+    # Mock control plane methods
+    deployment._control_plane.register_to_message_queue = mock.AsyncMock(  # type: ignore
+        return_value=mock.AsyncMock()
+    )
+    deployment._control_plane.launch_server = mock.AsyncMock()  # type: ignore
+
+    # Create a mock attempt
+    mock_attempt: asyncio.Future = asyncio.Future()
+    mock_attempt.set_exception(Exception("Connection failed"))
+
+    # Mock AsyncRetrying to raise an exception
+    with mock.patch(
+        "llama_deploy.apiserver.deployment.AsyncRetrying",
+        side_effect=RetryError(last_attempt=mock_attempt),  # type: ignore
+    ):
+        # Verify DeploymentError is raised
+        with pytest.raises(DeploymentError) as exc_info:
+            await deployment._start_control_plane()
+
+        assert "Unable to reach Control Plane" in str(exc_info.value)
+
+        # Verify control plane methods were still called
+        deployment._control_plane.register_to_message_queue.assert_called_once()
+        deployment._control_plane.launch_server.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_start_sequence(deployment_config: DeploymentConfig) -> None:
+    deployment = Deployment(config=deployment_config, root_path=Path("/tmp"))
+    deployment._start_control_plane = mock.AsyncMock()  # type: ignore
+    deployment._run_services = mock.AsyncMock()  # type: ignore
+    await deployment.start()
+    deployment._start_control_plane.assert_awaited_once()
+    # no services should start
+    deployment._run_services.assert_not_awaited()
