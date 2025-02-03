@@ -29,7 +29,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
             f"Browsing the rc folder {settings.rc_path} for deployments to start"
         )
         # match both .yml and .yaml files with the glob
-        for yaml_file in Path(settings.rc_path).glob("*.y*ml"):
+        for yaml_file in settings.rc_path.glob("*.y*ml"):
             try:
                 logger.info(f"Deploying startup configuration from {yaml_file}")
                 config = DeploymentConfig.from_yaml(yaml_file)
