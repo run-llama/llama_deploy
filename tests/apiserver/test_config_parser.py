@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from llama_deploy.apiserver.config_parser import Config
+from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 
 
-def do_assert(config: Config) -> None:
+def do_assert(config: DeploymentConfig) -> None:
     assert config.name == "MyDeployment"
 
     assert config.control_plane.port == 8000
@@ -47,11 +47,11 @@ def do_assert(config: Config) -> None:
 
 
 def test_load_config_file(data_path: Path) -> None:
-    config = Config.from_yaml(data_path / "example.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "example.yaml")
     do_assert(config)
 
 
 def test_from_yaml_bytes(data_path: Path) -> None:
     with open(data_path / "example.yaml", "rb") as config_f:
-        config = Config.from_yaml_bytes(config_f.read())
+        config = DeploymentConfig.from_yaml_bytes(config_f.read())
         do_assert(config)

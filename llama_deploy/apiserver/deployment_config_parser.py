@@ -1,11 +1,11 @@
+import sys
 from enum import Enum
 from pathlib import Path
 from typing import Annotated, Union
-import sys
 
 if sys.version_info >= (3, 11):
     from typing import Self
-else:
+else:  # pragma: no cover
     from typing_extensions import Self
 
 import yaml
@@ -15,12 +15,11 @@ from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.message_queues import (
     AWSMessageQueueConfig,
     KafkaMessageQueueConfig,
+    RabbitMQMessageQueueConfig,
     RedisMessageQueueConfig,
     SimpleMessageQueueConfig,
-    RabbitMQMessageQueueConfig,
     SolaceMessageQueueConfig,
 )
-
 
 MessageQueueConfig = Annotated[
     Union[
@@ -64,7 +63,7 @@ class Service(BaseModel):
     ts_dependencies: dict[str, str] | None = Field(None, alias="ts-dependencies")
 
 
-class Config(BaseModel):
+class DeploymentConfig(BaseModel):
     """Model definition mapping a deployment config file."""
 
     name: str

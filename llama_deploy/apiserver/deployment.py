@@ -8,7 +8,9 @@ from pathlib import Path
 from shutil import rmtree
 from typing import Any
 
+import httpx
 from dotenv import dotenv_values
+from tenacity import AsyncRetrying, RetryError, wait_exponential
 
 from llama_deploy import (
     Client,
@@ -30,7 +32,12 @@ from llama_deploy.message_queues import (
     SolaceMessageQueue,
 )
 
-from .config_parser import Config, MessageQueueConfig, Service, SourceType
+from .deployment_config_parser import (
+    DeploymentConfig,
+    MessageQueueConfig,
+    Service,
+    SourceType,
+)
 from .source_managers import GitSourceManager, LocalSourceManager, SourceManager
 
 SOURCE_MANAGERS: dict[SourceType, SourceManager] = {
@@ -49,7 +56,7 @@ class Deployment:
     and the message queue along with any service defined in the configuration object.
     """
 
-    def __init__(self, *, config: Config, root_path: Path) -> None:
+    def __init__(self, *, config: DeploymentConfig, root_path: Path) -> None:
         """Creates a Deployment instance.
 
         Args:
@@ -97,13 +104,10 @@ class Deployment:
         This task is responsible for launching asyncio tasks for the core components and the services.
         All the tasks are gathered before returning.
         """
-        tasks = []
         self._running = True
 
         # Control Plane
-        cp_consumer_fn = await self._control_plane.register_to_message_queue()
-        tasks.append(asyncio.create_task(self._control_plane.launch_server()))
-        tasks.append(asyncio.create_task(cp_consumer_fn()))
+        tasks = await self._start_control_plane()
 
         # Services
         tasks.append(asyncio.create_task(self._run_services()))
@@ -112,7 +116,7 @@ class Deployment:
         await asyncio.gather(*tasks)
         self._running = False
 
-    async def reload(self, config: Config) -> None:
+    async def reload(self, config: DeploymentConfig) -> None:
         """Reload this deployment by restarting its services.
 
         The reload process consists in cancelling the services tasks
@@ -130,6 +134,26 @@ class Deployment:
         # Hold until _run_services() has restarted all the tasks
         await self._service_startup_complete.wait()
 
+    async def _start_control_plane(self) -> list[asyncio.Task]:
+        tasks = []
+        cp_consumer_fn = await self._control_plane.register_to_message_queue()
+        tasks.append(asyncio.create_task(self._control_plane.launch_server()))
+        tasks.append(asyncio.create_task(cp_consumer_fn()))
+        # Wait for the Control Plane to boot
+        try:
+            async for attempt in AsyncRetrying(
+                wait=wait_exponential(min=1, max=10),
+            ):
+                with attempt:
+                    async with httpx.AsyncClient() as client:
+                        response = await client.get(self._control_plane_config.url)
+                        response.raise_for_status()
+        except RetryError:
+            msg = f"Unable to reach Control Plane at {self._control_plane_config.url}"
+            raise DeploymentError(msg)
+
+        return tasks
+
     async def _run_services(self) -> None:
         """Start an asyncio task for each service and gather them.
 
@@ -144,15 +168,31 @@ class Deployment:
                 service_task = asyncio.create_task(wfs.launch_server())
                 self._service_tasks.append(service_task)
                 consumer_fn = await wfs.register_to_message_queue()
-                control_plane_url = f"http://{self._control_plane_config.host}:{self._control_plane_config.port}"
-                await wfs.register_to_control_plane(control_plane_url)
+                await wfs.register_to_control_plane(self._control_plane_config.url)
                 consumer_task = asyncio.create_task(consumer_fn())
+                # Make sure the service is up and running before proceeding
+                # TODO: add an `url` property to WorkflowService to compute the
+                # url and properly account for TLS usage
+                url = f"http://{wfs.host}:{wfs.port}/"
+                try:
+                    async for attempt in AsyncRetrying(
+                        wait=wait_exponential(min=1, max=10),
+                    ):
+                        with attempt:
+                            async with httpx.AsyncClient() as client:
+                                response = await client.get(url)
+                                response.raise_for_status()
+                except RetryError:
+                    msg = f"Unable to reach WorkflowService at {url}"
+                    raise DeploymentError(msg)
+
                 self._service_tasks.append(consumer_task)
+
             # If this is a reload, unblock the reload() function signalling that tasks are up and running
             self._service_startup_complete.set()
             await asyncio.gather(*self._service_tasks)
 
-    def _load_services(self, config: Config) -> list[WorkflowService]:
+    def _load_services(self, config: DeploymentConfig) -> list[WorkflowService]:
         """Creates WorkflowService instances according to the configuration object."""
         workflow_services = []
         for service_id, service_config in config.services.items():
@@ -282,7 +322,7 @@ class Deployment:
         elif cfg.type == "simple":
             return SimpleMessageQueue(cfg)
         elif cfg.type == "solace":
-            return SolaceMessageQueue(cfg)
+            return SolaceMessageQueue(cfg)  # pragma: no cover
         else:
             msg = f"Unsupported message queue: {cfg.type}"
             raise ValueError(msg)
@@ -337,7 +377,7 @@ class Manager:
                 self._simple_message_queue_server.cancel()
                 await self._simple_message_queue_server
 
-    async def deploy(self, config: Config, reload: bool = False) -> None:
+    async def deploy(self, config: DeploymentConfig, reload: bool = False) -> None:
         """Creates a Deployment instance and starts the relative runtime.
 
         Args:
@@ -373,9 +413,19 @@ class Manager:
                 self._simple_message_queue_server = asyncio.create_task(
                     SimpleMessageQueueServer(msg_queue).launch_server()
                 )
+
                 # the other components need the queue to run in order to start, give the queue some time to start
-                # FIXME: having to await a magic number of seconds is very brittle, we should rethink the bootstrap process
-                await asyncio.sleep(3)
+                try:
+                    async for attempt in AsyncRetrying(
+                        wait=wait_exponential(min=1, max=10),
+                    ):
+                        with attempt:
+                            async with httpx.AsyncClient() as client:
+                                response = await client.get(msg_queue.base_url)
+                                response.raise_for_status()
+                except RetryError:
+                    msg = f"Unable to reach SimpleMessageQueueServer at {msg_queue.base_url}"
+                    raise DeploymentError(msg)
 
             deployment = Deployment(config=config, root_path=self._deployments_path)
             self._deployments[config.name] = deployment
@@ -388,7 +438,7 @@ class Manager:
             deployment = self._deployments[config.name]
             await deployment.reload(config)
 
-    def _assign_control_plane_address(self, config: Config) -> None:
+    def _assign_control_plane_address(self, config: DeploymentConfig) -> None:
         for service in config.services.values():
             if not service.port:
                 service.port = self._last_control_plane_port
