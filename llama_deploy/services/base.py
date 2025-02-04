@@ -34,11 +34,11 @@ class BaseService(MessageQueuePublisherMixin, ABC):
         self,
         name: str,
         control_plane_url: str | None = None,  # deprecated
-        control_plane_config: ControlPlaneConfig = ControlPlaneConfig(),
+        control_plane_config: ControlPlaneConfig | None = None,
     ) -> None:
         self._service_name = name
-        self._control_plane_config = control_plane_config
-        self._control_plane_url = control_plane_config.url
+        self._control_plane_config = control_plane_config or ControlPlaneConfig()
+        self._control_plane_url = self._control_plane_config.url
 
     @property
     def service_name(self) -> str:
