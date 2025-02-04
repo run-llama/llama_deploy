@@ -172,7 +172,7 @@ async def deploy_workflow(
     service = WorkflowService(
         workflow=workflow,
         message_queue=message_queue_client,
-        **workflow_config.model_dump(),
+        config=workflow_config,
     )
 
     service_task = asyncio.create_task(service.launch_server())
