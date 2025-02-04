@@ -105,30 +105,26 @@ Once the Cloud Run service is up and running, `gcloud` will print on the termina
 Service URL: https://cloud-run-example-123456.europe-west1.run.app
 ```
 
-## Deploy your workflow
+## Interact with your workflow
 
-LlamaDeploy is now running on Cloud Run, ready to deploy some LlamaIndex workflow. To make sure everything is good,
-run:
+LlamaDeploy is now running on Cloud Run, and since we added our `deployment.yml` file to the
+docker image itself and set the `LLAMA_DEPLOY_APISERVER_RC_PATH` environment variable, the
+container automatically loaded the deployment at start up.
+
+To confirm the container booted up correctly, run:
 ```sh
 llamactl -s https://cloud-run-example-123456.europe-west1.run.app status
 ```
+
 You should see something like this on your terminal:
 ```
 LlamaDeploy is up and running.
 
-Currently there are no active deployments
+Active deployments:
+- CloudRunExample
 ```
 
-To deploy our example workflow, run:
-```sh
-llamactl -s https://cloud-run-example-123456.europe-west1.run.app deploy deployment.yml
-```
-you should see the following output:
-```
-Deployment successful: CloudRunExample
-```
-
-Finally, to run a task:
+Since everything looks good, we can run a task:
 ```sh
 llamactl -s https://cloud-run-example-123456.europe-west1.run.app run --deployment CloudRunExample --arg message 'Hello from my laptop!'
 ```
