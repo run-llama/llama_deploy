@@ -11,7 +11,7 @@ from pydantic import PrivateAttr
 from llama_deploy.message_consumers import BaseMessageQueueConsumer
 from llama_deploy.message_queues import SimpleMessageQueue
 from llama_deploy.messages import QueueMessage
-from llama_deploy.services.workflow import WorkflowService
+from llama_deploy.services.workflow import WorkflowService, WorkflowServiceConfig
 from llama_deploy.types import CONTROL_PLANE_NAME, ActionTypes, TaskDefinition
 
 
@@ -73,10 +73,12 @@ async def test_workflow_service(
     workflow_service = WorkflowService(
         test_workflow,
         message_queue,  # type: ignore
-        service_name="test_workflow",
-        description="Test Workflow Service",
-        host="localhost",
-        port=8001,
+        config=WorkflowServiceConfig(
+            service_name="test_workflow",
+            description="Test Workflow Service",
+            host="localhost",
+            port=8001,
+        ),
     )
     service_task = asyncio.create_task(workflow_service.processing_loop())
 
@@ -122,10 +124,12 @@ async def test_hitl_workflow_service(
     workflow_service = WorkflowService(
         test_hitl_workflow,
         message_queue,  # type: ignore
-        service_name="test_workflow",
-        description="Test Workflow Service",
-        host="localhost",
-        port=8001,
+        config=WorkflowServiceConfig(
+            service_name="test_workflow",
+            description="Test Workflow Service",
+            host="localhost",
+            port=8001,
+        ),
     )
 
     # launch it
@@ -180,10 +184,12 @@ def test_defaults(
     workflow_service = WorkflowService(
         test_workflow,
         None,  # type: ignore
-        service_name="test_workflow",
-        description="Test Workflow Service",
-        host="localhost",
-        port=8001,
+        config=WorkflowServiceConfig(
+            service_name="test_workflow",
+            description="Test Workflow Service",
+            host="localhost",
+            port=8001,
+        ),
     )
     assert workflow_service.publisher_id.startswith("WorkflowService-")
     assert workflow_service.publish_callback is None
