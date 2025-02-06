@@ -6,7 +6,7 @@ import sys
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from shutil import rmtree
-from typing import Any
+from typing import Any, Type
 
 import httpx
 from dotenv import dotenv_values
@@ -40,9 +40,9 @@ from .deployment_config_parser import (
 )
 from .source_managers import GitSourceManager, LocalSourceManager, SourceManager
 
-SOURCE_MANAGERS: dict[SourceType, SourceManager] = {
-    SourceType.git: GitSourceManager(),
-    SourceType.local: LocalSourceManager(),
+SOURCE_MANAGERS: dict[SourceType, Type[SourceManager]] = {
+    SourceType.git: GitSourceManager,
+    SourceType.local: LocalSourceManager,
 }
 
 
@@ -228,7 +228,7 @@ class Deployment:
                 # for any source manager currently supported.
                 rmtree(str(destination))
 
-            source_manager = SOURCE_MANAGERS[source.type]
+            source_manager = SOURCE_MANAGERS[source.type](config)
             source_manager.sync(source.name, str(destination))
 
             # Install dependencies

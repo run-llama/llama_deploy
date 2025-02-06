@@ -2,8 +2,10 @@ from typing import Any
 
 from git import Repo
 
+from .base import SourceManager
 
-class GitSourceManager:
+
+class GitSourceManager(SourceManager):
     """A SourceManager specialized for sources of type `git`."""
 
     def sync(self, source: str, destination: str | None = None) -> None:
