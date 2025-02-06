@@ -38,6 +38,7 @@ EXPOSE ${apiserver_port}
 
 COPY --from=build-image /opt/venv /opt/venv
 COPY ./$entrypoint_script /opt/${entrypoint_script}
+RUN chmod +x /opt/${entrypoint_script}
 
 ENV PATH="/opt/venv/bin:$PATH"
 

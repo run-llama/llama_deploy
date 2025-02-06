@@ -30,6 +30,10 @@ variable "APISERVER_PORT" {
     default = 4501
 }
 
+variable "ENTRYPOINT_SCRIPT" {
+    default = "run_apiserver.sh"
+}
+
 target "default" {
     dockerfile = "Dockerfile.base"
     tags = ["${IMAGE_NAME}:${IMAGE_TAG_SUFFIX}"]
@@ -41,6 +45,7 @@ target "default" {
         llama_deploy_extras = "[awssqs, rabbitmq, kafka, redis]"
         git_clone_options = "${GIT_CLONE_OPTIONS}"
         apiserver_port = "${APISERVER_PORT}"
+        entrypoint_script = "${ENTRYPOINT_SCRIPT}"
     }
     platforms = ["linux/amd64", "linux/arm64"]
 }
