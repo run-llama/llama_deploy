@@ -171,9 +171,7 @@ class Deployment:
                 await wfs.register_to_control_plane(self._control_plane_config.url)
                 consumer_task = asyncio.create_task(consumer_fn())
                 # Make sure the service is up and running before proceeding
-                # TODO: add an `url` property to WorkflowService to compute the
-                # url and properly account for TLS usage
-                url = f"http://{wfs.host}:{wfs.port}/"
+                url = wfs.config.url
                 try:
                     async for attempt in AsyncRetrying(
                         wait=wait_exponential(min=1, max=10),
@@ -257,7 +255,7 @@ class Deployment:
                 WorkflowService(
                     workflow=workflow,
                     message_queue=self._queue_client,
-                    **workflow_config.model_dump(),
+                    config=workflow_config,
                 )
             )
 

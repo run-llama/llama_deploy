@@ -16,7 +16,7 @@ from llama_index.core.workflow.context_serializers import (
     JsonSerializer,
 )
 from llama_index.core.workflow.handler import WorkflowHandler
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llama_deploy.control_plane.server import CONTROL_PLANE_MESSAGE_TYPE
@@ -36,24 +36,30 @@ from llama_deploy.types import (
 )
 
 logger = getLogger(__name__)
-hash_secret = str(os.environ.get("llama_deploy_HASH_SECRET", "default"))
+hash_secret = os.environ.get("LLAMA_DEPLOY_WF_SERVICE_HASH_SECRET", "default")
 
 
 class WorkflowServiceConfig(BaseSettings):
     """Workflow service configuration."""
 
-    model_config = SettingsConfigDict(env_prefix="WORKFLOW_SERVICE_")
+    model_config = SettingsConfigDict(env_prefix="LLAMA_DEPLOY_WF_SERVICE_")
 
     host: str
     port: int
     internal_host: Optional[str] = None
     internal_port: Optional[int] = None
-    service_name: str
+    service_name: str = "default_workflow_service"
     description: str = "A service that wraps a llama-index workflow."
-    running: bool = True
     step_interval: float = 0.1
     max_concurrent_tasks: int = 8
     raise_exceptions: bool = False
+    use_tls: bool = False
+
+    @property
+    def url(self) -> str:
+        if self.use_tls:
+            return f"https://{self.host}:{self.port}"
+        return f"http://{self.host}:{self.port}"
 
 
 class WorkflowState(BaseModel):
@@ -88,82 +94,33 @@ class WorkflowService(BaseService):
     - GET `/`: Home endpoint.
     - POST `/process_message`: Process a message.
 
-    Attributes:
-        workflow (Workflow): The workflow itself.
-        description (str): The description of the service.
-        running (bool): Whether the service is running.
-        step_interval (float): The interval in seconds to poll for tool call results. Defaults to 0.1s.
-        max_concurrent_tasks (int): The number of tasks that the service can process at a given time.
-        host (Optional[str]): The host of the service.
-        port (Optional[int]): The port of the service.
-        raise_exceptions (bool): Whether to raise exceptions.
-
     Examples:
         ```python
-        from llama_deploy import WorkflowService
+        from llama_deploy import WorkflowService, WorkflowServiceConfig
         from llama_index.core.workflow import Workflow
 
         workflow_service = WorkflowService(
             workflow,
             message_queue=message_queue,
-            description="workflow_service",
-            service_name="my_workflow_service",
+            config=WorkflowServiceConfig(description="workflow_service")
         )
         ```
     """
-
-    service_name: str
-    workflow: Workflow
-
-    description: str = "Workflow service."
-    running: bool = True
-    step_interval: float = 0.1
-    max_concurrent_tasks: int = 8
-    host: str
-    port: int
-    internal_host: Optional[str] = None
-    internal_port: Optional[int] = None
-    raise_exceptions: bool = False
-
-    _message_queue: AbstractMessageQueue = PrivateAttr()
-    _app: FastAPI = PrivateAttr()
-    _publisher_id: str = PrivateAttr()
-    _publish_callback: Optional[PublishCallback] = PrivateAttr()
-    _lock: asyncio.Lock = PrivateAttr()
-    _outstanding_calls: Dict[str, WorkflowState] = PrivateAttr()
-    _events_buffer: Dict[str, asyncio.Queue] = PrivateAttr()
 
     def __init__(
         self,
         workflow: Workflow,
         message_queue: AbstractMessageQueue,
-        running: bool = True,
-        description: str = "Component Server",
-        service_name: str = "default_workflow_service",
+        config: WorkflowServiceConfig,
         publish_callback: Optional[PublishCallback] = None,
-        step_interval: float = 0.1,
-        max_concurrent_tasks: int = 8,
-        host: Optional[str] = None,
-        port: Optional[int] = None,
-        internal_host: Optional[str] = None,
-        internal_port: Optional[int] = None,
-        raise_exceptions: bool = False,
     ) -> None:
-        super().__init__(
-            workflow=workflow,
-            running=running,
-            description=description,
-            service_name=service_name,
-            step_interval=step_interval,
-            max_concurrent_tasks=max_concurrent_tasks,
-            host=host,
-            port=port,
-            internal_host=internal_host,
-            internal_port=internal_port,
-            raise_exceptions=raise_exceptions,
-        )
+        super().__init__(config.service_name)
+
+        self.workflow = workflow
+        self.config = config
 
         self._lock = asyncio.Lock()
+        self._running = True
         self._message_queue = message_queue
         self._publisher_id = f"{self.__class__.__qualname__}-{uuid.uuid4()}"
         self._publish_callback = publish_callback
@@ -189,10 +146,10 @@ class WorkflowService(BaseService):
     def service_definition(self) -> ServiceDefinition:
         """Service definition."""
         return ServiceDefinition(
-            service_name=self.service_name,
-            description=self.description,
-            host=self.host,
-            port=self.port,
+            service_name=self.config.service_name,
+            description=self.config.description,
+            host=self.config.host,
+            port=self.config.port,
         )
 
     @property
@@ -307,7 +264,7 @@ class WorkflowService(BaseService):
                         handler.ctx.send_event(event)
                     except asyncio.QueueEmpty:
                         pass
-                    await asyncio.sleep(self.step_interval)
+                    await asyncio.sleep(self.config.step_interval)
 
             _ = asyncio.create_task(send_events(handler, close_send_events))
 
@@ -352,7 +309,7 @@ class WorkflowService(BaseService):
                 self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
             )
         except Exception as e:
-            if self.raise_exceptions:
+            if self.config.raise_exceptions:
                 raise e
 
             logger.error(
@@ -393,8 +350,8 @@ class WorkflowService(BaseService):
         they are buffered until there is room to run it.
         """
         while True:
-            if not self.running:
-                await asyncio.sleep(self.step_interval)
+            if not self._running:
+                await asyncio.sleep(self.config.step_interval)
                 continue
 
             # Check for completed tasks
@@ -414,7 +371,7 @@ class WorkflowService(BaseService):
                 ]
 
             for task_id, current_call in new_calls:
-                if len(self._ongoing_tasks) >= self.max_concurrent_tasks:
+                if len(self._ongoing_tasks) >= self.config.max_concurrent_tasks:
                     break
                 task = asyncio.create_task(self.process_call(current_call))
                 self._ongoing_tasks[task_id] = task
@@ -463,14 +420,9 @@ class WorkflowService(BaseService):
                 If True, the consumer will be a RemoteMessageConsumer that uses the `process_message` endpoint.
         """
         if remote:
-            url = (
-                f"http://{self.host}:{self.port}{self._app.url_path_for('process_message')}"
-                if self.port
-                else f"http://{self.host}{self._app.url_path_for('process_message')}"
-            )
             return RemoteMessageConsumer(
                 id_=self.publisher_id,
-                url=url,
+                url=f"{self.config.url}{self._app.url_path_for('process_message')}",
                 message_type=self.service_name,
             )
 
@@ -496,23 +448,23 @@ class WorkflowService(BaseService):
 
         t.cancel()
         await t
-        self.running = False
+        self._running = False
 
     async def home(self) -> Dict[str, str]:
         """Home endpoint. Returns general information about the service."""
         return {
             "service_name": self.service_name,
-            "description": self.description,
-            "running": str(self.running),
-            "step_interval": str(self.step_interval),
+            "description": self.config.description,
+            "running": str(self._running),
+            "step_interval": str(self.config.step_interval),
             "num_outstanding_calls": str(len(self._outstanding_calls)),
             "type": "workflow_service",
         }
 
     async def launch_server(self) -> None:
         """Launch the service as a FastAPI server."""
-        host = self.internal_host or self.host
-        port = self.internal_port or self.port
+        host = self.config.internal_host or self.config.host
+        port = self.config.internal_port or self.config.port
         logger.info(f"Launching {self.service_name} server at {host}:{port}")
 
         class CustomServer(uvicorn.Server):

@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 import httpx
-from pydantic import BaseModel, ConfigDict, PrivateAttr
 
 from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.message_consumers.base import (
@@ -15,7 +14,7 @@ from llama_deploy.messages.base import QueueMessage
 from llama_deploy.types import ServiceDefinition
 
 
-class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
+class BaseService(MessageQueuePublisherMixin, ABC):
     """Base class for a service.
 
     The general structure of a service is as follows:
@@ -31,15 +30,19 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
     - A service can be registered to the message queue.
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        name: str,
+        control_plane_url: str | None = None,  # deprecated
+        control_plane_config: ControlPlaneConfig | None = None,
+    ) -> None:
+        self._service_name = name
+        self._control_plane_config = control_plane_config or ControlPlaneConfig()
+        self._control_plane_url = self._control_plane_config.url
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    service_name: str
-    _control_plane_url: str | None = PrivateAttr(default=None)
-    _control_plane_config: ControlPlaneConfig = PrivateAttr(
-        default=ControlPlaneConfig()
-    )
+    @property
+    def service_name(self) -> str:
+        return self._service_name
 
     @property
     @abstractmethod
@@ -98,19 +101,20 @@ class BaseService(MessageQueuePublisherMixin, ABC, BaseModel):
 
     async def get_session_state(self, session_id: str) -> dict[str, Any] | None:
         """Get the session state from the control plane."""
-        if not self._control_plane_url:
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self._control_plane_url}/sessions/{session_id}/state"
+                )
+                if response.status_code == 404:
+                    return None
+                else:
+                    response.raise_for_status()
+
+                return response.json()
+        except httpx.ConnectError:
+            # Let the service live without a control plane running
             return None
-
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"{self._control_plane_url}/sessions/{session_id}/state"
-            )
-            if response.status_code == 404:
-                return None
-            else:
-                response.raise_for_status()
-
-            return response.json()
 
     async def update_session_state(
         self, session_id: str, state: dict[str, Any]
