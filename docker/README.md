@@ -6,16 +6,10 @@ can be used to simplify deployments by reducing boiler plate code.
 ## Image Development
 
 Images are built with [BuildKit](https://docs.docker.com/build/buildkit/) and we use
-`bake` to orchestrate the process. You can build a specific image by running:
+`bake` to orchestrate the process. To build all the available images run:
 
 ```sh
-docker buildx bake control_plane
-```
-
-By default, all the images are built if no target is passed:
-
-```sh
-docker buildx bake
+docker buildx bake all
 ```
 
 You can override any `variable` defined in the `docker-bake.hcl` file and build custom
@@ -46,17 +40,4 @@ to ARM only by invoking `bake` like this:
 
 ```sh
 docker buildx bake control_plane --set "*.platform=linux/arm64"
-```
-
-## Docker Compose base files
-
-This folders also contains yaml code that can be included in your compose files to
-elimninate boilerplate. For example, you can deploy the core components by just
-adding this to your compose file:
-
-```yaml
-include:
-  - path: path/to/llama_deploy/docker/docker-compose-simple.yml
-
-services: ...
 ```

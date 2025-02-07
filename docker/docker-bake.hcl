@@ -31,12 +31,17 @@ variable "APISERVER_PORT" {
 }
 
 variable "ENTRYPOINT_SCRIPT" {
-    default = "run_apiserver.sh"
+    default = "run_apiserver.py"
+}
+
+variable "RC_PATH" {
+    default = "/data"
 }
 
 target "default" {
     dockerfile = "Dockerfile.base"
     tags = ["${IMAGE_NAME}:${IMAGE_TAG_SUFFIX}"]
+    target = "base"
     args = {
         build_image = "${BUILD_IMAGE}"
         dist_image = "${DIST_IMAGE}"
@@ -46,6 +51,21 @@ target "default" {
         git_clone_options = "${GIT_CLONE_OPTIONS}"
         apiserver_port = "${APISERVER_PORT}"
         entrypoint_script = "${ENTRYPOINT_SCRIPT}"
+        rc_path = "${RC_PATH}"
     }
     platforms = ["linux/amd64", "linux/arm64"]
+}
+
+target "autodeploy" {
+    inherits = ["default"]
+    tags = ["${IMAGE_NAME}:${IMAGE_TAG_SUFFIX}-autodeploy"]
+    target = "autodeploy"
+    args = {
+        entrypoint_script = "run_autodeploy.py",
+        apiserver_port = 8080,
+    }
+}
+
+group "all" {
+  targets = ["default", "autodeploy"]
 }
