@@ -136,7 +136,7 @@ class Session(Model):
         start_time = time.time()
         while True:
             try:
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient(timeout=self.client.timeout) as client:
                     async with client.stream("GET", url) as response:
                         response.raise_for_status()
                         async for line in response.aiter_lines():
