@@ -22,6 +22,7 @@ manager = Manager(
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
     settings = ApiserverSettings()
     t = manager.serve()
+    logger.info(f"deployments folder: {manager._deployments_path}")
     logger.info(f"rc folder: {settings.rc_path}")
 
     if settings.rc_path.exists():
