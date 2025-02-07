@@ -47,5 +47,5 @@ jobs:
           LLAMA_DEPLOY_VERSION: ${{ steps.meta.outputs.version }}
         with:
           workdir: docker
-          targets: default
+          targets: all
           push: true
