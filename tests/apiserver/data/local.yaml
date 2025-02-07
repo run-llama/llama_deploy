@@ -1,8 +1,6 @@
-name: AutoDeployed
+name: LocalDeploymentRelativePath
 
 control-plane: {}
-
-default-service: test-workflow
 
 services:
   test-workflow:
@@ -11,5 +9,5 @@ services:
     host: localhost
     source:
       type: local
-      name: src
-    path: workflow:echo_workflow
+      name: workflow
+    path: workflow:my_workflow

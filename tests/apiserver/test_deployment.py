@@ -34,7 +34,7 @@ def test_deployment_ctor(data_path: Path, mock_importlib: Any) -> None:
         sm_dict["git"] = mock.MagicMock()
         d = Deployment(config=config, root_path=Path("."))
 
-        sm_dict["git"].sync.assert_called_once()
+        sm_dict["git"].return_value.sync.assert_called_once()
         assert d.name == "TestDeployment"
         assert d.path.name == "TestDeployment"
         assert type(d._control_plane) is ControlPlaneServer

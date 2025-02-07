@@ -1,12 +1,19 @@
+from pathlib import Path
 from unittest import mock
 
 import pytest
 
+from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 from llama_deploy.apiserver.source_managers.git import GitSourceManager
 
 
-def test_parse_source() -> None:
-    sm = GitSourceManager()
+@pytest.fixture
+def config(data_path: Path) -> DeploymentConfig:
+    return DeploymentConfig.from_yaml(data_path / "git_service.yaml")
+
+
+def test_parse_source(config: DeploymentConfig) -> None:
+    sm = GitSourceManager(config)
     assert sm._parse_source("https://example.com/llama_deploy.git@branch_name") == (
         "https://example.com/llama_deploy.git",
         "branch_name",
@@ -17,14 +24,14 @@ def test_parse_source() -> None:
     )
 
 
-def test_sync_wrong_params() -> None:
-    sm = GitSourceManager()
+def test_sync_wrong_params(config: DeploymentConfig) -> None:
+    sm = GitSourceManager(config)
     with pytest.raises(ValueError, match="Destination cannot be empty"):
         sm.sync("some_source")
 
 
-def test_sync() -> None:
-    sm = GitSourceManager()
+def test_sync(config: DeploymentConfig) -> None:
+    sm = GitSourceManager(config)
     with mock.patch("llama_deploy.apiserver.source_managers.git.Repo") as repo_mock:
         sm.sync("source", "dest")
         repo_mock.clone_from.assert_called_with(to_path="dest", url="source")

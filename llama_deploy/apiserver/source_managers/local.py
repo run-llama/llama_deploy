@@ -1,7 +1,9 @@
 import shutil
 
+from .base import SourceManager
 
-class LocalSourceManager:
+
+class LocalSourceManager(SourceManager):
     """A SourceManager specialized for sources of type `local`."""
 
     def sync(self, source: str, destination: str | None = None) -> None:
@@ -15,7 +17,8 @@ class LocalSourceManager:
             raise ValueError("Destination cannot be empty")
 
         try:
-            shutil.copytree(source, destination, dirs_exist_ok=True)
-        except shutil.Error as e:
+            final_path = self._config.base_path / source
+            shutil.copytree(final_path, destination, dirs_exist_ok=True)
+        except Exception as e:
             msg = f"Unable to copy {source} into {destination}: {e}"
             raise ValueError(msg) from e
