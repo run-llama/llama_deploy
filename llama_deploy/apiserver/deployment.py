@@ -109,8 +109,8 @@ class Deployment:
         # Control Plane
         tasks = await self._start_control_plane()
 
-        # Services. It makes no sense for a deployment to have no services but
-        # the configuration allows it, so let's be defensive here.'
+        # Start the services. It makes no sense for a deployment to have no services but
+        # the configuration allows it, so let's be defensive here.
         if self._workflow_services:
             tasks.append(asyncio.create_task(self._run_services()))
 
