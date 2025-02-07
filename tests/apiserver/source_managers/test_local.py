@@ -40,6 +40,16 @@ def test_relative_path(tmp_path: Path, data_path: Path) -> None:
     assert "__init__.py" in fnames
 
 
+def test_relative_path_dot(tmp_path: Path, data_path: Path) -> None:
+    config = DeploymentConfig.from_yaml(data_path / "local.yaml")
+    sm = LocalSourceManager(config)
+
+    sm.sync("./workflow", str(tmp_path))
+    fnames = list(f.name for f in tmp_path.iterdir())
+    assert "workflow_test.py" in fnames
+    assert "__init__.py" in fnames
+
+
 def test_absolute_path(tmp_path: Path, data_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "local.yaml")
     wf_dir = data_path / "workflow"
