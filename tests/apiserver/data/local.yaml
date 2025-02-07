@@ -1,0 +1,13 @@
+name: LocalDeploymentRelativePath
+
+control-plane: {}
+
+services:
+  test-workflow:
+    name: Test Workflow
+    port: 8002
+    host: localhost
+    source:
+      type: local
+      name: workflow
+    path: workflow:my_workflow
