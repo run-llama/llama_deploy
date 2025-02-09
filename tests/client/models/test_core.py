@@ -367,13 +367,15 @@ async def test_get_task_result_stream_timeout(client: mock.AsyncMock) -> None:
                 response=Mock404Response(),  # type: ignore
             )
 
-    with mock.patch("httpx.AsyncClient", return_value=HttpxMockClient()):
+    with mock.patch("httpx.AsyncClient", return_value=HttpxMockClient()) as mock_client:
         client.timeout = 1
         session = Session(client=client, id="test_session_id")
 
         with pytest.raises(TimeoutError):
             async for _ in session.get_task_result_stream("test_task_id"):
                 pass
+
+        mock_client.assert_called_with(timeout=1)
 
 
 @pytest.mark.asyncio

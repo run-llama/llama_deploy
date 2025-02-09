@@ -136,7 +136,7 @@ class SessionClient:
             TimeoutError: If the result is not available after max_retries.
         """
         start_time = time.time()
-        with httpx.Client() as client:
+        with httpx.Client(timeout=self.timeout) as client:
             while True:
                 try:
                     response = client.get(

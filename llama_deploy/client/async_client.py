@@ -134,7 +134,7 @@ class AsyncSessionClient:
         start_time = time.time()
         while True:
             try:
-                async with httpx.AsyncClient() as client:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
                     async with client.stream(
                         "GET",
                         f"{self.control_plane_url}/sessions/{self.session_id}/tasks/{task_id}/result_stream",
