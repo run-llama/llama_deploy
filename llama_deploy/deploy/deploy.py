@@ -1,7 +1,4 @@
 import asyncio
-import signal
-import sys
-from typing import Any, Callable, List, Optional
 
 import httpx
 from llama_index.core.workflow import Workflow
@@ -10,21 +7,21 @@ from pydantic_settings import BaseSettings
 from llama_deploy.control_plane.server import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.deploy.network_workflow import NetworkServiceManager
 from llama_deploy.message_queues import (
+    AbstractMessageQueue,
     AWSMessageQueue,
     AWSMessageQueueConfig,
-    BaseMessageQueue,
     KafkaMessageQueue,
     KafkaMessageQueueConfig,
     RabbitMQMessageQueue,
     RabbitMQMessageQueueConfig,
     RedisMessageQueue,
     RedisMessageQueueConfig,
-    SimpleMessageQueue,
     SimpleMessageQueueConfig,
+    SimpleMessageQueueServer,
     SolaceMessageQueue,
     SolaceMessageQueueConfig,
 )
-from llama_deploy.message_queues.simple import SimpleRemoteClientMessageQueue
+from llama_deploy.message_queues.simple import SimpleMessageQueue
 from llama_deploy.orchestrators.simple import (
     SimpleOrchestrator,
     SimpleOrchestratorConfig,
@@ -34,21 +31,9 @@ from llama_deploy.services.workflow import WorkflowService, WorkflowServiceConfi
 DEFAULT_TIMEOUT = 120.0
 
 
-async def _deploy_local_message_queue(config: SimpleMessageQueueConfig) -> asyncio.Task:
-    queue = SimpleMessageQueue(**config.model_dump())
-    task = asyncio.create_task(queue.launch_server())
-
-    # let message queue boot up
-    await asyncio.sleep(2)
-
-    return task
-
-
 def _get_message_queue_config(config_dict: dict) -> BaseSettings:
     key = next(iter(config_dict.keys()))
     if key == SimpleMessageQueueConfig.__name__:
-        return SimpleMessageQueueConfig(**config_dict[key])
-    elif key == SimpleRemoteClientMessageQueue.__name__:
         return SimpleMessageQueueConfig(**config_dict[key])
     elif key == AWSMessageQueueConfig.__name__:
         return AWSMessageQueueConfig(**config_dict[key])
@@ -64,44 +49,27 @@ def _get_message_queue_config(config_dict: dict) -> BaseSettings:
         raise ValueError(f"Unknown message queue: {key}")
 
 
-def _get_message_queue_client(config: BaseSettings) -> BaseMessageQueue:
+def _get_message_queue_client(config: BaseSettings) -> AbstractMessageQueue:
     if isinstance(config, SimpleMessageQueueConfig):
-        queue = SimpleMessageQueue(**config.model_dump())
-        return queue.client
+        return SimpleMessageQueue(config)
     elif isinstance(config, AWSMessageQueueConfig):
-        return AWSMessageQueue(**config.model_dump())
+        return AWSMessageQueue(config)
     elif isinstance(config, KafkaMessageQueueConfig):
-        return KafkaMessageQueue(config)  # type: ignore
+        return KafkaMessageQueue(config)
     elif isinstance(config, RabbitMQMessageQueueConfig):
-        return RabbitMQMessageQueue(
-            **config.model_dump(),
-        )
+        return RabbitMQMessageQueue(config)
     elif isinstance(config, RedisMessageQueueConfig):
-        return RedisMessageQueue(
-            **config.model_dump(),
-        )
+        return RedisMessageQueue(config)
     elif isinstance(config, SolaceMessageQueueConfig):
-        return SolaceMessageQueue(
-            **config.model_dump(),
-        )
+        return SolaceMessageQueue(config)
     else:
         raise ValueError(f"Invalid message queue config: {config}")
 
 
-def _get_shutdown_handler(tasks: List[asyncio.Task]) -> Callable:
-    def signal_handler(sig: Any, frame: Any) -> None:
-        print("\nShutting down.")
-        for task in tasks:
-            task.cancel()
-        sys.exit(0)
-
-    return signal_handler
-
-
 async def deploy_core(
-    control_plane_config: Optional[ControlPlaneConfig] = None,
-    message_queue_config: Optional[BaseSettings] = None,
-    orchestrator_config: Optional[SimpleOrchestratorConfig] = None,
+    control_plane_config: ControlPlaneConfig | None = None,
+    message_queue_config: BaseSettings | None = None,
+    orchestrator_config: SimpleOrchestratorConfig | None = None,
     disable_message_queue: bool = False,
     disable_control_plane: bool = False,
 ) -> None:
@@ -127,64 +95,48 @@ async def deploy_core(
     message_queue_config = message_queue_config or SimpleMessageQueueConfig()
     orchestrator_config = orchestrator_config or SimpleOrchestratorConfig()
 
+    tasks = []
+
     message_queue_client = _get_message_queue_client(message_queue_config)
-
-    control_plane = ControlPlaneServer(
-        message_queue_client,
-        SimpleOrchestrator(**orchestrator_config.model_dump()),
-        config=control_plane_config,
-    )
-
+    # If needed, start the SimpleMessageQueueServer
     if (
         isinstance(message_queue_config, SimpleMessageQueueConfig)
         and not disable_message_queue
     ):
-        message_queue_task = await _deploy_local_message_queue(message_queue_config)
-    elif (
-        isinstance(message_queue_config, SimpleMessageQueueConfig)
-        and disable_message_queue
-    ):
-        # create a dummy task to keep the event loop running
-        message_queue_task = asyncio.create_task(asyncio.sleep(0))
-    else:
-        message_queue_task = asyncio.create_task(asyncio.sleep(0))
+        queue = SimpleMessageQueueServer(message_queue_config)
+        tasks.append(asyncio.create_task(queue.launch_server()))
+        # let message queue boot up
+        await asyncio.sleep(2)
 
     if not disable_control_plane:
-        control_plane_task = asyncio.create_task(control_plane.launch_server())
-
-        # let services spin up
-        await asyncio.sleep(1)
-
+        control_plane = ControlPlaneServer(
+            message_queue_client,
+            SimpleOrchestrator(**orchestrator_config.model_dump()),
+            config=control_plane_config,
+        )
+        tasks.append(asyncio.create_task(control_plane.launch_server()))
+        # let service spin up
+        await asyncio.sleep(2)
         # register the control plane as a consumer
         control_plane_consumer_fn = await control_plane.register_to_message_queue()
-
-        consumer_task = asyncio.create_task(control_plane_consumer_fn())
-    else:
-        # create a dummy task to keep the event loop running
-        control_plane_task = asyncio.create_task(asyncio.sleep(0))
-        consumer_task = asyncio.create_task(asyncio.sleep(0))
-
-    # let things sync up
-    await asyncio.sleep(1)
+        tasks.append(asyncio.create_task(control_plane_consumer_fn()))
 
     # let things run
-    all_tasks = [control_plane_task, consumer_task, message_queue_task]
+    try:
+        await asyncio.gather(*tasks)
+    except (Exception, asyncio.CancelledError):
+        await message_queue_client.cleanup()
+        for task in tasks:
+            if not task.done():
+                task.cancel()
 
-    shutdown_handler = _get_shutdown_handler(all_tasks)
-    loop = asyncio.get_event_loop()
-    while loop.is_running():
-        await asyncio.sleep(0.1)
-        signal.signal(signal.SIGINT, shutdown_handler)
-
-        for task in all_tasks:
-            if task.done() and task.exception():  # type: ignore
-                raise task.exception()  # type: ignore
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 async def deploy_workflow(
     workflow: Workflow,
     workflow_config: WorkflowServiceConfig,
-    control_plane_config: Optional[ControlPlaneConfig] = None,
+    control_plane_config: ControlPlaneConfig | None = None,
 ) -> None:
     """
     Deploy a workflow as a service within the llama_deploy system.
@@ -214,13 +166,13 @@ async def deploy_workflow(
 
     # override the service manager, while maintaining dict of existing services
     workflow._service_manager = NetworkServiceManager(
-        control_plane_config, workflow._service_manager._services
+        workflow._service_manager._services
     )
 
     service = WorkflowService(
         workflow=workflow,
         message_queue=message_queue_client,
-        **workflow_config.model_dump(),
+        config=workflow_config,
     )
 
     service_task = asyncio.create_task(service.launch_server())
@@ -229,9 +181,6 @@ async def deploy_workflow(
     await asyncio.sleep(1)
 
     # register to control plane
-    control_plane_url = (
-        f"http://{control_plane_config.host}:{control_plane_config.port}"
-    )
     await service.register_to_control_plane(control_plane_url)
 
     # register to message queue
@@ -243,14 +192,11 @@ async def deploy_workflow(
     # let things sync up
     await asyncio.sleep(1)
 
-    all_tasks = [consumer_task, service_task]
+    try:
+        # Propagate the exception if any of the tasks exited with an error
+        await asyncio.gather(service_task, consumer_task, return_exceptions=True)
+    except asyncio.CancelledError:
+        consumer_task.cancel()
+        service_task.cancel()
 
-    shutdown_handler = _get_shutdown_handler(all_tasks)
-    loop = asyncio.get_event_loop()
-    while loop.is_running():
-        await asyncio.sleep(0.1)
-        signal.signal(signal.SIGINT, shutdown_handler)
-
-        for task in all_tasks:
-            if task.done() and task.exception():  # type: ignore
-                raise task.exception()  # type: ignore
+        await asyncio.gather(service_task, consumer_task)

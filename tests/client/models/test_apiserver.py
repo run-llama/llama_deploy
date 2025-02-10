@@ -90,7 +90,7 @@ async def test_session_collection_list(client: Any) -> None:
 @pytest.mark.asyncio
 async def test_task_results(client: Any) -> None:
     res = TaskResult(task_id="a_result", history=[], result="some_text", data={})
-    client.request.return_value = mock.MagicMock(json=lambda: res.model_dump_json())
+    client.request.return_value = mock.MagicMock(json=lambda: res.model_dump())
 
     t = Task(
         client=client,
@@ -218,6 +218,7 @@ async def test_task_deployment_collection_create(client: Any) -> None:
         "POST",
         "http://localhost:4501/deployments/create",
         files={"config_file": "some config"},
+        params={"reload": False},
         verify=True,
         timeout=120.0,
     )
@@ -283,7 +284,7 @@ async def test_status_healthy_no_deployments(client: Any) -> None:
     assert res.status.value == "Healthy"
     assert (
         res.status_message
-        == "Llama Deploy is up and running.\nCurrently there are no active deployments"
+        == "LlamaDeploy is up and running.\nCurrently there are no active deployments"
     )
 
 
@@ -302,7 +303,7 @@ async def test_status_healthy(client: Any) -> None:
     assert res.status.value == "Healthy"
     assert (
         res.status_message
-        == "Llama Deploy is up and running.\nActive deployments:\n- foo\n- bar"
+        == "LlamaDeploy is up and running.\nActive deployments:\n- foo\n- bar"
     )
 
 

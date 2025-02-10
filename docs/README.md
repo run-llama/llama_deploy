@@ -27,7 +27,7 @@ This will start a development server at `http://127.0.0.1:8000`.
 
 ## Building
 
-Llama Deploy is part of LlamaIndex [documentation portal](https://docs.llamaindex.ai/)
+LlamaDeploy is part of LlamaIndex [documentation portal](https://docs.llamaindex.ai/)
 so the build is performed from the [main repository](https://github.com/run-llama/llama_index).
 
 > [!WARNING]

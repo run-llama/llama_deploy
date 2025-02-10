@@ -2,6 +2,7 @@ import click
 
 from .deploy import deploy as deploy_cmd
 from .run import run as run_cmd
+from .sessions import sessions as sessions_cmd
 from .status import status as status_cmd
 
 
@@ -35,3 +36,4 @@ def llamactl(ctx: click.Context, server: str, insecure: bool, timeout: float) ->
 llamactl.add_command(deploy_cmd)
 llamactl.add_command(run_cmd)
 llamactl.add_command(status_cmd)
+llamactl.add_command(sessions_cmd)

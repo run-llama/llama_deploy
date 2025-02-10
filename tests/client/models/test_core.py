@@ -4,6 +4,7 @@ from unittest import mock
 import httpx
 import pytest
 from llama_index.core.workflow import Event
+from llama_index.core.workflow.context_serializers import JsonSerializer
 
 from llama_deploy.client.models.core import (
     Core,
@@ -12,7 +13,12 @@ from llama_deploy.client.models.core import (
     Session,
     SessionCollection,
 )
-from llama_deploy.types.core import ServiceDefinition, TaskDefinition, TaskResult
+from llama_deploy.types.core import (
+    ServiceDefinition,
+    TaskDefinition,
+    TaskResult,
+    EventDefinition,
+)
 
 
 @pytest.mark.asyncio
@@ -266,6 +272,24 @@ async def test_session_send_event(client: mock.AsyncMock) -> None:
 
 
 @pytest.mark.asyncio
+async def test_session_send_event_def(client: mock.AsyncMock) -> None:
+    event = Event(event_type="test_event", payload={"key": "value"})
+    s = JsonSerializer()
+    event_def = EventDefinition(
+        agent_id="test_session_id", event_obj_str=s.serialize(event)
+    )
+    session = Session(client=client, id="test_session_id")
+
+    await session.send_event_def("test_task_id", event_def)
+
+    client.request.assert_awaited_once_with(
+        "POST",
+        "http://localhost:8000/sessions/test_session_id/tasks/test_task_id/send_event",
+        json=event_def.model_dump(),
+    )
+
+
+@pytest.mark.asyncio
 async def test_session_run_nowait(client: mock.AsyncMock) -> None:
     client.request.return_value = mock.MagicMock(json=lambda: "test_task_id")
 
@@ -343,13 +367,15 @@ async def test_get_task_result_stream_timeout(client: mock.AsyncMock) -> None:
                 response=Mock404Response(),  # type: ignore
             )
 
-    with mock.patch("httpx.AsyncClient", return_value=HttpxMockClient()):
+    with mock.patch("httpx.AsyncClient", return_value=HttpxMockClient()) as mock_client:
         client.timeout = 1
         session = Session(client=client, id="test_session_id")
 
         with pytest.raises(TimeoutError):
             async for _ in session.get_task_result_stream("test_task_id"):
                 pass
+
+        mock_client.assert_called_with(timeout=1)
 
 
 @pytest.mark.asyncio

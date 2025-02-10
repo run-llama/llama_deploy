@@ -3,36 +3,30 @@
 import asyncio
 import json
 import time
-from string import Template
 from logging import getLogger
-from typing import Any, Dict, List, Literal, TYPE_CHECKING
+from string import Template
+from typing import TYPE_CHECKING, Any, Dict, Literal
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_queues.base import BaseMessageQueue
-from llama_deploy.messages.base import QueueMessage
 from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
-
-from solace.messaging.publisher.persistent_message_publisher import (
-    MessagePublishReceiptListener,
-)
-from solace.messaging.receiver.message_receiver import MessageHandler
-from solace.messaging.messaging_service import MessagingService
-from solace.messaging.receiver.persistent_message_receiver import (
-    PersistentMessageReceiver,
-)
-from solace.messaging.publisher.persistent_message_publisher import (
-    PersistentMessagePublisher,
-)
+from llama_deploy.message_queues.base import AbstractMessageQueue
+from llama_deploy.messages.base import QueueMessage
 
 if TYPE_CHECKING:
-    from solace.messaging.receiver.message_receiver import InboundMessage
-    from solace.messaging.publisher.persistent_message_publisher import PublishReceipt
     from solace.messaging.connections.connectable import Connectable
+    from solace.messaging.publisher.persistent_message_publisher import (
+        PersistentMessagePublisher,
+        PublishReceipt,
+    )
+    from solace.messaging.receiver.message_receiver import InboundMessage
+    from solace.messaging.receiver.persistent_message_receiver import (
+        PersistentMessageReceiver,
+    )
 
 # Constants
 MAX_SLEEP = 10
@@ -41,60 +35,76 @@ QUEUE_TEMPLATE = Template("Q/$iteration")
 # Configure logger
 logger = getLogger(__name__)
 
+SOLACE_INSTALLED = True
 
-class MessagePublishReceiptListenerImpl(MessagePublishReceiptListener):
-    """Message publish receipt listener for Solace message queue."""
+try:
+    from solace.messaging.publisher.persistent_message_publisher import (
+        MessagePublishReceiptListener,
+        PersistentMessagePublisher,
+        PublishReceipt,
+    )
+    from solace.messaging.receiver.message_receiver import MessageHandler
+    from solace.messaging.receiver.persistent_message_receiver import (
+        PersistentMessageReceiver,
+    )
 
-    def __init__(self, callback: Any = None) -> None:
-        self.callback = callback
+    class MessagePublishReceiptListenerImpl(MessagePublishReceiptListener):
+        """Message publish receipt listener for Solace message queue."""
 
-    def on_publish_receipt(self, publish_receipt: "PublishReceipt") -> None:
-        if publish_receipt.user_context:
-            logger.info(
-                f"\tUser context received: {publish_receipt.user_context.get_custom_message}"
-            )
-            callback = publish_receipt.user_context.get("callback")
-            callback(publish_receipt.user_context)
+        def __init__(self, callback: Any = None) -> None:
+            self.callback = callback
 
+        def on_publish_receipt(self, publish_receipt: PublishReceipt) -> None:
+            if publish_receipt.user_context:
+                logger.info(
+                    f"\tUser context received: {publish_receipt.user_context.get_custom_message}"  # type:ignore
+                )
+                callback = publish_receipt.user_context.get("callback")  # type:ignore
+                callback(publish_receipt.user_context)
 
-class MessageHandlerImpl(MessageHandler):
-    """Message handler for Solace message queue."""
+    class MessageHandlerImpl(MessageHandler):
+        """Message handler for Solace message queue."""
 
-    def __init__(
-        self,
-        consumer: BaseMessageQueueConsumer,
-        receiver: PersistentMessageReceiver = None,
-    ) -> None:
-        self._consumer = consumer
-        self._receiver = receiver
+        def __init__(
+            self,
+            consumer: BaseMessageQueueConsumer,
+            receiver: PersistentMessageReceiver | None = None,
+        ) -> None:
+            self._consumer = consumer
+            self._receiver = receiver
 
-    def on_message(self, message: "InboundMessage") -> None:
-        try:
-            topic = message.get_destination_name()
-            payload_as_string = message.get_payload_as_string()
-            correlation_id = message.get_correlation_id()
+        def on_message(self, message: "InboundMessage") -> None:
+            try:
+                topic = message.get_destination_name()
+                payload_as_string = message.get_payload_as_string() or ""
+                correlation_id = message.get_correlation_id()
 
-            message_details = {
-                "topic": topic,
-                "payload": payload_as_string,
-                "correlation_id": correlation_id,
-            }
+                message_details = {
+                    "topic": topic,
+                    "payload": payload_as_string,
+                    "correlation_id": correlation_id,
+                }
 
-            # Log the consumed message in JSON format
-            logger.debug(f"Consumed message: {json.dumps(message_details, indent=2)}")
+                # Log the consumed message in JSON format
+                logger.debug(
+                    f"Consumed message: {json.dumps(message_details, indent=2)}"
+                )
 
-            # Parse the payload and validate the queue message
-            queue_message_data = json.loads(payload_as_string)
-            queue_message = QueueMessage.model_validate(queue_message_data)
+                # Parse the payload and validate the queue message
+                queue_message_data = json.loads(payload_as_string)
+                queue_message = QueueMessage.model_validate(queue_message_data)
 
-            # Process the message using the consumer
-            asyncio.run(self._consumer.process_message(queue_message))
+                # Process the message using the consumer
+                asyncio.run(self._consumer.process_message(queue_message))
 
-            if self._receiver:
-                self._receiver.ack(message)
+                if self._receiver:
+                    self._receiver.ack(message)
 
-        except Exception as unexpected_error:
-            logger.error(f"Error consuming message: {unexpected_error}")
+            except Exception as unexpected_error:
+                logger.error(f"Error consuming message: {unexpected_error}")
+
+except ImportError:
+    SOLACE_INSTALLED = False
 
 
 class SolaceMessageQueueConfig(BaseSettings):
@@ -140,38 +150,34 @@ class SolaceMessageQueueConfig(BaseSettings):
         return broker_properties
 
 
-class SolaceMessageQueue(BaseMessageQueue):
+class SolaceMessageQueue(AbstractMessageQueue):
     """Solace PubSub+ Message Queue."""
 
-    messaging_service: MessagingService = None
-    publisher: PersistentMessagePublisher = None
-    persistent_receiver: PersistentMessageReceiver = None
-    broker_properties: dict = {}
-    is_queue_temporary: bool = True
-
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, config: SolaceMessageQueueConfig | None) -> None:
         """Initialize the Solace message queue."""
-        super().__init__()
-
-        try:
-            from solace.messaging.config.retry_strategy import RetryStrategy
-            from solace.messaging.messaging_service import MessagingService
-        except ImportError:
+        if not SOLACE_INSTALLED:
             raise ValueError(
                 "Missing `solace` package. Please install by running `pip install llama-deploy[solace]`."
             )
 
-        config = SolaceMessageQueueConfig(**kwargs)
-        self.broker_properties = config.get_properties()
-        self.messaging_service = (
+        from solace.messaging.config.retry_strategy import RetryStrategy
+        from solace.messaging.messaging_service import MessagingService
+
+        self._publisher: "PersistentMessagePublisher | None" = None
+        self._persistent_receiver: "PersistentMessageReceiver | None" = None
+        self._config = config or SolaceMessageQueueConfig()
+        self._broker_properties = self._config.get_properties()
+        self._messaging_service = (
             MessagingService.builder()
-            .from_properties(self.broker_properties)
+            .from_properties(self._broker_properties)
             .with_reconnection_retry_strategy(
                 RetryStrategy.parametrized_retry(20, 3000)
             )
             .build()
         )
-        self.is_queue_temporary = bool(self.broker_properties.get("IS_QUEUE_TEMPORARY"))
+        self._is_queue_temporary = bool(
+            self._broker_properties.get("IS_QUEUE_TEMPORARY")
+        )
         logger.info("Solace Messaging Service created")
 
     def __del__(self) -> None:
@@ -191,14 +197,14 @@ class SolaceMessageQueue(BaseMessageQueue):
 
         try:
             logger.info("Establishing connection to Solace server")
-            connect = self.messaging_service.connect()
+            connect = self._messaging_service.connect()
 
             # Create a publisher
-            self.publisher = self.messaging_service.create_persistent_message_publisher_builder().build()
-            self.publisher.start()
+            self._publisher = self._messaging_service.create_persistent_message_publisher_builder().build()
+            self._publisher.start()  # type:ignore
 
             publish_receipt_listener = MessagePublishReceiptListenerImpl()
-            self.publisher.set_message_publish_receipt_listener(
+            self._publisher.set_message_publish_receipt_listener(  # type:ignore
                 publish_receipt_listener
             )
 
@@ -225,7 +231,7 @@ class SolaceMessageQueue(BaseMessageQueue):
         message_body = json.dumps(message.model_dump())
 
         try:
-            self.publisher.publish(
+            self._publisher.publish(  # type:ignore
                 message=message_body,
                 destination=destination,
             )
@@ -238,23 +244,23 @@ class SolaceMessageQueue(BaseMessageQueue):
     def disconnect(self) -> None:
         """Disconnect from the Solace server."""
         try:
-            self.messaging_service.disconnect()
+            self._messaging_service.disconnect()
             logger.info("Disconnected from Solace server")
         except Exception as exception:
             logger.debug("Error disconnecting: %s", exception)
 
     def is_connected(self) -> bool:
         """Check if the Solace server is connected."""
-        return self.messaging_service.is_connected
+        return self._messaging_service.is_connected
 
     def bind_to_queue(self, subscriptions: list = []) -> None:
         """Bind to a queue and subscribe to topics."""
         try:
-            from solace.messaging.errors.pubsubplus_client_error import (
-                PubSubPlusClientError,
-            )
             from solace.messaging.config.missing_resources_creation_configuration import (
                 MissingResourcesCreationStrategy,
+            )
+            from solace.messaging.errors.pubsubplus_client_error import (
+                PubSubPlusClientError,
             )
             from solace.messaging.resources.queue import Queue
         except ImportError:
@@ -266,26 +272,26 @@ class SolaceMessageQueue(BaseMessageQueue):
             return
         queue_name = QUEUE_TEMPLATE.substitute(iteration=subscriptions[0])
 
-        if self.is_queue_temporary:
+        if self._is_queue_temporary:
             queue = Queue.non_durable_exclusive_queue(queue_name)
         else:
             queue = Queue.durable_exclusive_queue(queue_name)
 
         try:
             # Build a receiver and bind it to the queue
-            self.persistent_receiver = (
-                self.messaging_service.create_persistent_message_receiver_builder()
+            self._persistent_receiver = (
+                self._messaging_service.create_persistent_message_receiver_builder()
                 .with_missing_resources_creation_strategy(
                     MissingResourcesCreationStrategy.CREATE_ON_START
                 )
-                .build(queue)
+                .build(queue)  # type:ignore
             )
-            self.persistent_receiver.start()
+            self._persistent_receiver.start()  # type:ignore
 
             logger.debug(
                 "Persistent receiver started... Bound to Queue [%s] (Temporary: %s)",
                 queue.get_name(),
-                self.is_queue_temporary,
+                self._is_queue_temporary,
             )
 
         # Handle API exception
@@ -299,19 +305,19 @@ class SolaceMessageQueue(BaseMessageQueue):
         # If subscriptions are provided, add them to the receiver
         if subscriptions:
             for subscription in subscriptions:
-                self.persistent_receiver.add_subscription(subscription)
+                self._persistent_receiver.add_subscription(subscription)  # type:ignore
                 logger.info("Subscribed to topic: %s", subscription)
 
         return
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str | None = None
+        self, consumer: BaseMessageQueueConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         try:
             from solace.messaging.errors.pubsubplus_client_error import (
-                PubSubPlusClientError,
                 IllegalStateError,
+                PubSubPlusClientError,
             )
             from solace.messaging.resources.topic_subscription import TopicSubscription
         except ImportError:
@@ -328,8 +334,10 @@ class SolaceMessageQueue(BaseMessageQueue):
 
             self.bind_to_queue(subscriptions=subscriptions)
             logger.info(f"Consumer registered to: {consumer_subscription}")
-            self.persistent_receiver.receive_async(
-                MessageHandlerImpl(consumer=consumer, receiver=self.persistent_receiver)
+            self._persistent_receiver.receive_async(  # type:ignore
+                MessageHandlerImpl(
+                    consumer=consumer, receiver=self._persistent_receiver
+                )
             )
 
             async def start_consuming_callable() -> None:
@@ -354,7 +362,7 @@ class SolaceMessageQueue(BaseMessageQueue):
 
         try:
             for topic in topics:
-                self.persistent_receiver.remove_subscription(topic)
+                self._persistent_receiver.remove_subscription(topic)  # type:ignore
 
             logger.info(f"Consumer deregistered from: {consumer_subscription}")
             time.sleep(MAX_SLEEP)
@@ -362,23 +370,9 @@ class SolaceMessageQueue(BaseMessageQueue):
             logger.error(f"Failed to deregister consumer: {e}")
             raise
         finally:
-            self.persistent_receiver.terminate()
+            self._persistent_receiver.terminate()  # type:ignore
 
-    async def processing_loop(self) -> None:
-        """A loop for getting messages from queues and sending to consumer."""
-        pass
-
-    async def launch_local(self) -> asyncio.Task:
-        """Launch the message queue locally, in-process."""
-        return asyncio.create_task(self.processing_loop())
-
-    async def launch_server(self) -> None:
-        """Launch the message queue server."""
-        pass
-
-    async def cleanup_local(
-        self, message_types: List[str], *args: Any, **kwargs: Dict[str, Any]
-    ) -> None:
+    async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
         """Perform any clean up of queues and exchanges."""
         pass
 

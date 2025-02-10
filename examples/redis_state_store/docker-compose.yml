@@ -1,0 +1,12 @@
+services:
+  redis:
+    # Use as KV store
+    image: redis:latest
+    hostname: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: redis-cli --raw incr ping
+      interval: 5s
+      timeout: 3s
+      retries: 5

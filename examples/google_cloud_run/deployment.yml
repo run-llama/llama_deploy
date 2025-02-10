@@ -1,0 +1,14 @@
+name: CloudRunExample
+
+control-plane:
+  port: 8000
+
+default-service: dummy_workflow
+
+services:
+  dummy_workflow:
+    name: Dummy Workflow
+    source:
+      type: local
+      name: .
+    path: workflow:echo_workflow

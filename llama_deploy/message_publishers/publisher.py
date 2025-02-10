@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
-from llama_deploy.message_queues.base import BaseMessageQueue, PublishCallback
+from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
 
 
@@ -21,7 +21,7 @@ class MessageQueuePublisherMixin(ABC):
 
     @property
     @abstractmethod
-    def message_queue(self) -> BaseMessageQueue: ...
+    def message_queue(self) -> AbstractMessageQueue: ...
 
     @property
     def publish_callback(self) -> Optional[PublishCallback]:

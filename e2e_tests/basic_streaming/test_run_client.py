@@ -3,9 +3,8 @@ import pytest
 from llama_deploy import Client
 
 
-@pytest.mark.e2e
 def test_run_client(services):
-    client = Client(timeout=10)
+    client = Client(timeout=20)
 
     # sanity check
     sessions = client.sync.core.sessions.list()
@@ -17,16 +16,11 @@ def test_run_client(services):
     # kick off run
     task_id = session.run_nowait("streaming_workflow", arg1="hello_world")
 
-    num_events = 0
+    progress_received = []
     for event in session.get_task_result_stream(task_id):
         if "progress" in event:
-            num_events += 1
-            if num_events == 1:
-                assert event["progress"] == 0.3
-            elif num_events == 2:
-                assert event["progress"] == 0.6
-            elif num_events == 3:
-                assert event["progress"] == 0.9
+            progress_received.append(event["progress"])
+    assert progress_received == [0.3, 0.6, 0.9]
 
     # get final result
     final_result = session.get_task_result(task_id)
@@ -36,10 +30,9 @@ def test_run_client(services):
     client.sync.core.sessions.delete(session.id)
 
 
-@pytest.mark.e2e
 @pytest.mark.asyncio
 async def test_run_client_async(services):
-    client = Client(timeout=10)
+    client = Client(timeout=20)
 
     # test streaming
     session = await client.core.sessions.create()
@@ -47,16 +40,11 @@ async def test_run_client_async(services):
     # kick off run
     task_id = await session.run_nowait("streaming_workflow", arg1="hello_world")
 
-    num_events = 0
+    progress_received = []
     async for event in session.get_task_result_stream(task_id):
         if "progress" in event:
-            num_events += 1
-            if num_events == 1:
-                assert event["progress"] == 0.3
-            elif num_events == 2:
-                assert event["progress"] == 0.6
-            elif num_events == 3:
-                assert event["progress"] == 0.9
+            progress_received.append(event["progress"])
+    assert progress_received == [0.3, 0.6, 0.9]
 
     final_result = await session.get_task_result(task_id)
     assert final_result.result == "hello_world_result_result_result"  # type: ignore

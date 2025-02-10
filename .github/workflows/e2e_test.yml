@@ -13,10 +13,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
-      # You can use PyPy versions in python-version.
-      # For example, pypy-2.7 and pypy-3.8
+      # Let the matrix finish to see if the failure was transient
+      fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
+        test-package:
+          [
+            "basic_hitl",
+            "basic_streaming",
+            "deploy",
+            "apiserver",
+            "basic_session",
+            "basic_workflow",
+            "core",
+            "message_queues",
+          ]
     steps:
       - uses: actions/checkout@v3
         with:
@@ -33,4 +44,8 @@ jobs:
         shell: bash
         run: poetry install --with dev
       - name: Run All E2E Tests
-        run: poetry run pytest -m"e2e"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          TOPIC_PREFIX: ${{ matrix.python-version }}
+        run: poetry run pytest e2e_tests/${{ matrix.test-package }} -s

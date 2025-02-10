@@ -28,17 +28,28 @@ RUN pip install --upgrade pip && \
 
 FROM $dist_image AS final
 
+ENV PATH="/opt/venv/bin:$PATH"
 RUN apt-get update && \
     apt-get install -y --no-install-recommends git
 
-ARG entrypoint_script
 ARG apiserver_port
+ARG rc_path
 
 EXPOSE ${apiserver_port}
 
 COPY --from=build-image /opt/venv /opt/venv
-COPY ./$entrypoint_script /opt/${entrypoint_script}
+COPY ./run_apiserver.py /opt
+COPY ./run_autodeploy.py /opt
 
-ENV PATH="/opt/venv/bin:$PATH"
+# Default configuration, override with "docker run -e NAME=value"
+ENV LLAMA_DEPLOY_APISERVER_RC_PATH=${rc_path}
+ENV LLAMA_DEPLOY_APISERVER_HOST=0.0.0.0
+ENV LLAMA_DEPLOY_APISERVER_PORT=${apiserver_port}
 
-ENTRYPOINT ["python", "-m", "llama_deploy.apiserver"]
+FROM final AS base
+
+ENTRYPOINT [ "python", "/opt/run_apiserver.py" ]
+
+FROM final AS autodeploy
+
+ENTRYPOINT [ "python", "/opt/run_autodeploy.py" ]

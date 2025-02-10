@@ -1,0 +1,15 @@
+name: ReloadMe
+
+control-plane: {}
+
+default-service: test-workflow
+
+services:
+  test-workflow:
+    name: Test Workflow
+    port: 8002
+    host: localhost
+    source:
+      type: git
+      name: https://github.com/run-llama/llama_deploy.git
+    path: e2e_tests/apiserver/deployments/src:echo_workflow_en

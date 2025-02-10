@@ -1,0 +1,15 @@
+name: AutoDeployed
+
+control-plane: {}
+
+default-service: test-workflow
+
+services:
+  test-workflow:
+    name: Test Workflow
+    port: 8002
+    host: localhost
+    source:
+      type: local
+      name: src
+    path: workflow:echo_workflow

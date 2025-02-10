@@ -4,9 +4,14 @@ from typing import AsyncGenerator
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, StreamingResponse
 
-from llama_deploy.apiserver.config_parser import Config
+from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 from llama_deploy.apiserver.server import manager
-from llama_deploy.types import DeploymentDefinition, SessionDefinition, TaskDefinition
+from llama_deploy.types import (
+    DeploymentDefinition,
+    EventDefinition,
+    SessionDefinition,
+    TaskDefinition,
+)
 from llama_deploy.types.core import TaskResult
 
 deployments_router = APIRouter(
@@ -31,11 +36,11 @@ async def read_deployment(deployment_name: str) -> DeploymentDefinition:
 
 @deployments_router.post("/create")
 async def create_deployment(
-    config_file: UploadFile = File(...),
+    config_file: UploadFile = File(...), reload: bool = False
 ) -> DeploymentDefinition:
     """Creates a new deployment by uploading a configuration file."""
-    config = Config.from_yaml_bytes(await config_file.read())
-    manager.deploy(config)
+    config = DeploymentConfig.from_yaml_bytes(await config_file.read())
+    await manager.deploy(config, reload)
 
     return DeploymentDefinition(name=config.name)
 
@@ -94,6 +99,7 @@ async def create_deployment_task_nowait(
         session = await deployment.client.core.sessions.get(session_id)
     else:
         session = await deployment.client.core.sessions.create()
+        session_id = session.id
 
     task_definition.session_id = session_id
     task_definition.task_id = await session.run_nowait(
@@ -101,6 +107,25 @@ async def create_deployment_task_nowait(
     )
 
     return task_definition
+
+
+@deployments_router.post("/{deployment_name}/tasks/{task_id}/events")
+async def send_event(
+    deployment_name: str,
+    task_id: str,
+    session_id: str,
+    event_def: EventDefinition,
+) -> EventDefinition:
+    """Send a human response event to a service for a specific task and session."""
+    deployment = manager.get_deployment(deployment_name)
+    if deployment is None:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+
+    session = await deployment.client.core.sessions.get(session_id)
+
+    await session.send_event_def(task_id=task_id, ev_def=event_def)
+
+    return event_def
 
 
 @deployments_router.get("/{deployment_name}/tasks/{task_id}/events")

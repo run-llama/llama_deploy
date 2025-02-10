@@ -1,0 +1,19 @@
+name: EnvironmentVariablesLocal
+
+control-plane:
+  port: 8000
+
+default-service: test_env_workflow
+
+services:
+  test_env_workflow:
+    name: Workflow
+    source:
+      type: local
+      name: ./e2e_tests/apiserver/deployments/src
+    env:
+      VAR_1: x  # this gets overwritten because VAR_1 also exists in the provided .env
+      VAR_2: y
+    env-files:
+      - .env  # relative to source path
+    path: workflow_env:workflow

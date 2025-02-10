@@ -1,0 +1,17 @@
+name: EnvironmentVariablesGit
+
+control-plane:
+  port: 8000
+
+services:
+  workflow_git:
+    name: Git Workflow
+    source:
+      type: git
+      name: https://github.com/run-llama/llama_deploy.git
+    env:
+      VAR_1: x # this gets overwritten because VAR_1 also exists in the provided .env
+      VAR_2: y
+    env-files:
+      - tests/apiserver/data/.env # relative to source path
+    path: tests/apiserver/data/workflow:env_reader_workflow

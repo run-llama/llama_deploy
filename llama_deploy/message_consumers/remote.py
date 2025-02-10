@@ -1,6 +1,7 @@
+from typing import Any, Optional
+
 import httpx
 from pydantic import BaseModel, Field
-from typing import Any, Optional
 
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.messages import QueueMessage

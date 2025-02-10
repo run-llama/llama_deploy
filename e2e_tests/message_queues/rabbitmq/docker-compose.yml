@@ -1,0 +1,17 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    hostname: "rabbitmq"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - -c
+        - |
+          rabbitmq-diagnostics -q check_running
+          rabbitmq-diagnostics -q check_port_connectivity
+      interval: 5s
+      timeout: 3s
+      retries: 5

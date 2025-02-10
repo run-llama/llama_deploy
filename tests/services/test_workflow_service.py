@@ -1,16 +1,17 @@
 import asyncio
 import json
-import pytest
-from pydantic import PrivateAttr
 from typing import Any, List
-from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
-from llama_index.core.workflow.events import HumanResponseEvent, InputRequiredEvent
-from llama_index.core.workflow.context_serializers import JsonSerializer
 
-from llama_deploy.messages import QueueMessage
+import pytest
+from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+from llama_index.core.workflow.context_serializers import JsonSerializer
+from llama_index.core.workflow.events import HumanResponseEvent, InputRequiredEvent
+from pydantic import PrivateAttr
+
 from llama_deploy.message_consumers import BaseMessageQueueConsumer
 from llama_deploy.message_queues import SimpleMessageQueue
-from llama_deploy.services.workflow import WorkflowService
+from llama_deploy.messages import QueueMessage
+from llama_deploy.services.workflow import WorkflowService, WorkflowServiceConfig
 from llama_deploy.types import CONTROL_PLANE_NAME, ActionTypes, TaskDefinition
 
 
@@ -58,24 +59,28 @@ def test_hitl_workflow() -> Workflow:
 
 @pytest.mark.asyncio
 async def test_workflow_service(
-    test_workflow: Workflow, human_output_consumer: MockMessageConsumer
+    test_workflow: Workflow,
+    human_output_consumer: MockMessageConsumer,
+    message_queue_server: Any,
 ) -> None:
     message_queue = SimpleMessageQueue()
-    _ = await message_queue.register_consumer(human_output_consumer)
+    consumer_fn = await message_queue.register_consumer(
+        human_output_consumer, topic="llama_deploy.control_plane"
+    )
+    consumer_task = asyncio.create_task(consumer_fn())
 
     # create the service
     workflow_service = WorkflowService(
         test_workflow,
-        message_queue,
-        service_name="test_workflow",
-        description="Test Workflow Service",
-        host="localhost",
-        port=8001,
+        message_queue,  # type: ignore
+        config=WorkflowServiceConfig(
+            service_name="test_workflow",
+            description="Test Workflow Service",
+            host="localhost",
+            port=8001,
+        ),
     )
-
-    # launch it
-    mq_task = await message_queue.launch_local()
-    server_task = await workflow_service.launch_local()
+    service_task = asyncio.create_task(workflow_service.processing_loop())
 
     # pass a task to the service
     task = TaskDefinition(
@@ -92,8 +97,9 @@ async def test_workflow_service(
 
     # let the service process the message
     await asyncio.sleep(1)
-    mq_task.cancel()
-    server_task.cancel()
+    consumer_task.cancel()
+    service_task.cancel()
+    await asyncio.gather(consumer_task, service_task)
 
     # check the result
     result = human_output_consumer.processed_messages[-1]
@@ -105,23 +111,28 @@ async def test_workflow_service(
 async def test_hitl_workflow_service(
     test_hitl_workflow: Workflow,
     human_output_consumer: MockMessageConsumer,
+    message_queue_server: Any,
 ) -> None:
     # arrange
     message_queue = SimpleMessageQueue()
-    _ = await message_queue.register_consumer(human_output_consumer)
+    consumer_fn = await message_queue.register_consumer(
+        human_output_consumer, topic="llama_deploy.control_plane"
+    )
+    consumer_task = asyncio.create_task(consumer_fn())
 
     # create the service
     workflow_service = WorkflowService(
         test_hitl_workflow,
-        message_queue,
-        service_name="test_workflow",
-        description="Test Workflow Service",
-        host="localhost",
-        port=8001,
+        message_queue,  # type: ignore
+        config=WorkflowServiceConfig(
+            service_name="test_workflow",
+            description="Test Workflow Service",
+            host="localhost",
+            port=8001,
+        ),
     )
 
     # launch it
-    mq_task = await message_queue.launch_local()
     server_task = await workflow_service.launch_local()
 
     # process run task
@@ -155,10 +166,32 @@ async def test_hitl_workflow_service(
 
     # give time to process and shutdown afterwards
     await asyncio.sleep(1)
-    mq_task.cancel()
+    consumer_task.cancel()
     server_task.cancel()
 
     # assert
     result = human_output_consumer.processed_messages[-1]
     assert result.action == ActionTypes.COMPLETED_TASK
     assert result.data["result"] == "42"
+
+    # allow a clean shutdown
+    await asyncio.gather(consumer_task, server_task, return_exceptions=True)
+
+
+def test_defaults(
+    test_workflow: Workflow,
+) -> None:
+    workflow_service = WorkflowService(
+        test_workflow,
+        None,  # type: ignore
+        config=WorkflowServiceConfig(
+            service_name="test_workflow",
+            description="Test Workflow Service",
+            host="localhost",
+            port=8001,
+        ),
+    )
+    assert workflow_service.publisher_id.startswith("WorkflowService-")
+    assert workflow_service.publish_callback is None
+    sd = workflow_service.service_definition
+    assert sd.service_name == "test_workflow"

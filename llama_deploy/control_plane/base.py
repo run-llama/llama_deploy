@@ -6,7 +6,7 @@ from llama_deploy.message_consumers.base import (
     StartConsumingCallable,
 )
 from llama_deploy.message_publishers.publisher import MessageQueuePublisherMixin
-from llama_deploy.message_queues.base import BaseMessageQueue
+from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.types import (
     ServiceDefinition,
     SessionDefinition,
@@ -29,7 +29,7 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
 
     @property
     @abstractmethod
-    def message_queue(self) -> BaseMessageQueue:
+    def message_queue(self) -> AbstractMessageQueue:
         """Return associated message queue."""
 
     @abstractmethod
@@ -45,7 +45,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Returns:
             BaseMessageQueueConsumer: Message queue consumer.
         """
-        ...
 
     @abstractmethod
     async def register_service(
@@ -57,7 +56,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Args:
             service_def (ServiceDefinition): Definition of the service.
         """
-        ...
 
     @abstractmethod
     async def deregister_service(self, service_name: str) -> None:
@@ -67,7 +65,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Args:
             service_name (str): Name of the service.
         """
-        ...
 
     @abstractmethod
     async def get_service(self, service_name: str) -> ServiceDefinition:
@@ -80,7 +77,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Returns:
             ServiceDefinition: Definition of the service.
         """
-        ...
 
     @abstractmethod
     async def get_all_services(self) -> Dict[str, ServiceDefinition]:
@@ -90,7 +86,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Returns:
             dict: All services, mapped from service name to service definition.
         """
-        ...
 
     @abstractmethod
     async def create_session(self) -> str:
@@ -100,7 +95,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Returns:
             str: Session ID.
         """
-        ...
 
     @abstractmethod
     async def add_task_to_session(
@@ -116,7 +110,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Returns:
             str: Task ID.
         """
-        ...
 
     @abstractmethod
     async def send_task_to_service(self, task_def: TaskDefinition) -> TaskDefinition:
@@ -129,7 +122,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Returns:
             TaskDefinition: Task definition with updated state.
         """
-        ...
 
     @abstractmethod
     async def handle_service_completion(
@@ -142,7 +134,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Args:
             task_result (TaskResult): Result of the task.
         """
-        ...
 
     @abstractmethod
     async def get_session(self, session_id: str) -> SessionDefinition:
@@ -155,7 +146,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Returns:
             SessionDefinition: The session definition.
         """
-        ...
 
     @abstractmethod
     async def delete_session(self, session_id: str) -> None:
@@ -165,7 +155,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Args:
             session_id (str): Unique identifier of the session.
         """
-        ...
 
     @abstractmethod
     async def get_all_sessions(self) -> Dict[str, SessionDefinition]:
@@ -175,7 +164,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Returns:
             dict: All sessions, mapped from session ID to session definition.
         """
-        ...
 
     @abstractmethod
     async def get_session_tasks(self, session_id: str) -> List[TaskDefinition]:
@@ -188,7 +176,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Returns:
             List[TaskDefinition]: All tasks in the session.
         """
-        ...
 
     @abstractmethod
     async def get_current_task(self, session_id: str) -> Optional[TaskDefinition]:
@@ -201,7 +188,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Returns:
             Optional[TaskDefinition]: The current task, if any.
         """
-        ...
 
     @abstractmethod
     async def get_task(self, task_id: str) -> TaskDefinition:
@@ -214,7 +200,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Returns:
             TaskDefinition: The task definition.
         """
-        ...
 
     @abstractmethod
     async def get_message_queue_config(self) -> Dict[str, dict]:
@@ -224,14 +209,12 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         Returns:
             Dict[str, dict]: A dict of message queue name -> config dict
         """
-        ...
 
     @abstractmethod
     async def launch_server(self) -> None:
         """
         Launch the control plane server.
         """
-        ...
 
     @abstractmethod
     async def register_to_message_queue(self) -> StartConsumingCallable:

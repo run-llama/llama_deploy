@@ -20,6 +20,7 @@ from llama_deploy.types import TaskDefinition
     help="'key value' argument to pass to the task, e.g. '-a age 30'",
 )
 @click.option("-s", "--service", is_flag=False, help="Service name")
+@click.option("-i", "--session-id", is_flag=False, help="Session ID")
 @click.pass_context
 def run(
     ctx: click.Context,
@@ -27,6 +28,7 @@ def run(
     deployment: str,
     arg: tuple[tuple[str, str]],
     service: str,
+    session_id: str,
 ) -> None:
     server_url, disable_ssl, timeout = global_config
     client = Client(api_server_url=server_url, disable_ssl=disable_ssl, timeout=timeout)
@@ -34,9 +36,12 @@ def run(
     payload = {"input": json.dumps(dict(arg))}
     if service:
         payload["agent_id"] = service
+    if session_id:
+        payload["session_id"] = session_id
 
     try:
-        result = client.sync.apiserver.deployments.tasks.run(TaskDefinition(**payload))
+        d = client.sync.apiserver.deployments.get(deployment)
+        result = d.tasks.run(TaskDefinition(**payload))
     except Exception as e:
         raise click.ClickException(str(e))
 

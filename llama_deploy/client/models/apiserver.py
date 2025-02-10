@@ -3,9 +3,16 @@ import json
 from typing import Any, AsyncGenerator, TextIO
 
 import httpx
+from llama_index.core.workflow.context_serializers import JsonSerializer
+from llama_index.core.workflow.events import Event
 
 from llama_deploy.types.apiserver import Status, StatusEnum
-from llama_deploy.types.core import SessionDefinition, TaskDefinition, TaskResult
+from llama_deploy.types.core import (
+    EventDefinition,
+    SessionDefinition,
+    TaskDefinition,
+    TaskResult,
+)
 
 from .model import Collection, Model
 
@@ -79,7 +86,26 @@ class Task(Model):
             params={"session_id": self.session_id},
             timeout=self.client.timeout,
         )
-        return TaskResult.model_validate_json(r.json())
+        return TaskResult.model_validate(r.json())
+
+    async def send_event(self, ev: Event, service_name: str) -> EventDefinition:
+        """Sends a human response event."""
+        url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/events"
+
+        serializer = JsonSerializer()
+        event_def = EventDefinition(
+            event_obj_str=serializer.serialize(ev), agent_id=service_name
+        )
+
+        r = await self.client.request(
+            "POST",
+            url,
+            verify=not self.client.disable_ssl,
+            params={"session_id": self.session_id},
+            json=event_def.model_dump(),
+            timeout=self.client.timeout,
+        )
+        return EventDefinition.model_validate(r.json())
 
     async def events(self) -> AsyncGenerator[dict[str, Any], None]:  # pragma: no cover
         """Returns a generator object to consume the events streamed from a service."""
@@ -118,6 +144,8 @@ class TaskCollection(Collection):
         run_url = (
             f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/run"
         )
+        if task.session_id:
+            run_url += f"?session_id={task.session_id}"
 
         r = await self.client.request(
             "POST",
@@ -198,8 +226,11 @@ class Deployment(Model):
 class DeploymentCollection(Collection):
     """A model representing a collection of deployments currently active."""
 
-    async def create(self, config: TextIO) -> Deployment:
+    async def create(self, config: TextIO, reload: bool = False) -> Deployment:
         """Creates a new deployment from a deployment file.
+
+        If `reload` is true, an existing deployment will be reloaded, otherwise
+        an error will be raised.
 
         Example:
             ```
@@ -214,6 +245,7 @@ class DeploymentCollection(Collection):
             "POST",
             create_url,
             files=files,
+            params={"reload": reload},
             verify=not self.client.disable_ssl,
             timeout=self.client.timeout,
         )
@@ -266,7 +298,7 @@ class ApiServer(Model):
             body = r.json()
             return Status(status=StatusEnum.UNHEALTHY, status_message=r.text)
 
-        description = "Llama Deploy is up and running."
+        description = "LlamaDeploy is up and running."
         body = r.json()
         deployments = body.get("deployments") or []
         if deployments:
