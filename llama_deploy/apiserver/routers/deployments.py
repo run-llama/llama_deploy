@@ -61,6 +61,11 @@ async def create_deployment_task(
                 detail="Service is None and deployment has no default service",
             )
         task_definition.agent_id = deployment.default_service
+    elif task_definition.agent_id not in deployment.service_names:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Service '{task_definition.agent_id}' not found in deployment 'deployment_name'",
+        )
 
     if session_id:
         session = await deployment.client.core.sessions.get(session_id)
