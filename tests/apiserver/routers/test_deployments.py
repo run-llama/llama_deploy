@@ -91,6 +91,20 @@ def test_run_task_no_default_service(http_client: TestClient, data_path: Path) -
         assert response.status_code == 400
 
 
+def test_run_task_service_not_found(http_client: TestClient, data_path: Path) -> None:
+    with mock.patch(
+        "llama_deploy.apiserver.routers.deployments.manager"
+    ) as mocked_manager:
+        mocked_manager.get_deployment.return_value = mock.MagicMock(
+            service_names=["foo"]
+        )
+        response = http_client.post(
+            "/deployments/test-deployment/tasks/run/",
+            json={"input": "{}", "agent_id": "bar"},
+        )
+        assert response.status_code == 404
+
+
 def test_create_deployment_task_missing_service(
     http_client: TestClient, data_path: Path
 ) -> None:

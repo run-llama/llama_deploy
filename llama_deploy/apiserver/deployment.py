@@ -74,14 +74,15 @@ class Deployment:
             SimpleOrchestrator(**SimpleOrchestratorConfig().model_dump()),
             config=config.control_plane,
         )
-        self._workflow_services: dict[str, WorkflowService] = self._load_services(
-            config
-        )
         self._client = Client(control_plane_url=config.control_plane.url)
         self._default_service: str | None = None
         self._running = False
         self._service_tasks: list[asyncio.Task] = []
         self._service_startup_complete = asyncio.Event()
+        # Ready to load services
+        self._workflow_services: dict[str, WorkflowService] = self._load_services(
+            config
+        )
 
     @property
     def default_service(self) -> str | None:

@@ -39,6 +39,7 @@ def test_deployment_ctor(data_path: Path, mock_importlib: Any) -> None:
         assert d.path.name == "TestDeployment"
         assert type(d._control_plane) is ControlPlaneServer
         assert len(d._workflow_services) == 1
+        assert d.service_names == ["test-workflow"]
         assert d.client is not None
         assert d.default_service is None
 
@@ -81,6 +82,28 @@ def test_deployment_ctor_skip_default_service(
         sm_dict["git"] = mock.MagicMock()
         d = Deployment(config=config, root_path=Path("."))
         assert len(d._workflow_services) == 1
+
+
+def test_deployment_ctor_invalid_default_service(
+    data_path: Path, mock_importlib: Any, caplog: Any
+) -> None:
+    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
+    config.default_service = "does-not-exist"
+
+    d = Deployment(config=config, root_path=Path("."))
+    assert d.default_service is None
+    assert (
+        "There is no service with id 'does-not-exist' in this deployment, cannot set default."
+        in caplog.text
+    )
+
+
+def test_deployment_ctor_default_service(data_path: Path, mock_importlib: Any) -> None:
+    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
+    config.default_service = "test-workflow"
+
+    d = Deployment(config=config, root_path=Path("."))
+    assert d.default_service == "test-workflow"
 
 
 def test_deployment___load_message_queue_default(mocked_deployment: Deployment) -> None:
