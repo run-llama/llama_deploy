@@ -63,14 +63,16 @@ class ControlPlaneConfig(BaseSettings):
 def parse_state_store_uri(uri: str) -> BaseKVStore:
     bits = urlparse(uri)
 
-    if bits.scheme == "redis":
+    # Redis supports multiple schemes:
+    # https://redis-py.readthedocs.io/en/stable/connections.html#redis.Redis.from_url
+    if bits.scheme in {"redis", "rediss", "unix"}:
         try:
             from llama_index.storage.kvstore.redis import RedisKVStore  # type: ignore
 
             return RedisKVStore(redis_uri=uri)
         except ImportError:
             msg = (
-                f"key-value store {bits.scheme} is not available, please install the required "
+                "key-value store redis is not available, please install the required "
                 "llama_index integration with 'pip install llama-index-storage-kvstore-redis'."
             )
             raise ValueError(msg)
