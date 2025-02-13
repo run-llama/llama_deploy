@@ -3,6 +3,7 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 
 from .routers import deployments_router, status_router
@@ -28,10 +29,10 @@ app.include_router(status_router)
 
 
 @app.get("/")
-async def root() -> JSONResponse:
+async def root(request: Request) -> JSONResponse:
     return JSONResponse(
         {
-            "swagger_docs": "http://localhost:4501/docs",
-            "status": "http://localhost:4501/status",
+            "swagger_docs": f"{request.base_url}docs",
+            "status": f"{request.base_url}status",
         }
     )
