@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 import uvicorn
+from prometheus_client import start_http_server
 
 from llama_deploy.apiserver import ApiserverSettings
 
@@ -57,6 +58,11 @@ def copy_sources(work_dir: Path, deployment_file_path: Path) -> None:
 
 
 if __name__ == "__main__":
+    settings = ApiserverSettings()
+
+    if settings.prometheus_enabled:
+        start_http_server(settings.prometheus_port)
+
     repo_url = os.environ.get("REPO_URL", "")
     if not repo_url.startswith("https://"):
         raise ValueError("Git remote must be valid and over HTTPS")
@@ -77,7 +83,6 @@ if __name__ == "__main__":
 
     # Ready to go
     os.environ["LLAMA_DEPLOY_APISERVER_RC_PATH"] = str(work_dir)
-    settings = ApiserverSettings()
     uvicorn.run(
         "llama_deploy.apiserver:app",
         host=settings.host,

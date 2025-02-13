@@ -27,6 +27,14 @@ class ApiserverSettings(BaseSettings):
         default=False,
         description="Use TLS (HTTPS) to communicate with the API Server",
     )
+    prometheus_enabled: bool = Field(
+        default=True,
+        description="Whether to enable the Prometheus metrics exporter along with the API Server",
+    )
+    prometheus_port: int = Field(
+        default=9000,
+        description="The port where to serve Prometheus metrics",
+    )
 
     @property
     def url(self) -> str:
