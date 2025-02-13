@@ -35,7 +35,7 @@ def run(
 
     payload = {"input": json.dumps(dict(arg))}
     if service:
-        payload["agent_id"] = service
+        payload["service_id"] = service
     if session_id:
         payload["session_id"] = session_id
 

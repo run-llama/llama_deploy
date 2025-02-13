@@ -40,15 +40,15 @@ class TaskDefinition(BaseModel):
             The session ID that the task belongs to.
         task_id (str):
             The task ID. Defaults to a random UUID.
-        agent_id (str):
-            The agent ID that the task should be sent to.
+        service_id (str):
+            The service ID that the task should be sent to.
             If blank, the orchestrator decides.
     """
 
     input: str
     task_id: str = Field(default_factory=generate_id)
     session_id: str | None = None
-    agent_id: str | None = None
+    service_id: str | None = None
 
 
 class SessionDefinition(BaseModel):
@@ -86,7 +86,7 @@ class EventDefinition(BaseModel):
         event_object_str (str): serialized string of event.
     """
 
-    agent_id: str
+    service_id: str
     event_obj_str: str
 
 

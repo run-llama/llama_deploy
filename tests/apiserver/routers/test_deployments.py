@@ -100,7 +100,7 @@ def test_run_task_service_not_found(http_client: TestClient, data_path: Path) ->
         )
         response = http_client.post(
             "/deployments/test-deployment/tasks/run/",
-            json={"input": "{}", "agent_id": "bar"},
+            json={"input": "{}", "service_id": "bar"},
         )
         assert response.status_code == 404
 
@@ -199,7 +199,7 @@ def test_send_event_not_found(http_client: TestClient, data_path: Path) -> None:
         mocked_manager.get_deployment.return_value = None
         response = http_client.post(
             "/deployments/test-deployment/tasks/test_task_id/events",
-            json=EventDefinition(agent_id="foo", event_obj_str="bar").model_dump(),
+            json=EventDefinition(service_id="foo", event_obj_str="bar").model_dump(),
             params={"session_id": 42},
         )
         assert response.status_code == 404
@@ -219,7 +219,7 @@ def test_send_event(http_client: TestClient, data_path: Path) -> None:
         serializer = JsonSerializer()
         ev = HumanResponseEvent(response="test human response")
         event_def = EventDefinition(
-            event_obj_str=serializer.serialize(ev), agent_id="TestService"
+            event_obj_str=serializer.serialize(ev), service_id="TestService"
         )
 
         response = http_client.post(
@@ -229,7 +229,7 @@ def test_send_event(http_client: TestClient, data_path: Path) -> None:
         )
         assert response.status_code == 200
         ev_def = EventDefinition(**response.json())
-        assert ev_def.agent_id == event_def.agent_id
+        assert ev_def.service_id == event_def.service_id
         assert ev_def.event_obj_str == event_def.event_obj_str
 
 

@@ -133,7 +133,7 @@ async def test_task_collection_run(client: Any) -> None:
             "input": "some input",
             "task_id": "test_id",
             "session_id": None,
-            "agent_id": None,
+            "service_id": None,
         },
         timeout=120.0,
     )
@@ -165,7 +165,7 @@ async def test_task_collection_create(client: Any) -> None:
             "input": '{"arg": "test_input"}',
             "task_id": "test_id",
             "session_id": None,
-            "agent_id": None,
+            "service_id": None,
         },
         timeout=120.0,
     )
