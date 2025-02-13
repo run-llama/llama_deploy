@@ -40,6 +40,7 @@ from .deployment_config_parser import (
     SourceType,
 )
 from .source_managers import GitSourceManager, LocalSourceManager, SourceManager
+from .stats import deployment_state, service_state
 
 logger = logging.getLogger()
 SOURCE_MANAGERS: dict[SourceType, Type[SourceManager]] = {
@@ -83,6 +84,7 @@ class Deployment:
         self._workflow_services: dict[str, WorkflowService] = self._load_services(
             config
         )
+        deployment_state.labels(self._name).state("ready")
 
     @property
     def default_service(self) -> str | None:
@@ -125,7 +127,9 @@ class Deployment:
             tasks.append(asyncio.create_task(self._run_services()))
 
         # Run allthethings
+        deployment_state.labels(self._name).state("running")
         await asyncio.gather(*tasks)
+        deployment_state.labels(self._name).state("stopped")
         self._running = False
 
     async def reload(self, config: DeploymentConfig) -> None:
@@ -173,6 +177,7 @@ class Deployment:
         if they are all cancelled. This is to support the reload process
         (see reload() for more details).
         """
+        deployment_state.labels(self._name).state("starting_services")
         while self._running:
             self._service_tasks = []
             # If this is a reload, self._workflow_services contains the updated configurations
@@ -204,8 +209,10 @@ class Deployment:
 
     def _load_services(self, config: DeploymentConfig) -> dict[str, WorkflowService]:
         """Creates WorkflowService instances according to the configuration object."""
+        deployment_state.labels(self._name).state("loading_services")
         workflow_services = {}
         for service_id, service_config in config.services.items():
+            service_state.labels(self._name, service_id).state("loading")
             source = service_config.source
             if source is None:
                 # this is a default service, skip for now
@@ -240,10 +247,12 @@ class Deployment:
                 # for any source manager currently supported.
                 rmtree(str(destination))
 
+            service_state.labels(self._name, service_id).state("syncing")
             source_manager = SOURCE_MANAGERS[source.type](config)
             source_manager.sync(source.name, str(destination))
 
             # Install dependencies
+            service_state.labels(self._name, service_id).state("installing")
             self._install_dependencies(service_config)
 
             # Set environment variables
@@ -268,6 +277,7 @@ class Deployment:
                 message_queue=self._queue_client,
                 config=workflow_config,
             )
+            service_state.labels(self._name, service_id).state("ready")
 
         if config.default_service in workflow_services:
             self._default_service = config.default_service
