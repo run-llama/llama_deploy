@@ -23,7 +23,7 @@ def test_run_client(workflow):
     # test number of tasks
     tasks = session.get_tasks()
     assert len(tasks) == 1
-    assert tasks[0].agent_id == "outer"
+    assert tasks[0].service_id == "outer"
 
     # delete everything
     client.sync.core.sessions.delete(session.id)
@@ -52,8 +52,8 @@ async def test_run_client_async(workflow):
     tasks = await session.get_tasks()
     assert len(tasks) == 1, f"Expected 1 task, got {len(tasks)} tasks"
     assert (
-        tasks[0].agent_id == "outer"
-    ), f"Expected id to be 'outer', got {tasks[0].agent_id}"
+        tasks[0].service_id == "outer"
+    ), f"Expected id to be 'outer', got {tasks[0].service_id}"
 
     # delete everything
     await client.core.sessions.delete(session.id)

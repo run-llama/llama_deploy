@@ -38,7 +38,7 @@ class SessionClient:
     def run(self, service_name: str, **run_kwargs: Any) -> str:
         """Implements the workflow-based run API for a session."""
         task_input = json.dumps(run_kwargs)
-        task_def = TaskDefinition(input=task_input, agent_id=service_name)
+        task_def = TaskDefinition(input=task_input, service_id=service_name)
         task_id = self.create_task(task_def)
 
         # wait for task to complete, up to timeout seconds
@@ -55,7 +55,7 @@ class SessionClient:
         """Implements the workflow-based run API for a session, but does not wait for the task to complete."""
 
         task_input = json.dumps(run_kwargs)
-        task_def = TaskDefinition(input=task_input, agent_id=service_name)
+        task_def = TaskDefinition(input=task_input, service_id=service_name)
         task_id = self.create_task(task_def)
 
         return task_id
@@ -168,7 +168,7 @@ class SessionClient:
         """
         serializer = JsonSerializer()
         event_def = EventDefinition(
-            event_obj_str=serializer.serialize(ev), agent_id=service_name
+            event_obj_str=serializer.serialize(ev), service_id=service_name
         )
 
         with httpx.Client(timeout=self.timeout) as client:

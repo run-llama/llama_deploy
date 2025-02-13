@@ -12,7 +12,7 @@ from llama_deploy.types import (
 
 TASK_DEF = TaskDefinition(
     input="Tell me a secret fact.",
-    agent_id="secret_fact_agent",
+    service_id="secret_fact_agent",
     session_id="session_id",
 )
 

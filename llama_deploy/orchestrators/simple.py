@@ -1,7 +1,7 @@
 import json
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Any, Dict, List, Optional, Tuple
 
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.orchestrators.base import BaseOrchestrator
@@ -31,16 +31,16 @@ class SimpleOrchestrator(BaseOrchestrator):
     ) -> Tuple[List[QueueMessage], Dict[str, Any]]:
         """Get the next message to process. Returns the message and the new state.
 
-        Assumes the agent_id (i.e. the service name) is the destination for the next message.
+        Assumes the service_id is the destination for the next message.
 
         Runs the required service, then sends the result to the final message type.
         """
 
         destination_messages = []
 
-        if task_def.agent_id is None:
+        if task_def.service_id is None:
             raise ValueError(
-                "Task definition must have an agent_id specified as a service name"
+                "Task definition must have an service_id specified to identify a service"
             )
 
         if task_def.task_id not in state:
@@ -70,7 +70,7 @@ class SimpleOrchestrator(BaseOrchestrator):
                     )
                 ]
         else:
-            destination = task_def.agent_id
+            destination = task_def.service_id
             destination_messages = [
                 QueueMessage(
                     type=destination,

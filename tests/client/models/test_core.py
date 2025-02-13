@@ -14,10 +14,10 @@ from llama_deploy.client.models.core import (
     SessionCollection,
 )
 from llama_deploy.types.core import (
+    EventDefinition,
     ServiceDefinition,
     TaskDefinition,
     TaskResult,
-    EventDefinition,
 )
 
 
@@ -47,7 +47,7 @@ async def test_session_create_task(client: mock.AsyncMock) -> None:
     client.request.return_value = mock.MagicMock(json=lambda: "test_task_id")
 
     session = Session(client=client, id="test_session_id")
-    task_def = TaskDefinition(input="test input", agent_id="test_service")
+    task_def = TaskDefinition(input="test input", service_id="test_service")
     task_id = await session.create_task(task_def)
 
     assert task_id == "test_task_id"
@@ -230,12 +230,12 @@ async def test_session_get_tasks(client: mock.AsyncMock) -> None:
         json=lambda: [
             {
                 "input": "task1 input",
-                "agent_id": "agent1",
+                "service_id": "agent1",
                 "session_id": "test_session_id",
             },
             {
                 "input": "task2 input",
-                "agent_id": "agent2",
+                "service_id": "agent2",
                 "session_id": "test_session_id",
             },
         ]
@@ -250,10 +250,10 @@ async def test_session_get_tasks(client: mock.AsyncMock) -> None:
     assert len(tasks) == 2
     assert all(isinstance(task, TaskDefinition) for task in tasks)
     assert tasks[0].input == "task1 input"
-    assert tasks[0].agent_id == "agent1"
+    assert tasks[0].service_id == "agent1"
     assert tasks[0].session_id == "test_session_id"
     assert tasks[1].input == "task2 input"
-    assert tasks[1].agent_id == "agent2"
+    assert tasks[1].service_id == "agent2"
     assert tasks[1].session_id == "test_session_id"
 
 
@@ -267,7 +267,7 @@ async def test_session_send_event(client: mock.AsyncMock) -> None:
     client.request.assert_awaited_once_with(
         "POST",
         "http://localhost:8000/sessions/test_session_id/tasks/test_task_id/send_event",
-        json={"event_obj_str": mock.ANY, "agent_id": "test_service"},
+        json={"event_obj_str": mock.ANY, "service_id": "test_service"},
     )
 
 
@@ -276,7 +276,7 @@ async def test_session_send_event_def(client: mock.AsyncMock) -> None:
     event = Event(event_type="test_event", payload={"key": "value"})
     s = JsonSerializer()
     event_def = EventDefinition(
-        agent_id="test_session_id", event_obj_str=s.serialize(event)
+        service_id="test_session_id", event_obj_str=s.serialize(event)
     )
     session = Session(client=client, id="test_session_id")
 
@@ -302,7 +302,7 @@ async def test_session_run_nowait(client: mock.AsyncMock) -> None:
         "http://localhost:8000/sessions/test_session_id/tasks",
         json={
             "input": '{"test_param": "test_value"}',
-            "agent_id": "test_service",
+            "service_id": "test_service",
             "session_id": "test_session_id",
             "task_id": mock.ANY,
         },

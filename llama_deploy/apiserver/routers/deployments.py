@@ -54,17 +54,17 @@ async def create_deployment_task(
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    if task_definition.agent_id is None:
+    if task_definition.service_id is None:
         if deployment.default_service is None:
             raise HTTPException(
                 status_code=400,
                 detail="Service is None and deployment has no default service",
             )
-        task_definition.agent_id = deployment.default_service
-    elif task_definition.agent_id not in deployment.service_names:
+        task_definition.service_id = deployment.default_service
+    elif task_definition.service_id not in deployment.service_names:
         raise HTTPException(
             status_code=404,
-            detail=f"Service '{task_definition.agent_id}' not found in deployment 'deployment_name'",
+            detail=f"Service '{task_definition.service_id}' not found in deployment 'deployment_name'",
         )
 
     if session_id:
@@ -73,7 +73,7 @@ async def create_deployment_task(
         session = await deployment.client.core.sessions.create()
 
     result = await session.run(
-        task_definition.agent_id or "", **json.loads(task_definition.input)
+        task_definition.service_id or "", **json.loads(task_definition.input)
     )
 
     # Assume the request does not care about the session if no session_id is provided
@@ -92,13 +92,13 @@ async def create_deployment_task_nowait(
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    if task_definition.agent_id is None:
+    if task_definition.service_id is None:
         if deployment.default_service is None:
             raise HTTPException(
                 status_code=400,
                 detail="Service is None and deployment has no default service",
             )
-        task_definition.agent_id = deployment.default_service
+        task_definition.service_id = deployment.default_service
 
     if session_id:
         session = await deployment.client.core.sessions.get(session_id)
@@ -108,7 +108,7 @@ async def create_deployment_task_nowait(
 
     task_definition.session_id = session_id
     task_definition.task_id = await session.run_nowait(
-        task_definition.agent_id or "", **json.loads(task_definition.input)
+        task_definition.service_id or "", **json.loads(task_definition.input)
     )
 
     return task_definition

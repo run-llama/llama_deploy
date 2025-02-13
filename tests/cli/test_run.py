@@ -26,9 +26,9 @@ def test_run(runner: CliRunner) -> None:
 
         args = mocked_deployment.tasks.run.call_args
         actual = args[0][0]
-        expected = TaskDefinition(agent_id="service_name", input="{}")
+        expected = TaskDefinition(service_id="service_name", input="{}")
         assert expected.input == actual.input
-        assert expected.agent_id == actual.agent_id
+        assert expected.service_id == actual.service_id
         assert actual.session_id is not None
         assert result.exit_code == 0
 
@@ -76,6 +76,6 @@ def test_run_args(runner: CliRunner) -> None:
             input='{"first_arg": "first_value", "second_arg": "\\"second value with spaces\\""}',
         )
         assert expected.input == actual.input
-        assert expected.agent_id == actual.agent_id
+        assert expected.service_id == actual.service_id
         assert actual.session_id is None
         assert result.exit_code == 0

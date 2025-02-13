@@ -94,7 +94,7 @@ class Task(Model):
 
         serializer = JsonSerializer()
         event_def = EventDefinition(
-            event_obj_str=serializer.serialize(ev), agent_id=service_name
+            event_obj_str=serializer.serialize(ev), service_id=service_name
         )
 
         r = await self.client.request(

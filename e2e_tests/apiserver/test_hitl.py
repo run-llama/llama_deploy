@@ -2,11 +2,10 @@ import asyncio
 from pathlib import Path
 
 import pytest
-
-from llama_deploy.types import TaskDefinition, EventDefinition
-
-from llama_index.core.workflow.events import HumanResponseEvent
 from llama_index.core.workflow.context_serializers import JsonSerializer
+from llama_index.core.workflow.events import HumanResponseEvent
+
+from llama_deploy.types import EventDefinition, TaskDefinition
 
 
 @pytest.mark.asyncio
@@ -28,6 +27,6 @@ async def test_hitl(apiserver, client):
 
     result = await task.results()
 
-    assert ev_def.agent_id == "hitl_workflow"
+    assert ev_def.service_id == "hitl_workflow"
     assert ev_def.event_obj_str == JsonSerializer().serialize(ev)
     assert result.result == "42", "The human's response is not consistent."

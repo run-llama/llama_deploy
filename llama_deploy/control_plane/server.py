@@ -577,10 +577,10 @@ class ControlPlaneServer(BaseControlPlane):
             task_id=task_id,
             session_id=session_id,
             input=event_def.event_obj_str,
-            agent_id=event_def.agent_id,
+            service_id=event_def.service_id,
         )
         message = QueueMessage(
-            type=event_def.agent_id,
+            type=event_def.service_id,
             action=ActionTypes.SEND_EVENT,
             data=task_def.model_dump(),
         )
