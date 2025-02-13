@@ -24,7 +24,7 @@ deployment_state = Enum(
 )
 
 service_state = Enum(
-    "deployment_state",
+    "service_state",
     "Current state of a service attached to a deployment",
     ["deployment_name", "service_name"],
     states=[
