@@ -12,7 +12,9 @@ omit = [
   "tests/*",
   # deprecated modules
   "llama_deploy/client/async_client.py",
-  "llama_deploy/client/sync_client.py"
+  "llama_deploy/client/sync_client.py",
+  # observability definitions
+  "llama_deploy/apiserver/stats.py"
 ]
 
 [tool.poetry]
