@@ -9,6 +9,8 @@ from llama_deploy.control_plane.config import parse_state_store_uri
 def test_config_url() -> None:
     cfg = ControlPlaneConfig(host="localhost", port=4242)
     assert cfg.url == "http://localhost:4242"
+    cfg = ControlPlaneConfig(host="localhost", port=4242, use_tls=True)
+    assert cfg.url == "https://localhost:4242"
 
 
 def test_parse_state_store_uri_malformed() -> None:
