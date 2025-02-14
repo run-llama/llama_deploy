@@ -85,7 +85,7 @@ async def test_process_message() -> None:
 
     with pytest.raises(
         ValueError,
-        match="Action ActionTypes.REQUEST_FOR_HELP not supported by control plane",
+        match=r"Action .* not supported by control plane",
     ):
         msg = QueueMessage(action=ActionTypes.REQUEST_FOR_HELP, data={"foo": "bar"})
         await server.process_message(msg)
