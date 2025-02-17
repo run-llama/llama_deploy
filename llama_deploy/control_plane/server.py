@@ -229,17 +229,19 @@ class ControlPlaneServer(BaseControlPlane):
         return self._publish_callback
 
     async def process_message(self, message: QueueMessage) -> None:
-        action = message.action
+        if not message.data:
+            raise ValueError(f"Invalid field 'data' in QueueMessage: {message.data}")
 
-        if action == ActionTypes.NEW_TASK and message.data is not None:
+        action = message.action
+        if action == ActionTypes.NEW_TASK:
             task_def = TaskDefinition(**message.data)
             if task_def.session_id is None:
                 task_def.session_id = await self.create_session()
 
             await self.add_task_to_session(task_def.session_id, task_def)
-        elif action == ActionTypes.COMPLETED_TASK and message.data is not None:
+        elif action == ActionTypes.COMPLETED_TASK:
             await self.handle_service_completion(TaskResult(**message.data))
-        elif action == ActionTypes.TASK_STREAM and message.data is not None:
+        elif action == ActionTypes.TASK_STREAM:
             await self.add_stream_to_session(TaskStream(**message.data))
         else:
             raise ValueError(f"Action {action} not supported by control plane")
@@ -382,6 +384,10 @@ class ControlPlaneServer(BaseControlPlane):
 
         if not task_def.session_id:
             task_def.session_id = session_id
+
+        if task_def.session_id != session_id:
+            msg = f"Wrong task definition: task.session_id is {task_def.session_id} but should be {session_id}"
+            raise HTTPException(status_code=400, detail=msg)
 
         session = SessionDefinition(**session_dict)
         session.task_ids.append(task_def.task_id)
