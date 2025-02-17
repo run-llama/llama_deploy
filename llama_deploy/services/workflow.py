@@ -251,6 +251,10 @@ class WorkflowService(BaseService):
 
             # run the workflow
             handler = self.workflow.run(ctx=ctx, **current_call.run_kwargs)
+            if handler.ctx is None:
+                # This should never happen, workflow.run actually sets the Context
+                # even if handler.ctx is typed as Optional[Context]
+                raise ValueError("Context cannot be None.")
 
             async def send_events(
                 handler: WorkflowHandler, close_event: asyncio.Event
@@ -289,7 +293,7 @@ class WorkflowService(BaseService):
 
             final_result = await handler
 
-            # dump the state # dump the state
+            # dump the state
             await self.set_workflow_state(handler.ctx, current_call)
 
             logger.info(
@@ -317,7 +321,7 @@ class WorkflowService(BaseService):
                 exc_info=True,
             )
             # dump the state
-            if handler is not None:
+            if handler is not None and handler.ctx is not None:
                 await self.set_workflow_state(handler.ctx, current_call)
 
             # return failure
