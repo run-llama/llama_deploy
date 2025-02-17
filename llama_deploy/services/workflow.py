@@ -321,7 +321,7 @@ class WorkflowService(BaseService):
                 exc_info=True,
             )
             # dump the state
-            if handler is not None:
+            if handler is not None and handler.ctx is not None:
                 await self.set_workflow_state(handler.ctx, current_call)
 
             # return failure
