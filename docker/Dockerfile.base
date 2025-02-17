@@ -34,8 +34,11 @@ RUN apt-get update && \
 
 ARG apiserver_port
 ARG rc_path
+ARG prometheus_enabled
+ARG prometheus_port
 
 EXPOSE ${apiserver_port}
+EXPOSE ${prometheus_port}
 
 COPY --from=build-image /opt/venv /opt/venv
 COPY ./run_apiserver.py /opt
@@ -45,6 +48,8 @@ COPY ./run_autodeploy.py /opt
 ENV LLAMA_DEPLOY_APISERVER_RC_PATH=${rc_path}
 ENV LLAMA_DEPLOY_APISERVER_HOST=0.0.0.0
 ENV LLAMA_DEPLOY_APISERVER_PORT=${apiserver_port}
+ENV LLAMA_DEPLOY_APISERVER_PROMETHEUS_ENABLED=${prometheus_enabled}
+ENV LLAMA_DEPLOY_APISERVER_PROMETHEUS_PORT=${prometheus_port}
 
 FROM final AS base
 

@@ -30,6 +30,14 @@ variable "APISERVER_PORT" {
     default = 4501
 }
 
+variable "PROMETHEUS_PORT" {
+    default = 9000
+}
+
+variable "PROMETHEUS_ENABLED" {
+    default = true
+}
+
 variable "ENTRYPOINT_SCRIPT" {
     default = "run_apiserver.py"
 }
@@ -50,6 +58,8 @@ target "default" {
         llama_deploy_extras = "[awssqs, rabbitmq, kafka, redis]"
         git_clone_options = "${GIT_CLONE_OPTIONS}"
         apiserver_port = "${APISERVER_PORT}"
+        prometheus_port = "${PROMETHEUS_PORT}"
+        prometheus_enabled = "${PROMETHEUS_ENABLED}"
         entrypoint_script = "${ENTRYPOINT_SCRIPT}"
         rc_path = "${RC_PATH}"
     }
