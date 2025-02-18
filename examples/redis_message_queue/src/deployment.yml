@@ -1,0 +1,20 @@
+name: RedisMessageQueue
+
+control-plane:
+  port: 8000
+
+message-queue:
+  type: redis
+  # what follows depends on what's in the docker compose file
+  host: redis
+  port: 6379
+
+default-service: counter_workflow_service
+
+services:
+  counter_workflow_service:
+    name: Counter Workflow
+    source:
+      type: local
+      name: .
+    path: workflow:counter_workflow
