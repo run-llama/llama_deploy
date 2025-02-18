@@ -36,7 +36,7 @@ async def metrics() -> PlainTextResponse:
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"http://localhost:{settings.prometheus_port}/")
+            response = await client.get(f"http://127.0.0.1:{settings.prometheus_port}/")
             return PlainTextResponse(content=response.text)
     except httpx.RequestError as exc:
         raise HTTPException(status_code=500, detail=str(exc))
