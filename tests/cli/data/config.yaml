@@ -1,0 +1,9 @@
+default:
+  insecure: false
+  server: http://localhost:4501
+  timeout: 120.0
+
+test:
+  insecure: false
+  server: http://localhost:4501
+  timeout: 120.0

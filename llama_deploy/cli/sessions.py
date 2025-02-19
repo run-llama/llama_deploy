@@ -2,6 +2,8 @@ import click
 
 from llama_deploy import Client
 
+from .internal.config import ConfigProfile
+
 
 @click.group
 def sessions() -> None:
@@ -9,18 +11,21 @@ def sessions() -> None:
 
 
 @click.command()
-@click.pass_obj  # global_config
+@click.pass_obj  # config_profile
 @click.option(
     "-d", "--deployment", required=True, is_flag=False, help="Deployment name"
 )
 @click.pass_context
 def create(
     ctx: click.Context,
-    global_config: tuple,
+    config_profile: ConfigProfile,
     deployment: str,
 ) -> None:
-    server_url, disable_ssl, timeout = global_config
-    client = Client(api_server_url=server_url, disable_ssl=disable_ssl, timeout=timeout)
+    client = Client(
+        api_server_url=config_profile.server,
+        disable_ssl=config_profile.insecure,
+        timeout=config_profile.timeout,
+    )
 
     try:
         d = client.sync.apiserver.deployments.get(deployment)

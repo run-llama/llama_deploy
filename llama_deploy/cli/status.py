@@ -3,12 +3,17 @@ import click
 from llama_deploy import Client
 from llama_deploy.types.apiserver import StatusEnum
 
+from .internal.config import ConfigProfile
+
 
 @click.command()
-@click.pass_obj  # global_config
-def status(global_config: tuple) -> None:
-    server_url, disable_ssl, timeout = global_config
-    client = Client(api_server_url=server_url, disable_ssl=disable_ssl, timeout=timeout)
+@click.pass_obj  # config_profile
+def status(config_profile: ConfigProfile) -> None:
+    client = Client(
+        api_server_url=config_profile.server,
+        disable_ssl=config_profile.insecure,
+        timeout=config_profile.timeout,
+    )
 
     try:
         status = client.sync.apiserver.status()
