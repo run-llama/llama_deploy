@@ -14,7 +14,7 @@ class ConfigProfile(BaseModel):
     timeout: float = 120.0
 
 
-def _create_default_profile() -> dict[str, dict[str, Any]]:
+def _dump_default_profile() -> dict[str, dict[str, Any]]:
     return {DEFAULT_PROFILE_NAME: ConfigProfile().model_dump()}
 
 
@@ -23,7 +23,7 @@ def _default_config_path() -> Path:
     if not cfg_path.exists():
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         with open(cfg_path, "w") as f:
-            yaml.safe_dump(_create_default_profile(), f)
+            yaml.safe_dump(_dump_default_profile(), f)
 
     return cfg_path
 
