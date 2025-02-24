@@ -123,6 +123,7 @@ class Deployment:
 
         # Start the services. It makes no sense for a deployment to have no services but
         # the configuration allows it, so let's be defensive here.
+        deployment_state.labels(self._name).state("starting_services")
         if self._workflow_services:
             tasks.append(asyncio.create_task(self._run_services()))
 
@@ -177,7 +178,6 @@ class Deployment:
         if they are all cancelled. This is to support the reload process
         (see reload() for more details).
         """
-        deployment_state.labels(self._name).state("starting_services")
         while self._running:
             self._service_tasks = []
             # If this is a reload, self._workflow_services contains the updated configurations
