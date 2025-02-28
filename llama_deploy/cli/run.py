@@ -5,9 +5,11 @@ import click
 from llama_deploy import Client
 from llama_deploy.types import TaskDefinition
 
+from .internal.config import ConfigProfile
+
 
 @click.command()
-@click.pass_obj  # global_config
+@click.pass_obj  # config_profile
 @click.option(
     "-d", "--deployment", required=True, is_flag=False, help="Deployment name"
 )
@@ -24,14 +26,17 @@ from llama_deploy.types import TaskDefinition
 @click.pass_context
 def run(
     ctx: click.Context,
-    global_config: tuple,
+    config_profile: ConfigProfile,
     deployment: str,
     arg: tuple[tuple[str, str]],
     service: str,
     session_id: str,
 ) -> None:
-    server_url, disable_ssl, timeout = global_config
-    client = Client(api_server_url=server_url, disable_ssl=disable_ssl, timeout=timeout)
+    client = Client(
+        api_server_url=config_profile.server,
+        disable_ssl=config_profile.insecure,
+        timeout=config_profile.timeout,
+    )
 
     payload = {"input": json.dumps(dict(arg))}
     if service:
