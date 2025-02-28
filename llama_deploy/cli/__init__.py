@@ -2,6 +2,7 @@ from pathlib import Path
 
 import click
 
+from .config import config as config_cmd
 from .deploy import deploy as deploy_cmd
 from .internal.config import DEFAULT_PROFILE_NAME, load_config
 from .run import run as run_cmd
@@ -61,9 +62,9 @@ def llamactl(
 ) -> None:
     config_obj = load_config(config)
     profile = profile or DEFAULT_PROFILE_NAME
-    if profile not in config_obj:
+    if profile not in config_obj.profiles:
         raise click.ClickException(f"Profile {profile} does not exist.")
-    config_profile = config_obj[profile]
+    config_profile = config_obj.profiles[profile]
     # Parameters passed via command line take precedence
     config_profile.server = server or config_profile.server
     config_profile.insecure = insecure or config_profile.insecure
@@ -78,3 +79,4 @@ llamactl.add_command(deploy_cmd)
 llamactl.add_command(run_cmd)
 llamactl.add_command(status_cmd)
 llamactl.add_command(sessions_cmd)
+llamactl.add_command(config_cmd)

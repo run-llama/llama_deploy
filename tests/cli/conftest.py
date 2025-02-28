@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 from typing import IO, Any, Mapping, Optional, Sequence, Union
 
@@ -37,3 +38,11 @@ def runner(data_path: Path) -> CliRunner:
     runner = ConfigCliRunner()
     runner.config_path = data_path
     return runner
+
+
+@pytest.fixture
+def tmp_config(data_path: Path, tmp_path: Path) -> Path:
+    src = data_path / "config.yaml"
+    dst = tmp_path / "config.yaml"
+    shutil.copy(src, tmp_path)
+    return dst
