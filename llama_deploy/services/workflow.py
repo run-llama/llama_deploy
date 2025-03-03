@@ -21,7 +21,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llama_deploy.control_plane.server import CONTROL_PLANE_MESSAGE_TYPE
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
-from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_publishers.publisher import PublishCallback
 from llama_deploy.message_queues.base import AbstractMessageQueue
@@ -415,31 +414,14 @@ class WorkflowService(BaseService):
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 
-    def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
-        """Get the consumer for the message queue.
+    def as_consumer(self) -> BaseMessageQueueConsumer:
+        """Get the consumer for the message queue."""
 
-        Args:
-            remote (bool):
-                Whether the consumer is remote. Defaults to False.
-                If True, the consumer will be a RemoteMessageConsumer that uses the `process_message` endpoint.
-        """
-        if remote:
-            return RemoteMessageConsumer(
-                id_=self.publisher_id,
-                url=f"{self.config.url}{self._app.url_path_for('process_message')}",
-                message_type=self.service_name,
-            )
-
-        return CallableMessageConsumer(
+        return RemoteMessageConsumer(
             id_=self.publisher_id,
+            url=f"{self.config.url}{self._app.url_path_for('process_message')}",
             message_type=self.service_name,
-            handler=self.process_message,
         )
-
-    async def launch_local(self) -> asyncio.Task:
-        """Launch the service in-process."""
-        logger.info(f"{self.service_name} launch_local")
-        return asyncio.create_task(self.processing_loop())
 
     # ---- Server based methods ----
 
