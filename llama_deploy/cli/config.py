@@ -1,11 +1,27 @@
-from distutils.util import strtobool
-
 import click
 from pydantic import AnyHttpUrl
 from rich.console import Console
 from rich.table import Table
 
 from .internal.config import Config, load_config
+
+
+def _strtobool(val: str) -> bool:
+    """Convert a string representation of truth to True or False.
+
+    Original code from distutils (MIT license).
+
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    """
+    val = val.lower()
+    if val in ("y", "yes", "t", "true", "on", "1"):
+        return True
+    elif val in ("n", "no", "f", "false", "off", "0"):
+        return False
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
 
 
 @click.group
@@ -98,7 +114,7 @@ def set_profile_vars(config: Config, param: str, value: str) -> None:
             AnyHttpUrl(value)
             current.server = value
         elif param == "insecure":
-            current.insecure = bool(strtobool(value))
+            current.insecure = _strtobool(value)
         elif param == "timeout":
             current.timeout = float(value)
         else:
