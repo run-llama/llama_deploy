@@ -16,7 +16,6 @@ from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
-from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
@@ -246,22 +245,11 @@ class ControlPlaneServer(BaseControlPlane):
         else:
             raise ValueError(f"Action {action} not supported by control plane")
 
-    def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
-        if remote:
-            return RemoteMessageConsumer(
-                id_=self.publisher_id,
-                url=(
-                    f"http://{self._config.host}:{self._config.port}/process_message"
-                    if self._config.port
-                    else f"http://{self._config.host}/process_message"
-                ),
-                message_type=CONTROL_PLANE_MESSAGE_TYPE,
-            )
-
-        return CallableMessageConsumer(
+    def as_consumer(self) -> BaseMessageQueueConsumer:
+        return RemoteMessageConsumer(
             id_=self.publisher_id,
+            url=f"{self._config.url}/process_message",
             message_type=CONTROL_PLANE_MESSAGE_TYPE,
-            handler=self.process_message,
         )
 
     async def launch_server(self) -> None:
@@ -269,7 +257,6 @@ class ControlPlaneServer(BaseControlPlane):
         host = self._config.internal_host or self._config.host
         port = self._config.internal_port or self._config.port
         logger.info(f"Launching control plane server at {host}:{port}")
-        # uvicorn.run(self.app, host=self._config.host, port=self._config.port)
 
         class CustomServer(uvicorn.Server):
             def install_signal_handlers(self) -> None:
@@ -621,8 +608,7 @@ class ControlPlaneServer(BaseControlPlane):
 
     async def register_to_message_queue(self) -> StartConsumingCallable:
         return await self.message_queue.register_consumer(
-            self.as_consumer(remote=True),
-            topic=self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
+            self.as_consumer(), topic=self.get_topic(CONTROL_PLANE_MESSAGE_TYPE)
         )
 
     def get_topic(self, msg_type: str) -> str:
