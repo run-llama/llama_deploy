@@ -17,11 +17,8 @@ def test_load_config(data_path: Path) -> None:
 
 
 def test_load_config_no_path(tmp_path: Path) -> None:
-    test_config_file = tmp_path / DEFAULT_CONFIG_FILE_NAME
-    with mock.patch(
-        "llama_deploy.cli.internal.config._default_config_path"
-    ) as mock_path:
-        mock_path.return_value = test_config_file
+    with mock.patch("llama_deploy.cli.internal.utils.user_config_dir") as mock_dir:
+        mock_dir.return_value = tmp_path
         config = load_config(path=None)
         assert len(config.profiles) == 1
         assert "default" in config.profiles

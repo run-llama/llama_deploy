@@ -42,7 +42,6 @@ class Config(BaseModel):
 def load_config(path: Path | None = None) -> Config:
     if path is None:
         path = _default_config_path()
-        print("-->", path)
         if not path.exists():
             # Use default
             config = Config(
