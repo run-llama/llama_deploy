@@ -1,4 +1,4 @@
-import asyncio
+import warnings
 from abc import ABC, abstractmethod
 from typing import Any
 
@@ -24,7 +24,6 @@ class BaseService(MessageQueuePublisherMixin, ABC):
     - A service has a processing loop, for continuous processing of messages.
     - A service can process a message.
     - A service can publish a message to another service.
-    - A service can be launched in-process.
     - A service can be launched as a server.
     - A service can be registered to the control plane.
     - A service can be registered to the message queue.
@@ -39,6 +38,12 @@ class BaseService(MessageQueuePublisherMixin, ABC):
         self._service_name = name
         self._control_plane_config = control_plane_config or ControlPlaneConfig()
         self._control_plane_url = self._control_plane_config.url
+        if control_plane_url is not None:
+            warnings.warn(
+                "The control_plane_url parameter is deprecated and will be removed in a future version.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
 
     @property
     def service_name(self) -> str:
@@ -51,7 +56,7 @@ class BaseService(MessageQueuePublisherMixin, ABC):
         ...
 
     @abstractmethod
-    def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
+    def as_consumer(self) -> BaseMessageQueueConsumer:
         """Get the consumer for the message queue."""
         ...
 
@@ -63,11 +68,6 @@ class BaseService(MessageQueuePublisherMixin, ABC):
     @abstractmethod
     async def process_message(self, message: QueueMessage) -> Any:
         """Process a message."""
-        ...
-
-    @abstractmethod
-    async def launch_local(self) -> asyncio.Task:
-        """Launch the service in-process."""
         ...
 
     @abstractmethod
@@ -133,13 +133,11 @@ class BaseService(MessageQueuePublisherMixin, ABC):
     async def register_to_message_queue(self) -> StartConsumingCallable:
         """Register the service to the message queue."""
         return await self.message_queue.register_consumer(
-            self.as_consumer(remote=True), topic=self.get_topic(self.service_name)
+            self.as_consumer(), topic=self.get_topic(self.service_name)
         )
 
     async def deregister_from_message_queue(self) -> None:
-        return await self.message_queue.deregister_consumer(
-            self.as_consumer(remote=True)
-        )
+        return await self.message_queue.deregister_consumer(self.as_consumer())
 
     def get_topic(self, msg_type: str) -> str:
         return f"{self._control_plane_config.topic_namespace}.{msg_type}"

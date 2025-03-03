@@ -128,12 +128,12 @@ async def test_hitl_workflow_service(
             service_name="test_workflow",
             description="Test Workflow Service",
             host="localhost",
-            port=8001,
+            port=8002,
         ),
     )
 
     # launch it
-    server_task = await workflow_service.launch_local()
+    server_task = asyncio.create_task(workflow_service.launch_server())
 
     # process run task
     task = TaskDefinition(
