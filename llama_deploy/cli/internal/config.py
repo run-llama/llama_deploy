@@ -2,18 +2,10 @@ from pathlib import Path
 from typing import cast
 
 import yaml
-from platformdirs import user_config_dir
 from pydantic import BaseModel, Field
 from typing_extensions import Self
 
-DEFAULT_PROFILE_NAME = "default"
-DEFAULT_CONFIG_FILE_NAME = "config.yaml"
-DEFAULT_CONFIG_FOLDER_NAME = "llamactl"
-
-
-def _default_config_path() -> Path:
-    base = user_config_dir(DEFAULT_CONFIG_FOLDER_NAME, appauthor=False)
-    return Path(base) / DEFAULT_CONFIG_FILE_NAME
+from .utils import DEFAULT_PROFILE_NAME, _default_config_path
 
 
 class ConfigProfile(BaseModel):
@@ -50,6 +42,7 @@ class Config(BaseModel):
 def load_config(path: Path | None = None) -> Config:
     if path is None:
         path = _default_config_path()
+        print("-->", path)
         if not path.exists():
             # Use default
             config = Config(
