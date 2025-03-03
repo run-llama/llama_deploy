@@ -45,13 +45,21 @@ async def check_status():
 The client provides access to two main components:
 
 - `apiserver`: Interact with the [API server](./20_core_components.md#api-server)
-- `core`: Access [core functionalities](./20_core_components.md#control-plane) like the Control Plane.
+- `core`: Access [Control Plane](./20_core_components.md#control-plane) functionalities.
 
 Each component exposes specific methods for managing and interacting with the deployed system.
 
-> [!NOTE]
-> For a complete list of available methods and detailed API reference, see the
-> [API Reference section](../../api_reference/llama_deploy/python_sdk.md).
+> [!IMPORTANT]
+> To use the `apiserver` functionalities, the API Server must be up and its URL
+> (by default `http://localhost:4501`) reachable by the host executing the client code.
+
+> [!IMPORTANT]
+> To use the `core` functionalities, the Control Plane must be up and its URL
+> (by default `http://localhost:8000`) reachable by the host executing the client code.
+
+
+For a complete list of available methods and detailed API reference, see the
+[API Reference section](../../api_reference/llama_deploy/python_sdk.md).
 
 ## Usage Examples
 

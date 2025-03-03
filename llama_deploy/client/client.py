@@ -39,12 +39,12 @@ class Client(_BaseClient):
 
     @property
     def apiserver(self) -> ApiServer:
-        """Returns the ApiServer model."""
+        """Access the API Server functionalities."""
         return ApiServer(client=self, id="apiserver")
 
     @property
     def core(self) -> Core:
-        """Returns the Core model."""
+        """Access the Control Plane functionalities."""
         return Core(client=self, id="core")
 
 
