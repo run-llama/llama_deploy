@@ -33,7 +33,7 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         """Return associated message queue."""
 
     @abstractmethod
-    def as_consumer(self, remote: bool = False) -> BaseMessageQueueConsumer:
+    def as_consumer(self) -> BaseMessageQueueConsumer:
         """
         Get the consumer for the message queue.
 
