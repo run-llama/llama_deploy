@@ -1,3 +1,11 @@
+"""Client functionalities to operate on the Control Plane.
+
+This module allows the client to use all the functionalities
+from the Control Plane. For this to work, the Control Plane
+must be up and its URL (by default `http://localhost:8000`)
+reachable by the host executing the client code.
+"""
+
 import asyncio
 import json
 import time
@@ -18,6 +26,8 @@ from .model import Collection, Model
 
 
 class Session(Model):
+    """A model representing a Session."""
+
     async def run(self, service_name: str, **run_kwargs: Any) -> str:
         """Implements the workflow-based run API for a session."""
         task_input = json.dumps(run_kwargs)
@@ -48,7 +58,7 @@ class Session(Model):
         """Create a new task in this session.
 
         Args:
-            task_def (Union[str, TaskDefinition]): The task definition or input string.
+            task_def (TaskDefinition): The task definition.
 
         Returns:
             str: The ID of the created task.
@@ -96,7 +106,9 @@ class Session(Model):
         """Send event to a Workflow service.
 
         Args:
-            event (Event): The event to be submitted to the workflow.
+            service_name (str): The name of the service running the target Task.
+            task_id (str): The ID of the task running the workflow receiving the event.
+            ev (Event): The event to be sent to the workflow task.
 
         Returns:
             None
@@ -113,7 +125,8 @@ class Session(Model):
         """Send event to a Workflow service.
 
         Args:
-            event (Event): The event to be submitted to the workflow.
+            task_id (str): The ID of the task running the workflow receiving the event.
+            ev_def (EventDefinition): The event definition describing the Event to send.
 
         Returns:
             None
@@ -158,6 +171,8 @@ class Session(Model):
 
 
 class SessionCollection(Collection):
+    """A model representing a collection of sessions."""
+
     async def list(self) -> list[Session]:  # type: ignore
         """Returns a list of all the sessions in the collection."""
         sessions_url = f"{self.client.control_plane_url}/sessions"
@@ -188,7 +203,7 @@ class SessionCollection(Collection):
         """Gets a session by ID.
 
         Args:
-            session_id: The ID of the session to get.
+            id (str): The ID of the session to get.
 
         Returns:
             Session: A Session object representing the specified session.
@@ -230,6 +245,8 @@ class SessionCollection(Collection):
 
 
 class Service(Model):
+    """A model representing a Service."""
+
     pass
 
 

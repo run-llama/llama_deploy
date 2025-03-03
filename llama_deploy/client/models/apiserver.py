@@ -1,3 +1,11 @@
+"""Client functionalities to operate on the API Server.
+
+This module allows the client to use all the functionalities
+from the LlamaDeploy API Server. For this to work, the API
+Server must be up and its URL (by default `http://localhost:4501`)
+reachable by the host executing the client code.
+"""
+
 import asyncio
 import json
 from typing import Any, AsyncGenerator, TextIO
@@ -5,6 +13,7 @@ from typing import Any, AsyncGenerator, TextIO
 import httpx
 from llama_index.core.workflow.context_serializers import JsonSerializer
 from llama_index.core.workflow.events import Event
+from pydantic import Field
 
 from llama_deploy.types.apiserver import Status, StatusEnum
 from llama_deploy.types.core import (
@@ -20,7 +29,9 @@ from .model import Collection, Model
 class SessionCollection(Collection):
     """A model representing a collection of session for a given deployment."""
 
-    deployment_id: str
+    deployment_id: str = Field(
+        description="The ID of the deployment containing the sessions."
+    )
 
     async def delete(self, session_id: str) -> None:
         """Deletes the session with the provided `session_id`.
@@ -42,7 +53,7 @@ class SessionCollection(Collection):
         )
 
     async def create(self) -> SessionDefinition:
-        """"""
+        """Create a new session."""
         create_url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/sessions/create"
 
         r = await self.client.request(
@@ -72,8 +83,10 @@ class SessionCollection(Collection):
 class Task(Model):
     """A model representing a task belonging to a given session in the given deployment."""
 
-    deployment_id: str
-    session_id: str
+    deployment_id: str = Field(
+        description="The ID of the deployment this task belongs to."
+    )
+    session_id: str = Field(description="The ID of the session this task belongs to.")
 
     async def results(self) -> TaskResult:
         """Returns the result of a given task."""
@@ -133,7 +146,9 @@ class Task(Model):
 class TaskCollection(Collection):
     """A model representing a collection of tasks for a given deployment."""
 
-    deployment_id: str
+    deployment_id: str = Field(
+        description="The ID of the deployment these tasks belong to."
+    )
 
     async def run(self, task: TaskDefinition) -> Any:
         """Runs a task and returns the results once it's done.
@@ -267,6 +282,7 @@ class DeploymentCollection(Collection):
         return model_class(client=self.client, id=id)
 
     async def list(self) -> list[Deployment]:
+        """Return a list of Deployment instances for this collection."""
         deployments_url = f"{self.client.api_server_url}/deployments/"
         r = await self.client.request("GET", deployments_url)
         model_class = self._prepare(Deployment)
