@@ -7,6 +7,7 @@ from .internal.config import ConfigProfile
 
 @click.group
 def sessions() -> None:
+    """Manage sessions for a given deployment."""
     pass
 
 

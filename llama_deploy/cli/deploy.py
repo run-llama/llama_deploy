@@ -14,6 +14,7 @@ from .internal.config import ConfigProfile
 def deploy(
     config_profile: ConfigProfile, reload: bool, deployment_config_file: IO
 ) -> None:
+    """Create or reload a deployment."""
     client = Client(
         api_server_url=config_profile.server,
         disable_ssl=config_profile.insecure,

@@ -37,11 +37,6 @@ class BaseControlPlane(MessageQueuePublisherMixin, ABC):
         """
         Get the consumer for the message queue.
 
-        Args:
-            remote (bool):
-                Whether the consumer is remote.
-                If True, the consumer will be a RemoteMessageConsumer.
-
         Returns:
             BaseMessageQueueConsumer: Message queue consumer.
         """

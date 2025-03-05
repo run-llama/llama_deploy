@@ -9,6 +9,7 @@ from .internal.config import ConfigProfile
 @click.command()
 @click.pass_obj  # config_profile
 def status(config_profile: ConfigProfile) -> None:
+    """Print the API Server status."""
     client = Client(
         api_server_url=config_profile.server,
         disable_ssl=config_profile.insecure,
