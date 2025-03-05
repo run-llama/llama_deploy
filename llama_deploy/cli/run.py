@@ -32,6 +32,7 @@ def run(
     service: str,
     session_id: str,
 ) -> None:
+    """Run tasks from a given service."""
     client = Client(
         api_server_url=config_profile.server,
         disable_ssl=config_profile.insecure,
