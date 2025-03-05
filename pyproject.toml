@@ -57,6 +57,7 @@ asgiref = "^3.8.1"
 python-dotenv = "^1.0.1"
 prometheus-client = "^0.21.1"
 platformdirs = "^4.3.6"
+rich = "^13.9.4"
 
 [tool.poetry.extras]
 kafka = ["aiokafka", "kafka-python-ng"]
