@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import os
 import uuid
@@ -38,6 +39,13 @@ logger = getLogger(__name__)
 hash_secret = os.environ.get("LLAMA_DEPLOY_WF_SERVICE_HASH_SECRET", "default")
 
 
+def _make_hash(context_str: str) -> str:
+    h = hashlib.sha256()
+    content = context_str + hash_secret
+    h.update(content.encode())
+    return h.hexdigest()
+
+
 class WorkflowServiceConfig(BaseSettings):
     """Workflow service configuration."""
 
@@ -71,7 +79,7 @@ class WorkflowState(BaseModel):
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    hash: Optional[int] = Field(
+    hash: Optional[str] = Field(
         default=None, description="Hash of the context, if any."
     )
     state: dict = Field(default_factory=dict, description="Pickled state, if any.")
@@ -193,7 +201,7 @@ class WorkflowService(BaseService):
 
         context_dict = workflow_state.state
         context_str = json.dumps(context_dict)
-        context_hash = hash(context_str + hash_secret)
+        context_hash = _make_hash(context_str)
 
         if workflow_state.hash is not None and context_hash != workflow_state.hash:
             raise ValueError("Context hash does not match!")
@@ -210,7 +218,7 @@ class WorkflowService(BaseService):
         """Set the workflow state for this session."""
         context_dict = ctx.to_dict(serializer=JsonPickleSerializer())
         context_str = json.dumps(context_dict)
-        context_hash = hash(context_str + hash_secret)
+        context_hash = _make_hash(context_str)
 
         workflow_state = WorkflowState(
             hash=context_hash,
