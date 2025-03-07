@@ -10,7 +10,7 @@ services:
     name: Agentic Workflow
     source:
       type: local
-      name: ./workflows
+      name: .
     path: workflows:agentic_w
     python-dependencies:
       - llama-index-postprocessor-rankgpt-rerank>=0.2.0
@@ -23,5 +23,5 @@ services:
     name: RAG Workflow
     source:
       type: local
-      name: ./workflows
+      name: .
     path: workflows:rag_w
