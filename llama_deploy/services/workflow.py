@@ -233,10 +233,10 @@ class WorkflowService(BaseService):
 
         session_state = await self.get_session_state(current_state.session_id)
         if session_state:
-            session_state[current_state.session_id] = workflow_state.model_dump_json()
-
-            # Store the state in the control plane
-            await self.update_session_state(current_state.session_id, session_state)
+           await self.update_session_state(
+               current_state.session_id,
+               {current_state.session_id: workflow_state.model_dump_json()},
+           )
 
     async def process_call(self, current_call: WorkflowState) -> None:
         """Processes a given task, and writes a response to the message queue.
