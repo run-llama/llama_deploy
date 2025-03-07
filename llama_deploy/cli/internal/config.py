@@ -43,6 +43,8 @@ def load_config(path: Path | None = None) -> Config:
     if path is None:
         path = _default_config_path()
         if not path.exists():
+            # Create the config folder if doesn't exist
+            path.parent.mkdir(parents=True, exist_ok=True)
             # Use default
             config = Config(
                 current_profile=DEFAULT_PROFILE_NAME,

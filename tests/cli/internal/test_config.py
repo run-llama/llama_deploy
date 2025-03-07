@@ -36,3 +36,11 @@ def test_config_write(tmp_path: Path) -> None:
     )
     config.write()
     assert config_path.exists()
+
+
+def test_config_dir_doesnt_exist(tmp_path: Path) -> None:
+    with mock.patch("llama_deploy.cli.internal.utils.user_config_dir") as mock_dir:
+        mock_dir.return_value = tmp_path / "config" / "folder"
+        config = load_config(path=None)
+        assert len(config.profiles) == 1
+        assert "default" in config.profiles
