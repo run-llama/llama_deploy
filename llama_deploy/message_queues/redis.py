@@ -31,6 +31,7 @@ class RedisMessageQueueConfig(BaseSettings):
     username: str | None = None
     password: str | None = None
     ssl: bool | None = None
+    exclusive_mode: bool = False
 
     def model_post_init(self, __context: Any) -> None:
         if self.host and self.port:
@@ -103,11 +104,31 @@ class RedisMessageQueue(AbstractMessageQueue):
             Consumer of this queue should call this in order to start consuming.
             """
             try:
+                processed_message_key = f"{topic}.processed_messages"
                 while True:
                     message = await pubsub.get_message(ignore_subscribe_messages=True)
                     if message:
                         decoded_message = json.loads(message["data"])
                         queue_message = QueueMessage.model_validate(decoded_message)
+
+                        # Deduplication check
+                        if self._config.exclusive_mode:
+                            new_message = await self._redis.sadd(
+                                processed_message_key, queue_message.id_
+                            )
+                            if not new_message:
+                                logger.debug(
+                                    f"Skipping message {queue_message.id_} as it has "
+                                    "already been consumed."
+                                )
+                                continue
+
+                            # Set expiration for deduplication key. Expire processed messages
+                            # in 5 minutes.
+                            await self._redis.expire(
+                                processed_message_key, 300, nx=True
+                            )
+
                         await consumer.process_message(queue_message)
                     await asyncio.sleep(0.01)
             finally:
