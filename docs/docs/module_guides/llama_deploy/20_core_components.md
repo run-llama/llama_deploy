@@ -120,6 +120,26 @@ message_queue = RabbitMQMessageQueue(**message_queue_config)
 > [!NOTE]
 > `RabbitMQMessageQueueConfig` can load its params from environment variables.
 
+### Delivery policy
+
+Currently the way service replicas receive the message to run a task depends on
+the message queue implementation:
+
+- `SimpleMessageQueue`: consumers are competing but the order is non
+deterministic, the first subscriber (in this case, the first service) that
+manages to get the message in the topic wins, all the others will keep trying
+and never know a message was published.
+- `RedisMessageQueue`: by default, all the services get the message and run the
+task. If you set the `exclusive_mode` configuration parameter of the
+`RedisMessageQueueConfig` class to `True`, services will compete for messages
+and only the first coming will be able to read it.
+- `RabbitMQMessageQueue`: consumers are competing, a round robin policy is used
+to pick the recipient
+- `KafkaMessageQueue`: same as RabbitMQ because the `group_id` of the consumer
+is hardcoded
+- `AWSMessageQueue`: technically similar to Redis, but the consumer removes the
+message from the queue so it's actually non-deterministic.
+
 
 ## Orchestrator
 
