@@ -97,3 +97,50 @@ def test_as_config(redis_queue: RedisMessageQueue) -> None:
     default_config = RedisMessageQueueConfig()
     res = cast(RedisMessageQueueConfig, redis_queue.as_config())
     assert res.url == default_config.url
+
+
+@pytest.mark.asyncio
+async def test_exclusive_mode_deduplication(redis_queue: RedisMessageQueue) -> None:
+    redis_queue._config.exclusive_mode = True
+    test_message = QueueMessage(type="test_channel", data={"key": "value"})
+    message_json = json.dumps(test_message.model_dump())
+
+    # Mock Redis pubsub message format
+    redis_message = {"data": message_json}
+    processed_messages = set()
+
+    class TestConsumer(BaseMessageQueueConsumer):
+        async def _process_message(self, message: QueueMessage, **kwargs: Any) -> Any:
+            processed_messages.add(message.id_)
+
+    consumer = TestConsumer(message_type="test_channel")
+
+    # Mock Redis sadd to simulate message already processed
+    async def mock_sadd(*args: Any) -> int:
+        # Return 1 for first call (new message), 0 for second call (duplicate)
+        return int(len(processed_messages) == 0)
+
+    redis_queue._redis.sadd = mock.AsyncMock(side_effect=mock_sadd)  # type: ignore
+    redis_queue._redis.expire = mock.AsyncMock()  # type: ignore
+
+    # Setup pubsub mock to return our test message twice
+    pubsub_mock = mock.AsyncMock()
+    pubsub_mock.get_message.side_effect = [
+        redis_message,  # First message
+        redis_message,  # Duplicate message
+        None,  # End the loop
+    ]
+    redis_queue._redis.pubsub.return_value = pubsub_mock  # type: ignore
+
+    # Register and start consumer
+    start_consuming = await redis_queue.register_consumer(consumer, "test_channel")
+    await start_consuming()
+
+    # Verify results
+    assert len(processed_messages) == 1  # Message should only be processed once
+    redis_queue._redis.sadd.assert_called_with(
+        "test_channel.processed_messages", test_message.id_
+    )
+    redis_queue._redis.expire.assert_called_once_with(
+        "test_channel.processed_messages", 300, nx=True
+    )

@@ -113,7 +113,7 @@ class RedisMessageQueue(AbstractMessageQueue):
 
                         # Deduplication check
                         if self._config.exclusive_mode:
-                            new_message = await self._redis.sadd(
+                            new_message = await self._redis.sadd(  # type: ignore
                                 processed_message_key, queue_message.id_
                             )
                             if not new_message:
