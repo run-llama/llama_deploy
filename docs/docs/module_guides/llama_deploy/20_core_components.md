@@ -129,7 +129,10 @@ the message queue implementation:
 deterministic, the first subscriber (in this case, the first service) that
 manages to get the message in the topic wins, all the others will keep trying
 and never know a message was published.
-- `RedisMessageQueue`: all the services get the message and run the task
+- `RedisMessageQueue`: by default, all the services get the message and run the
+task. If you set the `exclusive_mode` configuration parameter of the
+`RedisMessageQueueConfig` class to `True`, services will compete for messages
+and only the first coming will be able to read it.
 - `RabbitMQMessageQueue`: consumers are competing, a round robin policy is used
 to pick the recipient
 - `KafkaMessageQueue`: same as RabbitMQ because the `group_id` of the consumer
