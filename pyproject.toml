@@ -72,7 +72,7 @@ llamactl = "llama_deploy.cli.__main__:main"
 
 [tool.codespell]
 ignore-words-list = "LITS"
-skip = "poetry.lock,./examples,*/algolia.js,docs/poetry.lock"
+skip = "./examples,*/algolia.js,docs/poetry.lock"
 
 [tool.coverage.run]
 omit = [
