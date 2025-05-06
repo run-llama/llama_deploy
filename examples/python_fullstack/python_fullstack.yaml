@@ -3,6 +3,12 @@ name: MyDeployment
 control-plane:
   port: 8000
 
+message-queue:
+  type: redis
+  # what follows depends on what's in the docker compose file
+  host: redis
+  port: 6379
+
 default-service: agentic_workflow
 
 services:
