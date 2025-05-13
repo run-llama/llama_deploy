@@ -63,6 +63,10 @@ class Service(BaseModel):
     ts_dependencies: dict[str, str] | None = Field(None, alias="ts-dependencies")
 
 
+class UIService(Service):
+    pass
+
+
 class DeploymentConfig(BaseModel):
     """Model definition mapping a deployment config file."""
 
@@ -72,6 +76,7 @@ class DeploymentConfig(BaseModel):
     default_service: str | None = Field(None, alias="default-service")
     services: dict[str, Service]
     base_path: Path = Path()
+    ui: UIService | None = None
 
     @classmethod
     def from_yaml_bytes(cls, src: bytes) -> Self:

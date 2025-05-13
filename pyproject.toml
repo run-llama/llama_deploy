@@ -43,7 +43,7 @@ dependencies = [
   "pydantic!=2.10",
   "pydantic-settings>=2.0,<3.0",
   "PyYAML>6",
-  "uvicorn>=0.12.0",
+  "uvicorn[standard]>=0.12.0",
   "gitpython>=3.1.43,<4",
   "python-multipart>=0.0.18,<0.0.19",
   "typing_extensions>=4.0.0,<5",
@@ -51,7 +51,8 @@ dependencies = [
   "python-dotenv>=1.0.1,<2",
   "prometheus-client>=0.21.1,<0.22",
   "platformdirs>=4.3.6,<5",
-  "rich>=13.9.4,<14"
+  "rich>=13.9.4,<14",
+  "brotli>=1.1.0"
 ]
 
 [project.optional-dependencies]
