@@ -5,7 +5,7 @@ from llama_deploy import Client
 from .internal.config import ConfigProfile
 
 
-@click.group
+@click.group()
 def sessions() -> None:
     """Manage sessions for a given deployment."""
     pass
