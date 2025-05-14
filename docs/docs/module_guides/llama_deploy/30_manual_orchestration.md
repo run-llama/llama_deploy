@@ -75,8 +75,8 @@ class MyWorkflow(Workflow):
     @step()
     async def run_step(self, ctx: Context, ev: StartEvent) -> StopEvent:
         # Your workflow logic here
-        arg1 = str(ev.get("arg1", ""))
-        result = arg1 + " result"
+        arg = str(ev.get("arg", ""))
+        result = arg + " result"
 
         # stream events as steps run
         ctx.write_event_to_stream(
@@ -133,7 +133,7 @@ async def run_task_and_stream():
     session = await c1.core.sessions.create()
 
     # kick off task run
-    task_id = session.run_nowait("my_workflow", arg="Hello Streaming!")
+    task_id = await session.run_nowait("my_workflow", arg="Hello Streaming!")
 
     # stream events
     async for event in session.get_task_result_stream(task_id):
