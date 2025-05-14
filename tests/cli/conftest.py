@@ -13,7 +13,7 @@ class ConfigCliRunner(CliRunner):
 
     def invoke(
         self,
-        cli: "BaseCommand",
+        cli: BaseCommand,
         args: Optional[Union[str, Sequence[str]]] = None,
         input: Optional[Union[str, bytes, IO[Any]]] = None,
         env: Optional[Mapping[str, Optional[str]]] = None,
