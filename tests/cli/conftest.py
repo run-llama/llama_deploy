@@ -1,19 +1,21 @@
 import shutil
 from pathlib import Path
-from typing import IO, Any, Mapping, Optional, Sequence, Union
+from typing import IO, TYPE_CHECKING, Any, Mapping, Optional, Sequence, Union
 
 import pytest
-from click import BaseCommand
 from click.testing import CliRunner, Result
+
+if TYPE_CHECKING:
+    from click.core import BaseCommand
 
 
 class ConfigCliRunner(CliRunner):
     tests_data_path: Path
     temp_config: Path
 
-    def invoke(
+    def invoke(  # type: ignore
         self,
-        cli: BaseCommand,
+        cli: "BaseCommand",
         args: Optional[Union[str, Sequence[str]]] = None,
         input: Optional[Union[str, bytes, IO[Any]]] = None,
         env: Optional[Mapping[str, Optional[str]]] = None,
@@ -29,7 +31,7 @@ class ConfigCliRunner(CliRunner):
         else:
             args = ["-c", str(self.temp_config)] + list(args)
 
-        return super().invoke(cli, args, input, env, catch_exceptions, color, **extra)
+        return super().invoke(cli, args, input, env, catch_exceptions, color, **extra)  # type: ignore
 
 
 @pytest.fixture
