@@ -1,3 +1,5 @@
+import gzip
+
 import httpx
 from fastapi import APIRouter, Request, Response
 from fastapi.exceptions import HTTPException
@@ -23,21 +25,29 @@ async def proxy(
         raise HTTPException(status_code=404, detail="Deployment not found")
 
     client = httpx.AsyncClient(follow_redirects=True)
-
+    # Tell Nextjs not to compress the response body
     headers = dict(request.headers)
-    headers.pop("accept-encoding", None)
-    headers.pop("Accept-Encoding", None)
+    headers["accept-encoding"] = "identity"
 
     try:
         response = await client.request(
             method=request.method,
             url=f"http://localhost:3000/{path}",
-            headers=headers,
+            headers=request.headers,
             content=await request.body(),
             params=dict(request.query_params),
         )
+
+        # Adjust response headers to send back a compressed response body
+        resp_headers = dict(response.headers)
+        compressed_content = gzip.compress(response.content)
+        resp_headers["content-encoding"] = "gzip"
+        resp_headers["content-length"] = str(len(compressed_content))
+
         return Response(
-            content=response.content, status_code=response.status_code, headers=headers
+            content=compressed_content,
+            status_code=response.status_code,
+            headers=resp_headers,
         )
 
     except httpx.TimeoutException:
