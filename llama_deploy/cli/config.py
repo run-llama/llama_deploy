@@ -24,7 +24,7 @@ def _strtobool(val: str) -> bool:
         raise ValueError("invalid truth value %r" % (val,))
 
 
-@click.group
+@click.group()
 @click.pass_context
 def config(ctx: click.Context) -> None:
     """Manage configuration profiles and settings.
