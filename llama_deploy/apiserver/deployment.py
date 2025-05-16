@@ -84,6 +84,7 @@ class Deployment:
         self._workflow_services: dict[str, WorkflowService] = self._load_services(
             config
         )
+        self._config = config
         deployment_state.labels(self._name).state("ready")
 
     @property
@@ -126,6 +127,10 @@ class Deployment:
         deployment_state.labels(self._name).state("starting_services")
         if self._workflow_services:
             tasks.append(asyncio.create_task(self._run_services()))
+
+        # UI
+        if self._config.ui:
+            await self._start_ui_server()
 
         # Run allthethings
         deployment_state.labels(self._name).state("running")
@@ -206,6 +211,47 @@ class Deployment:
             # If this is a reload, unblock the reload() function signalling that tasks are up and running
             self._service_startup_complete.set()
             await asyncio.gather(*self._service_tasks)
+
+    async def _start_ui_server(self) -> None:
+        """Creates WorkflowService instances according to the configuration object."""
+        if not self._config.ui:
+            raise ValueError("missing ui configuration settings")
+
+        source = self._config.ui.source
+        if source is None:
+            raise ValueError("source must be defined")
+
+        # Sync the service source
+        destination = (self._path / "ui").resolve()
+
+        if destination.exists():
+            # FIXME: this could be managed at the source manager level, so that
+            # each implementation can decide what to do with existing data. For
+            # example, the git source manager might decide to perform a git pull
+            # instead of a brand new git clone. Leaving these optimnizations for
+            # later, for the time being having an empty data folder works smoothly
+            # for any source manager currently supported.
+            rmtree(str(destination))
+
+        source_manager = SOURCE_MANAGERS[source.type](self._config)
+        source_manager.sync(source.name, str(destination))
+
+        install = await asyncio.create_subprocess_exec("npm", "ci", cwd=destination)
+        await install.wait()
+
+        env = os.environ.copy()
+        env["LLAMA_DEPLOY_NEXTJS_ASSET_PREFIX"] = f"/ui/{self._config.name}/"
+        env["LLAMA_DEPLOY_NEXTJS_DEPLOYMENT_NAME"] = self._config.name
+
+        process = await asyncio.create_subprocess_exec(
+            "npm",
+            "run",
+            "dev",
+            cwd=destination,
+            env=env,
+        )
+
+        print(f"Started Next.js app with PID {process.pid}")
 
     def _load_services(self, config: DeploymentConfig) -> dict[str, WorkflowService]:
         """Creates WorkflowService instances according to the configuration object."""
