@@ -13,6 +13,7 @@ from llama_deploy.apiserver.deployment import Deployment, DeploymentError, Manag
 from llama_deploy.apiserver.deployment_config_parser import (
     DeploymentConfig,
 )
+from llama_deploy.apiserver.source_managers.base import SyncPolicy
 from llama_deploy.control_plane import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.message_queues import AWSMessageQueueConfig, SimpleMessageQueue
 
@@ -438,12 +439,13 @@ async def test_start_ui_server_success(data_path: Path, tmp_path: Path) -> None:
         mock_os.environ.copy.return_value = {"PATH": "/some/path"}
 
         # Run the method
-        await deployment._start_ui_server()
+        await deployment._start_ui_server(skip_sync=False)
 
         # Verify source manager was used correctly
         source_manager_mock.sync.assert_called_once_with(
             "https://github.com/run-llama/llama_deploy.git",
             str((tmp_path / "test-deployment" / "ui").resolve()),
+            SyncPolicy.REPLACE,
         )
 
         # Verify npm commands were executed
@@ -469,7 +471,7 @@ async def test_start_ui_server_missing_config(
     deployment = Deployment(config=deployment_config, root_path=tmp_path)
 
     with pytest.raises(ValueError, match="missing ui configuration settings"):
-        await deployment._start_ui_server()
+        await deployment._start_ui_server(skip_sync=False)
 
 
 @pytest.mark.asyncio
@@ -481,4 +483,4 @@ async def test_start_ui_server_missing_source(
     deployment = Deployment(config=deployment_config, root_path=tmp_path)
 
     with pytest.raises(ValueError, match="source must be defined"):
-        await deployment._start_ui_server()
+        await deployment._start_ui_server(skip_sync=False)
