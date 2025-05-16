@@ -1,9 +1,7 @@
 import logging
 import os
 import shutil
-import tempfile
 from contextlib import asynccontextmanager
-from pathlib import Path
 from typing import Any, AsyncGenerator
 
 from fastapi import FastAPI
@@ -14,15 +12,14 @@ from .settings import ApiserverSettings
 from .stats import apiserver_state
 
 logger = logging.getLogger("uvicorn.info")
-manager = Manager(
-    deployments_path=Path(tempfile.gettempdir()) / "llama_deploy" / "deployments"
-)
+settings = ApiserverSettings()
+manager = Manager(deployments_path=settings.deployments_path)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
     apiserver_state.state("starting")
-    settings = ApiserverSettings()
+
     t = manager.serve()
     logger.info(f"deployments folder: {manager._deployments_path}")
     logger.info(f"rc folder: {settings.rc_path}")
