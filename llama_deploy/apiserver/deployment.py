@@ -7,7 +7,6 @@ import sys
 import tempfile
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from shutil import rmtree
 from typing import Any, Type
 
 import httpx
@@ -224,16 +223,6 @@ class Deployment:
 
         # Sync the service source
         destination = (self._path / "ui").resolve()
-
-        if destination.exists():
-            # FIXME: this could be managed at the source manager level, so that
-            # each implementation can decide what to do with existing data. For
-            # example, the git source manager might decide to perform a git pull
-            # instead of a brand new git clone. Leaving these optimnizations for
-            # later, for the time being having an empty data folder works smoothly
-            # for any source manager currently supported.
-            rmtree(str(destination))
-
         source_manager = SOURCE_MANAGERS[source.type](self._config)
         source_manager.sync(source.name, str(destination))
 
@@ -283,18 +272,8 @@ class Deployment:
                 raise ValueError(msg)
 
             # Sync the service source
-            destination = (self._path / service_id).resolve()
-
-            if destination.exists():
-                # FIXME: this could be managed at the source manager level, so that
-                # each implementation can decide what to do with existing data. For
-                # example, the git source manager might decide to perform a git pull
-                # instead of a brand new git clone. Leaving these optimnizations for
-                # later, for the time being having an empty data folder works smoothly
-                # for any source manager currently supported.
-                rmtree(str(destination))
-
             service_state.labels(self._name, service_id).state("syncing")
+            destination = (self._path / service_id).resolve()
             source_manager = SOURCE_MANAGERS[source.type](config)
             source_manager.sync(source.name, str(destination))
 
@@ -414,7 +393,7 @@ class Manager:
     """
 
     def __init__(
-        self, deployments_path: Path | None, max_deployments: int = 10
+        self, deployments_path: Path | None = None, max_deployments: int = 10
     ) -> None:
         """Creates a Manager instance.
 

@@ -1,12 +1,18 @@
 import shutil
+from pathlib import Path
 
-from .base import SourceManager
+from .base import SourceManager, SyncPolicy
 
 
 class LocalSourceManager(SourceManager):
     """A SourceManager specialized for sources of type `local`."""
 
-    def sync(self, source: str, destination: str | None = None) -> None:
+    def sync(
+        self,
+        source: str,
+        destination: str | None = None,
+        sync_policy: SyncPolicy = SyncPolicy.REPLACE,
+    ) -> None:
         """Copies the folder with path `source` into a local path `destination`.
 
         Args:
@@ -16,9 +22,20 @@ class LocalSourceManager(SourceManager):
         if not destination:
             raise ValueError("Destination cannot be empty")
 
+        final_path = self._config.base_path / source
+        destination_path = Path(destination)
+        dirs_exist_ok: bool = False
         try:
-            final_path = self._config.base_path / source
-            shutil.copytree(final_path, destination, dirs_exist_ok=True)
+            if destination_path.exists():
+                # Path is a non-empty directory
+                if sync_policy == SyncPolicy.REPLACE:
+                    shutil.rmtree(destination)
+                elif sync_policy == SyncPolicy.MERGE:
+                    dirs_exist_ok = True
+                elif sync_policy == SyncPolicy.SKIP:
+                    return
+
+            shutil.copytree(final_path, destination, dirs_exist_ok=dirs_exist_ok)
         except Exception as e:
             msg = f"Unable to copy {source} into {destination}: {e}"
             raise ValueError(msg) from e

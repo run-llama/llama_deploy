@@ -205,7 +205,7 @@ def test__install_dependencies_raises(data_path: Path) -> None:
 
 
 def test_manager_ctor() -> None:
-    m = Manager()
+    m = Manager(deployments_path=Path(".deployments"))
     assert str(m._deployments_path) == ".deployments"
     assert len(m._deployments) == 0
     m = Manager(deployments_path=Path("foo"))
@@ -419,7 +419,6 @@ async def test_start_ui_server_success(data_path: Path, tmp_path: Path) -> None:
     # Mock the necessary components
     with (
         mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict,
-        mock.patch("llama_deploy.apiserver.deployment.rmtree"),
         mock.patch(
             "llama_deploy.apiserver.deployment.asyncio.create_subprocess_exec"
         ) as mock_subprocess,
