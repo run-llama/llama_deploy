@@ -22,6 +22,7 @@ from llama_deploy import (
     WorkflowService,
     WorkflowServiceConfig,
 )
+from llama_deploy.apiserver.source_managers.base import SyncPolicy
 from llama_deploy.message_queues import (
     AbstractMessageQueue,
     AWSMessageQueue,
@@ -59,7 +60,9 @@ class Deployment:
     and the message queue along with any service defined in the configuration object.
     """
 
-    def __init__(self, *, config: DeploymentConfig, root_path: Path) -> None:
+    def __init__(
+        self, *, config: DeploymentConfig, root_path: Path, skip_sync: bool = False
+    ) -> None:
         """Creates a Deployment instance.
 
         Args:
@@ -81,6 +84,7 @@ class Deployment:
         self._service_tasks: list[asyncio.Task] = []
         self._service_startup_complete = asyncio.Event()
         # Ready to load services
+        self._skip_sync = skip_sync
         self._workflow_services: dict[str, WorkflowService] = self._load_services(
             config
         )
@@ -130,7 +134,7 @@ class Deployment:
 
         # UI
         if self._config.ui:
-            await self._start_ui_server()
+            await self._start_ui_server(self._skip_sync)
 
         # Run allthethings
         deployment_state.labels(self._name).state("running")
@@ -212,7 +216,7 @@ class Deployment:
             self._service_startup_complete.set()
             await asyncio.gather(*self._service_tasks)
 
-    async def _start_ui_server(self) -> None:
+    async def _start_ui_server(self, skip_sync: bool) -> None:
         """Creates WorkflowService instances according to the configuration object."""
         if not self._config.ui:
             raise ValueError("missing ui configuration settings")
@@ -224,7 +228,8 @@ class Deployment:
         # Sync the service source
         destination = (self._path / "ui").resolve()
         source_manager = SOURCE_MANAGERS[source.type](self._config)
-        source_manager.sync(source.name, str(destination))
+        policy = SyncPolicy.SKIP if skip_sync else SyncPolicy.REPLACE
+        source_manager.sync(source.name, str(destination), policy)
 
         install = await asyncio.create_subprocess_exec("npm", "ci", cwd=destination)
         await install.wait()
@@ -275,7 +280,8 @@ class Deployment:
             service_state.labels(self._name, service_id).state("syncing")
             destination = (self._path / service_id).resolve()
             source_manager = SOURCE_MANAGERS[source.type](config)
-            source_manager.sync(source.name, str(destination))
+            policy = SyncPolicy.SKIP if self._skip_sync else SyncPolicy.REPLACE
+            source_manager.sync(source.name, str(destination), policy)
 
             # Install dependencies
             service_state.labels(self._name, service_id).state("installing")
@@ -430,7 +436,9 @@ class Manager:
                 self._simple_message_queue_server.cancel()
                 await self._simple_message_queue_server
 
-    async def deploy(self, config: DeploymentConfig, reload: bool = False) -> None:
+    async def deploy(
+        self, config: DeploymentConfig, reload: bool = False, skip_sync: bool = False
+    ) -> None:
         """Creates a Deployment instance and starts the relative runtime.
 
         Args:
@@ -480,7 +488,9 @@ class Manager:
                     msg = f"Unable to reach SimpleMessageQueueServer at {msg_queue.base_url}"
                     raise DeploymentError(msg)
 
-            deployment = Deployment(config=config, root_path=self._deployments_path)
+            deployment = Deployment(
+                config=config, root_path=self._deployments_path, skip_sync=skip_sync
+            )
             self._deployments[config.name] = deployment
             self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
         else:
