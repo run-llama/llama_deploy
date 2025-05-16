@@ -4,6 +4,7 @@ import logging
 import os
 import subprocess
 import sys
+import tempfile
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from shutil import rmtree
@@ -413,7 +414,7 @@ class Manager:
     """
 
     def __init__(
-        self, deployments_path: Path = Path(".deployments"), max_deployments: int = 10
+        self, deployments_path: Path | None, max_deployments: int = 10
     ) -> None:
         """Creates a Manager instance.
 
@@ -422,7 +423,10 @@ class Manager:
             max_deployments: The maximum number of deployments supported by this manager.
         """
         self._deployments: dict[str, Any] = {}
-        self._deployments_path = deployments_path
+        self._deployments_path = (
+            deployments_path
+            or Path(tempfile.gettempdir()) / "llama_deploy" / "deployments"
+        )
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
         self._last_control_plane_port = 8002
