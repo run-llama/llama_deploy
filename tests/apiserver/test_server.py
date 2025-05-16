@@ -4,7 +4,6 @@ from typing import Any
 from unittest import mock
 
 import pytest
-
 from llama_deploy.apiserver.server import lifespan
 from llama_deploy.apiserver.settings import ApiserverSettings
 
@@ -19,7 +18,6 @@ async def test_lifespan(
     caplog: Any,
     data_path: Path,
 ) -> None:  # type: ignore
-    actual_settings = ApiserverSettings(rc_path=tmp_path)
     source_file = data_path / "git_service.yaml"
     config_file = tmp_path / "test.yml"
     with open(config_file, "w") as f:

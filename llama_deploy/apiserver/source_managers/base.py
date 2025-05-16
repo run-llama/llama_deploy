@@ -1,6 +1,16 @@
 from abc import ABC, abstractmethod
+from enum import Enum, auto
 
 from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
+
+
+class SyncPolicy(Enum):
+    """Define the sync behaviour in case the destination target exists."""
+
+    REPLACE = auto()
+    MERGE = auto()
+    SKIP = auto()
+    FAIL = auto()
 
 
 class SourceManager(ABC):
@@ -11,7 +21,10 @@ class SourceManager(ABC):
 
     @abstractmethod
     def sync(
-        self, source: str, destination: str | None = None
+        self,
+        source: str,
+        destination: str | None = None,
+        sync_policy: SyncPolicy = SyncPolicy.REPLACE,
     ) -> None:  # pragma: no cover
         """Fetches resources from `source` so they can be used in a deployment.
 
