@@ -87,7 +87,7 @@ def test_deployment_ctor_skip_default_service(
 def test_deployment_ctor_invalid_default_service(
     data_path: Path, mock_importlib: Any, caplog: Any, tmp_path: Path
 ) -> None:
-    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "local.yaml")
     config.default_service = "does-not-exist"
 
     d = Deployment(config=config, root_path=tmp_path)
@@ -101,7 +101,7 @@ def test_deployment_ctor_invalid_default_service(
 def test_deployment_ctor_default_service(
     data_path: Path, mock_importlib: Any, tmp_path: Path
 ) -> None:
-    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
+    config = DeploymentConfig.from_yaml(data_path / "local.yaml")
     config.default_service = "test-workflow"
 
     d = Deployment(config=config, root_path=tmp_path)
@@ -373,16 +373,15 @@ async def test_start_sequence(
 @pytest.mark.asyncio
 async def test_start_with_services(data_path: Path, tmp_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
-    deployment = Deployment(config=config, root_path=tmp_path)
-
-    # Mock the internal methods
-    deployment._start_control_plane = mock.AsyncMock(return_value=[])  # type: ignore
-    deployment._run_services = mock.AsyncMock(return_value=[])  # type: ignore
-    deployment._start_ui_server = mock.AsyncMock(return_value=[])  # type: ignore
-
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
+        deployment = Deployment(config=config, root_path=tmp_path)
+        deployment._start_control_plane = mock.AsyncMock(return_value=[])  # type: ignore
+        deployment._run_services = mock.AsyncMock(return_value=[])  # type: ignore
+        deployment._start_ui_server = mock.AsyncMock(return_value=[])  # type: ignore
+
         sm_dict["git"] = mock.MagicMock()
         await deployment.start()
+        sm_dict["git"].return_value.sync.assert_called_once()
 
     # Verify control plane was started
     deployment._start_control_plane.assert_awaited_once()
@@ -398,14 +397,12 @@ async def test_start_with_services(data_path: Path, tmp_path: Path) -> None:
 async def test_start_with_services_ui(data_path: Path, tmp_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     config.ui = mock.MagicMock()
-    deployment = Deployment(config=config, root_path=tmp_path)
-
-    # Mock the internal methods
-    deployment._start_control_plane = mock.AsyncMock(return_value=[])  # type: ignore
-    deployment._run_services = mock.AsyncMock(return_value=[])  # type: ignore
-    deployment._start_ui_server = mock.AsyncMock(return_value=[])  # type: ignore
-
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
+        deployment = Deployment(config=config, root_path=tmp_path)
+        deployment._start_control_plane = mock.AsyncMock(return_value=[])  # type: ignore
+        deployment._run_services = mock.AsyncMock(return_value=[])  # type: ignore
+        deployment._start_ui_server = mock.AsyncMock(return_value=[])  # type: ignore
+
         sm_dict["git"] = mock.MagicMock()
         await deployment.start()
 
