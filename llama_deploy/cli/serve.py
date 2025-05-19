@@ -8,6 +8,8 @@ from llama_deploy.apiserver import settings
 @click.command()
 @click.option("--skip-sync", is_flag=True)
 def serve(skip_sync: bool) -> None:
+@click.option("--skip-sync", is_flag=True)
+def serve(skip_sync: bool) -> None:
     """Run the API Server in the foreground."""
     if settings.prometheus_enabled:
         start_http_server(settings.prometheus_port)
