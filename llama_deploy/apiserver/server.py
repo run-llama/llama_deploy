@@ -12,7 +12,6 @@ from .settings import settings
 from .stats import apiserver_state
 
 logger = logging.getLogger("uvicorn.info")
-settings = ApiserverSettings()
 manager = Manager(deployments_path=settings.deployments_path)
 
 
