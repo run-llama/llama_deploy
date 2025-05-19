@@ -12,14 +12,16 @@ from .settings import settings
 from .stats import apiserver_state
 
 logger = logging.getLogger("uvicorn.info")
-manager = Manager(deployments_path=settings.deployments_path)
+manager = Manager()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
     apiserver_state.state("starting")
-    t = manager.serve()
-    logger.info(f"deployments folder: {manager._deployments_path}")
+
+    t = manager.serve(deployments_path=settings.deployments_path)
+
+    logger.info(f"deployments folder: {settings.deployments_path}")
     logger.info(f"rc folder: {settings.rc_path}")
 
     if settings.rc_path.exists():
@@ -39,7 +41,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
     yield
 
     t.close()
+
     # Clean up deployments folder
-    if os.path.exists(manager._deployments_path.resolve()):
-        shutil.rmtree(manager._deployments_path.resolve())
+    if os.path.exists(manager.deployments_path.resolve()):
+        shutil.rmtree(manager.deployments_path.resolve())
     apiserver_state.state("stopped")

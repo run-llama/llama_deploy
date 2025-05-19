@@ -398,19 +398,15 @@ class Manager:
         ```
     """
 
-    def __init__(
-        self, deployments_path: Path | None = None, max_deployments: int = 10
-    ) -> None:
+    def __init__(self, max_deployments: int = 10) -> None:
         """Creates a Manager instance.
 
         Args:
-            deployments_path: The filesystem path where deployments will create their root path.
             max_deployments: The maximum number of deployments supported by this manager.
         """
         self._deployments: dict[str, Any] = {}
-        self._deployments_path = (
-            deployments_path
-            or Path(tempfile.gettempdir()) / "llama_deploy" / "deployments"
+        self._deployments_path: Path = (
+            Path(tempfile.gettempdir()) / "llama_deploy" / "deployments"
         )
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
@@ -422,11 +418,22 @@ class Manager:
         """Return a list of names for the active deployments."""
         return list(self._deployments.keys())
 
+    @property
+    def deployments_path(self) -> Path:
+        return self._deployments_path
+
     def get_deployment(self, deployment_name: str) -> Deployment | None:
         return self._deployments.get(deployment_name)
 
-    async def serve(self) -> None:
-        """The server loop, it keeps the manager running."""
+    async def serve(self, deployments_path: Path | None = None) -> None:
+        """The server loop, it keeps the manager running.
+
+        Args:
+            deployments_path: The filesystem path where deployments will create their root path.
+        """
+        if deployments_path:
+            self._deployments_path = deployments_path
+
         event = asyncio.Event()
         try:
             # Waits indefinitely since `event` will never be set
@@ -489,7 +496,7 @@ class Manager:
                     raise DeploymentError(msg)
 
             deployment = Deployment(
-                config=config, root_path=self._deployments_path, skip_sync=skip_sync
+                config=config, root_path=self.deployments_path, skip_sync=skip_sync
             )
             self._deployments[config.name] = deployment
             self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))

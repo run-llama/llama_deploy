@@ -206,15 +206,13 @@ def test__install_dependencies_raises(data_path: Path) -> None:
 
 
 def test_manager_ctor() -> None:
-    m = Manager(deployments_path=Path(".deployments"))
-    assert str(m._deployments_path) == ".deployments"
-    assert len(m._deployments) == 0
-    m = Manager(deployments_path=Path("foo"))
-    assert str(m._deployments_path) == "foo"
-    assert len(m._deployments) == 0
-    assert len(m.deployment_names) == 0
-    assert m.get_deployment("foo") is None
-    assert m._simple_message_queue_server is None
+    m = Manager()
+    assert m.deployments_path.name == "deployments"
+    assert m._max_deployments == 10
+
+    m = Manager(max_deployments=42)
+    assert m.deployments_path.name == "deployments"
+    assert m._max_deployments == 42
 
 
 @pytest.mark.asyncio
@@ -252,6 +250,7 @@ async def test_manager_deploy(data_path: Path) -> None:
         "llama_deploy.apiserver.deployment.Deployment"
     ) as mocked_deployment:
         m = Manager()
+        m._deployments_path = Path()
         await m.deploy(config)
         mocked_deployment.assert_called_once()
         assert m.deployment_names == ["TestDeployment"]
