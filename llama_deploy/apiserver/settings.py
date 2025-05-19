@@ -42,3 +42,6 @@ class ApiserverSettings(BaseSettings):
         if self.port == 80:
             return f"{protocol}{self.host}"
         return f"{protocol}{self.host}:{self.port}"
+
+
+settings = ApiserverSettings()
