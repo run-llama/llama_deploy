@@ -5,8 +5,8 @@ from unittest import mock
 
 import pytest
 
-from llama_deploy.apiserver import ApiserverSettings
 from llama_deploy.apiserver.server import lifespan
+from llama_deploy.apiserver.settings import ApiserverSettings
 
 
 @pytest.mark.asyncio
@@ -25,9 +25,8 @@ async def test_lifespan(
     with open(config_file, "w") as f:
         f.write(source_file.read_text())
 
-    with mock.patch("llama_deploy.apiserver.server.ApiserverSettings") as settings:
+    with mock.patch("llama_deploy.apiserver.server.settings", actual_settings):
         mocked_manager._deployments_path.resolve.return_value = "."
-        settings.return_value = actual_settings
         caplog.set_level(logging.INFO)
         async with lifespan(mock.MagicMock()):
             pass

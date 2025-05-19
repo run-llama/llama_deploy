@@ -1,9 +1,9 @@
 from .app import app
 from .deployment_config_parser import DeploymentConfig
-from .settings import ApiserverSettings
+from .settings import settings
 
 __all__ = [
     "app",
-    "ApiserverSettings",
+    "settings",
     "DeploymentConfig",
 ]
