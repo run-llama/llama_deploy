@@ -1,6 +1,5 @@
+import asyncio
 import logging
-import os
-import shutil
 from contextlib import asynccontextmanager
 from typing import Any, AsyncGenerator
 
@@ -19,7 +18,7 @@ manager = Manager()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
     apiserver_state.state("starting")
 
-    t = manager.serve(deployments_path=settings.deployments_path)
+    t = asyncio.create_task(manager.serve(deployments_path=settings.deployments_path))
 
     logger.info(f"deployments folder: {settings.deployments_path}")
     logger.info(f"rc folder: {settings.rc_path}")
@@ -40,9 +39,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
     apiserver_state.state("running")
     yield
 
-    t.close()
+    t.cancel()
 
-    # Clean up deployments folder
-    if os.path.exists(manager.deployments_path.resolve()):
-        shutil.rmtree(manager.deployments_path.resolve())
     apiserver_state.state("stopped")

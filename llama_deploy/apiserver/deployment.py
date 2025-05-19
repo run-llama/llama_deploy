@@ -70,7 +70,7 @@ class Deployment:
             root_path: The path on the filesystem used to store deployment data
         """
         self._name = config.name
-        self._path = root_path / config.name
+        self._path = root_path
         self._queue_client = self._load_message_queue_client(config.message_queue)
         self._control_plane_config = config.control_plane
         self._control_plane = ControlPlaneServer(
@@ -278,7 +278,7 @@ class Deployment:
 
             # Sync the service source
             service_state.labels(self._name, service_id).state("syncing")
-            destination = (self._path / service_id).resolve()
+            destination = self._path.resolve()
             source_manager = SOURCE_MANAGERS[source.type](config)
             policy = SyncPolicy.SKIP if self._skip_sync else SyncPolicy.REPLACE
             source_manager.sync(source.name, str(destination), policy)
@@ -291,7 +291,8 @@ class Deployment:
             self._set_environment_variables(service_config, destination)
 
             # Search for a workflow instance in the service path
-            pythonpath = (destination / service_config.path).parent.resolve()
+            pythonpath = (destination / service_config.source.name).resolve()
+            print("--->", self._path)
             sys.path.append(str(pythonpath))
             module_name, workflow_name = Path(service_config.path).name.split(":")
             module = importlib.import_module(module_name)

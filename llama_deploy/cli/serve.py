@@ -1,10 +1,10 @@
-import threading
+import os
+import subprocess
 from pathlib import Path
 
 import click
-import uvicorn
 from prometheus_client import start_http_server
-from tenacity import Retrying, stop_after_attempt, wait_fixed
+from tenacity import RetryError, Retrying, stop_after_attempt, wait_fixed
 
 from llama_deploy import Client
 from llama_deploy.apiserver import settings
@@ -22,30 +22,36 @@ def serve(local: bool, deployment_file: Path | None) -> None:
     if settings.prometheus_enabled:
         start_http_server(settings.prometheus_port)
 
+    env = os.environ.copy()
     if deployment_file:
-        settings.deployments_path = deployment_file.parent
+        env["LLAMA_DEPLOY_APISERVER_DEPLOYMENTS_PATH"] = str(deployment_file.parent)
 
-    server = uvicorn.Server(
-        uvicorn.Config(
+    uvicorn_p = subprocess.Popen(
+        [
+            "uvicorn",
             "llama_deploy.apiserver:app",
-            host="localhost",
-            port=4501,
-        )
+            "--host",
+            "localhost",
+            "--port",
+            "4501",
+        ],
+        env=env,
     )
-    t = threading.Thread(target=server.run)
-    t.daemon = True
-    t.start()
 
     if deployment_file:
         client = Client()
         retrying = Retrying(stop=stop_after_attempt(5), wait=wait_fixed(1))
-        for attempt in retrying:
-            with attempt:
-                client.sync.apiserver.deployments.create(
-                    deployment_file.open("rb"), skip_sync=local
-                )
-
         try:
-            t.join()
-        except KeyboardInterrupt:
-            print("Shutting down...")
+            for attempt in retrying:
+                with attempt:
+                    client.sync.apiserver.deployments.create(
+                        deployment_file.open("rb"), skip_sync=local
+                    )
+        except RetryError:
+            uvicorn_p.terminate()
+            raise click.ClickException("Failed to create deployment")
+
+    try:
+        uvicorn_p.wait()
+    except KeyboardInterrupt:
+        print("Shutting down...")

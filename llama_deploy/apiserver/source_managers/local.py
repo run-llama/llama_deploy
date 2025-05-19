@@ -19,6 +19,9 @@ class LocalSourceManager(SourceManager):
             source: The filesystem path to the folder containing the source code.
             destination: The path in the local filesystem where to copy the source directory.
         """
+        if sync_policy == SyncPolicy.SKIP:
+            return
+
         if not destination:
             raise ValueError("Destination cannot be empty")
 
@@ -32,8 +35,6 @@ class LocalSourceManager(SourceManager):
                     shutil.rmtree(destination)
                 elif sync_policy == SyncPolicy.MERGE:
                     dirs_exist_ok = True
-                elif sync_policy == SyncPolicy.SKIP:
-                    return
 
             shutil.copytree(final_path, destination, dirs_exist_ok=dirs_exist_ok)
         except Exception as e:
