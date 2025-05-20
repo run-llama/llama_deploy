@@ -7,7 +7,7 @@ import sys
 import tempfile
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from typing import Any, Type
+from typing import Any, Type, cast
 
 import httpx
 from dotenv import dotenv_values
@@ -410,13 +410,12 @@ class Manager:
             max_deployments: The maximum number of deployments supported by this manager.
         """
         self._deployments: dict[str, Any] = {}
-        self._deployments_path: Path = (
-            Path(tempfile.gettempdir()) / "llama_deploy" / "deployments"
-        )
+        self._deployments_path: Path | None = None
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
         self._last_control_plane_port = 8002
         self._simple_message_queue_server: asyncio.Task | None = None
+        self._serving = False
 
     @property
     def deployment_names(self) -> list[str]:
@@ -424,20 +423,27 @@ class Manager:
         return list(self._deployments.keys())
 
     @property
-    def deployments_path(self) -> Path:
+    def deployments_path(self) -> Path | None:
         return self._deployments_path
+
+    def set_deployments_path(self, path: Path | None) -> None:
+        self._deployments_path = (
+            path or Path(tempfile.gettempdir()) / "llama_deploy" / "deployments"
+        )
 
     def get_deployment(self, deployment_name: str) -> Deployment | None:
         return self._deployments.get(deployment_name)
 
-    async def serve(self, deployments_path: Path | None = None) -> None:
+    async def serve(self) -> None:
         """The server loop, it keeps the manager running.
 
         Args:
             deployments_path: The filesystem path where deployments will create their root path.
         """
-        if deployments_path:
-            self._deployments_path = deployments_path
+        if self._deployments_path is None:
+            raise RuntimeError("Deployments path not set")
+
+        self._serving = True
 
         event = asyncio.Event()
         try:
@@ -462,6 +468,9 @@ class Manager:
             ValueError: If a deployment with the same name already exists or the maximum number of deployment exceeded.
             DeploymentError: If it wasn't possible to create a deployment.
         """
+        if not self._serving:
+            raise RuntimeError("Manager main loop not started, call serve() first.")
+
         if not reload:
             # Raise an error if deployment already exists
             if config.name in self._deployments:
@@ -502,7 +511,7 @@ class Manager:
                     raise DeploymentError(msg)
 
             deployment = Deployment(
-                config=config, root_path=self.deployments_path, local=local
+                config=config, root_path=cast(Path, self._deployments_path), local=local
             )
             self._deployments[config.name] = deployment
             self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
