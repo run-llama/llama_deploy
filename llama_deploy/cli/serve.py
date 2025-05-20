@@ -9,6 +9,8 @@ from tenacity import RetryError, Retrying, stop_after_attempt, wait_fixed
 from llama_deploy import Client
 from llama_deploy.apiserver import settings
 
+RETRY_WAIT_SECONDS = 1
+
 
 @click.command()
 @click.option("--local", is_flag=True)
@@ -40,7 +42,9 @@ def serve(local: bool, deployment_file: Path | None) -> None:
 
     if deployment_file:
         client = Client()
-        retrying = Retrying(stop=stop_after_attempt(5), wait=wait_fixed(1))
+        retrying = Retrying(
+            stop=stop_after_attempt(5), wait=wait_fixed(RETRY_WAIT_SECONDS)
+        )
         try:
             for attempt in retrying:
                 with attempt:
