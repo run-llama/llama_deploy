@@ -53,7 +53,7 @@ class Service(BaseModel):
     """Configuration for a single service."""
 
     name: str
-    source: ServiceSource | None = None
+    source: ServiceSource
     path: str | None = None
     host: str | None = None
     port: int | None = None

@@ -292,7 +292,6 @@ class Deployment:
 
             # Search for a workflow instance in the service path
             pythonpath = (destination / service_config.source.name).resolve()
-            print("--->", self._path)
             sys.path.append(str(pythonpath))
             module_name, workflow_name = Path(service_config.path).name.split(":")
             module = importlib.import_module(module_name)
