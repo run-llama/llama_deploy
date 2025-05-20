@@ -61,16 +61,19 @@ class Deployment:
     """
 
     def __init__(
-        self, *, config: DeploymentConfig, root_path: Path, skip_sync: bool = False
+        self, *, config: DeploymentConfig, root_path: Path, local: bool = False
     ) -> None:
         """Creates a Deployment instance.
 
         Args:
             config: The configuration object defining this deployment
             root_path: The path on the filesystem used to store deployment data
+            local: Whether the deployment is local. If true, sources won't be synced
         """
+        self._local = local
         self._name = config.name
-        self._path = root_path
+        # If not local, isolate the deployment in a folder with the same name to avoid conflicts
+        self._path = root_path if local else root_path / config.name
         self._queue_client = self._load_message_queue_client(config.message_queue)
         self._control_plane_config = config.control_plane
         self._control_plane = ControlPlaneServer(
@@ -84,7 +87,6 @@ class Deployment:
         self._service_tasks: list[asyncio.Task] = []
         self._service_startup_complete = asyncio.Event()
         # Ready to load services
-        self._skip_sync = skip_sync
         self._workflow_services: dict[str, WorkflowService] = self._load_services(
             config
         )
@@ -134,7 +136,7 @@ class Deployment:
 
         # UI
         if self._config.ui:
-            await self._start_ui_server(self._skip_sync)
+            await self._start_ui_server()
 
         # Run allthethings
         deployment_state.labels(self._name).state("running")
@@ -216,7 +218,7 @@ class Deployment:
             self._service_startup_complete.set()
             await asyncio.gather(*self._service_tasks)
 
-    async def _start_ui_server(self, skip_sync: bool) -> None:
+    async def _start_ui_server(self) -> None:
         """Creates WorkflowService instances according to the configuration object."""
         if not self._config.ui:
             raise ValueError("missing ui configuration settings")
@@ -228,7 +230,7 @@ class Deployment:
         # Sync the service source
         destination = (self._path / "ui").resolve()
         source_manager = SOURCE_MANAGERS[source.type](self._config)
-        policy = SyncPolicy.SKIP if skip_sync else SyncPolicy.REPLACE
+        policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
         source_manager.sync(source.name, str(destination), policy)
 
         install = await asyncio.create_subprocess_exec("npm", "ci", cwd=destination)
@@ -280,7 +282,7 @@ class Deployment:
             service_state.labels(self._name, service_id).state("syncing")
             destination = self._path.resolve()
             source_manager = SOURCE_MANAGERS[source.type](config)
-            policy = SyncPolicy.SKIP if self._skip_sync else SyncPolicy.REPLACE
+            policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
             source_manager.sync(source.name, str(destination), policy)
 
             # Install dependencies
@@ -291,7 +293,8 @@ class Deployment:
             self._set_environment_variables(service_config, destination)
 
             # Search for a workflow instance in the service path
-            pythonpath = (destination / service_config.source.name).resolve()
+            pythonpath = (destination / source.name).resolve()
+            print(pythonpath)
             sys.path.append(str(pythonpath))
             module_name, workflow_name = Path(service_config.path).name.split(":")
             module = importlib.import_module(module_name)
@@ -444,13 +447,14 @@ class Manager:
                 await self._simple_message_queue_server
 
     async def deploy(
-        self, config: DeploymentConfig, reload: bool = False, skip_sync: bool = False
+        self, config: DeploymentConfig, reload: bool = False, local: bool = False
     ) -> None:
         """Creates a Deployment instance and starts the relative runtime.
 
         Args:
             config: The deployment configuration.
             reload: Reload an existing deployment instead of raising an error.
+            local: Deploy a local configuration. Source code will be used in place locally.
 
         Raises:
             ValueError: If a deployment with the same name already exists or the maximum number of deployment exceeded.
@@ -496,7 +500,7 @@ class Manager:
                     raise DeploymentError(msg)
 
             deployment = Deployment(
-                config=config, root_path=self.deployments_path, skip_sync=skip_sync
+                config=config, root_path=self.deployments_path, local=local
             )
             self._deployments[config.name] = deployment
             self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))

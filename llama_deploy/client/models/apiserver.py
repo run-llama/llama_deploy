@@ -242,14 +242,14 @@ class DeploymentCollection(Collection):
     """A model representing a collection of deployments currently active."""
 
     async def create(
-        self, config: TextIO, reload: bool = False, skip_sync: bool = False
+        self, config: TextIO, reload: bool = False, local: bool = False
     ) -> Deployment:
         """Creates a new deployment from a deployment file.
 
         If `reload` is true, an existing deployment will be reloaded, otherwise
         an error will be raised.
 
-        If `skip_sync` is true, the sync managers won't attempt at syncing data.
+        If `local` is true, the sync managers won't attempt at syncing data.
         This is mostly for supporting local development.
 
         Example:
@@ -265,7 +265,7 @@ class DeploymentCollection(Collection):
             "POST",
             create_url,
             files=files,
-            params={"reload": reload, "skip_sync": skip_sync},
+            params={"reload": reload, "local": local},
             verify=not self.client.disable_ssl,
             timeout=self.client.timeout,
         )

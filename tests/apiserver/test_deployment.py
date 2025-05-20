@@ -36,7 +36,7 @@ def test_deployment_ctor(data_path: Path, mock_importlib: Any, tmp_path: Path) -
 
         sm_dict["git"].return_value.sync.assert_called_once()
         assert d.name == "TestDeployment"
-        assert d.path == tmp_path
+        assert d.path.name == "TestDeployment"
         assert type(d._control_plane) is ControlPlaneServer
         assert len(d._workflow_services) == 1
         assert d.service_names == ["test-workflow"]
@@ -436,7 +436,7 @@ async def test_start_ui_server_success(data_path: Path, tmp_path: Path) -> None:
         mock_os.environ.copy.return_value = {"PATH": "/some/path"}
 
         # Run the method
-        await deployment._start_ui_server(skip_sync=False)
+        await deployment._start_ui_server()
 
         # Verify source manager was used correctly
         source_manager_mock.sync.assert_called_once()
@@ -464,7 +464,7 @@ async def test_start_ui_server_missing_config(
     deployment = Deployment(config=deployment_config, root_path=tmp_path)
 
     with pytest.raises(ValueError, match="missing ui configuration settings"):
-        await deployment._start_ui_server(skip_sync=False)
+        await deployment._start_ui_server()
 
 
 @pytest.mark.asyncio
@@ -476,4 +476,4 @@ async def test_start_ui_server_missing_source(
     deployment = Deployment(config=deployment_config, root_path=tmp_path)
 
     with pytest.raises(ValueError, match="source must be defined"):
-        await deployment._start_ui_server(skip_sync=False)
+        await deployment._start_ui_server()

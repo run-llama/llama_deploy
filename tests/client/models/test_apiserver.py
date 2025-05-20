@@ -218,7 +218,7 @@ async def test_task_deployment_collection_create(client: Any) -> None:
         "POST",
         "http://localhost:4501/deployments/create",
         files={"config_file": "some config"},
-        params={"reload": False, "skip_sync": False},
+        params={"reload": False, "local": False},
         verify=True,
         timeout=120.0,
     )

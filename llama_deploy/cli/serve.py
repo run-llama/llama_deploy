@@ -45,7 +45,7 @@ def serve(local: bool, deployment_file: Path | None) -> None:
             for attempt in retrying:
                 with attempt:
                     client.sync.apiserver.deployments.create(
-                        deployment_file.open("rb"), skip_sync=local
+                        deployment_file.open("rb"), local=local
                     )
         except RetryError:
             uvicorn_p.terminate()

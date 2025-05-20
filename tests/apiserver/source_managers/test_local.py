@@ -35,7 +35,7 @@ def test_relative_path(tmp_path: Path, data_path: Path) -> None:
     sm = LocalSourceManager(config)
 
     sm.sync("workflow", str(tmp_path))
-    fnames = list(f.name for f in tmp_path.iterdir())
+    fnames = list(f.name for f in (tmp_path / "workflow").iterdir())
     assert "workflow_test.py" in fnames
     assert "__init__.py" in fnames
 
@@ -45,7 +45,7 @@ def test_relative_path_dot(tmp_path: Path, data_path: Path) -> None:
     sm = LocalSourceManager(config)
 
     sm.sync("./workflow", str(tmp_path))
-    fnames = list(f.name for f in tmp_path.iterdir())
+    fnames = list(f.name for f in (tmp_path / "workflow").iterdir())
     assert "workflow_test.py" in fnames
     assert "__init__.py" in fnames
 
@@ -55,7 +55,5 @@ def test_absolute_path(tmp_path: Path, data_path: Path) -> None:
     wf_dir = data_path / "workflow"
     sm = LocalSourceManager(config)
 
-    sm.sync(str(wf_dir.absolute()), str(tmp_path))
-    fnames = list(f.name for f in tmp_path.iterdir())
-    assert "workflow_test.py" in fnames
-    assert "__init__.py" in fnames
+    with pytest.raises(ValueError):
+        sm.sync(str(wf_dir.absolute()), str(tmp_path))

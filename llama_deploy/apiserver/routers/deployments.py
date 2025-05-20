@@ -38,11 +38,11 @@ async def read_deployment(deployment_name: str) -> DeploymentDefinition:
 async def create_deployment(
     config_file: UploadFile = File(...),
     reload: bool = False,
-    skip_sync: bool = False,
+    local: bool = False,
 ) -> DeploymentDefinition:
     """Creates a new deployment by uploading a configuration file."""
     config = DeploymentConfig.from_yaml_bytes(await config_file.read())
-    await manager.deploy(config, reload, skip_sync)
+    await manager.deploy(config, reload, local)
 
     return DeploymentDefinition(name=config.name)
 
