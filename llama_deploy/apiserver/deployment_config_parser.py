@@ -89,7 +89,7 @@ class DeploymentConfig(BaseModel):
         """Read config data from a yaml file."""
         with open(path, "r") as yaml_file:
             config = yaml.safe_load(yaml_file) or {}
-            if config.get("base_path") is None:
-                config["base_path"] = path.parent
+            if config.get("base-path") is None:
+                config["base-path"] = path.parent
 
         return cls(**config)

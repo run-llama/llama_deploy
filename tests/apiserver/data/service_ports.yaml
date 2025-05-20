@@ -5,10 +5,19 @@ control-plane: {}
 services:
   no-port:
     name: No Port
+    source:
+      type: local
+      name: workflow
 
   has-port:
     name: Has Port
     port: 9999
+    source:
+      type: local
+      name: workflow
 
   no-port-again:
     name: Again no Port
+    source:
+      type: local
+      name: workflow

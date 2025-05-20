@@ -52,6 +52,3 @@ services:
       type: docker
       name: myorg/myimage:latest
     port: 1313
-
-  memory:
-    name: Chat Memory

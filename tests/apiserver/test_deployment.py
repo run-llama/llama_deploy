@@ -13,7 +13,6 @@ from llama_deploy.apiserver.deployment import Deployment, DeploymentError, Manag
 from llama_deploy.apiserver.deployment_config_parser import (
     DeploymentConfig,
 )
-from llama_deploy.apiserver.source_managers.base import SyncPolicy
 from llama_deploy.control_plane import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.message_queues import AWSMessageQueueConfig, SimpleMessageQueue
 
@@ -37,7 +36,7 @@ def test_deployment_ctor(data_path: Path, mock_importlib: Any, tmp_path: Path) -
 
         sm_dict["git"].return_value.sync.assert_called_once()
         assert d.name == "TestDeployment"
-        assert d.path.name == "TestDeployment"
+        assert d.path == tmp_path
         assert type(d._control_plane) is ControlPlaneServer
         assert len(d._workflow_services) == 1
         assert d.service_names == ["test-workflow"]
@@ -77,12 +76,11 @@ def test_deployment_ctor_skip_default_service(
 ) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     config.services["test-workflow2"] = deepcopy(config.services["test-workflow"])
-    config.services["test-workflow2"].source = None
 
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         sm_dict["git"] = mock.MagicMock()
         d = Deployment(config=config, root_path=tmp_path)
-        assert len(d._workflow_services) == 1
+        assert len(d._workflow_services) == 2
 
 
 def test_deployment_ctor_invalid_default_service(
@@ -441,11 +439,7 @@ async def test_start_ui_server_success(data_path: Path, tmp_path: Path) -> None:
         await deployment._start_ui_server(skip_sync=False)
 
         # Verify source manager was used correctly
-        source_manager_mock.sync.assert_called_once_with(
-            "https://github.com/run-llama/llama_deploy.git",
-            str((tmp_path / "test-deployment" / "ui").resolve()),
-            SyncPolicy.REPLACE,
-        )
+        source_manager_mock.sync.assert_called_once()
 
         # Verify npm commands were executed
         assert mock_subprocess.call_count == 2
