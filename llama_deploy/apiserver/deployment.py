@@ -293,10 +293,12 @@ class Deployment:
             self._set_environment_variables(service_config, destination)
 
             # Search for a workflow instance in the service path
-            pythonpath = (destination / source.name).resolve()
-            print(pythonpath)
+            module_path_str, workflow_name = service_config.path.split(":")
+            module_path = Path(module_path_str)
+            module_name = module_path.name
+            pythonpath = (destination / module_path.parent).resolve()
+            print(pythonpath, module_name)
             sys.path.append(str(pythonpath))
-            module_name, workflow_name = Path(service_config.path).name.split(":")
             module = importlib.import_module(module_name)
 
             workflow = getattr(module, workflow_name)

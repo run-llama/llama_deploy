@@ -11,4 +11,4 @@ services:
     source:
       type: local
       name: ./e2e_tests/apiserver/deployments/src
-    path: workflow_hitl:workflow
+    path: ./e2e_tests/apiserver/deployments/src/workflow_hitl:workflow
