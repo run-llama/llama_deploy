@@ -297,7 +297,7 @@ class Deployment:
             module_path = Path(module_path_str)
             module_name = module_path.name
             pythonpath = (destination / module_path.parent).resolve()
-            print(pythonpath, module_name)
+            logger.debug("Extending PYTHONPATH to %s", pythonpath)
             sys.path.append(str(pythonpath))
             module = importlib.import_module(module_name)
 
