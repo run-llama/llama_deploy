@@ -25,7 +25,8 @@ class LocalSourceManager(SourceManager):
         if not destination:
             raise ValueError("Destination cannot be empty")
 
-        final_path = self._config.base_path / source
+        base = self._config.base_path or Path()
+        final_path = base / source
         destination_path = Path(destination)
         dirs_exist_ok: bool = False
         try:

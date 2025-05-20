@@ -75,7 +75,7 @@ class DeploymentConfig(BaseModel):
     message_queue: MessageQueueConfig | None = Field(None, alias="message-queue")
     default_service: str | None = Field(None, alias="default-service")
     services: dict[str, Service]
-    base_path: Path = Path()
+    base_path: Path | None = Field(None, alias="base-path")
     ui: UIService | None = None
 
     @classmethod
@@ -89,4 +89,7 @@ class DeploymentConfig(BaseModel):
         """Read config data from a yaml file."""
         with open(path, "r") as yaml_file:
             config = yaml.safe_load(yaml_file) or {}
-        return cls(**config, base_path=path.parent)
+            if config.get("base_path") is None:
+                config["base_path"] = path.parent
+
+        return cls(**config)
