@@ -338,6 +338,7 @@ class Deployment:
             for env_file in service_config.env_files:
                 # use dotenv to parse env_file
                 env_file_path = root / env_file if root else Path(env_file)
+                print("env_file_path", env_file_path)
                 env_vars.update(**dotenv_values(env_file_path))
 
         for k, v in env_vars.items():
