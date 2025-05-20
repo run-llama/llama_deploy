@@ -4,6 +4,7 @@ from unittest import mock
 import pytest
 
 from llama_deploy.apiserver import DeploymentConfig
+from llama_deploy.apiserver.source_managers.base import SyncPolicy
 from llama_deploy.apiserver.source_managers.local import LocalSourceManager
 
 
@@ -57,3 +58,21 @@ def test_absolute_path(tmp_path: Path, data_path: Path) -> None:
 
     with pytest.raises(ValueError):
         sm.sync(str(wf_dir.absolute()), str(tmp_path))
+
+
+def test_skip(config: DeploymentConfig) -> None:
+    with mock.patch(
+        "llama_deploy.apiserver.source_managers.local.shutil"
+    ) as shutil_mock:
+        sm = LocalSourceManager(config)
+        sm.sync("source", "dest", SyncPolicy.SKIP)
+        shutil_mock.copytree.assert_not_called()
+
+
+def test_merge(config: DeploymentConfig, tmp_path: Path) -> None:
+    with mock.patch(
+        "llama_deploy.apiserver.source_managers.local.shutil"
+    ) as shutil_mock:
+        sm = LocalSourceManager(config)
+        sm.sync("source", str(tmp_path), SyncPolicy.MERGE)
+        shutil_mock.copytree.assert_called_with(mock.ANY, mock.ANY, dirs_exist_ok=True)

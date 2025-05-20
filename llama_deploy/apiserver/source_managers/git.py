@@ -1,5 +1,5 @@
+import shutil
 from pathlib import Path
-from shutil import rmtree
 from typing import Any
 
 from git import Repo
@@ -28,7 +28,7 @@ class GitSourceManager(SourceManager):
 
         if Path(destination).exists():
             # FIXME: pull when SyncPolicy is MERGE
-            rmtree(destination)
+            shutil.rmtree(destination)
 
         url, branch_name = self._parse_source(source)
         kwargs: dict[str, Any] = {"url": url, "to_path": destination}
