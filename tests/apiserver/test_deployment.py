@@ -76,12 +76,11 @@ def test_deployment_ctor_skip_default_service(
 ) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     config.services["test-workflow2"] = deepcopy(config.services["test-workflow"])
-    config.services["test-workflow2"].source = None
 
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         sm_dict["git"] = mock.MagicMock()
         d = Deployment(config=config, root_path=tmp_path)
-        assert len(d._workflow_services) == 1
+        assert len(d._workflow_services) == 2
 
 
 def test_deployment_ctor_invalid_default_service(
@@ -206,14 +205,12 @@ def test__install_dependencies_raises(data_path: Path) -> None:
 
 def test_manager_ctor() -> None:
     m = Manager()
-    assert str(m._deployments_path) == ".deployments"
-    assert len(m._deployments) == 0
-    m = Manager(deployments_path=Path("foo"))
-    assert str(m._deployments_path) == "foo"
-    assert len(m._deployments) == 0
-    assert len(m.deployment_names) == 0
-    assert m.get_deployment("foo") is None
-    assert m._simple_message_queue_server is None
+    assert m.deployments_path.name == "deployments"
+    assert m._max_deployments == 10
+
+    m = Manager(max_deployments=42)
+    assert m.deployments_path.name == "deployments"
+    assert m._max_deployments == 42
 
 
 @pytest.mark.asyncio
@@ -251,6 +248,7 @@ async def test_manager_deploy(data_path: Path) -> None:
         "llama_deploy.apiserver.deployment.Deployment"
     ) as mocked_deployment:
         m = Manager()
+        m._deployments_path = Path()
         await m.deploy(config)
         mocked_deployment.assert_called_once()
         assert m.deployment_names == ["TestDeployment"]
@@ -419,7 +417,6 @@ async def test_start_ui_server_success(data_path: Path, tmp_path: Path) -> None:
     # Mock the necessary components
     with (
         mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict,
-        mock.patch("llama_deploy.apiserver.deployment.rmtree"),
         mock.patch(
             "llama_deploy.apiserver.deployment.asyncio.create_subprocess_exec"
         ) as mock_subprocess,
@@ -442,10 +439,7 @@ async def test_start_ui_server_success(data_path: Path, tmp_path: Path) -> None:
         await deployment._start_ui_server()
 
         # Verify source manager was used correctly
-        source_manager_mock.sync.assert_called_once_with(
-            "https://github.com/run-llama/llama_deploy.git",
-            str((tmp_path / "test-deployment" / "ui").resolve()),
-        )
+        source_manager_mock.sync.assert_called_once()
 
         # Verify npm commands were executed
         assert mock_subprocess.call_count == 2

@@ -4,9 +4,9 @@ import logging
 import os
 import subprocess
 import sys
+import tempfile
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from shutil import rmtree
 from typing import Any, Type
 
 import httpx
@@ -22,6 +22,7 @@ from llama_deploy import (
     WorkflowService,
     WorkflowServiceConfig,
 )
+from llama_deploy.apiserver.source_managers.base import SyncPolicy
 from llama_deploy.message_queues import (
     AbstractMessageQueue,
     AWSMessageQueue,
@@ -59,15 +60,20 @@ class Deployment:
     and the message queue along with any service defined in the configuration object.
     """
 
-    def __init__(self, *, config: DeploymentConfig, root_path: Path) -> None:
+    def __init__(
+        self, *, config: DeploymentConfig, root_path: Path, local: bool = False
+    ) -> None:
         """Creates a Deployment instance.
 
         Args:
             config: The configuration object defining this deployment
             root_path: The path on the filesystem used to store deployment data
+            local: Whether the deployment is local. If true, sources won't be synced
         """
+        self._local = local
         self._name = config.name
-        self._path = root_path / config.name
+        # If not local, isolate the deployment in a folder with the same name to avoid conflicts
+        self._path = root_path if local else root_path / config.name
         self._queue_client = self._load_message_queue_client(config.message_queue)
         self._control_plane_config = config.control_plane
         self._control_plane = ControlPlaneServer(
@@ -223,18 +229,9 @@ class Deployment:
 
         # Sync the service source
         destination = (self._path / "ui").resolve()
-
-        if destination.exists():
-            # FIXME: this could be managed at the source manager level, so that
-            # each implementation can decide what to do with existing data. For
-            # example, the git source manager might decide to perform a git pull
-            # instead of a brand new git clone. Leaving these optimnizations for
-            # later, for the time being having an empty data folder works smoothly
-            # for any source manager currently supported.
-            rmtree(str(destination))
-
         source_manager = SOURCE_MANAGERS[source.type](self._config)
-        source_manager.sync(source.name, str(destination))
+        policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
+        source_manager.sync(source.name, str(destination), policy)
 
         install = await asyncio.create_subprocess_exec("npm", "ci", cwd=destination)
         await install.wait()
@@ -282,20 +279,11 @@ class Deployment:
                 raise ValueError(msg)
 
             # Sync the service source
-            destination = (self._path / service_id).resolve()
-
-            if destination.exists():
-                # FIXME: this could be managed at the source manager level, so that
-                # each implementation can decide what to do with existing data. For
-                # example, the git source manager might decide to perform a git pull
-                # instead of a brand new git clone. Leaving these optimnizations for
-                # later, for the time being having an empty data folder works smoothly
-                # for any source manager currently supported.
-                rmtree(str(destination))
-
             service_state.labels(self._name, service_id).state("syncing")
+            destination = self._path.resolve()
             source_manager = SOURCE_MANAGERS[source.type](config)
-            source_manager.sync(source.name, str(destination))
+            policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
+            source_manager.sync(source.name, str(destination), policy)
 
             # Install dependencies
             service_state.labels(self._name, service_id).state("installing")
@@ -305,9 +293,12 @@ class Deployment:
             self._set_environment_variables(service_config, destination)
 
             # Search for a workflow instance in the service path
-            pythonpath = (destination / service_config.path).parent.resolve()
+            module_path_str, workflow_name = service_config.path.split(":")
+            module_path = Path(module_path_str)
+            module_name = module_path.name
+            pythonpath = (destination / module_path.parent).resolve()
+            logger.debug("Extending PYTHONPATH to %s", pythonpath)
             sys.path.append(str(pythonpath))
-            module_name, workflow_name = Path(service_config.path).name.split(":")
             module = importlib.import_module(module_name)
 
             workflow = getattr(module, workflow_name)
@@ -412,17 +403,16 @@ class Manager:
         ```
     """
 
-    def __init__(
-        self, deployments_path: Path = Path(".deployments"), max_deployments: int = 10
-    ) -> None:
+    def __init__(self, max_deployments: int = 10) -> None:
         """Creates a Manager instance.
 
         Args:
-            deployments_path: The filesystem path where deployments will create their root path.
             max_deployments: The maximum number of deployments supported by this manager.
         """
         self._deployments: dict[str, Any] = {}
-        self._deployments_path = deployments_path
+        self._deployments_path: Path = (
+            Path(tempfile.gettempdir()) / "llama_deploy" / "deployments"
+        )
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
         self._last_control_plane_port = 8002
@@ -433,11 +423,22 @@ class Manager:
         """Return a list of names for the active deployments."""
         return list(self._deployments.keys())
 
+    @property
+    def deployments_path(self) -> Path:
+        return self._deployments_path
+
     def get_deployment(self, deployment_name: str) -> Deployment | None:
         return self._deployments.get(deployment_name)
 
-    async def serve(self) -> None:
-        """The server loop, it keeps the manager running."""
+    async def serve(self, deployments_path: Path | None = None) -> None:
+        """The server loop, it keeps the manager running.
+
+        Args:
+            deployments_path: The filesystem path where deployments will create their root path.
+        """
+        if deployments_path:
+            self._deployments_path = deployments_path
+
         event = asyncio.Event()
         try:
             # Waits indefinitely since `event` will never be set
@@ -447,12 +448,15 @@ class Manager:
                 self._simple_message_queue_server.cancel()
                 await self._simple_message_queue_server
 
-    async def deploy(self, config: DeploymentConfig, reload: bool = False) -> None:
+    async def deploy(
+        self, config: DeploymentConfig, reload: bool = False, local: bool = False
+    ) -> None:
         """Creates a Deployment instance and starts the relative runtime.
 
         Args:
             config: The deployment configuration.
             reload: Reload an existing deployment instead of raising an error.
+            local: Deploy a local configuration. Source code will be used in place locally.
 
         Raises:
             ValueError: If a deployment with the same name already exists or the maximum number of deployment exceeded.
@@ -497,7 +501,9 @@ class Manager:
                     msg = f"Unable to reach SimpleMessageQueueServer at {msg_queue.base_url}"
                     raise DeploymentError(msg)
 
-            deployment = Deployment(config=config, root_path=self._deployments_path)
+            deployment = Deployment(
+                config=config, root_path=self.deployments_path, local=local
+            )
             self._deployments[config.name] = deployment
             self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
         else:

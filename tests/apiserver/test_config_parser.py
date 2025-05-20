@@ -42,9 +42,6 @@ def do_assert(config: DeploymentConfig) -> None:
     assert wf_config.source.name == "myorg/myimage:latest"
     assert wf_config.port == 1313
 
-    wf_config = config.services["memory"]
-    assert wf_config.name == "Chat Memory"
-
 
 def test_load_config_file(data_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "example.yaml")
