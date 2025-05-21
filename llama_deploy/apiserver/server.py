@@ -20,6 +20,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
 
     manager.set_deployments_path(settings.deployments_path)
     t = asyncio.create_task(manager.serve())
+    await asyncio.sleep(0)
 
     logger.info(f"deployments folder: {manager.deployments_path}")
     logger.info(f"rc folder: {settings.rc_path}")
