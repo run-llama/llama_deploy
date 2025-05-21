@@ -7,9 +7,9 @@ import pytest
 @pytest.mark.asyncio
 async def test_read_env_vars_local(apiserver, client):
     here = Path(__file__).parent
-
-    with open(here / "deployments" / "deployment_env_local.yml") as f:
-        await client.apiserver.deployments.create(f)
+    deployment_fp = here / "deployments" / "deployment_env_local.yml"
+    with open(deployment_fp) as f:
+        await client.apiserver.deployments.create(f, base_path=deployment_fp.parent)
         await asyncio.sleep(5)
 
     session = await client.core.sessions.create()
