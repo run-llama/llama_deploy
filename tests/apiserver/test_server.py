@@ -25,6 +25,7 @@ async def test_lifespan(
     with mock.patch("llama_deploy.apiserver.server.settings") as mocked_settings:
         mocked_settings.rc_path = tmp_path
         mocked_settings.deployments_path = tmp_path / "foo/bar"
+        mocked_manager.deployments_path = mocked_settings.deployments_path
         caplog.set_level(logging.INFO)
         async with lifespan(mock.AsyncMock()):
             pass

@@ -29,7 +29,7 @@ def mocked_deployment(data_path: Path, mock_importlib: Any) -> Iterator[Deployme
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         sm_dict["git"] = mock.MagicMock()
-        yield Deployment(config=config, root_path=Path("."))
+        yield Deployment(config=config, base_path=data_path, deployment_path=Path("."))
 
 
 @pytest.fixture

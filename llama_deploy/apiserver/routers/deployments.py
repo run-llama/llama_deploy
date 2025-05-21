@@ -36,7 +36,7 @@ async def read_deployment(deployment_name: str) -> DeploymentDefinition:
 
 @deployments_router.post("/create")
 async def create_deployment(
-    base_path: str,
+    base_path: str = ".",
     config_file: UploadFile = File(...),
     reload: bool = False,
     local: bool = False,
