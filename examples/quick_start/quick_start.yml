@@ -16,5 +16,5 @@ services:
 ui:
   name: My Nextjs App
   source:
-    type: local # could be git
+    type: local
     name: ui
