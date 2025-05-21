@@ -10,6 +10,6 @@ services:
     port: 8002
     host: localhost
     source:
-      type: git
-      name: https://github.com/run-llama/llama_deploy.git
+      type: local
+      name: e2e_tests/apiserver/deployments/src
     path: e2e_tests/apiserver/deployments/src:my_workflow
