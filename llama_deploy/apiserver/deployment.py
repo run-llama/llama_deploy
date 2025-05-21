@@ -7,7 +7,7 @@ import sys
 import tempfile
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from typing import Any, Type, cast
+from typing import Any, Type
 
 import httpx
 from dotenv import dotenv_values
@@ -61,7 +61,12 @@ class Deployment:
     """
 
     def __init__(
-        self, *, config: DeploymentConfig, root_path: Path, local: bool = False
+        self,
+        *,
+        config: DeploymentConfig,
+        base_path: Path,
+        deployment_path: Path,
+        local: bool = False,
     ) -> None:
         """Creates a Deployment instance.
 
@@ -72,8 +77,11 @@ class Deployment:
         """
         self._local = local
         self._name = config.name
+        self._base_path = base_path
         # If not local, isolate the deployment in a folder with the same name to avoid conflicts
-        self._path = root_path if local else root_path / config.name
+        self._deployment_path = (
+            deployment_path if local else deployment_path / config.name
+        )
         self._queue_client = self._load_message_queue_client(config.message_queue)
         self._control_plane_config = config.control_plane
         self._control_plane = ControlPlaneServer(
@@ -106,11 +114,6 @@ class Deployment:
     def name(self) -> str:
         """Returns the name of this deployment."""
         return self._name
-
-    @property
-    def path(self) -> Path:
-        """Returns the absolute path to the root of this deployment."""
-        return self._path.resolve()
 
     @property
     def service_names(self) -> list[str]:
@@ -228,8 +231,8 @@ class Deployment:
             raise ValueError("source must be defined")
 
         # Sync the service source
-        destination = (self._path / "ui").resolve()
-        source_manager = SOURCE_MANAGERS[source.type](self._config)
+        destination = (self._deployment_path / "ui").resolve()
+        source_manager = SOURCE_MANAGERS[source.type](self._config, self._base_path)
         policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
         source_manager.sync(source.name, str(destination), policy)
 
@@ -280,8 +283,8 @@ class Deployment:
 
             # Sync the service source
             service_state.labels(self._name, service_id).state("syncing")
-            destination = self._path.resolve()
-            source_manager = SOURCE_MANAGERS[source.type](config)
+            destination = self._deployment_path.resolve()
+            source_manager = SOURCE_MANAGERS[source.type](config, self._base_path)
             policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
             source_manager.sync(source.name, str(destination), policy)
 
@@ -423,7 +426,9 @@ class Manager:
         return list(self._deployments.keys())
 
     @property
-    def deployments_path(self) -> Path | None:
+    def deployments_path(self) -> Path:
+        if self._deployments_path is None:
+            raise ValueError("Deployments path not set")
         return self._deployments_path
 
     def set_deployments_path(self, path: Path | None) -> None:
@@ -455,7 +460,11 @@ class Manager:
                 await self._simple_message_queue_server
 
     async def deploy(
-        self, config: DeploymentConfig, reload: bool = False, local: bool = False
+        self,
+        config: DeploymentConfig,
+        base_path: str,
+        reload: bool = False,
+        local: bool = False,
     ) -> None:
         """Creates a Deployment instance and starts the relative runtime.
 
@@ -511,7 +520,10 @@ class Manager:
                     raise DeploymentError(msg)
 
             deployment = Deployment(
-                config=config, root_path=cast(Path, self._deployments_path), local=local
+                config=config,
+                base_path=Path(base_path),
+                deployment_path=self.deployments_path,
+                local=local,
             )
             self._deployments[config.name] = deployment
             self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))

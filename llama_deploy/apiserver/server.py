@@ -33,7 +33,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
             try:
                 logger.info(f"Deploying startup configuration from {yaml_file}")
                 config = DeploymentConfig.from_yaml(yaml_file)
-                await manager.deploy(config)
+                await manager.deploy(config, base_path=str(settings.rc_path))
             except Exception as e:
                 logger.error(f"Failed to deploy {yaml_file}: {str(e)}")
 

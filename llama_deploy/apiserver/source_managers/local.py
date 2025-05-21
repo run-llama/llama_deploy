@@ -28,7 +28,7 @@ class LocalSourceManager(SourceManager):
         if Path(source).is_absolute():
             raise ValueError("Source path must be relative to the deployment file")
 
-        base = self._config.base_path or Path()
+        base = self._base_path or Path()
         final_path = base / source
         destination_path = Path(destination)
         dirs_exist_ok: bool = False

@@ -242,7 +242,7 @@ class DeploymentCollection(Collection):
     """A model representing a collection of deployments currently active."""
 
     async def create(
-        self, config: TextIO, reload: bool = False, local: bool = False
+        self, config: TextIO, base_path: str, reload: bool = False, local: bool = False
     ) -> Deployment:
         """Creates a new deployment from a deployment file.
 
@@ -265,7 +265,7 @@ class DeploymentCollection(Collection):
             "POST",
             create_url,
             files=files,
-            params={"reload": reload, "local": local},
+            params={"reload": reload, "local": local, "base_path": base_path},
             verify=not self.client.disable_ssl,
             timeout=self.client.timeout,
         )

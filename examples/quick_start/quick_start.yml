@@ -11,7 +11,7 @@ services:
     source:
       type: local
       name: src
-    path: workflow:echo_workflow
+    path: src/workflow:echo_workflow
 
 ui:
   name: My Nextjs App

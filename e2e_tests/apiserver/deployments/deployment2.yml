@@ -11,5 +11,5 @@ services:
     host: localhost
     source:
       type: local
-      name: e2e_tests/apiserver/deployments/src
-    path: e2e_tests/apiserver/deployments/src:my_workflow
+      name: src
+    path: src:my_workflow
