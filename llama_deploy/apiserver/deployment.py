@@ -231,12 +231,14 @@ class Deployment:
             raise ValueError("source must be defined")
 
         # Sync the service source
-        destination = (self._deployment_path / "ui").resolve()
+        destination = self._deployment_path.resolve()
         source_manager = SOURCE_MANAGERS[source.type](self._config, self._base_path)
         policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
         source_manager.sync(source.name, str(destination), policy)
 
-        install = await asyncio.create_subprocess_exec("npm", "ci", cwd=destination)
+        install = await asyncio.create_subprocess_exec(
+            "pnpm", "install", cwd=destination / "ui"
+        )
         await install.wait()
 
         env = os.environ.copy()
@@ -244,10 +246,10 @@ class Deployment:
         env["LLAMA_DEPLOY_NEXTJS_DEPLOYMENT_NAME"] = self._config.name
 
         process = await asyncio.create_subprocess_exec(
-            "npm",
+            "pnpm",
             "run",
             "dev",
-            cwd=destination,
+            cwd=destination / "ui",
             env=env,
         )
 
