@@ -17,8 +17,6 @@ from llama_deploy import (
     Client,
     ControlPlaneServer,
     SimpleMessageQueueServer,
-    SimpleOrchestrator,
-    SimpleOrchestratorConfig,
     WorkflowService,
     WorkflowServiceConfig,
 )
@@ -85,9 +83,7 @@ class Deployment:
         self._queue_client = self._load_message_queue_client(config.message_queue)
         self._control_plane_config = config.control_plane
         self._control_plane = ControlPlaneServer(
-            self._queue_client,
-            SimpleOrchestrator(**SimpleOrchestratorConfig().model_dump()),
-            config=config.control_plane,
+            self._queue_client, config=config.control_plane
         )
         self._client = Client(control_plane_url=config.control_plane.url)
         self._default_service: str | None = None

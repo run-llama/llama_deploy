@@ -11,7 +11,6 @@ from llama_deploy.message_queues import (
     SimpleMessageQueueServer,
 )
 from llama_deploy.messages import QueueMessage
-from llama_deploy.orchestrators import SimpleOrchestrator, SimpleOrchestratorConfig
 from llama_deploy.services import (
     WorkflowService,
     WorkflowServiceConfig,
@@ -50,7 +49,4 @@ __all__ = [
     # control planes
     "ControlPlaneServer",
     "ControlPlaneConfig",
-    # orchestrators
-    "SimpleOrchestrator",
-    "SimpleOrchestratorConfig",
 ]

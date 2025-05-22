@@ -1,4 +1,4 @@
-from llama_deploy.orchestrators.utils import get_result_key, get_stream_key
+from llama_deploy.control_plane.utils import get_result_key, get_stream_key
 
 
 def test_get_result_key() -> None:
