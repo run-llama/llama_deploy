@@ -617,9 +617,6 @@ class ControlPlaneServer(BaseControlPlane):
 
         Runs the required service, then sends the result to the final message type.
         """
-
-        destination_messages = []
-
         if task_def.service_id is None:
             raise ValueError(
                 "Task definition must have an service_id specified to identify a service"
@@ -627,6 +624,9 @@ class ControlPlaneServer(BaseControlPlane):
 
         if task_def.task_id not in state:
             state[task_def.task_id] = {}
+
+        if state.get(get_result_key(task_def.task_id)) is not None:
+            return [], state
 
         destination = task_def.service_id
         destination_messages = [
