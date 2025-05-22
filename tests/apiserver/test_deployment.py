@@ -462,9 +462,9 @@ async def test_start_ui_server_success(data_path: Path, tmp_path: Path) -> None:
         # Verify npm commands were executed
         assert mock_subprocess.call_count == 2
         # First call should be npm ci
-        assert mock_subprocess.call_args_list[0][0][:2] == ("npm", "ci")
+        assert mock_subprocess.call_args_list[0][0][:2] == ("pnpm", "install")
         # Second call should be npm run dev
-        assert mock_subprocess.call_args_list[1][0][:3] == ("npm", "run", "dev")
+        assert mock_subprocess.call_args_list[1][0][:3] == ("pnpm", "run", "dev")
 
         # Verify environment variables were set
         assert mock_os.environ.copy.called
