@@ -46,7 +46,7 @@ def test_deployment_ctor(data_path: Path, mock_importlib: Any, tmp_path: Path) -
 
 def test_deployment_ctor_missing_service_path(data_path: Path, tmp_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
-    config.services["test-workflow"].path = None
+    config.services["test-workflow"].import_path = None
     with pytest.raises(
         ValueError, match="path field in service definition must be set"
     ):

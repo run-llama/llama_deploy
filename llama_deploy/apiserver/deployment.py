@@ -234,7 +234,7 @@ class Deployment:
         destination = self._deployment_path.resolve()
         source_manager = SOURCE_MANAGERS[source.type](self._config, self._base_path)
         policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
-        source_manager.sync(source.name, str(destination), policy)
+        source_manager.sync(source.location, str(destination), policy)
 
         install = await asyncio.create_subprocess_exec(
             "pnpm", "install", cwd=destination / "ui"
@@ -269,7 +269,7 @@ class Deployment:
                 continue
 
             # FIXME: Momentarily assuming everything is a workflow
-            if service_config.path is None:
+            if service_config.import_path is None:
                 msg = "path field in service definition must be set"
                 raise ValueError(msg)
 
@@ -288,7 +288,7 @@ class Deployment:
             destination = self._deployment_path.resolve()
             source_manager = SOURCE_MANAGERS[source.type](config, self._base_path)
             policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
-            source_manager.sync(source.name, str(destination), policy)
+            source_manager.sync(source.location, str(destination), policy)
 
             # Install dependencies
             service_state.labels(self._name, service_id).state("installing")
@@ -298,7 +298,7 @@ class Deployment:
             self._set_environment_variables(service_config, destination)
 
             # Search for a workflow instance in the service path
-            module_path_str, workflow_name = service_config.path.split(":")
+            module_path_str, workflow_name = service_config.import_path.split(":")
             module_path = Path(module_path_str)
             module_name = module_path.name
             pythonpath = (destination / module_path.parent).resolve()
