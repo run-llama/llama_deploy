@@ -1,7 +1,8 @@
 import sys
+import warnings
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Union
+from typing import Annotated, Any, Union
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -9,7 +10,7 @@ else:  # pragma: no cover
     from typing_extensions import Self
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.message_queues import (
@@ -46,7 +47,19 @@ class ServiceSource(BaseModel):
     """Configuration for the `source` parameter of a service."""
 
     type: SourceType
-    name: str
+    location: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_deprecated_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "name" in data and "location" not in data:
+                warnings.warn(
+                    "The 'name' field is deprecated. Use 'location' instead.",
+                    DeprecationWarning,
+                )
+                data["location"] = data["name"]
+        return data
 
 
 class Service(BaseModel):
@@ -54,13 +67,25 @@ class Service(BaseModel):
 
     name: str
     source: ServiceSource
-    path: str | None = None
+    import_path: str | None = Field(None, alias="import-path")
     host: str | None = None
     port: int | None = None
     env: dict[str, str] | None = Field(None)
     env_files: list[str] | None = Field(None, alias="env-files")
     python_dependencies: list[str] | None = Field(None, alias="python-dependencies")
     ts_dependencies: dict[str, str] | None = Field(None, alias="ts-dependencies")
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_deprecated_fields(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "path" in data and "import-path" not in data:
+                warnings.warn(
+                    "The 'path' field is deprecated. Use 'import-path' instead.",
+                    DeprecationWarning,
+                )
+                data["import-path"] = data["path"]
+        return data
 
 
 class UIService(Service):
