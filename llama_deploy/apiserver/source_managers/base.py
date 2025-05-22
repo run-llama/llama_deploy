@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import Enum, auto
+from pathlib import Path
 
 from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 
@@ -16,8 +17,9 @@ class SyncPolicy(Enum):
 class SourceManager(ABC):
     """Protocol to be implemented by classes responsible for managing Deployment sources."""
 
-    def __init__(self, config: DeploymentConfig) -> None:
+    def __init__(self, config: DeploymentConfig, base_path: Path | None = None) -> None:
         self._config = config
+        self._base_path = base_path
 
     @abstractmethod
     def sync(

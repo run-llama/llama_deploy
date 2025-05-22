@@ -107,8 +107,8 @@ services:
     source:
       # In this case, we instruct LlamaDeploy to look in the local filesystem
       type: local
-      # The path in the local filesystem where to look. This assumes there's an src folder in the
-      # current working directory containing the file workflow.py we created previously
+      # The path relative to this deployment config file where to look for the code. This assumes
+      # there's an src folder along with the config file containing the file workflow.py we created previously
       name: ./src
     # This assumes the file workflow.py contains a variable called `echo_workflow` containing our workflow instance
     path: workflow:llamacloud_workflow

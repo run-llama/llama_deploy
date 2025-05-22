@@ -18,9 +18,11 @@ manager = Manager()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
     apiserver_state.state("starting")
 
-    t = asyncio.create_task(manager.serve(deployments_path=settings.deployments_path))
+    manager.set_deployments_path(settings.deployments_path)
+    t = asyncio.create_task(manager.serve())
+    await asyncio.sleep(0)
 
-    logger.info(f"deployments folder: {settings.deployments_path}")
+    logger.info(f"deployments folder: {manager.deployments_path}")
     logger.info(f"rc folder: {settings.rc_path}")
 
     if settings.rc_path.exists():
@@ -32,7 +34,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
             try:
                 logger.info(f"Deploying startup configuration from {yaml_file}")
                 config = DeploymentConfig.from_yaml(yaml_file)
-                await manager.deploy(config)
+                await manager.deploy(config, base_path=str(settings.rc_path))
             except Exception as e:
                 logger.error(f"Failed to deploy {yaml_file}: {str(e)}")
 

@@ -33,7 +33,7 @@ def test_sync_error(config: DeploymentConfig) -> None:
 
 def test_relative_path(tmp_path: Path, data_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "local.yaml")
-    sm = LocalSourceManager(config)
+    sm = LocalSourceManager(config, data_path)
 
     sm.sync("workflow", str(tmp_path))
     fnames = list(f.name for f in (tmp_path / "workflow").iterdir())
@@ -43,7 +43,7 @@ def test_relative_path(tmp_path: Path, data_path: Path) -> None:
 
 def test_relative_path_dot(tmp_path: Path, data_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "local.yaml")
-    sm = LocalSourceManager(config)
+    sm = LocalSourceManager(config, data_path)
 
     sm.sync("./workflow", str(tmp_path))
     fnames = list(f.name for f in (tmp_path / "workflow").iterdir())

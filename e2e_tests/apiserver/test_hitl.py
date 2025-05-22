@@ -11,9 +11,11 @@ from llama_deploy.types import EventDefinition, TaskDefinition
 @pytest.mark.asyncio
 async def test_hitl(apiserver, client):
     here = Path(__file__).parent
-
-    with open(here / "deployments" / "deployment_hitl.yml") as f:
-        deployment = await client.apiserver.deployments.create(f)
+    deployment_fp = here / "deployments" / "deployment_hitl.yml"
+    with open(deployment_fp) as f:
+        deployment = await client.apiserver.deployments.create(
+            f, base_path=deployment_fp.parent
+        )
         await asyncio.sleep(5)
 
     tasks = deployment.tasks

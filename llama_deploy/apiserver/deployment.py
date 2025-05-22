@@ -61,7 +61,12 @@ class Deployment:
     """
 
     def __init__(
-        self, *, config: DeploymentConfig, root_path: Path, local: bool = False
+        self,
+        *,
+        config: DeploymentConfig,
+        base_path: Path,
+        deployment_path: Path,
+        local: bool = False,
     ) -> None:
         """Creates a Deployment instance.
 
@@ -72,8 +77,11 @@ class Deployment:
         """
         self._local = local
         self._name = config.name
+        self._base_path = base_path
         # If not local, isolate the deployment in a folder with the same name to avoid conflicts
-        self._path = root_path if local else root_path / config.name
+        self._deployment_path = (
+            deployment_path if local else deployment_path / config.name
+        )
         self._queue_client = self._load_message_queue_client(config.message_queue)
         self._control_plane_config = config.control_plane
         self._control_plane = ControlPlaneServer(
@@ -106,11 +114,6 @@ class Deployment:
     def name(self) -> str:
         """Returns the name of this deployment."""
         return self._name
-
-    @property
-    def path(self) -> Path:
-        """Returns the absolute path to the root of this deployment."""
-        return self._path.resolve()
 
     @property
     def service_names(self) -> list[str]:
@@ -228,8 +231,8 @@ class Deployment:
             raise ValueError("source must be defined")
 
         # Sync the service source
-        destination = (self._path / "ui").resolve()
-        source_manager = SOURCE_MANAGERS[source.type](self._config)
+        destination = (self._deployment_path / "ui").resolve()
+        source_manager = SOURCE_MANAGERS[source.type](self._config, self._base_path)
         policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
         source_manager.sync(source.name, str(destination), policy)
 
@@ -280,8 +283,8 @@ class Deployment:
 
             # Sync the service source
             service_state.labels(self._name, service_id).state("syncing")
-            destination = self._path.resolve()
-            source_manager = SOURCE_MANAGERS[source.type](config)
+            destination = self._deployment_path.resolve()
+            source_manager = SOURCE_MANAGERS[source.type](config, self._base_path)
             policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
             source_manager.sync(source.name, str(destination), policy)
 
@@ -410,13 +413,12 @@ class Manager:
             max_deployments: The maximum number of deployments supported by this manager.
         """
         self._deployments: dict[str, Any] = {}
-        self._deployments_path: Path = (
-            Path(tempfile.gettempdir()) / "llama_deploy" / "deployments"
-        )
+        self._deployments_path: Path | None = None
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
         self._last_control_plane_port = 8002
         self._simple_message_queue_server: asyncio.Task | None = None
+        self._serving = False
 
     @property
     def deployment_names(self) -> list[str]:
@@ -425,19 +427,28 @@ class Manager:
 
     @property
     def deployments_path(self) -> Path:
+        if self._deployments_path is None:
+            raise ValueError("Deployments path not set")
         return self._deployments_path
+
+    def set_deployments_path(self, path: Path | None) -> None:
+        self._deployments_path = (
+            path or Path(tempfile.gettempdir()) / "llama_deploy" / "deployments"
+        )
 
     def get_deployment(self, deployment_name: str) -> Deployment | None:
         return self._deployments.get(deployment_name)
 
-    async def serve(self, deployments_path: Path | None = None) -> None:
+    async def serve(self) -> None:
         """The server loop, it keeps the manager running.
 
         Args:
             deployments_path: The filesystem path where deployments will create their root path.
         """
-        if deployments_path:
-            self._deployments_path = deployments_path
+        if self._deployments_path is None:
+            raise RuntimeError("Deployments path not set")
+
+        self._serving = True
 
         event = asyncio.Event()
         try:
@@ -449,7 +460,11 @@ class Manager:
                 await self._simple_message_queue_server
 
     async def deploy(
-        self, config: DeploymentConfig, reload: bool = False, local: bool = False
+        self,
+        config: DeploymentConfig,
+        base_path: str,
+        reload: bool = False,
+        local: bool = False,
     ) -> None:
         """Creates a Deployment instance and starts the relative runtime.
 
@@ -462,6 +477,9 @@ class Manager:
             ValueError: If a deployment with the same name already exists or the maximum number of deployment exceeded.
             DeploymentError: If it wasn't possible to create a deployment.
         """
+        if not self._serving:
+            raise RuntimeError("Manager main loop not started, call serve() first.")
+
         if not reload:
             # Raise an error if deployment already exists
             if config.name in self._deployments:
@@ -502,7 +520,10 @@ class Manager:
                     raise DeploymentError(msg)
 
             deployment = Deployment(
-                config=config, root_path=self.deployments_path, local=local
+                config=config,
+                base_path=Path(base_path),
+                deployment_path=self.deployments_path,
+                local=local,
             )
             self._deployments[config.name] = deployment
             self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))

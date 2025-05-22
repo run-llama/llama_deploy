@@ -32,11 +32,11 @@ def test_deployment_ctor(data_path: Path, mock_importlib: Any, tmp_path: Path) -
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         sm_dict["git"] = mock.MagicMock()
-        d = Deployment(config=config, root_path=tmp_path)
+        d = Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
 
         sm_dict["git"].return_value.sync.assert_called_once()
         assert d.name == "TestDeployment"
-        assert d.path.name == "TestDeployment"
+        assert d._deployment_path.name == "TestDeployment"
         assert type(d._control_plane) is ControlPlaneServer
         assert len(d._workflow_services) == 1
         assert d.service_names == ["test-workflow"]
@@ -50,7 +50,7 @@ def test_deployment_ctor_missing_service_path(data_path: Path, tmp_path: Path) -
     with pytest.raises(
         ValueError, match="path field in service definition must be set"
     ):
-        Deployment(config=config, root_path=tmp_path)
+        Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
 
 
 def test_deployment_ctor_missing_service_port(data_path: Path, tmp_path: Path) -> None:
@@ -59,7 +59,7 @@ def test_deployment_ctor_missing_service_port(data_path: Path, tmp_path: Path) -
     with pytest.raises(
         ValueError, match="port field in service definition must be set"
     ):
-        Deployment(config=config, root_path=tmp_path)
+        Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
 
 
 def test_deployment_ctor_missing_service_host(data_path: Path, tmp_path: Path) -> None:
@@ -68,7 +68,7 @@ def test_deployment_ctor_missing_service_host(data_path: Path, tmp_path: Path) -
     with pytest.raises(
         ValueError, match="host field in service definition must be set"
     ):
-        Deployment(config=config, root_path=tmp_path)
+        Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
 
 
 def test_deployment_ctor_skip_default_service(
@@ -79,7 +79,7 @@ def test_deployment_ctor_skip_default_service(
 
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         sm_dict["git"] = mock.MagicMock()
-        d = Deployment(config=config, root_path=tmp_path)
+        d = Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
         assert len(d._workflow_services) == 2
 
 
@@ -89,7 +89,7 @@ def test_deployment_ctor_invalid_default_service(
     config = DeploymentConfig.from_yaml(data_path / "local.yaml")
     config.default_service = "does-not-exist"
 
-    d = Deployment(config=config, root_path=tmp_path)
+    d = Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
     assert d.default_service is None
     assert (
         "There is no service with id 'does-not-exist' in this deployment, cannot set default."
@@ -103,7 +103,7 @@ def test_deployment_ctor_default_service(
     config = DeploymentConfig.from_yaml(data_path / "local.yaml")
     config.default_service = "test-workflow"
 
-    d = Deployment(config=config, root_path=tmp_path)
+    d = Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
     assert d.default_service == "test-workflow"
 
 
@@ -205,10 +205,12 @@ def test__install_dependencies_raises(data_path: Path) -> None:
 
 def test_manager_ctor() -> None:
     m = Manager()
+    m.set_deployments_path(None)
     assert m.deployments_path.name == "deployments"
     assert m._max_deployments == 10
 
     m = Manager(max_deployments=42)
+    m.set_deployments_path(None)
     assert m.deployments_path.name == "deployments"
     assert m._max_deployments == 42
 
@@ -218,10 +220,11 @@ async def test_manager_deploy_duplicate(data_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
 
     m = Manager()
+    m._serving = True
     m._deployments["TestDeployment"] = mock.MagicMock()
 
     with pytest.raises(ValueError, match="Deployment already exists: TestDeployment"):
-        await m.deploy(config)
+        await m.deploy(config, base_path=str(data_path))
 
 
 @pytest.mark.asyncio
@@ -229,13 +232,14 @@ async def test_manager_deploy_maximum_reached(data_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
 
     m = Manager(max_deployments=1)
+    m._serving = True
     m._deployments["AnotherDeployment"] = mock.MagicMock()
 
     with pytest.raises(
         ValueError,
         match="Reached the maximum number of deployments, cannot schedule more",
     ):
-        await m.deploy(config)
+        await m.deploy(config, base_path="")
 
 
 @pytest.mark.asyncio
@@ -248,16 +252,18 @@ async def test_manager_deploy(data_path: Path) -> None:
         "llama_deploy.apiserver.deployment.Deployment"
     ) as mocked_deployment:
         m = Manager()
+        m._serving = True
         m._deployments_path = Path()
-        await m.deploy(config)
+        await m.deploy(config, base_path=str(data_path))
         mocked_deployment.assert_called_once()
         assert m.deployment_names == ["TestDeployment"]
         assert m.get_deployment("TestDeployment") is not None
 
 
 @pytest.mark.asyncio
-async def test_manager_serve_loop() -> None:
+async def test_manager_serve_loop(tmp_path: Path) -> None:
     m = Manager()
+    m.set_deployments_path(tmp_path)
     serve_task = asyncio.create_task(m.serve())
     # Allow the serve task to start
     await asyncio.sleep(0)
@@ -286,7 +292,9 @@ async def test_start_control_plane_success(
     deployment_config: DeploymentConfig, tmp_path: Path
 ) -> None:
     # Create deployment instance
-    deployment = Deployment(config=deployment_config, root_path=tmp_path)
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
 
     # Mock control plane methods
     deployment._control_plane.register_to_message_queue = mock.AsyncMock(  # type: ignore
@@ -324,7 +332,9 @@ async def test_start_control_plane_failure(
     deployment_config: DeploymentConfig, tmp_path: Path
 ) -> None:
     # Create deployment instance
-    deployment = Deployment(config=deployment_config, root_path=tmp_path)
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
 
     # Mock control plane methods
     deployment._control_plane.register_to_message_queue = mock.AsyncMock(  # type: ignore
@@ -356,7 +366,9 @@ async def test_start_control_plane_failure(
 async def test_start_sequence(
     deployment_config: DeploymentConfig, tmp_path: Path
 ) -> None:
-    deployment = Deployment(config=deployment_config, root_path=tmp_path)
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
     deployment._start_control_plane = mock.AsyncMock()  # type: ignore
     deployment._run_services = mock.AsyncMock()  # type: ignore
     deployment._start_ui_server = mock.AsyncMock()  # type: ignore
@@ -372,7 +384,9 @@ async def test_start_sequence(
 async def test_start_with_services(data_path: Path, tmp_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
-        deployment = Deployment(config=config, root_path=tmp_path)
+        deployment = Deployment(
+            config=config, base_path=data_path, deployment_path=tmp_path
+        )
         deployment._start_control_plane = mock.AsyncMock(return_value=[])  # type: ignore
         deployment._run_services = mock.AsyncMock(return_value=[])  # type: ignore
         deployment._start_ui_server = mock.AsyncMock(return_value=[])  # type: ignore
@@ -396,7 +410,9 @@ async def test_start_with_services_ui(data_path: Path, tmp_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     config.ui = mock.MagicMock()
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
-        deployment = Deployment(config=config, root_path=tmp_path)
+        deployment = Deployment(
+            config=config, base_path=data_path, deployment_path=tmp_path
+        )
         deployment._start_control_plane = mock.AsyncMock(return_value=[])  # type: ignore
         deployment._run_services = mock.AsyncMock(return_value=[])  # type: ignore
         deployment._start_ui_server = mock.AsyncMock(return_value=[])  # type: ignore
@@ -412,7 +428,9 @@ async def test_start_with_services_ui(data_path: Path, tmp_path: Path) -> None:
 @pytest.mark.asyncio
 async def test_start_ui_server_success(data_path: Path, tmp_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "with_ui.yaml")
-    deployment = Deployment(config=config, root_path=tmp_path)
+    deployment = Deployment(
+        config=config, base_path=data_path, deployment_path=tmp_path
+    )
 
     # Mock the necessary components
     with (
@@ -461,7 +479,9 @@ async def test_start_ui_server_missing_config(
 ) -> None:
     """Test that _start_ui_server raises appropriate error when UI config is missing."""
     deployment_config.ui = None
-    deployment = Deployment(config=deployment_config, root_path=tmp_path)
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
 
     with pytest.raises(ValueError, match="missing ui configuration settings"):
         await deployment._start_ui_server()
@@ -473,7 +493,9 @@ async def test_start_ui_server_missing_source(
 ) -> None:
     """Test that _start_ui_server raises appropriate error when source is missing."""
     deployment_config.ui = mock.MagicMock(source=None)
-    deployment = Deployment(config=deployment_config, root_path=tmp_path)
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
 
     with pytest.raises(ValueError, match="source must be defined"):
         await deployment._start_ui_server()
