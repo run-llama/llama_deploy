@@ -299,6 +299,8 @@ class Deployment:
             module_name = module_path.name
             pythonpath = (destination / module_path.parent).resolve()
             logger.debug("Extending PYTHONPATH to %s", pythonpath)
+            print(f"{os.getcwd()}")
+            print(f"Extending PYTHONPATH to {pythonpath}", flush=True)
             sys.path.append(str(pythonpath))
             module = importlib.import_module(module_name)
 

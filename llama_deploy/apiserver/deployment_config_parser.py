@@ -10,7 +10,7 @@ else:  # pragma: no cover
     from typing_extensions import Self
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.message_queues import (
@@ -94,6 +94,8 @@ class UIService(Service):
 
 class DeploymentConfig(BaseModel):
     """Model definition mapping a deployment config file."""
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     name: str
     control_plane: ControlPlaneConfig = Field(alias="control-plane")
