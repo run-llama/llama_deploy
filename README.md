@@ -1,6 +1,6 @@
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![PyPI - Version](https://img.shields.io/pypi/v/llama-deploy.svg)](https://pypi.org/project/llama-deploy)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/llama-deploy.svg)](https://pypi.org/project/llama-deploy)
+![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Frun-llama%2Fllama_deploy%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)
 [![Static Badge](https://img.shields.io/badge/docs-latest-blue)](https://docs.llamaindex.ai/en/latest/module_guides/llama_deploy/)
 
 
