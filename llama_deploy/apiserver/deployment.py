@@ -237,7 +237,7 @@ class Deployment:
         source_manager.sync(source.name, str(destination), policy)
 
         install = await asyncio.create_subprocess_exec(
-            "pnpm", "install", cwd=destination
+            "pnpm", "install", cwd=destination / "ui"
         )
         await install.wait()
 
@@ -249,7 +249,7 @@ class Deployment:
             "pnpm",
             "run",
             "dev",
-            cwd=destination,
+            cwd=destination / "ui",
             env=env,
         )
 
