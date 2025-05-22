@@ -22,10 +22,6 @@ from llama_deploy.message_queues import (
     SolaceMessageQueueConfig,
 )
 from llama_deploy.message_queues.simple import SimpleMessageQueue
-from llama_deploy.orchestrators.simple import (
-    SimpleOrchestrator,
-    SimpleOrchestratorConfig,
-)
 from llama_deploy.services.workflow import WorkflowService, WorkflowServiceConfig
 
 DEFAULT_TIMEOUT = 120.0
@@ -69,7 +65,6 @@ def _get_message_queue_client(config: BaseSettings) -> AbstractMessageQueue:
 async def deploy_core(
     control_plane_config: ControlPlaneConfig | None = None,
     message_queue_config: BaseSettings | None = None,
-    orchestrator_config: SimpleOrchestratorConfig | None = None,
     disable_message_queue: bool = False,
     disable_control_plane: bool = False,
 ) -> None:
@@ -93,7 +88,6 @@ async def deploy_core(
     """
     control_plane_config = control_plane_config or ControlPlaneConfig()
     message_queue_config = message_queue_config or SimpleMessageQueueConfig()
-    orchestrator_config = orchestrator_config or SimpleOrchestratorConfig()
 
     tasks = []
 
@@ -110,9 +104,7 @@ async def deploy_core(
 
     if not disable_control_plane:
         control_plane = ControlPlaneServer(
-            message_queue_client,
-            SimpleOrchestrator(**orchestrator_config.model_dump()),
-            config=control_plane_config,
+            message_queue_client, config=control_plane_config
         )
         tasks.append(asyncio.create_task(control_plane.launch_server()))
         # let service spin up

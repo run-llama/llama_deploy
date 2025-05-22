@@ -2,7 +2,7 @@ import asyncio
 import json
 import uuid
 from logging import getLogger
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -19,9 +19,6 @@ from llama_deploy.message_consumers.base import (
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
-from llama_deploy.orchestrators import SimpleOrchestrator, SimpleOrchestratorConfig
-from llama_deploy.orchestrators.base import BaseOrchestrator
-from llama_deploy.orchestrators.utils import get_result_key, get_stream_key
 from llama_deploy.types import (
     ActionTypes,
     EventDefinition,
@@ -33,6 +30,7 @@ from llama_deploy.types import (
 )
 
 from .config import ControlPlaneConfig, parse_state_store_uri
+from .utils import get_result_key, get_stream_key
 
 logger = getLogger(__name__)
 
@@ -71,14 +69,10 @@ class ControlPlaneServer(BaseControlPlane):
     def __init__(
         self,
         message_queue: AbstractMessageQueue,
-        orchestrator: BaseOrchestrator | None = None,
         publish_callback: PublishCallback | None = None,
         state_store: BaseKVStore | None = None,
         config: ControlPlaneConfig | None = None,
     ) -> None:
-        self._orchestrator = orchestrator or SimpleOrchestrator(
-            **SimpleOrchestratorConfig().model_dump()
-        )
         self._config = config or ControlPlaneConfig()
 
         if state_store is not None and self._config.state_store_uri is not None:
@@ -398,7 +392,7 @@ class ControlPlaneServer(BaseControlPlane):
 
         session = await self.get_session(task_def.session_id)
 
-        next_messages, session_state = await self._orchestrator.get_next_messages(
+        next_messages, session_state = await self.get_next_messages(
             task_def, session.state
         )
 
@@ -427,7 +421,7 @@ class ControlPlaneServer(BaseControlPlane):
             raise ValueError(f"Task with id {task_result.task_id} has no session")
 
         session = await self.get_session(task_def.session_id)
-        state = await self._orchestrator.add_result_to_state(task_result, session.state)
+        state = await self.add_result_to_state(task_result, session.state)
 
         # update session state
         session.state.update(state)
@@ -613,3 +607,48 @@ class ControlPlaneServer(BaseControlPlane):
 
     def get_topic(self, msg_type: str) -> str:
         return f"{self._config.topic_namespace}.{msg_type}"
+
+    async def get_next_messages(
+        self, task_def: TaskDefinition, state: Dict[str, Any]
+    ) -> Tuple[List[QueueMessage], Dict[str, Any]]:
+        """Get the next message to process. Returns the message and the new state.
+
+        Assumes the service_id is the destination for the next message.
+
+        Runs the required service, then sends the result to the final message type.
+        """
+
+        destination_messages = []
+
+        if task_def.service_id is None:
+            raise ValueError(
+                "Task definition must have an service_id specified to identify a service"
+            )
+
+        if task_def.task_id not in state:
+            state[task_def.task_id] = {}
+
+        destination = task_def.service_id
+        destination_messages = [
+            QueueMessage(
+                type=destination,
+                action=ActionTypes.NEW_TASK,
+                data=task_def.model_dump(),
+            )
+        ]
+
+        return destination_messages, state
+
+    async def add_result_to_state(
+        self, result: TaskResult, state: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Add the result of processing a message to the state. Returns the new state."""
+
+        # TODO: detect failures + retries
+        cur_retries = state.get("retries", -1) + 1
+        state["retries"] = cur_retries
+
+        # add result to state
+        state[get_result_key(result.task_id)] = result
+
+        return state

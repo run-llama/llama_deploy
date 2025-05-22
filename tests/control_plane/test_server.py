@@ -14,7 +14,6 @@ from llama_deploy.types.core import ActionTypes
 def test_control_plane_init() -> None:
     mq = SimpleMessageQueueServer()
     cp = ControlPlaneServer(mq)  # type: ignore
-    assert cp._orchestrator is not None
     assert cp._state_store is not None
     assert cp._config is not None
 
