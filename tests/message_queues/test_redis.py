@@ -5,12 +5,12 @@ from unittest import mock
 
 import pytest
 
-from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
+from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.redis import RedisMessageQueue, RedisMessageQueueConfig
 from llama_deploy.messages.base import QueueMessage
 
 
-class MockConsumer(BaseMessageQueueConsumer):
+class MockConsumer(RemoteMessageConsumer):
     async def _process_message(self, message: QueueMessage, **kwargs: Any) -> Any:
         pass
 
@@ -109,7 +109,7 @@ async def test_exclusive_mode_deduplication(redis_queue: RedisMessageQueue) -> N
     redis_message = {"data": message_json}
     processed_messages = set()
 
-    class TestConsumer(BaseMessageQueueConsumer):
+    class TestConsumer(RemoteMessageConsumer):
         async def _process_message(self, message: QueueMessage, **kwargs: Any) -> Any:
             processed_messages.add(message.id_)
 

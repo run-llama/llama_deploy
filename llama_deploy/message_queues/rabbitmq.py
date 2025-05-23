@@ -8,12 +8,10 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
+from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import StartConsumingCallable
 
 if TYPE_CHECKING:  # pragma: no cover
     from aio_pika import Connection
@@ -175,7 +173,7 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
             logger.info(f"published message {message.id_} to {topic}")
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str
+        self, consumer: RemoteMessageConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         from aio_pika import Channel, ExchangeType, IncomingMessage, Queue
@@ -238,7 +236,7 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
 
         return start_consuming_callable
 
-    async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
+    async def deregister_consumer(self, consumer: RemoteMessageConsumer) -> Any:
         """Deregister a consumer.
 
         Not implemented for this integration, as once the connection/channel is

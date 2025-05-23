@@ -8,12 +8,10 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
+from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import StartConsumingCallable
 
 if TYPE_CHECKING:  # pragma: no cover
     from aiobotocore.session import AioSession, ClientCreatorContext
@@ -298,7 +296,7 @@ class AWSMessageQueue(AbstractMessageQueue):
                     logger.error(f"Could not delete SNS topic {topic.name}: {e}")
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str
+        self, consumer: RemoteMessageConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         from botocore.exceptions import ClientError
@@ -343,7 +341,7 @@ class AWSMessageQueue(AbstractMessageQueue):
         """Return the current configuration as an AWSMessageQueueConfig object."""
         return self._config
 
-    async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
+    async def deregister_consumer(self, consumer: RemoteMessageConsumer) -> Any:
         """Deregister a consumer.
 
         Not implemented for this integration, as SQS does not maintain persistent consumers.

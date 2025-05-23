@@ -10,12 +10,10 @@ from typing import TYPE_CHECKING, Any, Dict, Literal
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
+from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import StartConsumingCallable
 
 if TYPE_CHECKING:
     from solace.messaging.connections.connectable import Connectable
@@ -67,7 +65,7 @@ try:
 
         def __init__(
             self,
-            consumer: BaseMessageQueueConsumer,
+            consumer: RemoteMessageConsumer,
             receiver: PersistentMessageReceiver | None = None,
         ) -> None:
             self._consumer = consumer
@@ -311,7 +309,7 @@ class SolaceMessageQueue(AbstractMessageQueue):
         return
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str
+        self, consumer: RemoteMessageConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         try:
@@ -348,7 +346,7 @@ class SolaceMessageQueue(AbstractMessageQueue):
             logger.error(f"Failed to register consumer: {e}")
             raise
 
-    async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> None:
+    async def deregister_consumer(self, consumer: RemoteMessageConsumer) -> None:
         """Deregister a consumer."""
         try:
             from solace.messaging.resources.topic_subscription import TopicSubscription

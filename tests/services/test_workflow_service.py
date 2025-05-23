@@ -8,14 +8,14 @@ from llama_index.core.workflow.context_serializers import JsonSerializer
 from llama_index.core.workflow.events import HumanResponseEvent, InputRequiredEvent
 from pydantic import PrivateAttr
 
-from llama_deploy.message_consumers import BaseMessageQueueConsumer
+from llama_deploy.message_consumers import RemoteMessageConsumer
 from llama_deploy.message_queues import SimpleMessageQueue
 from llama_deploy.messages import QueueMessage
 from llama_deploy.services.workflow import WorkflowService, WorkflowServiceConfig
 from llama_deploy.types import CONTROL_PLANE_NAME, ActionTypes, TaskDefinition
 
 
-class MockMessageConsumer(BaseMessageQueueConsumer):
+class MockMessageConsumer(RemoteMessageConsumer):
     processed_messages: List[QueueMessage] = []
     _lock: asyncio.Lock = PrivateAttr(default_factory=asyncio.Lock)
 

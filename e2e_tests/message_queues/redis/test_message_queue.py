@@ -3,9 +3,10 @@ import asyncio
 import pytest
 
 from llama_deploy import Client
-from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.message_queues.redis import RedisMessageQueue
 from llama_deploy.messages import QueueMessage
+
+from ..conftest import CallableMessageConsumer
 
 
 @pytest.mark.asyncio

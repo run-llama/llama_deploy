@@ -4,8 +4,9 @@ import os
 import pytest
 
 from llama_deploy import Client
-from llama_deploy.message_consumers.callable import CallableMessageConsumer
 from llama_deploy.messages import QueueMessage
+
+from ..conftest import CallableMessageConsumer
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get("AWS_SECRET_ACCESS_KEY"), reason="AWS_SECRET_ACCESS_KEY not set"

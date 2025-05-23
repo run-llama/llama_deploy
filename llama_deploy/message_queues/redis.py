@@ -8,12 +8,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
+from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import StartConsumingCallable
 
 logger = getLogger(__name__)
 
@@ -86,7 +84,7 @@ class RedisMessageQueue(AbstractMessageQueue):
         return result
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str
+        self, consumer: RemoteMessageConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         if consumer.id_ in self._consumers:
@@ -147,7 +145,7 @@ class RedisMessageQueue(AbstractMessageQueue):
 
         return start_consuming_callable
 
-    async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
+    async def deregister_consumer(self, consumer: RemoteMessageConsumer) -> Any:
         """Deregister a consumer."""
         consumer_metadata = self._consumers.pop(consumer.id_, None)
         if consumer_metadata is not None:
