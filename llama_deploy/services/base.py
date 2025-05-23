@@ -9,12 +9,12 @@ from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
-from llama_deploy.message_publishers.publisher import MessageQueuePublisherMixin
+from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.types import ServiceDefinition
 
 
-class BaseService(MessageQueuePublisherMixin, ABC):
+class BaseService(ABC):
     """Base class for a service.
 
     The general structure of a service is as follows:
@@ -74,6 +74,10 @@ class BaseService(MessageQueuePublisherMixin, ABC):
     async def launch_server(self) -> None:
         """Launch the service as a server."""
         ...
+
+    @property
+    @abstractmethod
+    def message_queue(self) -> AbstractMessageQueue: ...
 
     async def register_to_control_plane(self, control_plane_url: str) -> None:
         """Register the service to the control plane."""

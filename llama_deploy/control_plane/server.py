@@ -652,3 +652,13 @@ class ControlPlaneServer(BaseControlPlane):
         state[get_result_key(result.task_id)] = result
 
         return state
+
+    async def publish(self, message: QueueMessage, **kwargs: Any) -> Any:
+        """Publish message."""
+        message.publisher_id = self.publisher_id
+        return await self.message_queue.publish(
+            message,
+            callback=self.publish_callback,
+            topic=self.get_topic(message.type),
+            **kwargs,
+        )

@@ -5,7 +5,6 @@ from llama_deploy.message_consumers.base import (
     BaseMessageQueueConsumer,
     StartConsumingCallable,
 )
-from llama_deploy.message_publishers.publisher import MessageQueuePublisherMixin
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.types import (
     ServiceDefinition,
@@ -17,7 +16,7 @@ from llama_deploy.types import (
 from .config import ControlPlaneConfig
 
 
-class BaseControlPlane(MessageQueuePublisherMixin, ABC):
+class BaseControlPlane(ABC):
     """The control plane for the system.
 
     The control plane is responsible for managing the state of the system, including:

@@ -23,8 +23,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from llama_deploy.control_plane.server import CONTROL_PLANE_MESSAGE_TYPE
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
-from llama_deploy.message_publishers.publisher import PublishCallback
-from llama_deploy.message_queues.base import AbstractMessageQueue
+from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services.base import BaseService
 from llama_deploy.types import (
