@@ -12,7 +12,7 @@ from solace.messaging.receiver.persistent_message_receiver import (
 )
 from solace.messaging.resources.topic import Topic
 
-from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
+from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.solace import (
     MessageHandlerImpl,
     SolaceMessageQueue,
@@ -163,7 +163,7 @@ async def test_register_consumer(
     solace_queue: SolaceMessageQueue, mock_receiver: Mock
 ) -> None:
     """Test registering a consumer."""
-    mock_consumer = Mock(spec=BaseMessageQueueConsumer)
+    mock_consumer = Mock(spec=RemoteMessageConsumer)
     mock_consumer.message_type = "test_topic"
 
     start_consuming = await solace_queue.register_consumer(mock_consumer, "test_topic")
@@ -179,7 +179,7 @@ async def test_deregister_consumer(
 ) -> None:
     """Test deregistering a consumer."""
     with patch("llama_deploy.message_queues.solace.MAX_SLEEP", 0.1):
-        mock_consumer = Mock(spec=BaseMessageQueueConsumer)
+        mock_consumer = Mock(spec=RemoteMessageConsumer)
         mock_consumer.message_type = "test_topic"
 
         await solace_queue.deregister_consumer(mock_consumer)
@@ -214,7 +214,7 @@ def test_bind_to_queue(solace_queue: SolaceMessageQueue, mock_receiver: Mock) ->
 
 def test_message_handler_impl() -> None:
     """Test message handler implementation."""
-    mock_consumer = Mock(spec=BaseMessageQueueConsumer)
+    mock_consumer = Mock(spec=RemoteMessageConsumer)
     mock_consumer.process_message = AsyncMock()
     mock_receiver = Mock(spec=PersistentMessageReceiver)
 

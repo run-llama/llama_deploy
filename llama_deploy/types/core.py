@@ -1,6 +1,6 @@
 import uuid
 from enum import Enum
-from typing import Any
+from typing import Any, Callable, Coroutine
 
 from llama_index.core.llms import ChatMessage
 from pydantic import BaseModel, BeforeValidator, Field, HttpUrl, TypeAdapter
@@ -12,6 +12,8 @@ def generate_id() -> str:
 
 
 CONTROL_PLANE_NAME = "control_plane"
+
+StartConsumingCallable = Callable[..., Coroutine[Any, Any, None]]
 
 
 class ActionTypes(str, Enum):

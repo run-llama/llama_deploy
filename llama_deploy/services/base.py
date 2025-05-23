@@ -5,13 +5,10 @@ from typing import Any
 import httpx
 
 from llama_deploy.control_plane.server import ControlPlaneConfig
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
+from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
-from llama_deploy.types import ServiceDefinition
+from llama_deploy.types import ServiceDefinition, StartConsumingCallable
 
 
 class BaseService(ABC):
@@ -56,7 +53,7 @@ class BaseService(ABC):
         ...
 
     @abstractmethod
-    def as_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self) -> RemoteMessageConsumer:
         """Get the consumer for the message queue."""
         ...
 

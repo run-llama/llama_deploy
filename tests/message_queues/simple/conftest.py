@@ -5,12 +5,12 @@ import pytest
 from fastapi.testclient import TestClient
 from pydantic import PrivateAttr
 
-from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
+from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.simple.server import SimpleMessageQueueServer
 from llama_deploy.messages.base import QueueMessage
 
 
-class MockMessageConsumer(BaseMessageQueueConsumer):
+class MockMessageConsumer(RemoteMessageConsumer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 

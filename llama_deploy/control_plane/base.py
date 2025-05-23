@@ -1,14 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
+from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.types import (
     ServiceDefinition,
     SessionDefinition,
+    StartConsumingCallable,
     TaskDefinition,
     TaskResult,
 )
@@ -32,12 +30,12 @@ class BaseControlPlane(ABC):
         """Return associated message queue."""
 
     @abstractmethod
-    def as_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self) -> RemoteMessageConsumer:
         """
         Get the consumer for the message queue.
 
         Returns:
-            BaseMessageQueueConsumer: Message queue consumer.
+            RemoteMessageConsumer: Message queue consumer.
         """
 
     @abstractmethod

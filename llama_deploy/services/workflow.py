@@ -21,7 +21,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llama_deploy.control_plane.server import CONTROL_PLANE_MESSAGE_TYPE
-from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
@@ -421,7 +420,7 @@ class WorkflowService(BaseService):
         else:
             raise ValueError(f"Unhandled action: {message.action}")
 
-    def as_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self) -> RemoteMessageConsumer:
         """Get the consumer for the message queue."""
 
         return RemoteMessageConsumer(

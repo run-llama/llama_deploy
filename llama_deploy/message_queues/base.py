@@ -12,11 +12,9 @@ from typing import (
 
 from pydantic import BaseModel
 
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
+from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import StartConsumingCallable
 
 logger = getLogger(__name__)
 
@@ -57,17 +55,15 @@ class AbstractMessageQueue(ABC):
 
     @abstractmethod
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str
+        self, consumer: RemoteMessageConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register consumer to start consuming messages."""
 
     @abstractmethod
-    async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
+    async def deregister_consumer(self, consumer: RemoteMessageConsumer) -> Any:
         """Deregister consumer to stop publishing messages)."""
 
-    async def get_consumers(
-        self, message_type: str
-    ) -> Sequence[BaseMessageQueueConsumer]:
+    async def get_consumers(self, message_type: str) -> Sequence[RemoteMessageConsumer]:
         """Gets list of consumers according to a message type."""
         raise NotImplementedError(
             "`get_consumers()` is not implemented for this class."

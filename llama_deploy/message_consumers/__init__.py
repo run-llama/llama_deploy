@@ -1,3 +1,3 @@
-from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
+from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 
-__all__ = ["BaseMessageQueueConsumer"]
+__all__ = ["RemoteMessageConsumer"]

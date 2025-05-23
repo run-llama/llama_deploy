@@ -12,10 +12,6 @@ from llama_index.core.storage.kvstore import SimpleKVStore
 from llama_index.core.storage.kvstore.types import BaseKVStore
 
 from llama_deploy.control_plane.base import BaseControlPlane
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
@@ -24,6 +20,7 @@ from llama_deploy.types import (
     EventDefinition,
     ServiceDefinition,
     SessionDefinition,
+    StartConsumingCallable,
     TaskDefinition,
     TaskResult,
     TaskStream,
@@ -239,7 +236,7 @@ class ControlPlaneServer(BaseControlPlane):
         else:
             raise ValueError(f"Action {action} not supported by control plane")
 
-    def as_consumer(self) -> BaseMessageQueueConsumer:
+    def as_consumer(self) -> RemoteMessageConsumer:
         return RemoteMessageConsumer(
             id_=self.publisher_id,
             url=f"{self._config.url}/process_message",

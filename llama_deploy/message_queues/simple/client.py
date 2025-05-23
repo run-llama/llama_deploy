@@ -4,12 +4,10 @@ from typing import Any, Dict
 
 import httpx
 
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
+from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import StartConsumingCallable
 
 from .config import SimpleMessageQueueConfig
 
@@ -23,7 +21,7 @@ class SimpleMessageQueue(AbstractMessageQueue):
         self, config: SimpleMessageQueueConfig = SimpleMessageQueueConfig()
     ) -> None:
         self._config = config
-        self._consumers: dict[str, dict[str, BaseMessageQueueConsumer]] = {}
+        self._consumers: dict[str, dict[str, RemoteMessageConsumer]] = {}
 
     async def _publish(self, message: QueueMessage, topic: str) -> Any:
         """Sends a message to the SimpleMessageQueueServer."""
@@ -33,7 +31,7 @@ class SimpleMessageQueue(AbstractMessageQueue):
         return result
 
     async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str
+        self, consumer: RemoteMessageConsumer, topic: str
     ) -> StartConsumingCallable:
         """Register a new consumer."""
         # register topic
@@ -90,7 +88,7 @@ class SimpleMessageQueue(AbstractMessageQueue):
 
         return start_consuming_callable
 
-    async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
+    async def deregister_consumer(self, consumer: RemoteMessageConsumer) -> Any:
         for topic, consumers in self._consumers.copy().items():
             if consumer.id_ in consumers:
                 del self._consumers[topic][consumer.id_]
