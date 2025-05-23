@@ -11,7 +11,6 @@ from fastapi.responses import StreamingResponse
 from llama_index.core.storage.kvstore import SimpleKVStore
 from llama_index.core.storage.kvstore.types import BaseKVStore
 
-from llama_deploy.control_plane.base import BaseControlPlane
 from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
@@ -20,7 +19,6 @@ from llama_deploy.types import (
     EventDefinition,
     ServiceDefinition,
     SessionDefinition,
-    StartConsumingCallable,
     TaskDefinition,
     TaskResult,
     TaskStream,
@@ -34,7 +32,7 @@ logger = getLogger(__name__)
 CONTROL_PLANE_MESSAGE_TYPE = "control_plane"
 
 
-class ControlPlaneServer(BaseControlPlane):
+class ControlPlaneServer:
     """Control plane server.
 
     The control plane is responsible for managing the state of the system, including:
@@ -249,6 +247,11 @@ class ControlPlaneServer(BaseControlPlane):
         port = self._config.internal_port or self._config.port
         logger.info(f"Launching control plane server at {host}:{port}")
 
+        fn = await self.message_queue.register_consumer(
+            self.as_consumer(), topic=self.get_topic(CONTROL_PLANE_MESSAGE_TYPE)
+        )
+        message_queue_consumer = asyncio.create_task(fn())
+
         class CustomServer(uvicorn.Server):
             def install_signal_handlers(self) -> None:
                 pass
@@ -259,7 +262,9 @@ class ControlPlaneServer(BaseControlPlane):
             await server.serve()
         except asyncio.CancelledError:
             self._running = False
-            await asyncio.gather(server.shutdown(), return_exceptions=True)
+            await asyncio.gather(
+                server.shutdown(), message_queue_consumer, return_exceptions=True
+            )
 
     async def home(self) -> Dict[str, str]:
         return {
@@ -596,11 +601,6 @@ class ControlPlaneServer(BaseControlPlane):
         """
         queue_config = self._message_queue.as_config()
         return {queue_config.__class__.__name__: queue_config.model_dump()}
-
-    async def register_to_message_queue(self) -> StartConsumingCallable:
-        return await self.message_queue.register_consumer(
-            self.as_consumer(), topic=self.get_topic(CONTROL_PLANE_MESSAGE_TYPE)
-        )
 
     def get_topic(self, msg_type: str) -> str:
         return f"{self._config.topic_namespace}.{msg_type}"

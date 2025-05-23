@@ -109,9 +109,6 @@ async def deploy_core(
         tasks.append(asyncio.create_task(control_plane.launch_server()))
         # let service spin up
         await asyncio.sleep(2)
-        # register the control plane as a consumer
-        control_plane_consumer_fn = await control_plane.register_to_message_queue()
-        tasks.append(asyncio.create_task(control_plane_consumer_fn()))
 
     # let things run
     try:
