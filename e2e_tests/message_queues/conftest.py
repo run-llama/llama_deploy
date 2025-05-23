@@ -1,8 +1,8 @@
 import asyncio
 from typing import Any, Callable
 
-from llama_deploy.messages.base import QueueMessage
 from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
+from llama_deploy.messages.base import QueueMessage
 
 
 class CallableMessageConsumer(BaseMessageQueueConsumer):
