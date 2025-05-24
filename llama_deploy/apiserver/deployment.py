@@ -163,9 +163,7 @@ class Deployment:
 
     async def _start_control_plane(self) -> list[asyncio.Task]:
         tasks = []
-        cp_consumer_fn = await self._control_plane.register_to_message_queue()
         tasks.append(asyncio.create_task(self._control_plane.launch_server()))
-        tasks.append(asyncio.create_task(cp_consumer_fn()))
         # Wait for the Control Plane to boot
         try:
             async for attempt in AsyncRetrying(

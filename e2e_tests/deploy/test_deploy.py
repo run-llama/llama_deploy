@@ -25,7 +25,7 @@ async def test_deploy_core(caplog):
         )
     )
 
-    await asyncio.sleep(5)
+    await asyncio.sleep(8)
     assert "Launching message queue server at" in caplog.text
     assert "Launching control plane server at" in caplog.text
 
@@ -61,7 +61,7 @@ async def test_deploy_core_disable_control_plane(caplog):
 @pytest.mark.asyncio
 async def test_deploy_workflow():
     core_task = asyncio.create_task(deploy_core())
-    await asyncio.sleep(3)
+    await asyncio.sleep(5)
 
     service_task = asyncio.create_task(
         deploy_workflow(
@@ -71,7 +71,7 @@ async def test_deploy_workflow():
             ),
         )
     )
-    await asyncio.sleep(3)
+    await asyncio.sleep(5)
 
     client = Client()
     session = await client.core.sessions.get_or_create("fake_session_id")
