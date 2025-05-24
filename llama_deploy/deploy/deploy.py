@@ -108,7 +108,7 @@ async def deploy_core(
         )
         tasks.append(asyncio.create_task(control_plane.launch_server()))
         # let service spin up
-        await asyncio.sleep(2)
+        await asyncio.sleep(4)
 
     # let things run
     try:

@@ -18,7 +18,11 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
     healthcheck:
-      test: nc -z localhost 9092 || exit -1
+      test:
+        - CMD-SHELL
+        - -c
+        - |
+          nc -z localhost 9092 || exit -1
       start_period: 15s
       interval: 30s
       timeout: 10s
