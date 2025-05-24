@@ -262,6 +262,7 @@ class ControlPlaneServer:
             await server.serve()
         except asyncio.CancelledError:
             self._running = False
+            message_queue_consumer.cancel()
             await asyncio.gather(
                 server.shutdown(), message_queue_consumer, return_exceptions=True
             )
