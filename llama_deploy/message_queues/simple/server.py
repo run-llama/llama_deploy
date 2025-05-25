@@ -34,19 +34,10 @@ uvicorn_logger.addFilter(MessagesPollFilter())
 
 
 class SimpleMessageQueueServer:
-    """SimpleMessageQueueServer.
-
-    An in-memory message queue that implements a push model for consumers.
+    """An in-memory message queue that implements a push model for consumers.
 
     When registering, a specific queue for a consumer is created.
     When a message is published, it is added to the queue for the given message type.
-
-    When launched as a server, exposes the following endpoints:
-    - GET `/`: Home endpoint
-    - POST `/register_consumer`: Register a consumer
-    - POST `/deregister_consumer`: Deregister a consumer
-    - GET `/get_consumers/{message_type}`: Get consumers for a message type
-    - POST `/publish`: Publish a message
     """
 
     def __init__(self, config: SimpleMessageQueueConfig = SimpleMessageQueueConfig()):

@@ -268,9 +268,6 @@ class ControlPlaneServer:
         port = self._config.internal_port or self._config.port
         logger.info(f"Launching control plane server at {host}:{port}")
 
-        # fn = await self.message_queue.register_consumer(
-        #     self.as_consumer(), topic=self.get_topic(CONTROL_PLANE_MESSAGE_TYPE)
-        # )
         message_queue_consumer = asyncio.create_task(
             self._process_messages(self.get_topic(CONTROL_PLANE_MESSAGE_TYPE))
         )

@@ -126,8 +126,6 @@ async def test_launch_server() -> None:
     """Test the launch_server method with proper mocking."""
     # Create mocks
     mock_message_queue = mock.AsyncMock()
-    mock_consumer_fn = mock.AsyncMock()
-    mock_message_queue.register_consumer.return_value = mock_consumer_fn
 
     # Create server with custom config
     config = ControlPlaneConfig(

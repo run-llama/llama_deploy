@@ -192,9 +192,7 @@ class Deployment:
             for wfs in self._workflow_services.values():
                 service_task = asyncio.create_task(wfs.launch_server())
                 self._service_tasks.append(service_task)
-                consumer_fn = await wfs.register_to_message_queue()
                 await wfs.register_to_control_plane(self._control_plane_config.url)
-                consumer_task = asyncio.create_task(consumer_fn())
                 # Make sure the service is up and running before proceeding
                 url = wfs.config.url
                 try:
@@ -208,8 +206,6 @@ class Deployment:
                 except RetryError:
                     msg = f"Unable to reach WorkflowService at {url}"
                     raise DeploymentError(msg)
-
-                self._service_tasks.append(consumer_task)
 
             # If this is a reload, unblock the reload() function signalling that tasks are up and running
             self._service_startup_complete.set()
