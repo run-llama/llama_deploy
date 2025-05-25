@@ -247,7 +247,9 @@ class AWSMessageQueue(AbstractMessageQueue):
 
         return subscription
 
-    async def _publish(self, message: QueueMessage, topic: str) -> Any:
+    async def _publish(
+        self, message: QueueMessage, topic: str, create_topic: bool
+    ) -> Any:
         """Publish message to the SQS queue."""
         from botocore.exceptions import ClientError
 

@@ -212,7 +212,9 @@ class SolaceMessageQueue(AbstractMessageQueue):
             logger.error(f"Failed to establish connection: {exception}")
             raise
 
-    async def _publish(self, message: QueueMessage, topic: str) -> None:
+    async def _publish(
+        self, message: QueueMessage, topic: str, create_topic: bool
+    ) -> None:
         """Publish message to the queue."""
         try:
             from solace.messaging.resources.topic import Topic

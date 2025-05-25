@@ -8,10 +8,8 @@ from typing import TYPE_CHECKING, Any, AsyncIterator, Literal, cast
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
-from llama_deploy.types import StartConsumingCallable
 
 if TYPE_CHECKING:  # pragma: no cover
     from aio_pika import Connection
@@ -149,7 +147,9 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
         """Returns a new connection to the RabbitMQ server."""
         return await _establish_connection(self._config.url)
 
-    async def _publish(self, message: QueueMessage, topic: str) -> Any:
+    async def _publish(
+        self, message: QueueMessage, topic: str, create_topic: bool
+    ) -> Any:
         """Publish message to the queue."""
         from aio_pika import DeliveryMode, ExchangeType
         from aio_pika import Message as AioPikaMessage
@@ -170,6 +170,7 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
             )
             # Sending the message
             await exchange.publish(aio_pika_message, routing_key=topic)
+            self._registered_topics.add(topic)
             logger.info(f"published message {message.id_} to {topic}")
 
     async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
@@ -223,78 +224,6 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
             finally:
                 if connection and not connection.is_closed:
                     await connection.close()
-
-    async def register_consumer(
-        self, consumer: RemoteMessageConsumer, topic: str
-    ) -> StartConsumingCallable:
-        """Register a new consumer."""
-        from aio_pika import Channel, ExchangeType, IncomingMessage, Queue
-        from aio_pika.abc import AbstractIncomingMessage
-
-        connection = await _establish_connection(self._config.url)
-        async with connection:
-            channel = cast(Channel, await connection.channel())
-            exchange = await channel.declare_exchange(
-                self._config.exchange_name,
-                ExchangeType.DIRECT,
-            )
-            queue = cast(Queue, await channel.declare_queue(name=topic))
-            await queue.bind(exchange)
-
-        self._registered_topics.add(topic or consumer.message_type)
-        logger.info(
-            f"Registered consumer {consumer.id_} for topic: {topic}",
-        )
-
-        async def start_consuming_callable() -> None:
-            """StartConsumingCallable.
-
-            Consumer of this queue, should call this in order to start consuming.
-            """
-
-            async def on_message(message: AbstractIncomingMessage) -> None:
-                message = cast(IncomingMessage, message)
-                async with message.process():
-                    decoded_message = json.loads(message.body.decode("utf-8"))
-                    queue_message = QueueMessage.model_validate(decoded_message)
-                    await consumer.process_message(queue_message)
-
-            # The while loop will reconnect if the connection is lost
-            while True:
-                connection = await _establish_connection(self._config.url)
-                try:
-                    async with connection:
-                        channel = await connection.channel()
-                        exchange = await channel.declare_exchange(
-                            self._config.exchange_name,
-                            ExchangeType.DIRECT,
-                        )
-                        queue = cast(Queue, await channel.declare_queue(name=topic))
-                        await queue.bind(exchange)
-                        await queue.consume(on_message)
-                        await asyncio.Future()
-                except asyncio.CancelledError:
-                    logger.info(
-                        f"Cancellation requested, exiting consumer {consumer.id_} for topic: {topic}"
-                    )
-                    break
-                except Exception as e:
-                    logger.error(f"Unexpected error: {e}", exc_info=True)
-                    # Wait before reconnecting. Ideally we'd want exponential backoff here.
-                    await asyncio.sleep(10)
-                finally:
-                    if connection:
-                        await connection.close()
-
-        return start_consuming_callable
-
-    async def deregister_consumer(self, consumer: RemoteMessageConsumer) -> Any:
-        """Deregister a consumer.
-
-        Not implemented for this integration, as once the connection/channel is
-        closed, the consumer is deregistered.
-        """
-        pass
 
     async def cleanup(self, *args: Any, **kwargs: dict[str, Any]) -> None:
         """Perform any clean up of queues and exchanges."""
