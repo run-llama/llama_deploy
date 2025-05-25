@@ -150,7 +150,7 @@ async def test_publish_message(
     """Test publishing a message to Solace."""
     test_message = QueueMessage(id_="test_id", type="test_type")
 
-    await solace_queue._publish(test_message, "test_topic")
+    await solace_queue._publish(test_message, "test_topic", True)
 
     mock_publisher.publish.assert_called_once()
     call_args = mock_publisher.publish.call_args
