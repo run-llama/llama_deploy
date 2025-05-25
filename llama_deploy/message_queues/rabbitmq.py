@@ -3,7 +3,7 @@
 import asyncio
 import json
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, AsyncIterator, Literal, cast
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -171,6 +171,58 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
             # Sending the message
             await exchange.publish(aio_pika_message, routing_key=topic)
             logger.info(f"published message {message.id_} to {topic}")
+
+    async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
+        from aio_pika import Channel, ExchangeType, IncomingMessage, Queue
+        from aio_pika.abc import AbstractIncomingMessage
+
+        # Use a Queue to get the messages out of the callback
+        message_queue: asyncio.Queue = asyncio.Queue()
+
+        async def on_message(message: AbstractIncomingMessage) -> None:
+            message = cast(IncomingMessage, message)
+            async with message.process():
+                try:
+                    decoded_message = json.loads(message.body.decode("utf-8"))
+                    queue_message = QueueMessage.model_validate(decoded_message)
+                    await message_queue.put(queue_message)
+                except Exception as e:
+                    logger.error(f"Error processing message: {e}", exc_info=True)
+
+        while True:
+            connection = None
+            try:
+                connection = await _establish_connection(self._config.url)
+                async with connection:
+                    channel = cast(Channel, await connection.channel())
+                    exchange = await channel.declare_exchange(
+                        self._config.exchange_name,
+                        ExchangeType.DIRECT,
+                    )
+                    queue = cast(Queue, await channel.declare_queue(name=topic))
+                    await queue.bind(exchange)
+                    await queue.consume(on_message)
+                    # Yield messages as they arrive
+                    while True:
+                        try:
+                            # Wait for a message with a timeout to allow for cancellation checks
+                            message = await asyncio.wait_for(
+                                message_queue.get(), timeout=1.0
+                            )
+                            yield message
+                        except asyncio.TimeoutError:
+                            # Check if connection is still alive, continue if so
+                            if connection.is_closed:
+                                break
+                            continue
+
+            except Exception as e:
+                logger.error(f"Unexpected error: {e}", exc_info=True)
+                # Wait before reconnecting. Ideally we'd want exponential backoff here.
+                await asyncio.sleep(10)
+            finally:
+                if connection and not connection.is_closed:
+                    await connection.close()
 
     async def register_consumer(
         self, consumer: RemoteMessageConsumer, topic: str

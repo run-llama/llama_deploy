@@ -1,6 +1,6 @@
 import asyncio
 from logging import getLogger
-from typing import Any, Dict
+from typing import Any, AsyncIterator, Dict
 
 import httpx
 
@@ -29,6 +29,34 @@ class SimpleMessageQueue(AbstractMessageQueue):
         async with httpx.AsyncClient(**self._config.client_kwargs) as client:
             result = await client.post(url, json=message.model_dump())
         return result
+
+    async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
+        if topic not in self._consumers:
+            # call the server to create it
+            url = f"{self._config.base_url}topics/{topic}"
+            async with httpx.AsyncClient(**self._config.client_kwargs) as client:
+                result = await client.post(url)
+                result.raise_for_status()
+
+        url = f"{self._config.base_url}messages/{topic}"
+        client = httpx.AsyncClient(**self._config.client_kwargs)
+        while True:
+            try:
+                result = await client.get(url)
+                result.raise_for_status()
+                if result.json():
+                    yield QueueMessage.model_validate(result.json())
+                await asyncio.sleep(0.1)
+
+            except httpx.HTTPError as e:
+                logger.error(f"HTTP error occurred while fetching messages: {e}")
+                await asyncio.sleep(1)  # Back off on errors
+                continue
+
+            except Exception as e:
+                logger.error(f"Unexpected error while fetching messages: {e}")
+                await asyncio.sleep(1)  # Back off on errors
+                continue
 
     async def register_consumer(
         self, consumer: RemoteMessageConsumer, topic: str

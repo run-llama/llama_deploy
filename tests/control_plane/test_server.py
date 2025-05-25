@@ -160,14 +160,6 @@ async def test_launch_server() -> None:
             "Launching control plane server at 127.0.0.1:8001"
         )
 
-        # Verify message queue consumer registration
-        mock_message_queue.register_consumer.assert_called_once()
-        call_args = mock_message_queue.register_consumer.call_args
-        consumer_arg = call_args[0][0]
-        assert consumer_arg.id_ == server.publisher_id
-        assert consumer_arg.url == f"{config.url}/process_message"
-        assert call_args[1]["topic"] == "llama_deploy.control_plane"
-
         # Verify task creation
         mock_asyncio.create_task.assert_called_once()
 

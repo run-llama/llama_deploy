@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from logging import getLogger
-from typing import Any, Dict, Literal
+from typing import Any, AsyncIterator, Dict, Literal
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -171,6 +171,35 @@ class KafkaMessageQueue(AbstractMessageQueue):
         """Deregister a consumer."""
         if consumer.id_ in self._kafka_consumers:
             await self._kafka_consumers[consumer.id_].stop()
+
+    async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
+        try:
+            from aiokafka import AIOKafkaConsumer
+        except ImportError:
+            raise ImportError(
+                "aiokafka is not installed. "
+                "Please install it using `pip install aiokafka`."
+            )
+
+        self._create_new_topic(topic)
+        kafka_consumer = AIOKafkaConsumer(
+            topic,
+            bootstrap_servers=self._config.url,
+            group_id=DEFAULT_GROUP_ID,
+            auto_offset_reset="earliest",
+        )
+
+        await kafka_consumer.start()
+
+        try:
+            async for msg in kafka_consumer:
+                if msg.value is None:
+                    raise RuntimeError("msg.value is None")
+                decoded_message = json.loads(msg.value.decode("utf-8"))
+                yield QueueMessage.model_validate(decoded_message)
+        finally:
+            stop_task = asyncio.create_task(kafka_consumer.stop())
+            await asyncio.shield(stop_task)
 
     async def register_consumer(
         self, consumer: RemoteMessageConsumer, topic: str

@@ -3,12 +3,7 @@
 import inspect
 from abc import ABC, abstractmethod
 from logging import getLogger
-from typing import (
-    Any,
-    Awaitable,
-    Callable,
-    Sequence,
-)
+from typing import Any, AsyncIterator, Awaitable, Callable, Sequence
 
 from pydantic import BaseModel
 
@@ -76,3 +71,8 @@ class AbstractMessageQueue(ABC):
     @abstractmethod
     def as_config(self) -> BaseModel:
         """Returns the config dict to reconstruct the message queue."""
+
+    async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
+        if False:
+            # This is to help type checkers
+            yield
