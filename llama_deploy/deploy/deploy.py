@@ -166,25 +166,6 @@ async def deploy_workflow(
 
     # register to control plane
     await service.register_to_control_plane(control_plane_url)
-
-    service_task = asyncio.create_task(service.launch_server())
-
-    # let service spin up
     await asyncio.sleep(1)
 
-    # register to message queue
-    # consumer_fn = await service.register_to_message_queue()
-
-    # create consumer task
-    # consumer_task = asyncio.create_task(consumer_fn())
-
-    # let things sync up
-    await asyncio.sleep(1)
-
-    try:
-        # Propagate the exception if any of the tasks exited with an error
-        await asyncio.gather(service_task, return_exceptions=True)
-    except asyncio.CancelledError:
-        service_task.cancel()
-
-        await asyncio.gather(service_task)
+    await service.launch_server()

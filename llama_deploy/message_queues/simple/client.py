@@ -50,7 +50,7 @@ class SimpleMessageQueue(AbstractMessageQueue):
                 await asyncio.sleep(0.1)
 
             except httpx.HTTPError as e:
-                logger.error(f"HTTP error occurred while fetching messages: {e}")
+                logger.debug(f"HTTP error occurred while fetching messages: {e}")
                 await asyncio.sleep(1)  # Back off on errors
                 continue
 
