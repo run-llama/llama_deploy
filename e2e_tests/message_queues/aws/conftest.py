@@ -74,7 +74,7 @@ def run_core_two(topic_prefix):
 
 
 @pytest.fixture
-def control_planes(kafka_service):
+def control_planes():
     p1 = multiprocessing.Process(target=run_core_one)
     p1.start()
 
