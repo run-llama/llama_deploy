@@ -77,17 +77,19 @@ def run_core_two(topic_prefix):
 def control_planes():
     p1 = multiprocessing.Process(target=run_core_one)
     p1.start()
+    time.sleep(2)
 
     p2 = multiprocessing.Process(target=run_core_two)
     p2.start()
-
-    time.sleep(3)
+    time.sleep(2)
 
     p3 = multiprocessing.Process(target=run_workflow_one)
     p3.start()
+    time.sleep(2)
 
     p4 = multiprocessing.Process(target=run_workflow_two)
     p4.start()
+    time.sleep(2)
 
     yield
 
