@@ -8,15 +8,19 @@ from llama_deploy.messages import QueueMessage
 
 @pytest.mark.asyncio
 async def test_roundtrip(mq):
-    # produce a message
+    async def consume():
+        async for m in mq.get_message("test"):
+            return m
+
+    t = asyncio.create_task(consume())
+    await asyncio.sleep(1)
+
     test_message = QueueMessage(type="test_message", data={"message": "this is a test"})
     await mq.publish(test_message, topic="test")
 
+    result = await t
+    assert result == test_message
     await asyncio.sleep(1)
-
-    async for m in mq.get_message("test"):
-        assert m == test_message
-        break
 
 
 @pytest.mark.asyncio
