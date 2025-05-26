@@ -1,0 +1,29 @@
+# prettier-ignore
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "llama-deploy.fullname" . }}
+  labels:
+    app: {{ include "llama-deploy.name" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "llama-deploy.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "llama-deploy.name" . }}
+    spec:
+      containers:
+        - name: llama-deploy
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 4501
+          env:
+            - name: REPO_URL
+              value: {{ .Values.image.repo_url }}
+            - name: DEPLOYMENT_FILE_PATH
+              value: {{ .Values.image.deployment_file_path }}
+          resources: {{ toYaml .Values.resources | nindent 12 }}

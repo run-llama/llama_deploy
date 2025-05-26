@@ -1,0 +1,12 @@
+image:
+  repository: llamaindex/llama-deploy
+  tag: main-autodeploy
+  pullPolicy: IfNotPresent
+  repo_url: https://github.com/run-llama/llama_deploy
+  deployment_file_path: examples/quick_start/quick_start.yml
+
+service:
+  type: ClusterIP
+  port: 4501
+
+resources: {}

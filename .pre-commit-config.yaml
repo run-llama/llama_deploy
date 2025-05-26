@@ -12,6 +12,7 @@ repos:
       - id: check-toml
       - id: check-yaml
         args: [--allow-multiple-documents]
+        exclude: "^helm-chart/.*"
       - id: detect-private-key
       - id: end-of-file-fixer
       - id: mixed-line-ending

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: llama-deploy
+description: A Helm chart to install llama_deploy on Kubernetes
+type: application
+version: 0.1.0
+appVersion: "latest"
