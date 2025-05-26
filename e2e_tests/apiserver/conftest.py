@@ -32,7 +32,6 @@ def apiserver():
     p.join(timeout=3)
     if p.is_alive():
         p.kill()
-    p.close()
 
 
 @pytest.fixture(scope="function")

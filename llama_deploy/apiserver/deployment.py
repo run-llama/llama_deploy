@@ -7,7 +7,7 @@ import sys
 import tempfile
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from typing import Any, Type
+from typing import Type
 
 import httpx
 from dotenv import dotenv_values
@@ -189,23 +189,11 @@ class Deployment:
         while self._running:
             self._service_tasks = []
             # If this is a reload, self._workflow_services contains the updated configurations
-            for wfs in self._workflow_services.values():
+            for name, wfs in self._workflow_services.items():
+                logger.debug(f"Starting service {name}")
                 service_task = asyncio.create_task(wfs.launch_server())
                 self._service_tasks.append(service_task)
                 await wfs.register_to_control_plane(self._control_plane_config.url)
-                # Make sure the service is up and running before proceeding
-                url = wfs.config.url
-                try:
-                    async for attempt in AsyncRetrying(
-                        wait=wait_exponential(min=1, max=10),
-                    ):
-                        with attempt:
-                            async with httpx.AsyncClient() as client:
-                                response = await client.get(url)
-                                response.raise_for_status()
-                except RetryError:
-                    msg = f"Unable to reach WorkflowService at {url}"
-                    raise DeploymentError(msg)
 
             # If this is a reload, unblock the reload() function signalling that tasks are up and running
             self._service_startup_complete.set()
@@ -404,7 +392,7 @@ class Manager:
         Args:
             max_deployments: The maximum number of deployments supported by this manager.
         """
-        self._deployments: dict[str, Any] = {}
+        self._deployments: dict[str, Deployment] = {}
         self._deployments_path: Path | None = None
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)

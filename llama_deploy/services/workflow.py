@@ -412,7 +412,7 @@ class WorkflowService:
         except asyncio.CancelledError:
             for t in tasks:
                 t.cancel()
-                await t
+            await asyncio.gather(*tasks)
 
     async def register_to_control_plane(self, control_plane_url: str) -> None:
         """Register the service to the control plane."""
