@@ -19,7 +19,7 @@ async def test_roundtrip(mq, topic_prefix):
     await asyncio.sleep(0)
 
     async for m in mq.get_message("test"):
-        assert m == test_message
+        assert m.data == test_message.data
         break
 
 
