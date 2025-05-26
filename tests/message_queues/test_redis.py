@@ -5,14 +5,8 @@ from unittest import mock
 
 import pytest
 
-from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.redis import RedisMessageQueue, RedisMessageQueueConfig
 from llama_deploy.messages.base import QueueMessage
-
-
-class MockConsumer(RemoteMessageConsumer):
-    async def _process_message(self, message: QueueMessage, **kwargs: Any) -> Any:
-        pass
 
 
 @pytest.fixture

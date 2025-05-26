@@ -11,7 +11,6 @@ from fastapi.responses import StreamingResponse
 from llama_index.core.storage.kvstore import SimpleKVStore
 from llama_index.core.storage.kvstore.types import BaseKVStore
 
-from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.types import (
@@ -233,13 +232,6 @@ class ControlPlaneServer:
             await self.add_stream_to_session(TaskStream(**message.data))
         else:
             raise ValueError(f"Action {action} not supported by control plane")
-
-    def as_consumer(self) -> RemoteMessageConsumer:
-        return RemoteMessageConsumer(
-            id_=self.publisher_id,
-            url=f"{self._config.url}/process_message",
-            message_type=CONTROL_PLANE_MESSAGE_TYPE,
-        )
 
     async def _process_messages(self, topic: str) -> None:
         async for message in self._message_queue.get_message(topic):

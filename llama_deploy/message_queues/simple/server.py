@@ -8,7 +8,6 @@ from typing import Any, Dict
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
 
-from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.messages.base import QueueMessage
 
 from .config import SimpleMessageQueueConfig
@@ -42,7 +41,6 @@ class SimpleMessageQueueServer:
 
     def __init__(self, config: SimpleMessageQueueConfig = SimpleMessageQueueConfig()):
         self._config = config
-        self._consumers: dict[str, dict[str, RemoteMessageConsumer]] = {}
         self._queues: dict[str, deque] = {}
         self._running = False
         self._app = FastAPI()

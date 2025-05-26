@@ -3,15 +3,13 @@
 import json
 from asyncio import CancelledError
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, AsyncIterator, Literal
 
 from pydantic import BaseModel, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
-from llama_deploy.types import StartConsumingCallable
 
 if TYPE_CHECKING:  # pragma: no cover
     from aiobotocore.session import AioSession, ClientCreatorContext
@@ -297,55 +295,38 @@ class AWSMessageQueue(AbstractMessageQueue):
                 except ClientError as e:
                     logger.error(f"Could not delete SNS topic {topic.name}: {e}")
 
-    async def register_consumer(
-        self, consumer: RemoteMessageConsumer, topic: str
-    ) -> StartConsumingCallable:
-        """Register a new consumer."""
+    async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
         from botocore.exceptions import ClientError
 
         _topic = await self._create_sns_topic(topic_name=topic)
         queue = await self._create_sqs_queue(queue_name=topic)
         await self._subscribe_queue_to_topic(queue=queue, topic=_topic)
-        logger.info(f"Registered consumer {consumer.id_} for topic {topic}")
 
-        async def start_consuming_callable() -> None:
-            """Start consuming messages."""
-            while True:
-                try:
-                    async with self._get_client("sqs") as client:
-                        try:
-                            response = await client.receive_message(  # type: ignore
-                                QueueUrl=queue.url,
-                                WaitTimeSeconds=2,
+        while True:
+            try:
+                async with self._get_client("sqs") as client:
+                    try:
+                        response = await client.receive_message(  # type: ignore
+                            QueueUrl=queue.url,
+                            WaitTimeSeconds=2,
+                        )
+                        messages = response.get("Messages", [])
+                        for msg in messages:
+                            receipt_handle = msg["ReceiptHandle"]
+                            message_body = json.loads(msg["Body"])
+                            queue_message_data = json.loads(message_body["Message"])
+                            queue_message = QueueMessage.model_validate(
+                                queue_message_data
                             )
-                            messages = response.get("Messages", [])
-                            for msg in messages:
-                                receipt_handle = msg["ReceiptHandle"]
-                                message_body = json.loads(msg["Body"])
-                                queue_message_data = json.loads(message_body["Message"])
-                                queue_message = QueueMessage.model_validate(
-                                    queue_message_data
-                                )
-                                await consumer.process_message(queue_message)
-                                await client.delete_message(  # type: ignore
-                                    QueueUrl=queue.url, ReceiptHandle=receipt_handle
-                                )
-                        except ClientError as e:
-                            logger.error(
-                                f"Error receiving messages from SQS queue: {e}"
+                            yield queue_message
+                            await client.delete_message(  # type: ignore
+                                QueueUrl=queue.url, ReceiptHandle=receipt_handle
                             )
-                except CancelledError:
-                    return
-
-        return start_consuming_callable
+                    except ClientError as e:
+                        logger.error(f"Error receiving messages from SQS queue: {e}")
+            except CancelledError:
+                return
 
     def as_config(self) -> BaseModel:
         """Return the current configuration as an AWSMessageQueueConfig object."""
         return self._config
-
-    async def deregister_consumer(self, consumer: RemoteMessageConsumer) -> Any:
-        """Deregister a consumer.
-
-        Not implemented for this integration, as SQS does not maintain persistent consumers.
-        """
-        pass

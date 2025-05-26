@@ -3,11 +3,10 @@
 import inspect
 from abc import ABC, abstractmethod
 from logging import getLogger
-from typing import Any, AsyncIterator, Awaitable, Callable, Sequence
+from typing import Any, AsyncIterator, Awaitable, Callable
 
 from pydantic import BaseModel
 
-from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.messages.base import QueueMessage
 
 logger = getLogger(__name__)
@@ -49,12 +48,6 @@ class AbstractMessageQueue(ABC):
                 await callback(message, **kwargs)
             else:
                 callback(message, **kwargs)
-
-    async def get_consumers(self, message_type: str) -> Sequence[RemoteMessageConsumer]:
-        """Gets list of consumers according to a message type."""
-        raise NotImplementedError(
-            "`get_consumers()` is not implemented for this class."
-        )
 
     @abstractmethod
     async def cleanup(self, *args: Any, **kwargs: dict[str, Any]) -> None:
