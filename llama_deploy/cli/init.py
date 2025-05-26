@@ -237,7 +237,9 @@ def init(
     click.echo(f"\nProject {name} created successfully!")
     click.echo("Next steps:")
     click.echo(f"  1. cd {name}")
-    click.echo("  2. Edit the deployment.yml file to add your OpenAI API key")
+    click.echo(
+        "  2. Edit the deployment.yml file to add your OpenAI API key and set other parameters"
+    )
     click.echo("  3. Start the API server:")
     click.echo("     python -m llama_deploy.apiserver")
     click.echo(
