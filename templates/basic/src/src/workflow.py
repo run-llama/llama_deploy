@@ -13,11 +13,11 @@ class EchoWorkflow(Workflow):
         return StopEvent(result=f"Message received: {message}")
 
 
-echo_workflow = EchoWorkflow()
+workflow = EchoWorkflow()
 
 
 async def main():
-    print(await echo_workflow.run(message="Hello!"))
+    print(await workflow.run(message="Hello!"))
 
 
 if __name__ == "__main__":

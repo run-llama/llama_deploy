@@ -3,7 +3,8 @@ from llama_index.core.workflow import Context, Event, StartEvent, StopEvent, Wor
 from llama_index.llms.openai import OpenAI
 
 class ChatEvent(StartEvent):
-    messages: list[ChatMessage]
+    messages: list[ChatMessage] | None = None
+    message: str | None = None
 
 class StreamEvent(Event):
     delta: str
@@ -16,7 +17,12 @@ class ChatWorkflow(Workflow):
     @step
     async def chat(self, ctx: Context, ev: ChatEvent) -> ResponseEvent:
         llm = OpenAI(model="gpt-4o-mini")
-        response_gen = await llm.astream_chat(ev.messages)
+        if ev.messages:
+            response_gen = await llm.astream_chat(ev.messages)
+        elif ev.message:
+            response_gen = await llm.astream_chat([ChatMessage(role="user", content=ev.message)])
+        else:
+            raise ValueError("No `messages` or `message` provided")
 
         full_resp = ChatMessage(role="assistant", content="")
         async for resp in response_gen:
@@ -26,11 +32,11 @@ class ChatWorkflow(Workflow):
         return ResponseEvent(message=full_resp)
 
 # Declare the workflow so that it is importable
-chat_workflow = ChatWorkflow()
+workflow = ChatWorkflow()
 
 # Some code to test the workflow with `python src/workflow.py`
 async def main():
-    handler = chat_workflow.run(messages=[ChatMessage(role="user", content="Hello, how are you?")])
+    handler = workflow.run(messages=[ChatMessage(role="user", content="Hello, how are you?")])
     async for event in handler:
         if isinstance(event, StreamEvent):
             print(event.delta, end="", flush=True)
