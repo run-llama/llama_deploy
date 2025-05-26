@@ -65,7 +65,7 @@ SUPPORTED_MESSAGE_QUEUES: Dict[str, Type[MessageQueueConfig]] = {
 )
 @click.option(
     "--template",
-    type=click.Choice(["basic", "advanced"]),  # For future: add more templates
+    type=click.Choice(["basic", "none"]),  # For future: add more templates
     default=None,
     help="Template to use for the workflow (currently only 'basic' is supported)",
 )
@@ -77,6 +77,7 @@ def init(
     template: Optional[str] = None,
 ) -> None:
     """Bootstrap a new llama-deploy project with a basic workflow and configuration."""
+    
     # Interactive walkthrough - get inputs if not provided via CLI
     if name is None:
         name = click.prompt(
@@ -212,19 +213,11 @@ def init(
         if ui_dir.exists():
             shutil.rmtree(ui_dir)
     
-    # Create .env template file
-    env_path = project_dir.absolute() / ".env.example"
-    with open(env_path, "w+") as f:
-        f.write("# API keys for external services\n")
-        f.write("OPENAI_API_KEY=your-api-key-here\n")
-
-    click.echo(f"Created .env.example: {env_path}")
-    
     # Final instructions
     click.echo(f"\nProject {name} created successfully!")
     click.echo("Next steps:")
     click.echo(f"  1. cd {name}")
-    click.echo("  2. Create a .env file with your API keys (see .env.example)")
+    click.echo("  2. Edit the deployment.yml file to add your OpenAI API key")
     click.echo("  3. Start the API server:")
     click.echo("     python -m llama_deploy.apiserver")
     click.echo("     (or with Docker: docker run -p 4501:4501 -v .:/opt/app -w /opt/app llamaindex/llama-deploy)")
@@ -413,8 +406,7 @@ def create_deployment_config(name: str, port: int, message_queue_type: str, use_
         ),
         import_path="src/workflow:workflow",
         python_dependencies=["llama-index-core>=0.12.37", "llama-index-llms-openai"],
-        env={"OPENAI_API_KEY": "${OPENAI_API_KEY}"},
-        env_files=["./.env"],
+        env={"OPENAI_API_KEY": "<your-openai-api-key-here>"},
     )
     
     # Create UI service if requested
