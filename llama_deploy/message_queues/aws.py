@@ -47,10 +47,10 @@ class AWSMessageQueueConfig(BaseSettings):
 
     model_config = SettingsConfigDict()
 
-    type: Literal["aws"] = Field(default="aws", exclude=True)
+    type: Literal["aws"] = Field(default="aws")
     aws_region: str = "us-east-1"
-    aws_access_key_id: SecretStr | None = Field(default=None, exclude=True)
-    aws_secret_access_key: SecretStr | None = Field(default=None, exclude=True)
+    aws_access_key_id: SecretStr | None = Field(default=None)
+    aws_secret_access_key: SecretStr | None = Field(default=None)
 
 
 class AWSMessageQueue(AbstractMessageQueue):

@@ -12,12 +12,18 @@ class SimpleMessageQueueConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="SIMPLE_MESSAGE_QUEUE_")
 
-    type: Literal["simple"] = Field(default="simple", exclude=True)
+    type: Literal["simple"] = Field(default="simple")
     host: str = "127.0.0.1"
     port: int = 8001
-    client_kwargs: dict[str, Any] = Field(default_factory=dict)
-    raise_exceptions: bool = False
-    use_ssl: bool = False
+    client_kwargs: dict[str, Any] = Field(
+        default_factory=dict, 
+        description="The kwargs to pass to the httpx client."
+    )
+    raise_exceptions: bool = Field(
+        default=False, 
+        description="Whether to raise exceptions when an error occurs."
+    )
+    use_ssl: bool = Field(default=False)
 
     @property
     def base_url(self) -> str:

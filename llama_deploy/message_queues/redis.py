@@ -23,7 +23,7 @@ class RedisMessageQueueConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="REDIS_")
 
-    type: Literal["redis"] = Field(default="redis", exclude=True)
+    type: Literal["redis"] = Field(default="redis")
     url: str = "redis://localhost:6379"
     host: str | None = None
     port: int | None = None
