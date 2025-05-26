@@ -86,7 +86,7 @@ class Service(BaseModel):
                 )
                 data["import-path"] = data["path"]
 
-            # Handle YAML aliases 
+            # Handle YAML aliases
             if "import-path" in data:
                 data["import_path"] = data.pop("import-path")
             if "env-files" in data:
@@ -118,8 +118,7 @@ class DeploymentConfig(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def validate_fields(cls, data: Any) -> Any:
-
-        # Handle YAML aliases 
+        # Handle YAML aliases
         if isinstance(data, dict):
             if "control-plane" in data:
                 data["control_plane"] = data.pop("control-plane")
@@ -127,7 +126,7 @@ class DeploymentConfig(BaseModel):
                 data["message_queue"] = data.pop("message-queue")
             if "default-service" in data:
                 data["default_service"] = data.pop("default-service")
-                
+
         return data
 
     @classmethod

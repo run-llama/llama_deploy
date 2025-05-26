@@ -3,6 +3,7 @@ import asyncio
 from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 from llama_index.llms.openai import OpenAI
 
+
 # create a dummy workflow
 class EchoWorkflow(Workflow):
     """A dummy workflow with only one step sending back the input given."""
@@ -19,7 +20,7 @@ class EchoWorkflow(Workflow):
 workflow = EchoWorkflow()
 
 
-async def main():
+async def main() -> None:
     print(await workflow.run(message="Hello!"))
 
 

@@ -111,7 +111,7 @@ export default function Home() {
                 </div>
 
                 <div>
-                  <label 
+                  <label
                     htmlFor="inputText"
                     className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
                   >
@@ -192,7 +192,7 @@ export default function Home() {
                     <CheckCircleIcon className="w-5 h-5" />
                     <span className="text-sm font-medium">Success</span>
                   </div>
-                  
+
                   <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
                     <div className="mb-2">
                       <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
