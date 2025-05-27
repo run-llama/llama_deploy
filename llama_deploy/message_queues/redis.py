@@ -74,7 +74,7 @@ class RedisMessageQueue(AbstractMessageQueue):
         )
         return result
 
-    async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
+    async def get_messages(self, topic: str) -> AsyncIterator[QueueMessage]:
         pubsub = self._redis.pubsub()
         await pubsub.subscribe(topic)
 

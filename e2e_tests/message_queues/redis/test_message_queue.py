@@ -12,7 +12,7 @@ async def test_roundtrip(mq: RedisMessageQueue):
     # Redis pubsub has no persistence, we need to start the subscriber
     # before publishing
     async def consume():
-        async for m in mq.get_message("test"):
+        async for m in mq.get_messages("test"):
             return m
 
     t = asyncio.create_task(consume())

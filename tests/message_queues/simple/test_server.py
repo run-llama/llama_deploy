@@ -55,13 +55,13 @@ async def test_roundtrip(message_queue_server: SimpleMessageQueueServer) -> None
     )
 
     expected = ["1", "2"]
-    async for message in mq.get_message("test_one"):
+    async for message in mq.get_messages("test_one"):
         assert expected.pop(0) == message.id_
         if not expected:
             break
 
     expected = ["3"]
-    async for message in mq.get_message("test_two"):
+    async for message in mq.get_messages("test_two"):
         assert expected.pop(0) == message.id_
         if not expected:
             break

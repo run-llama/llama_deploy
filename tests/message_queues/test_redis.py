@@ -88,7 +88,7 @@ async def test_exclusive_mode_deduplication(redis_queue: RedisMessageQueue) -> N
     redis_queue._redis.pubsub.return_value = pubsub_mock  # type: ignore
 
     processed_messages = []
-    async for message in redis_queue.get_message("test_channel"):
+    async for message in redis_queue.get_messages("test_channel"):
         processed_messages.append(message)
 
     # Verify results

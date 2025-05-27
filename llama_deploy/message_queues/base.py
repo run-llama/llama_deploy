@@ -57,7 +57,7 @@ class AbstractMessageQueue(ABC):
     def as_config(self) -> BaseModel:
         """Returns the config dict to reconstruct the message queue."""
 
-    async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
+    async def get_messages(self, topic: str) -> AsyncIterator[QueueMessage]:
         if False:
             # This is to help type checkers
             yield

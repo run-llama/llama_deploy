@@ -417,10 +417,10 @@ async def test_process_messages_new_task(workflow_service: WorkflowService) -> N
     )
 
     # Mock the async iterator
-    async def mock_get_message(topic: str) -> AsyncIterator[QueueMessage]:
+    async def mock_get_messages(topic: str) -> AsyncIterator[QueueMessage]:
         yield message
 
-    workflow_service._message_queue.get_message = mock_get_message  # type: ignore
+    workflow_service._message_queue.get_messages = mock_get_messages  # type: ignore
 
     # Process one message
     await workflow_service._process_messages("test_topic")
@@ -450,10 +450,10 @@ async def test_process_messages_send_event(workflow_service: WorkflowService) ->
     )
 
     # Mock the async iterator
-    async def mock_get_message(topic: str) -> AsyncIterator[QueueMessage]:
+    async def mock_get_messages(topic: str) -> AsyncIterator[QueueMessage]:
         yield message
 
-    workflow_service._message_queue.get_message = mock_get_message  # type: ignore
+    workflow_service._message_queue.get_messages = mock_get_messages  # type: ignore
 
     # Process one message
     await workflow_service._process_messages("test_topic")
@@ -473,10 +473,10 @@ async def test_process_messages_unknown_action(
     )
 
     # Mock the async iterator
-    async def mock_get_message(topic: str) -> AsyncIterator[QueueMessage]:
+    async def mock_get_messages(topic: str) -> AsyncIterator[QueueMessage]:
         yield message
 
-    workflow_service._message_queue.get_message = mock_get_message  # type: ignore
+    workflow_service._message_queue.get_messages = mock_get_messages  # type: ignore
 
     # Should raise ValueError for unknown action
     with pytest.raises(ValueError, match="Unhandled action"):

@@ -234,7 +234,7 @@ class ControlPlaneServer:
             raise ValueError(f"Action {action} not supported by control plane")
 
     async def _process_messages(self, topic: str) -> None:
-        async for message in self._message_queue.get_message(topic):
+        async for message in self._message_queue.get_messages(topic):
             if not message.data:
                 raise ValueError(
                     f"Invalid field 'data' in QueueMessage: {message.data}"

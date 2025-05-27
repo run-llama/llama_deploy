@@ -173,7 +173,7 @@ class RabbitMQMessageQueue(AbstractMessageQueue):
             self._registered_topics.add(topic)
             logger.info(f"published message {message.id_} to {topic}")
 
-    async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
+    async def get_messages(self, topic: str) -> AsyncIterator[QueueMessage]:
         from aio_pika import Channel, ExchangeType, IncomingMessage, Queue
         from aio_pika.abc import AbstractIncomingMessage
 

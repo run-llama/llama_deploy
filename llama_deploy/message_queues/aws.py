@@ -288,7 +288,7 @@ class AWSMessageQueue(AbstractMessageQueue):
                 except ClientError as e:
                     logger.error(f"Could not delete SNS topic {topic.name}: {e}")
 
-    async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
+    async def get_messages(self, topic: str) -> AsyncIterator[QueueMessage]:
         from botocore.exceptions import ClientError
 
         _topic = await self._get_or_create_sns_topic(topic_name=topic)

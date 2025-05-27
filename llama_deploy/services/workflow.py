@@ -373,7 +373,7 @@ class WorkflowService:
 
     async def _process_messages(self, topic: str) -> None:
         try:
-            async for message in self._message_queue.get_message(topic):
+            async for message in self._message_queue.get_messages(topic):
                 if message.action == ActionTypes.NEW_TASK:
                     task_def = TaskDefinition(**message.data or {})
 

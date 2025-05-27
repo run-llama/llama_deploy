@@ -38,7 +38,7 @@ class SimpleMessageQueue(AbstractMessageQueue):
             result = await client.post(url, json=message.model_dump())
         return result
 
-    async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
+    async def get_messages(self, topic: str) -> AsyncIterator[QueueMessage]:
         url = f"{self._config.base_url}messages/{topic}"
         client = httpx.AsyncClient(**self._config.client_kwargs)
         while True:

@@ -170,7 +170,7 @@ class KafkaMessageQueue(AbstractMessageQueue):
         if topics_to_delete:
             admin_client.delete_topics(topics_to_delete)
 
-    async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
+    async def get_messages(self, topic: str) -> AsyncIterator[QueueMessage]:
         try:
             from aiokafka import AIOKafkaConsumer
         except ImportError:
