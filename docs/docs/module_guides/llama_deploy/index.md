@@ -7,18 +7,19 @@ through a HTTP API by a user interface or other services part of your system.
 
 The goal of LlamaDeploy is to easily transition something that you built in a notebook to something running on the
 cloud with the minimum amount of changes to the original code, possibly zero. In order to make this transition a
-pleasant one, the intrinsic complexity of running agents as services is managed by a component called
-[_API Server_](./20_core_components.md#api-server), the only one in LlamaDeploy that's user facing. You can interact
-with the API Server in two ways:
+pleasant one, you can interact with LlamaDeploy in two ways:
 
-- Using the [`llamactl`](50_llamactl.md) CLI from a shell.
-- Through the [_LlamaDeploy SDK_](40_python_sdk.md) from a Python application or script.
+- Using the [`llamactl`](https://docs.llamaindex.ai/en/latest/module_guides/llama_deploy/40_llamactl/) CLI from a shell.
+- Through the [_LlamaDeploy SDK_](https://docs.llamaindex.ai/en/latest/module_guides/llama_deploy/30_python_sdk/) from a Python application or script.
 
-Both the SDK and the CLI are distributed with the LlamaDeploy Python package, so batteries are included.
+Both the SDK and the CLI are part of the LlamaDeploy Python package. To install, just run:
 
-The overall system layout is pictured below.
-
-![A basic system in llama_deploy](https://github.com/run-llama/llama_deploy/blob/5e7703e98faa8d682a679832872094258a172629/system_diagram.png?raw=true)
+```bash
+pip install -U llama-deploy
+```
+> [!TIP]
+> For a comprehensive guide to LlamaDeploy's architecture and detailed descriptions of its components, visit our
+[official documentation](https://docs.llamaindex.ai/en/latest/module_guides/llama_deploy/).
 
 ## Why LlamaDeploy?
 
@@ -33,17 +34,34 @@ The overall system layout is pictured below.
 6. **Async-First**: Designed for high-concurrency scenarios, making it suitable for real-time and high-throughput
    applications.
 
-## Wait, where is `llama-agents`?
+> [!NOTE]
+> This project was initially released under the name `llama-agents`,  but the introduction of [Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/#workflows) in `llama_index` turned out to be the most intuitive way for our users to develop agentic applications. We then decided to add new agentic features in `llama_index` directly, and focus LlamaDeploy on closing the gap between local development and remote execution of agents as services.
 
-The introduction of [Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/#workflows) in `llama_index`
-turned out to be the most intuitive way for our users to develop agentic applications. While we keep building more and
-more features to support agentic applications into `llama_index`, LlamaDeploy focuses on closing the gap between local
-development and remote execution of agents as services.
+## Quick Start with `llamactl`
 
-## Installation
-
-`llama_deploy` can be installed with pip, and includes the API Server Python SDK and `llamactl`:
+Spin up a running deployment in minutes using the interactive CLI wizard:
 
 ```bash
-pip install llama_deploy
+# 1. Install the package & CLI
+pip install -U llama-deploy
+
+# 2. Scaffold a new project (interactive)
+llamactl init
+
+#    or non-interactive
+llamactl init --name project-name --template basic
+
+# 3. Enter the project
+cd project-name
+
+# 4. Start the control-plane API server (new terminal)
+python -m llama_deploy.apiserver
+
+# 5. Deploy the generated workflow (another terminal)
+llamactl deploy deployment.yml
+
+# 6. Call it!
+llamactl run --deployment hello-deploy --arg message "Hello world!"
 ```
+
+Looking for more templates or integrations? Check the [`examples`](https://github.com/run-llama/llama_deploy/tree/main/examples) directory for end-to-end demos (message queues, web UIs, etc.) or read the full [documentation](https://docs.llamaindex.ai/en/latest/module_guides/llama_deploy/).
