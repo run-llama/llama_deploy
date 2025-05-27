@@ -8,7 +8,6 @@ from typing import Any, Dict
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
 
-from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.messages.base import QueueMessage
 
 from .config import SimpleMessageQueueConfig
@@ -34,24 +33,14 @@ uvicorn_logger.addFilter(MessagesPollFilter())
 
 
 class SimpleMessageQueueServer:
-    """SimpleMessageQueueServer.
-
-    An in-memory message queue that implements a push model for consumers.
+    """An in-memory message queue that implements a push model for consumers.
 
     When registering, a specific queue for a consumer is created.
     When a message is published, it is added to the queue for the given message type.
-
-    When launched as a server, exposes the following endpoints:
-    - GET `/`: Home endpoint
-    - POST `/register_consumer`: Register a consumer
-    - POST `/deregister_consumer`: Deregister a consumer
-    - GET `/get_consumers/{message_type}`: Get consumers for a message type
-    - POST `/publish`: Publish a message
     """
 
     def __init__(self, config: SimpleMessageQueueConfig = SimpleMessageQueueConfig()):
         self._config = config
-        self._consumers: dict[str, dict[str, RemoteMessageConsumer]] = {}
         self._queues: dict[str, deque] = {}
         self._running = False
         self._app = FastAPI()

@@ -5,13 +5,10 @@ import os
 import uuid
 from asyncio.exceptions import CancelledError
 from collections import defaultdict
-from contextlib import asynccontextmanager
 from logging import getLogger
-from typing import Any, AsyncGenerator, Dict, Optional
+from typing import Any, Dict, Optional
 
 import httpx
-import uvicorn
-from fastapi import FastAPI
 from llama_index.core.workflow import Context, Workflow
 from llama_index.core.workflow.context_serializers import (
     JsonPickleSerializer,
@@ -25,13 +22,11 @@ from llama_deploy.control_plane.server import (
     CONTROL_PLANE_MESSAGE_TYPE,
     ControlPlaneConfig,
 )
-from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
 from llama_deploy.types import (
     ActionTypes,
     ServiceDefinition,
-    StartConsumingCallable,
     TaskDefinition,
     TaskResult,
     TaskStream,
@@ -98,22 +93,6 @@ class WorkflowService:
     """Workflow service.
 
     Wraps a llama-index workflow into a service.
-
-    Exposes the following endpoints:
-    - GET `/`: Home endpoint.
-    - POST `/process_message`: Process a message.
-
-    Examples:
-        ```python
-        from llama_deploy import WorkflowService, WorkflowServiceConfig
-        from llama_index.core.workflow import Workflow
-
-        workflow_service = WorkflowService(
-            workflow,
-            message_queue=message_queue,
-            config=WorkflowServiceConfig(description="workflow_service")
-        )
-        ```
     """
 
     def __init__(
@@ -139,19 +118,6 @@ class WorkflowService:
         self._outstanding_calls: Dict[str, WorkflowState] = {}
         self._ongoing_tasks: Dict[str, asyncio.Task] = {}
         self._events_buffer: Dict[str, asyncio.Queue] = defaultdict(asyncio.Queue)
-
-        self._app = FastAPI(lifespan=self.lifespan)
-
-        self._app.add_api_route(
-            "/", self.home, methods=["GET"], tags=["Workflow Service"]
-        )
-
-        self._app.add_api_route(
-            "/process_message",
-            self.process_message,
-            methods=["POST"],
-            tags=["Message Processing"],
-        )
 
     @property
     def service_name(self) -> str:
@@ -405,81 +371,48 @@ class WorkflowService:
         except CancelledError:
             return
 
-    async def process_message(self, message: QueueMessage) -> None:
-        """Process a message received from the message queue."""
-        if message.action == ActionTypes.NEW_TASK:
-            task_def = TaskDefinition(**message.data or {})
+    async def _process_messages(self, topic: str) -> None:
+        try:
+            async for message in self._message_queue.get_messages(topic):
+                if message.action == ActionTypes.NEW_TASK:
+                    task_def = TaskDefinition(**message.data or {})
 
-            run_kwargs = json.loads(task_def.input)
-            workflow_state = WorkflowState(
-                session_id=task_def.session_id,
-                task_id=task_def.task_id,
-                run_kwargs=run_kwargs,
-            )
+                    run_kwargs = json.loads(task_def.input)
+                    workflow_state = WorkflowState(
+                        session_id=task_def.session_id,
+                        task_id=task_def.task_id,
+                        run_kwargs=run_kwargs,
+                    )
 
-            async with self.lock:
-                self._outstanding_calls[task_def.task_id] = workflow_state
-        elif message.action == ActionTypes.SEND_EVENT:
-            serializer = JsonSerializer()
+                    async with self.lock:
+                        self._outstanding_calls[task_def.task_id] = workflow_state
+                elif message.action == ActionTypes.SEND_EVENT:
+                    serializer = JsonSerializer()
 
-            task_def = TaskDefinition(**message.data or {})
-            event = serializer.deserialize(task_def.input)
-            async with self.lock:
-                self._events_buffer[task_def.task_id].put_nowait(event)
+                    task_def = TaskDefinition(**message.data or {})
+                    event = serializer.deserialize(task_def.input)
+                    async with self.lock:
+                        self._events_buffer[task_def.task_id].put_nowait(event)
 
-        else:
-            raise ValueError(f"Unhandled action: {message.action}")
-
-    def as_consumer(self) -> RemoteMessageConsumer:
-        """Get the consumer for the message queue."""
-
-        return RemoteMessageConsumer(
-            id_=self.publisher_id,
-            url=f"{self.config.url}{self._app.url_path_for('process_message')}",
-            message_type=self.service_name,
-        )
-
-    # ---- Server based methods ----
-
-    @asynccontextmanager
-    async def lifespan(self, app: FastAPI) -> AsyncGenerator[None, None]:
-        """Starts the processing loop when the fastapi app starts."""
-        t = asyncio.create_task(self.processing_loop())
-
-        yield
-
-        t.cancel()
-        await t
-        self._running = False
-
-    async def home(self) -> Dict[str, str]:
-        """Home endpoint. Returns general information about the service."""
-        return {
-            "service_name": self.service_name,
-            "description": self.config.description,
-            "running": str(self._running),
-            "step_interval": str(self.config.step_interval),
-            "num_outstanding_calls": str(len(self._outstanding_calls)),
-            "type": "workflow_service",
-        }
+                else:
+                    raise ValueError(f"Unhandled action: {message.action}")
+        except asyncio.CancelledError:
+            pass
 
     async def launch_server(self) -> None:
-        """Launch the service as a FastAPI server."""
-        host = self.config.internal_host or self.config.host
-        port = self.config.internal_port or self.config.port
-        logger.info(f"Launching {self.service_name} server at {host}:{port}")
-
-        class CustomServer(uvicorn.Server):
-            def install_signal_handlers(self) -> None:
-                pass
-
-        cfg = uvicorn.Config(self._app, host=host, port=port)
-        server = CustomServer(cfg)
+        tasks = [
+            asyncio.create_task(self.processing_loop()),
+            asyncio.create_task(
+                self._process_messages(self.get_topic(self.service_name))
+            ),
+        ]
 
         try:
-            await server.serve()
+            await asyncio.gather(*tasks)
         except asyncio.CancelledError:
-            await asyncio.gather(server.shutdown(), return_exceptions=True)
+            for t in tasks:
+                t.cancel()
+            await asyncio.gather(*tasks)
 
     async def register_to_control_plane(self, control_plane_url: str) -> None:
         """Register the service to the control plane."""
@@ -535,15 +468,6 @@ class WorkflowService:
                 json=state,
             )
             response.raise_for_status()
-
-    async def register_to_message_queue(self) -> StartConsumingCallable:
-        """Register the service to the message queue."""
-        return await self.message_queue.register_consumer(
-            self.as_consumer(), topic=self.get_topic(self.service_name)
-        )
-
-    async def deregister_from_message_queue(self) -> None:
-        return await self.message_queue.deregister_consumer(self.as_consumer())
 
     def get_topic(self, msg_type: str) -> str:
         return f"{self._control_plane_config.topic_namespace}.{msg_type}"

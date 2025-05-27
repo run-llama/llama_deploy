@@ -117,8 +117,7 @@ async def test_get_topic_by_name(aws_queue: AWSMessageQueue) -> None:
     assert topic.name == "test-topic"
 
     mock_response["Topics"] = []
-    with pytest.raises(ValueError, match="Could not find topic test-topic"):
-        await aws_queue.get_topic_by_name("test-topic")
+    assert await aws_queue.get_topic_by_name("test-topic") is None
 
     # Test ClientError exception
     aws_queue._get_client = lambda x: MockSNSClient(should_raise=True)  # type: ignore
@@ -186,14 +185,14 @@ async def test_create_sns_topic(aws_queue: AWSMessageQueue) -> None:
     mock_client = MockSNSClient()
     aws_queue._get_client = lambda x: mock_client  # type: ignore
 
-    topic = await aws_queue._create_sns_topic("existing-topic")
+    topic = await aws_queue._get_or_create_sns_topic("existing-topic")
     assert topic.arn == "arn:aws:sns:us-east-1:123456789012:existing-topic.fifo"
     assert topic.name == "existing-topic"
     assert not mock_client.create_topic_called
 
     # Test creating new topic
     existing_topic_response["Topics"] = []  # Clear existing topics
-    topic = await aws_queue._create_sns_topic("new-topic")
+    topic = await aws_queue._get_or_create_sns_topic("new-topic")
     assert topic.arn == "arn:aws:sns:us-east-1:123456789012:new-topic.fifo"
     assert topic.name == "new-topic"
     assert mock_client.create_topic_called
@@ -204,7 +203,7 @@ async def test_create_sns_topic(aws_queue: AWSMessageQueue) -> None:
     aws_queue._get_client = lambda x: mock_client  # type: ignore
 
     with pytest.raises(ClientError, match="AWS Internal Error"):
-        await aws_queue._create_sns_topic("error-topic")
+        await aws_queue._get_or_create_sns_topic("error-topic")
 
     # Test ClientError during create_topic
     mock_client = MockSNSClient(should_raise=True)
@@ -212,7 +211,7 @@ async def test_create_sns_topic(aws_queue: AWSMessageQueue) -> None:
     existing_topic_response["Topics"] = []  # Force create_topic to be called
 
     with pytest.raises(ClientError, match="AWS Internal Error"):
-        await aws_queue._create_sns_topic("error-topic")
+        await aws_queue._get_or_create_sns_topic("error-topic")
 
 
 @pytest.mark.asyncio
@@ -292,7 +291,7 @@ async def test_create_sqs_queue(aws_queue: AWSMessageQueue) -> None:
     mock_client = MockSQSClient()
     aws_queue._get_client = lambda x: mock_client  # type: ignore
 
-    queue = await aws_queue._create_sqs_queue("existing-queue")
+    queue = await aws_queue._get_or_create_sqs_queue("existing-queue")
     assert (
         queue.url
         == "https://sqs.us-east-1.amazonaws.com/123456789012/existing-queue.fifo"
@@ -304,7 +303,7 @@ async def test_create_sqs_queue(aws_queue: AWSMessageQueue) -> None:
 
     # Test creating new queue
     existing_queue_response["QueueUrls"] = []  # Clear existing queues
-    queue = await aws_queue._create_sqs_queue("new-queue")
+    queue = await aws_queue._get_or_create_sqs_queue("new-queue")
     assert (
         queue.url == "https://sqs.us-east-1.amazonaws.com/123456789012/new-queue.fifo"
     )
@@ -317,7 +316,7 @@ async def test_create_sqs_queue(aws_queue: AWSMessageQueue) -> None:
     aws_queue._get_client = lambda x: mock_client  # type: ignore
 
     with pytest.raises(ClientError, match="AWS Internal Error"):
-        await aws_queue._create_sqs_queue("error-queue")
+        await aws_queue._get_or_create_sqs_queue("error-queue")
 
     # Test ClientError during create_queue
     mock_client = MockSQSClient(should_raise=True)
@@ -325,14 +324,14 @@ async def test_create_sqs_queue(aws_queue: AWSMessageQueue) -> None:
     existing_queue_response["QueueUrls"] = []  # Force create_queue to be called
 
     with pytest.raises(ClientError, match="AWS Internal Error"):
-        await aws_queue._create_sqs_queue("error-queue")
+        await aws_queue._get_or_create_sqs_queue("error-queue")
 
     # Test ClientError during get_queue_attributes
     mock_client = MockSQSClient(should_raise=True)
     aws_queue._get_client = lambda x: mock_client  # type: ignore
 
     with pytest.raises(ClientError, match="AWS Internal Error"):
-        await aws_queue._create_sqs_queue("error-queue")
+        await aws_queue._get_or_create_sqs_queue("error-queue")
 
 
 @pytest.mark.asyncio

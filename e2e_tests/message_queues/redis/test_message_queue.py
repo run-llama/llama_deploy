@@ -6,36 +6,23 @@ from llama_deploy import Client
 from llama_deploy.message_queues.redis import RedisMessageQueue
 from llama_deploy.messages import QueueMessage
 
-from ..conftest import CallableMessageConsumer
-
 
 @pytest.mark.asyncio
 async def test_roundtrip(mq: RedisMessageQueue):
-    received_messages = []
+    # Redis pubsub has no persistence, we need to start the subscriber
+    # before publishing
+    async def consume():
+        async for m in mq.get_messages("test"):
+            return m
 
-    # register a consumer
-    def message_handler(message: QueueMessage) -> None:
-        received_messages.append(message)
+    t = asyncio.create_task(consume())
+    await asyncio.sleep(1)
 
-    test_consumer = CallableMessageConsumer(
-        message_type="test_message", handler=message_handler
-    )
-    start_consuming_callable = await mq.register_consumer(test_consumer, topic="test")
-    t = asyncio.create_task(start_consuming_callable())
-    await asyncio.sleep(1.0)
-
-    # produce a message
     test_message = QueueMessage(type="test_message", data={"message": "this is a test"})
     await mq.publish(test_message, topic="test")
-    await asyncio.sleep(1.0)
-    t.cancel()
-    await t
 
-    # at this point message should've been arrived
-    await mq.deregister_consumer(test_consumer)
-
-    assert len(received_messages) == 1
-    assert test_message in received_messages
+    result = await t
+    assert result == test_message
 
 
 @pytest.mark.asyncio
