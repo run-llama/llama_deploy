@@ -1,7 +1,7 @@
 import json
 import os
 from typing import Dict, Generator
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from solace.messaging.publisher.persistent_message_publisher import (
@@ -12,9 +12,7 @@ from solace.messaging.receiver.persistent_message_receiver import (
 )
 from solace.messaging.resources.topic import Topic
 
-from llama_deploy.message_consumers.base import BaseMessageQueueConsumer
 from llama_deploy.message_queues.solace import (
-    MessageHandlerImpl,
     SolaceMessageQueue,
     SolaceMessageQueueConfig,
 )
@@ -150,42 +148,12 @@ async def test_publish_message(
     """Test publishing a message to Solace."""
     test_message = QueueMessage(id_="test_id", type="test_type")
 
-    await solace_queue._publish(test_message, "test_topic")
+    await solace_queue._publish(test_message, "test_topic", True)
 
     mock_publisher.publish.assert_called_once()
     call_args = mock_publisher.publish.call_args
     assert isinstance(call_args[1]["destination"], Topic)
     assert json.loads(call_args[1]["message"])["id_"] == "test_id"
-
-
-@pytest.mark.asyncio
-async def test_register_consumer(
-    solace_queue: SolaceMessageQueue, mock_receiver: Mock
-) -> None:
-    """Test registering a consumer."""
-    mock_consumer = Mock(spec=BaseMessageQueueConsumer)
-    mock_consumer.message_type = "test_topic"
-
-    start_consuming = await solace_queue.register_consumer(mock_consumer, "test_topic")
-
-    assert callable(start_consuming)
-    mock_receiver.receive_async.assert_called_once()
-    mock_receiver.add_subscription.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_deregister_consumer(
-    solace_queue: SolaceMessageQueue, mock_receiver: Mock
-) -> None:
-    """Test deregistering a consumer."""
-    with patch("llama_deploy.message_queues.solace.MAX_SLEEP", 0.1):
-        mock_consumer = Mock(spec=BaseMessageQueueConsumer)
-        mock_consumer.message_type = "test_topic"
-
-        await solace_queue.deregister_consumer(mock_consumer)
-
-        mock_receiver.remove_subscription.assert_called_once()
-        mock_receiver.terminate.assert_called_once()
 
 
 def test_disconnect(
@@ -210,24 +178,3 @@ def test_bind_to_queue(solace_queue: SolaceMessageQueue, mock_receiver: Mock) ->
 
     mock_receiver.start.assert_called_once()
     mock_receiver.add_subscription.assert_called_once()
-
-
-def test_message_handler_impl() -> None:
-    """Test message handler implementation."""
-    mock_consumer = Mock(spec=BaseMessageQueueConsumer)
-    mock_consumer.process_message = AsyncMock()
-    mock_receiver = Mock(spec=PersistentMessageReceiver)
-
-    handler = MessageHandlerImpl(mock_consumer, mock_receiver)
-
-    mock_message = Mock()
-    mock_message.get_destination_name.return_value = "test_topic"
-    mock_message.get_payload_as_string.return_value = json.dumps(
-        {"id_": "test_id", "type": "test_type"}
-    )
-    mock_message.get_correlation_id.return_value = "test_correlation_id"
-
-    handler.on_message(mock_message)
-
-    mock_consumer.process_message.assert_called_once()
-    mock_receiver.ack.assert_called_once_with(mock_message)

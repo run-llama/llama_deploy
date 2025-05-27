@@ -1,4 +1,3 @@
-import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -40,20 +39,6 @@ def test_config_init() -> None:
         port=999,
     )
     assert cfg.url == "amqp://test_user:test_pass@localhost:999"
-
-
-@pytest.mark.asyncio
-async def test_register_consumer() -> None:
-    with patch(
-        "llama_deploy.message_queues.rabbitmq._establish_connection"
-    ) as connection:
-        mq = RabbitMQMessageQueue()
-        consumer_func = await mq.register_consumer(MagicMock(), "test_topic")
-        task = asyncio.create_task(consumer_func())
-        await asyncio.sleep(0)
-        task.cancel()
-        await task
-        connection.assert_awaited()
 
 
 def test_init() -> None:
@@ -123,7 +108,7 @@ async def test_publish(mock_connect: MagicMock) -> None:
     )
 
     # Act
-    _ = await mq._publish(queue_message, topic="test")
+    _ = await mq._publish(queue_message, topic="test", create_topic=True)
 
     # Assert
     mock_connect.assert_called_once()

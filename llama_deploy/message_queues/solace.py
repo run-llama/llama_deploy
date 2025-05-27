@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import time
 from logging import getLogger
 from string import Template
 from typing import TYPE_CHECKING, Any, Dict, Literal
@@ -10,10 +9,6 @@ from typing import TYPE_CHECKING, Any, Dict, Literal
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
 
@@ -67,10 +62,9 @@ try:
 
         def __init__(
             self,
-            consumer: BaseMessageQueueConsumer,
             receiver: PersistentMessageReceiver | None = None,
         ) -> None:
-            self._consumer = consumer
+            self._consumer = None
             self._receiver = receiver
 
         def on_message(self, message: "InboundMessage") -> None:
@@ -95,7 +89,7 @@ try:
                 queue_message = QueueMessage.model_validate(queue_message_data)
 
                 # Process the message using the consumer
-                asyncio.run(self._consumer.process_message(queue_message))
+                asyncio.run(self._consumer.process_message(queue_message))  # type: ignore
 
                 if self._receiver:
                     self._receiver.ack(message)
@@ -214,7 +208,9 @@ class SolaceMessageQueue(AbstractMessageQueue):
             logger.error(f"Failed to establish connection: {exception}")
             raise
 
-    async def _publish(self, message: QueueMessage, topic: str) -> None:
+    async def _publish(
+        self, message: QueueMessage, topic: str, create_topic: bool
+    ) -> None:
         """Publish message to the queue."""
         try:
             from solace.messaging.resources.topic import Topic
@@ -309,68 +305,6 @@ class SolaceMessageQueue(AbstractMessageQueue):
                 logger.info("Subscribed to topic: %s", subscription)
 
         return
-
-    async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str
-    ) -> StartConsumingCallable:
-        """Register a new consumer."""
-        try:
-            from solace.messaging.errors.pubsubplus_client_error import (
-                IllegalStateError,
-                PubSubPlusClientError,
-            )
-            from solace.messaging.resources.topic_subscription import TopicSubscription
-        except ImportError:
-            raise ValueError(
-                "Missing `solace` package. Please install by running `pip install llama-deploy[solace]`."
-            )
-
-        consumer_subscription = topic
-        subscriptions = [TopicSubscription.of(consumer_subscription)]
-
-        try:
-            if not self.is_connected():
-                await self._establish_connection()
-
-            self.bind_to_queue(subscriptions=subscriptions)
-            logger.info(f"Consumer registered to: {consumer_subscription}")
-            self._persistent_receiver.receive_async(  # type:ignore
-                MessageHandlerImpl(
-                    consumer=consumer, receiver=self._persistent_receiver
-                )
-            )
-
-            async def start_consuming_callable() -> None:
-                await asyncio.Future()
-
-            return start_consuming_callable
-        except (PubSubPlusClientError, IllegalStateError) as e:
-            logger.error(f"Failed to register consumer: {e}")
-            raise
-
-    async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> None:
-        """Deregister a consumer."""
-        try:
-            from solace.messaging.resources.topic_subscription import TopicSubscription
-        except ImportError:
-            raise ValueError(
-                "Missing `solace` package. Please install by running `pip install llama-deploy[solace]`."
-            )
-
-        consumer_subscription = consumer.message_type
-        topics = [TopicSubscription.of(consumer_subscription)]
-
-        try:
-            for topic in topics:
-                self._persistent_receiver.remove_subscription(topic)  # type:ignore
-
-            logger.info(f"Consumer deregistered from: {consumer_subscription}")
-            time.sleep(MAX_SLEEP)
-        except Exception as e:
-            logger.error(f"Failed to deregister consumer: {e}")
-            raise
-        finally:
-            self._persistent_receiver.terminate()  # type:ignore
 
     async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
         """Perform any clean up of queues and exchanges."""

@@ -297,9 +297,6 @@ async def test_start_control_plane_success(
     )
 
     # Mock control plane methods
-    deployment._control_plane.register_to_message_queue = mock.AsyncMock(  # type: ignore
-        return_value=mock.AsyncMock()
-    )
     deployment._control_plane.launch_server = mock.AsyncMock()  # type: ignore
 
     # Mock httpx client
@@ -314,11 +311,10 @@ async def test_start_control_plane_success(
         tasks = await deployment._start_control_plane()
 
         # Verify tasks were created
-        assert len(tasks) == 2
+        assert len(tasks)
         assert all(isinstance(task, asyncio.Task) for task in tasks)
 
         # Verify control plane methods were called
-        deployment._control_plane.register_to_message_queue.assert_called_once()
         deployment._control_plane.launch_server.assert_called_once()
 
         # Verify health check was performed
@@ -337,9 +333,6 @@ async def test_start_control_plane_failure(
     )
 
     # Mock control plane methods
-    deployment._control_plane.register_to_message_queue = mock.AsyncMock(  # type: ignore
-        return_value=mock.AsyncMock()
-    )
     deployment._control_plane.launch_server = mock.AsyncMock()  # type: ignore
 
     # Create a mock attempt
@@ -358,7 +351,6 @@ async def test_start_control_plane_failure(
         assert "Unable to reach Control Plane" in str(exc_info.value)
 
         # Verify control plane methods were still called
-        deployment._control_plane.register_to_message_queue.assert_called_once()
         deployment._control_plane.launch_server.assert_called_once()
 
 

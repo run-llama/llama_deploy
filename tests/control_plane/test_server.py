@@ -119,3 +119,49 @@ def test_add_task_to_session_session_id_mismatch(
         response.json()["detail"]
         == "Wrong task definition: task.session_id is wrong-id but should be test-session-id"
     )
+
+
+@pytest.mark.asyncio
+async def test_launch_server() -> None:
+    """Test the launch_server method with proper mocking."""
+    # Create mocks
+    mock_message_queue = mock.AsyncMock()
+
+    # Create server with custom config
+    config = ControlPlaneConfig(
+        host="localhost", port=8000, internal_host="127.0.0.1", internal_port=8001
+    )
+    server = ControlPlaneServer(message_queue=mock_message_queue, config=config)
+
+    # Mock uvicorn and asyncio components
+    with (
+        mock.patch("llama_deploy.control_plane.server.uvicorn") as mock_uvicorn,
+        mock.patch("llama_deploy.control_plane.server.asyncio") as mock_asyncio,
+        mock.patch("llama_deploy.control_plane.server.logger") as mock_logger,
+    ):
+        # Setup mocks
+        mock_server_instance = mock.AsyncMock()
+        mock_uvicorn.Server.return_value = mock_server_instance
+        mock_task = mock.AsyncMock()
+        mock_asyncio.create_task.return_value = mock_task
+        mock_asyncio.gather.return_value = None
+
+        # Test normal execution path
+        try:
+            await server.launch_server()
+        except Exception:
+            # Expected since we're mocking the server.serve() call
+            pass
+
+        # Verify logging
+        mock_logger.info.assert_called_with(
+            "Launching control plane server at 127.0.0.1:8001"
+        )
+
+        # Verify task creation
+        mock_asyncio.create_task.assert_called_once()
+
+        # Verify uvicorn server setup
+        mock_uvicorn.Config.assert_called_once_with(
+            server.app, host="127.0.0.1", port=8001
+        )

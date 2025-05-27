@@ -1,13 +1,9 @@
 import asyncio
 from logging import getLogger
-from typing import Any, Dict
+from typing import Any, AsyncIterator, Dict
 
 import httpx
 
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
 
@@ -23,77 +19,45 @@ class SimpleMessageQueue(AbstractMessageQueue):
         self, config: SimpleMessageQueueConfig = SimpleMessageQueueConfig()
     ) -> None:
         self._config = config
-        self._consumers: dict[str, dict[str, BaseMessageQueueConsumer]] = {}
+        self._topics: set[str] = set()
 
-    async def _publish(self, message: QueueMessage, topic: str) -> Any:
+    async def _publish(
+        self, message: QueueMessage, topic: str, create_topic: bool
+    ) -> Any:
         """Sends a message to the SimpleMessageQueueServer."""
-        url = f"{self._config.base_url}messages/{topic}"
-        async with httpx.AsyncClient(**self._config.client_kwargs) as client:
-            result = await client.post(url, json=message.model_dump())
-        return result
-
-    async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str
-    ) -> StartConsumingCallable:
-        """Register a new consumer."""
-        # register topic
-        if topic not in self._consumers:
+        if topic not in self._topics:
             # call the server to create it
             url = f"{self._config.base_url}topics/{topic}"
             async with httpx.AsyncClient(**self._config.client_kwargs) as client:
                 result = await client.post(url)
                 result.raise_for_status()
+                self._topics.add(topic)
 
-            self._consumers[topic] = {}
+        url = f"{self._config.base_url}messages/{topic}"
+        async with httpx.AsyncClient(**self._config.client_kwargs) as client:
+            result = await client.post(url, json=message.model_dump())
+        return result
 
-        if consumer.id_ in self._consumers[topic]:
-            msg = f"Consumer {consumer.id_} already registered for topic {topic}"
-            raise ValueError(msg)
+    async def get_messages(self, topic: str) -> AsyncIterator[QueueMessage]:
+        url = f"{self._config.base_url}messages/{topic}"
+        client = httpx.AsyncClient(**self._config.client_kwargs)
+        while True:
+            try:
+                result = await client.get(url)
+                result.raise_for_status()
+                if result.json():
+                    yield QueueMessage.model_validate(result.json())
+                await asyncio.sleep(0.1)
 
-        self._consumers[topic][consumer.id_] = consumer
-        logger.info(
-            f"Consumer '{consumer.id_}' for type '{consumer.message_type}' on topic '{topic}' has been registered."
-        )
+            except httpx.HTTPError as e:
+                logger.debug(f"HTTP error occurred while fetching messages: {e}")
+                await asyncio.sleep(1)  # Back off on errors
+                continue
 
-        async def start_consuming_callable() -> None:
-            """StartConsumingCallable.
-
-            Consumer of this queue should call this in order to start consuming.
-            """
-            url = f"{self._config.base_url}messages/{topic}"
-            client = httpx.AsyncClient(**self._config.client_kwargs)
-            while True:
-                try:
-                    result = await client.get(url)
-                    result.raise_for_status()
-                    if result.json():
-                        message = QueueMessage.model_validate(result.json())
-                        await consumer.process_message(message)
-                    await asyncio.sleep(0.1)
-
-                except httpx.HTTPError as e:
-                    logger.error(f"HTTP error occurred: {e}")
-                    await asyncio.sleep(1)  # Back off on errors
-                    continue
-
-                except asyncio.CancelledError:
-                    msg = f"Consumer {consumer.id_} for topic {topic} is shutting down"
-                    logger.info(msg)
-                    if client:
-                        await client.aclose()
-                    return  # Clean exit on cancellation
-
-                except Exception as e:
-                    logger.error(f"Unexpected error: {e}")
-                    await asyncio.sleep(1)  # Back off on errors
-                    continue
-
-        return start_consuming_callable
-
-    async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
-        for topic, consumers in self._consumers.copy().items():
-            if consumer.id_ in consumers:
-                del self._consumers[topic][consumer.id_]
+            except Exception as e:
+                logger.error(f"Unexpected error while fetching messages: {e}")
+                await asyncio.sleep(1)  # Back off on errors
+                continue
 
     async def cleanup(self, *args: Any, **kwargs: Dict[str, Any]) -> None:
         # Nothing to clean up

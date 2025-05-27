@@ -108,10 +108,7 @@ async def deploy_core(
         )
         tasks.append(asyncio.create_task(control_plane.launch_server()))
         # let service spin up
-        await asyncio.sleep(2)
-        # register the control plane as a consumer
-        control_plane_consumer_fn = await control_plane.register_to_message_queue()
-        tasks.append(asyncio.create_task(control_plane_consumer_fn()))
+        await asyncio.sleep(4)
 
     # let things run
     try:
@@ -167,28 +164,8 @@ async def deploy_workflow(
         config=workflow_config,
     )
 
-    service_task = asyncio.create_task(service.launch_server())
-
-    # let service spin up
-    await asyncio.sleep(1)
-
     # register to control plane
     await service.register_to_control_plane(control_plane_url)
-
-    # register to message queue
-    consumer_fn = await service.register_to_message_queue()
-
-    # create consumer task
-    consumer_task = asyncio.create_task(consumer_fn())
-
-    # let things sync up
     await asyncio.sleep(1)
 
-    try:
-        # Propagate the exception if any of the tasks exited with an error
-        await asyncio.gather(service_task, consumer_task, return_exceptions=True)
-    except asyncio.CancelledError:
-        consumer_task.cancel()
-        service_task.cancel()
-
-        await asyncio.gather(service_task, consumer_task)
+    await service.launch_server()
