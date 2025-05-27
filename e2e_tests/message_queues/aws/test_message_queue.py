@@ -12,13 +12,13 @@ pytestmark = pytest.mark.skipif(
 
 
 @pytest.mark.asyncio
-async def test_roundtrip(mq, topic_prefix):
+async def test_roundtrip(mq):
     test_message = QueueMessage(type="test_message", data={"message": "this is a test"})
-    await mq.publish(test_message, topic=f"{topic_prefix}test")
+    await mq.publish(test_message, topic="test")
 
     await asyncio.sleep(0)
 
-    async for m in mq.get_messages(f"{topic_prefix}test"):
+    async for m in mq.get_messages("test"):
         assert m.data == test_message.data
         break
 
