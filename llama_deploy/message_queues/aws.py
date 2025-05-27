@@ -1,7 +1,7 @@
 """AWS SNS and SQS Message Queue."""
 
+import asyncio
 import json
-from asyncio import CancelledError
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, AsyncIterator, Literal
 
@@ -296,29 +296,25 @@ class AWSMessageQueue(AbstractMessageQueue):
         await self._subscribe_queue_to_topic(queue=queue, topic=_topic)
 
         while True:
-            try:
-                async with self._get_client("sqs") as client:
-                    try:
-                        response = await client.receive_message(  # type: ignore
-                            QueueUrl=queue.url,
-                            WaitTimeSeconds=2,
+            async with self._get_client("sqs") as client:
+                try:
+                    response = await client.receive_message(  # type: ignore
+                        QueueUrl=queue.url,
+                        WaitTimeSeconds=2,
+                    )
+                    messages = response.get("Messages", [])
+                    for msg in messages:
+                        receipt_handle = msg["ReceiptHandle"]
+                        message_body = json.loads(msg["Body"])
+                        queue_message_data = json.loads(message_body["Message"])
+                        queue_message = QueueMessage.model_validate(queue_message_data)
+                        await client.delete_message(  # type: ignore
+                            QueueUrl=queue.url, ReceiptHandle=receipt_handle
                         )
-                        messages = response.get("Messages", [])
-                        for msg in messages:
-                            receipt_handle = msg["ReceiptHandle"]
-                            message_body = json.loads(msg["Body"])
-                            queue_message_data = json.loads(message_body["Message"])
-                            queue_message = QueueMessage.model_validate(
-                                queue_message_data
-                            )
-                            yield queue_message
-                            await client.delete_message(  # type: ignore
-                                QueueUrl=queue.url, ReceiptHandle=receipt_handle
-                            )
-                    except ClientError as e:
-                        logger.error(f"Error receiving messages from SQS queue: {e}")
-            except CancelledError:
-                return
+                        yield queue_message
+                    await asyncio.sleep(1)
+                except ClientError as e:
+                    logger.error(f"Error receiving messages from SQS queue: {e}")
 
     def as_config(self) -> BaseModel:
         """Return the current configuration as an AWSMessageQueueConfig object."""
