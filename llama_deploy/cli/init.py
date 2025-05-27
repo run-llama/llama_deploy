@@ -179,8 +179,6 @@ def init(
                     [
                         "git",
                         "clone",
-                        "-b",
-                        "logan/llamactl_init",
                         "--depth=1",
                         "--filter=blob:none",
                         "--sparse",
