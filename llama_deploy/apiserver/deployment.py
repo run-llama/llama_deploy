@@ -420,11 +420,7 @@ class Manager:
         return self._deployments.get(deployment_name)
 
     async def serve(self) -> None:
-        """The server loop, it keeps the manager running.
-
-        Args:
-            deployments_path: The filesystem path where deployments will create their root path.
-        """
+        """The server loop, it keeps the manager running."""
         if self._deployments_path is None:
             raise RuntimeError("Deployments path not set")
 
