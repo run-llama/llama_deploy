@@ -21,7 +21,10 @@ class ControlPlaneConfig(BaseSettings):
         default="tasks",
         description="Key for the tasks store. Defaults to 'tasks'.",
     )
-    session_store_key: str = "sessions"
+    session_store_key: str = Field(
+        default="sessions",
+        description="Key for the session store. Defaults to 'sessions'.",
+    )
     step_interval: float = Field(
         default=0.1,
         description="The interval in seconds to poll for tool call results. Defaults to 0.1s.",

@@ -26,7 +26,7 @@ class RabbitMQMessageQueueConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="RABBITMQ_")
 
-    type: Literal["rabbitmq"] = Field(default="rabbitmq", exclude=True)
+    type: Literal["rabbitmq"] = Field(default="rabbitmq")
     url: str = DEFAULT_URL
     exchange_name: str = DEFAULT_EXCHANGE_NAME
     username: str | None = None

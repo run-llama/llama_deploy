@@ -28,7 +28,7 @@ class KafkaMessageQueueConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="KAFKA_")
 
-    type: Literal["kafka"] = Field(default="kafka", exclude=True)
+    type: Literal["kafka"] = Field(default="kafka")
     url: str = DEFAULT_URL
     host: str | None = None
     port: int | None = None

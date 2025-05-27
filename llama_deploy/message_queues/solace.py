@@ -105,7 +105,7 @@ class SolaceMessageQueueConfig(BaseSettings):
     """Solace PubSub+ message queue configuration."""
 
     model_config = SettingsConfigDict(env_prefix="SOLACE_")
-    type: Literal["solace"] = Field(default="solace", exclude=True)
+    type: Literal["solace"] = Field(default="solace")
     host: str = Field(default="")
     vpn_name: str = Field(default="")
     username: str = Field(default="")

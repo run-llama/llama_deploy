@@ -10,7 +10,7 @@ else:  # pragma: no cover
     from typing_extensions import Self
 
 import yaml
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.message_queues import (
@@ -67,17 +67,17 @@ class Service(BaseModel):
 
     name: str
     source: ServiceSource
-    import_path: str | None = Field(None, alias="import-path")
+    import_path: str | None = Field(None)
     host: str | None = None
     port: int | None = None
     env: dict[str, str] | None = Field(None)
-    env_files: list[str] | None = Field(None, alias="env-files")
-    python_dependencies: list[str] | None = Field(None, alias="python-dependencies")
-    ts_dependencies: dict[str, str] | None = Field(None, alias="ts-dependencies")
+    env_files: list[str] | None = Field(None)
+    python_dependencies: list[str] | None = Field(None)
+    ts_dependencies: dict[str, str] | None = Field(None)
 
     @model_validator(mode="before")
     @classmethod
-    def handle_deprecated_fields(cls, data: Any) -> Any:
+    def validate_fields(cls, data: Any) -> Any:
         if isinstance(data, dict):
             if "path" in data and "import-path" not in data:
                 warnings.warn(
@@ -85,6 +85,17 @@ class Service(BaseModel):
                     DeprecationWarning,
                 )
                 data["import-path"] = data["path"]
+
+            # Handle YAML aliases
+            if "import-path" in data:
+                data["import_path"] = data.pop("import-path")
+            if "env-files" in data:
+                data["env_files"] = data.pop("env-files")
+            if "python-dependencies" in data:
+                data["python_dependencies"] = data.pop("python-dependencies")
+            if "ts-dependencies" in data:
+                data["ts_dependencies"] = data.pop("ts-dependencies")
+
         return data
 
 
@@ -95,12 +106,28 @@ class UIService(Service):
 class DeploymentConfig(BaseModel):
     """Model definition mapping a deployment config file."""
 
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
     name: str
-    control_plane: ControlPlaneConfig = Field(alias="control-plane")
-    message_queue: MessageQueueConfig | None = Field(None, alias="message-queue")
-    default_service: str | None = Field(None, alias="default-service")
+    control_plane: ControlPlaneConfig
+    message_queue: MessageQueueConfig | None = Field(None)
+    default_service: str | None = Field(None)
     services: dict[str, Service]
     ui: UIService | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_fields(cls, data: Any) -> Any:
+        # Handle YAML aliases
+        if isinstance(data, dict):
+            if "control-plane" in data:
+                data["control_plane"] = data.pop("control-plane")
+            if "message-queue" in data:
+                data["message_queue"] = data.pop("message-queue")
+            if "default-service" in data:
+                data["default_service"] = data.pop("default-service")
+
+        return data
 
     @classmethod
     def from_yaml_bytes(cls, src: bytes) -> Self:
