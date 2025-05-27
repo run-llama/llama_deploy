@@ -4,9 +4,9 @@ from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 from llama_index.llms.openai import OpenAI
 
 
-# create a dummy workflow
-class EchoWorkflow(Workflow):
-    """A dummy workflow with only one step sending back the input given."""
+# create a completion workflow
+class CompletionWorkflow(Workflow):
+    """A completion workflow with a single step."""
 
     llm: OpenAI = OpenAI(model="gpt-4.1-nano")
 
@@ -17,7 +17,7 @@ class EchoWorkflow(Workflow):
         return StopEvent(result=response.text)
 
 
-workflow = EchoWorkflow()
+workflow = CompletionWorkflow()
 
 
 async def main() -> None:

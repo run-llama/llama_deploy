@@ -11,7 +11,7 @@ from llama_deploy.apiserver.deployment import Deployment
 from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 
 
-class TestWorkflow(Workflow):
+class SmallWorkflow(Workflow):
     @step()
     async def run_step(self, ev: StartEvent) -> StopEvent:
         return StopEvent(result="Hello, world!")
@@ -21,7 +21,7 @@ class TestWorkflow(Workflow):
 def mock_importlib() -> Iterator[None]:
     with mock.patch("llama_deploy.apiserver.deployment.importlib") as importlib:
         importlib.import_module.return_value = mock.MagicMock(
-            my_workflow=TestWorkflow()
+            my_workflow=SmallWorkflow()
         )
         yield
 

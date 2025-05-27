@@ -32,7 +32,7 @@ export default function Home() {
 
     try {
       const response = await fetch(
-        `http://localhost:4501/deployments/${deploymentName}/tasks/run`,
+        `/deployments/${deploymentName}/tasks/run`,
         {
           method: "POST",
           headers: {

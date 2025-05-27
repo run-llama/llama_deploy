@@ -149,7 +149,7 @@ def init(
     deployment_config = create_deployment_config(name, port, message_queue_type, use_ui)
     deployment_path = project_dir / "deployment.yml"
 
-    # Exclude the control-plane is_running and is_healthy fields
+    # Exclude several fields that would only confuse users
     deployment_dict = deployment_config.model_dump(
         mode="json",
         exclude_none=False,
