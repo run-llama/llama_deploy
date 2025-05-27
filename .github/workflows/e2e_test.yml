@@ -9,6 +9,8 @@ on:
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
+    # E2E tests might get stuck, timeout aggressively for faster feedback
+    timeout-minutes: 10
     strategy:
       # Let the matrix finish to see if the failure was transient
       fail-fast: false
