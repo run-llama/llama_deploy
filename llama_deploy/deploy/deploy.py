@@ -8,8 +8,6 @@ from llama_deploy.control_plane.server import ControlPlaneConfig, ControlPlaneSe
 from llama_deploy.deploy.network_workflow import NetworkServiceManager
 from llama_deploy.message_queues import (
     AbstractMessageQueue,
-    AWSMessageQueue,
-    AWSMessageQueueConfig,
     KafkaMessageQueue,
     KafkaMessageQueueConfig,
     RabbitMQMessageQueue,
@@ -18,8 +16,6 @@ from llama_deploy.message_queues import (
     RedisMessageQueueConfig,
     SimpleMessageQueueConfig,
     SimpleMessageQueueServer,
-    SolaceMessageQueue,
-    SolaceMessageQueueConfig,
 )
 from llama_deploy.message_queues.simple import SimpleMessageQueue
 from llama_deploy.services.workflow import WorkflowService, WorkflowServiceConfig
@@ -31,16 +27,12 @@ def _get_message_queue_config(config_dict: dict) -> BaseSettings:
     key = next(iter(config_dict.keys()))
     if key == SimpleMessageQueueConfig.__name__:
         return SimpleMessageQueueConfig(**config_dict[key])
-    elif key == AWSMessageQueueConfig.__name__:
-        return AWSMessageQueueConfig(**config_dict[key])
     elif key == KafkaMessageQueueConfig.__name__:
         return KafkaMessageQueueConfig(**config_dict[key])
     elif key == RabbitMQMessageQueueConfig.__name__:
         return RabbitMQMessageQueueConfig(**config_dict[key])
     elif key == RedisMessageQueueConfig.__name__:
         return RedisMessageQueueConfig(**config_dict[key])
-    elif key == SolaceMessageQueueConfig.__name__:
-        return SolaceMessageQueueConfig(**config_dict[key])
     else:
         raise ValueError(f"Unknown message queue: {key}")
 
@@ -48,16 +40,12 @@ def _get_message_queue_config(config_dict: dict) -> BaseSettings:
 def _get_message_queue_client(config: BaseSettings) -> AbstractMessageQueue:
     if isinstance(config, SimpleMessageQueueConfig):
         return SimpleMessageQueue(config)
-    elif isinstance(config, AWSMessageQueueConfig):
-        return AWSMessageQueue(config)
     elif isinstance(config, KafkaMessageQueueConfig):
         return KafkaMessageQueue(config)
     elif isinstance(config, RabbitMQMessageQueueConfig):
         return RabbitMQMessageQueue(config)
     elif isinstance(config, RedisMessageQueueConfig):
         return RedisMessageQueue(config)
-    elif isinstance(config, SolaceMessageQueueConfig):
-        return SolaceMessageQueue(config)
     else:
         raise ValueError(f"Invalid message queue config: {config}")
 

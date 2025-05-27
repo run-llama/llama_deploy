@@ -14,22 +14,18 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.message_queues import (
-    AWSMessageQueueConfig,
     KafkaMessageQueueConfig,
     RabbitMQMessageQueueConfig,
     RedisMessageQueueConfig,
     SimpleMessageQueueConfig,
-    SolaceMessageQueueConfig,
 )
 
 MessageQueueConfig = Annotated[
     Union[
-        AWSMessageQueueConfig,
         KafkaMessageQueueConfig,
         RabbitMQMessageQueueConfig,
         RedisMessageQueueConfig,
         SimpleMessageQueueConfig,
-        SolaceMessageQueueConfig,
     ],
     Field(discriminator="type"),
 ]
