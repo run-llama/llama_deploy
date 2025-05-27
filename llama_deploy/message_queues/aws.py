@@ -124,53 +124,46 @@ class AWSMessageQueue(AbstractMessageQueue):
 
         return session.create_client(**client_kwargs)  # type: ignore
 
-    async def get_topic_by_name(self, topic_name: str) -> "Topic":
+    async def get_topic_by_name(self, topic_name: str) -> "Topic | None":
         """Get topic by name."""
-        from botocore.exceptions import ClientError
 
         async with self._get_client("sns") as client:
-            try:
-                # First, check if the topic exists
-                response = await client.list_topics()  # type: ignore
-                print(response)
-                for topic in response.get("Topics", []):
-                    if f"{topic_name}.fifo" in topic["TopicArn"]:
-                        logger.info(f"SNS topic {topic_name} already exists.")
-                        return Topic(arn=topic["TopicArn"], name=topic_name)
+            # First, check if the topic exists
+            response = await client.list_topics()  # type: ignore
+            for topic in response.get("Topics", []):
+                if f"{topic_name}.fifo" in topic["TopicArn"]:
+                    logger.info(f"SNS topic {topic_name} already exists.")
+                    return Topic(arn=topic["TopicArn"], name=topic_name)
 
-                # didn't find topic
-                raise ValueError(f"Could not find topic {topic_name}.")
-            except ClientError:
-                raise
+            # didn't find topic
+            return None
 
-    async def _create_sns_topic(self, topic_name: str) -> "Topic":
+    async def _get_or_create_sns_topic(self, topic_name: str) -> "Topic":
         """Create AWS SNS topic or return existing one."""
-        from botocore.exceptions import ClientError
+        topic_name = topic_name.replace(".", "_")
 
         async with self._get_client("sns") as client:
-            try:
-                # First, check if the topic exists
-                response = await client.list_topics()  # type: ignore
-                for topic in response.get("Topics", []):
-                    if topic_name in topic["TopicArn"]:
-                        logger.info(f"SNS topic {topic_name} already exists.")
-                        return Topic(arn=topic["TopicArn"], name=topic_name)
+            # First, check if the topic exists
+            response = await client.list_topics()  # type: ignore
+            for topic in response.get("Topics", []):
+                if topic_name in topic["TopicArn"]:
+                    logger.info(f"SNS topic {topic_name} already exists.")
+                    return Topic(arn=topic["TopicArn"], name=topic_name)
 
-                # If not found, create the topic
-                response = await client.create_topic(  # type: ignore
-                    Name=f"{topic_name}.fifo", Attributes={"FifoTopic": "true"}
-                )
-            except ClientError:
-                raise
+            # If not found, create the topic
+            response = await client.create_topic(  # type: ignore
+                Name=f"{topic_name}.fifo", Attributes={"FifoTopic": "true"}
+            )
+            topic = Topic(arn=response["TopicArn"], name=topic_name)
+            if topic.arn not in [t.arn for t in self._topics]:
+                self._topics.append(topic)
+            return topic
 
-        topic = Topic(arn=response["TopicArn"], name=topic_name)
-        if topic.arn not in [t.arn for t in self._topics]:
-            self._topics.append(topic)
-        return topic
-
-    async def _create_sqs_queue(self, queue_name: str) -> "Queue":
+    async def _get_or_create_sqs_queue(self, queue_name: str) -> "Queue":
         """Create AWS SQS Fifo queue or return existing one."""
         from botocore.exceptions import ClientError
+
+        queue_name = queue_name.replace(".", "_")
 
         async with self._get_client("sqs") as client:
             try:
@@ -251,8 +244,8 @@ class AWSMessageQueue(AbstractMessageQueue):
         """Publish message to the SQS queue."""
         from botocore.exceptions import ClientError
 
+        _topic = await self._get_or_create_sns_topic(topic_name=topic)
         message_body = json.dumps(message.model_dump())
-        _topic = await self.get_topic_by_name(topic)
 
         try:
             async with self._get_client("sns") as client:
@@ -298,8 +291,8 @@ class AWSMessageQueue(AbstractMessageQueue):
     async def get_message(self, topic: str) -> AsyncIterator[QueueMessage]:
         from botocore.exceptions import ClientError
 
-        _topic = await self._create_sns_topic(topic_name=topic)
-        queue = await self._create_sqs_queue(queue_name=topic)
+        _topic = await self._get_or_create_sns_topic(topic_name=topic)
+        queue = await self._get_or_create_sqs_queue(queue_name=topic)
         await self._subscribe_queue_to_topic(queue=queue, topic=_topic)
 
         while True:
