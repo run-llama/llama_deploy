@@ -35,16 +35,15 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Run All E2E Tests
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          TOPIC_PREFIX: ${{ matrix.python-version }}
         run: uv run -- pytest e2e_tests/${{ matrix.test-package }} -s
 
   e2e-message-queues:
     runs-on: ubuntu-latest
     # E2E tests might get stuck, timeout aggressively for faster feedback
     timeout-minutes: 10
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     strategy:
       # Let the matrix finish to see if the failure was transient
       fail-fast: false
@@ -56,8 +55,5 @@ jobs:
       - name: Install uv and set the python version
         uses: astral-sh/setup-uv@v5
 
-      - name: Run All E2E Tests
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      - name: Run E2E Tests for message queues
         run: uv run -- pytest e2e_tests/message_queues/${{ matrix.test-package }} -s
