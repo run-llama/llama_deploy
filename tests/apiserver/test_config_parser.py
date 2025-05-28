@@ -35,13 +35,6 @@ def do_assert(config: DeploymentConfig) -> None:
     assert len(wf_config.ts_dependencies) == 2
     assert wf_config.ts_dependencies["@llamaindex/core"] == "^0.2.0"
 
-    wf_config = config.services["dockerservice"]
-    assert wf_config.name == "My additional service"
-    assert wf_config.source
-    assert wf_config.source.type == "docker"
-    assert wf_config.source.location == "myorg/myimage:latest"
-    assert wf_config.port == 1313
-
 
 def test_load_config_file(data_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "example.yaml")

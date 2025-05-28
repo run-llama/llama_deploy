@@ -1,40 +1,37 @@
-import click
 import shutil
 import subprocess
 import tempfile
-import yaml
 from pathlib import Path
-from pydantic import BaseModel
 from typing import Any, Dict, Optional, Type
+
+import click
+import yaml
+from pydantic import BaseModel
 
 # Import pydantic models
 from llama_deploy.apiserver.deployment_config_parser import (
     DeploymentConfig,
     MessageQueueConfig,
-    ServiceSource,
     Service,
-    UIService,
+    ServiceSource,
     SourceType,
+    UIService,
 )
 from llama_deploy.control_plane.server import ControlPlaneConfig
 from llama_deploy.message_queues import (
-    AWSMessageQueueConfig,
     KafkaMessageQueueConfig,
     RabbitMQMessageQueueConfig,
     RedisMessageQueueConfig,
     SimpleMessageQueueConfig,
-    SolaceMessageQueueConfig,
 )
 
 SUPPORTED_MESSAGE_QUEUES: Dict[str, Type[MessageQueueConfig]] = {
     x.model_json_schema()["properties"]["type"]["default"]: x  # type: ignore
     for x in [
-        AWSMessageQueueConfig,
         KafkaMessageQueueConfig,
         RabbitMQMessageQueueConfig,
         RedisMessageQueueConfig,
         SimpleMessageQueueConfig,
-        SolaceMessageQueueConfig,
     ]
     if hasattr(x, "model_json_schema")
 }
@@ -61,7 +58,7 @@ SUPPORTED_MESSAGE_QUEUES: Dict[str, Type[MessageQueueConfig]] = {
 )
 @click.option(
     "--message-queue-type",
-    type=click.Choice(["simple", "redis", "rabbitmq", "kafka", "aws", "solace"]),
+    type=click.Choice(["simple", "redis", "rabbitmq", "kafka"]),
     default=None,
     help="Type of message queue to use",
 )

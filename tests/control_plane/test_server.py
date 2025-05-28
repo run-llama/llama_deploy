@@ -122,7 +122,7 @@ def test_add_task_to_session_session_id_mismatch(
 
 
 @pytest.mark.asyncio
-async def test_launch_server() -> None:
+async def test_launch_server(monkeypatch: Any) -> None:
     """Test the launch_server method with proper mocking."""
     # Create mocks
     mock_message_queue = mock.AsyncMock()
@@ -132,6 +132,8 @@ async def test_launch_server() -> None:
         host="localhost", port=8000, internal_host="127.0.0.1", internal_port=8001
     )
     server = ControlPlaneServer(message_queue=mock_message_queue, config=config)
+    # mock with MagicMock, not AsyncMock, otherwise mock will never be awaited
+    monkeypatch.setattr(server, "_process_messages", mock.MagicMock())
 
     # Mock uvicorn and asyncio components
     with (

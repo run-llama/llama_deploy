@@ -7,17 +7,17 @@ services:
     name: No Port
     source:
       type: local
-      name: workflow
+      location: workflow
 
   has-port:
     name: Has Port
     port: 9999
     source:
       type: local
-      name: workflow
+      location: workflow
 
   no-port-again:
     name: Again no Port
     source:
       type: local
-      name: workflow
+      location: workflow

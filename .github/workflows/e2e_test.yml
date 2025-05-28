@@ -41,14 +41,11 @@ jobs:
     runs-on: ubuntu-latest
     # E2E tests might get stuck, timeout aggressively for faster feedback
     timeout-minutes: 10
-    env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
     strategy:
       # Let the matrix finish to see if the failure was transient
       fail-fast: false
       matrix:
-        test-package: ["aws", "kafka", "rabbitmq", "redis", "simple"]
+        test-package: ["kafka", "rabbitmq", "redis", "simple"]
     steps:
       - uses: actions/checkout@v3
 
