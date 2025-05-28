@@ -43,9 +43,9 @@ class ControlPlaneServer:
 
     Args:
         message_queue (AbstractMessageQueue): Message queue for the system.
-        orchestrator (BaseOrchestrator): Orchestrator for the system.
         publish_callback (Optional[PublishCallback], optional): Callback for publishing messages. Defaults to None.
         state_store (Optional[BaseKVStore], optional): State store for the system. Defaults to None.
+        config (ControlPlaneConfig, optional): Configuration for the control plane. Defaults to None.
 
     Examples:
         ```python

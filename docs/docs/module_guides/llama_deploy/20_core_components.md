@@ -9,8 +9,7 @@ will help you navigate the rest of the documentation.
 In LlamaDeploy each workflow is wrapped in a [_Service_](#service) object, endlessly processing incoming requests in
 form of [_Task_](#task) objects. Each service pulls and publishes messages to and from a [_Message Queue_](#message-queue).
 An internal component called [_Control Plane_](#control-plane) handles ongoing tasks, manages the internal state, keeps
-track of which services are available, and decides which service should handle the next step of a task using another
-internal component called [_Orchestrator_](#orchestrator).
+track of which services are available, and decides which service to forward a [_Task_](#task) to.
 
 A well defined set of these components is called _Deployment_.
 
@@ -39,7 +38,7 @@ For more details, see the API reference for the deployment [`Config`](../../api_
 
 The API Server is a core component of LlamaDeploy responsible for serving and managing multiple deployments at the same time,
 and it exposes a HTTP API that can be used for administrative purposes as well as for querying the deployed services.
-You can interact with the administrative API through [`llamactl`](./50_llamactl.md) or the [Python SDK](./40_python_sdk.md).
+You can interact with the administrative API through [`llamactl`](./40_llamactl.md) or the [Python SDK](./30_python_sdk.md).
 
 For more details see [the Python API reference](../../api_reference/llama_deploy/apiserver.md), while the administrative
 API is documented below.
@@ -100,6 +99,9 @@ pip install llama-agents[rabbitmq]
 
 # using poetry
 poetry add llama-agents -E "rabbitmq"
+
+# using uv
+uv add llama-agents -extra "rabbitmq"
 ```
 
 Using the `RabbitMQMessageQueue` is then done as follows:
@@ -137,16 +139,6 @@ and only the first coming will be able to read it.
 to pick the recipient
 - `KafkaMessageQueue`: same as RabbitMQ because the `group_id` of the consumer
 is hardcoded
-- `AWSMessageQueue`: technically similar to Redis, but the consumer removes the
-message from the queue so it's actually non-deterministic.
-
-
-## Orchestrator
-
-The general idea for an orchestrator is to manage the flow of messages between services.
-
-Given some state, and task, figure out the next messages to publish. Then, once
-the messages are processed, update the state with the results.
 
 ## Task
 

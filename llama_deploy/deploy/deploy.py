@@ -65,8 +65,6 @@ async def deploy_core(
     Args:
         control_plane_config (Optional[ControlPlaneConfig]): Configuration for the control plane.
         message_queue_config (Optional[BaseSettings]): Configuration for the message queue. Defaults to a local SimpleMessageQueue.
-        orchestrator_config (Optional[SimpleOrchestratorConfig]): Configuration for the orchestrator.
-            If not provided, a default SimpleOrchestratorConfig will be used.
         disable_message_queue (bool): Whether to disable deploying the message queue. Defaults to False.
         disable_control_plane (bool): Whether to disable deploying the control plane. Defaults to False.
 
