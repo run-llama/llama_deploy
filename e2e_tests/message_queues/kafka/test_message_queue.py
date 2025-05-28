@@ -18,6 +18,9 @@ async def test_roundtrip(mq):
         assert m == test_message
         break
 
+    # Give time for shutting down kafka consumer
+    await asyncio.sleep(1)
+
 
 @pytest.mark.asyncio
 async def test_multiple_control_planes(control_planes):
