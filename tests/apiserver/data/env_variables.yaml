@@ -18,3 +18,6 @@ services:
       VAR_2: y
     env-files:
       - .env
+    source:
+      type: local
+      location: workflow

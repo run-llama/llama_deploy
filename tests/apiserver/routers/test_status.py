@@ -4,6 +4,8 @@ from unittest import mock
 import httpx
 from fastapi.testclient import TestClient
 
+from llama_deploy.apiserver import settings
+
 
 def test_read_main(http_client: TestClient) -> None:
     response = http_client.get("/status")
@@ -17,7 +19,7 @@ def test_read_main(http_client: TestClient) -> None:
 
 
 def test_prom_proxy_off(http_client: TestClient, monkeypatch: Any) -> None:
-    monkeypatch.setenv("LLAMA_DEPLOY_APISERVER_PROMETHEUS_ENABLED", "false")
+    monkeypatch.setattr(settings, "prometheus_enabled", False)
     response = http_client.get("/status/metrics/")
     assert response.status_code == 204
     assert response.text == ""

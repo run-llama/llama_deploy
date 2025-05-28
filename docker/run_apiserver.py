@@ -1,11 +1,9 @@
 import uvicorn
 from prometheus_client import start_http_server
 
-from llama_deploy.apiserver import ApiserverSettings
+from llama_deploy.apiserver import settings
 
 if __name__ == "__main__":
-    settings = ApiserverSettings()
-
     if settings.prometheus_enabled:
         start_http_server(settings.prometheus_port)
 

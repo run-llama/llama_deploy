@@ -48,7 +48,7 @@ def test_create_deployment(http_client: TestClient, data_path: Path) -> None:
             )
 
         assert response.status_code == 200
-        mocked_manager.deploy.assert_awaited_with(actual_config, False)
+        mocked_manager.deploy.assert_awaited_with(actual_config, ".", False, False)
 
 
 def test_create_deployment_task_not_found(

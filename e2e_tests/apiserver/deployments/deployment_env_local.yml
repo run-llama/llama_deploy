@@ -10,10 +10,10 @@ services:
     name: Workflow
     source:
       type: local
-      name: ./e2e_tests/apiserver/deployments/src
+      name: src
     env:
-      VAR_1: x  # this gets overwritten because VAR_1 also exists in the provided .env
+      VAR_1: x # this gets overwritten because VAR_1 also exists in the provided .env
       VAR_2: y
     env-files:
-      - .env  # relative to source path
-    path: workflow_env:workflow
+      - src/.env # relative to source path
+    path: src/workflow_env:workflow

@@ -75,3 +75,6 @@ Current balance: 3.0
 $ lamactl run --deployment RedisMessageQueue --arg amount 3 -i <YOUR_SESSION_ID>
 Current balance: 3.5
 ```
+
+_Note_: If you have multiple replicas of the workflow and control plane and only want one replica to process messages,
+set `REDIS_EXCLUSIVE_MODE` to true.

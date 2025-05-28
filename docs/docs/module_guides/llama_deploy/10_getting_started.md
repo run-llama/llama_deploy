@@ -1,114 +1,118 @@
-# Getting Started
+# Getting Started with LlamaDeploy
 
-Let's start with deploying a simple workflow on a local instance of LlamaDeploy. After installing LlamaDeploy, create
-a `src` folder and a `workflow.py` file to it containing the following Python code:
+This quick-start tutorial shows how to spin up a **fully-working LlamaDeploy service** in just a few commands using the `llamactl init` wizard.
 
-```python
-import asyncio
-from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
+---
 
+## 1. Installation
 
-class EchoWorkflow(Workflow):
-    """A dummy workflow with only one step sending back the input given."""
-
-    @step()
-    async def run_step(self, ev: StartEvent) -> StopEvent:
-        message = str(ev.get("message", ""))
-        return StopEvent(result=f"Message received: {message}")
-
-
-# `echo_workflow` will be imported by LlamaDeploy
-echo_workflow = EchoWorkflow()
-
-
-async def main():
-    print(await echo_workflow.run(message="Hello!"))
-
-
-# Make this script runnable from the shell so we can test the workflow execution
-if __name__ == "__main__":
-    asyncio.run(main())
+```bash
+pip install -U llama-deploy
 ```
 
-Test the workflow runs locally:
+> The command installs both the Python libraries **and** the `llamactl` CLI you will use throughout the guide.
 
-```
-$ python src/workflow.py
-Message received: Hello!
-```
+---
 
-Time to deploy that workflow! Create a file called `deployment.yml` containing the following YAML code:
+## 2. Bootstrap a project with `llamactl init`
 
-```yaml
-name: QuickStart
+Run the interactive wizard:
 
-control-plane:
-  port: 8000
+```bash
+$ llamactl init
+Project name [llama-deploy-app]: hello-deploy
+Destination directory [.]:
+Control plane port [8000]:
+Select message queue type
+  simple redis rabbitmq kafka [simple]:
+Workflow template:
+  basic - Basic workflow with OpenAI integration (recommended)
+  none  - Do not create any sample workflow code
+Select workflow template [basic]:
+Would you like to bundle a sample next.js UI with your deployment? [Y/n]: y
+Cloning template files from repository...
+Template files copied successfully to hello-deploy
 
-default-service: echo_workflow
-
-services:
-  echo_workflow:
-    name: Echo Workflow
-    # We tell LlamaDeploy where to look for our workflow
-    source:
-      # In this case, we instruct LlamaDeploy to look in the local filesystem
-      type: local
-      # The path in the local filesystem where to look. This assumes there's an src folder in the
-      # current working directory containing the file workflow.py we created previously
-      name: ./src
-    # This assumes the file workflow.py contains a variable called `echo_workflow` containing our workflow instance
-    path: workflow:echo_workflow
-```
-
-The YAML code above defines the deployment that LlamaDeploy will create and run as a service. As you can
-see, this deployment has a name, some configuration for the control plane and one service to wrap our workflow. The
-service will look for a Python variable named `echo_workflow` in a Python module named `workflow` and run the workflow.
-
-At this point we have all we need to run this deployment. Ideally, we would have the API server already running
-somewhere in the cloud, but to get started let's start an instance locally. Run the following python script from a shell:
-
-```
-$ python -m llama_deploy.apiserver
-INFO:     Started server process [10842]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:4501 (Press CTRL+C to quit)
+Project hello-deploy created successfully!
+Next steps:
+  1. cd hello-deploy
+  2. Edit deployment.yml to add your OpenAI API key
+  3. Start the API server: python -m llama_deploy.apiserver
+  4. In another terminal deploy your workflow: llamactl deploy deployment.yml
+  5. Test: llamactl run --deployment hello-deploy --arg message 'Hello!'
 ```
 
-From another shell, use `llamactl` to create the deployment:
+Prefer a **non-interactive** run? Provide options up-front:
 
-```
-$ llamactl deploy deployment.yml
-Deployment successful: QuickStart
-```
-
-Our workflow is now part of the `QuickStart` deployment and ready to serve requests! We can use `llamactl` to interact
-with this deployment:
-
-```
-$ llamactl run --deployment QuickStart --arg message 'Hello from my shell!'
-Message received: Hello from my shell!
+```bash
+llamactl init \
+  --name hello-deploy \
+  --destination . \
+  --port 8000 \
+  --message-queue-type simple \
+  --template basic
 ```
 
-### Run the API server with Docker
+---
 
-LlamaDeploy comes with Docker images that can be used to run the API server without effort. In the previous example,
-if you have Docker installed, you can replace running the API server locally with `python -m llama_deploy.apiserver`
-with:
+## 3. Explore the generated project
 
 ```
-$ docker run -p 4501:4501 -v .:/opt/quickstart -w /opt/quickstart llamaindex/llama-deploy:main
-INFO:     Started server process [1]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:4501 (Press CTRL+C to quit)
+hello-deploy/
+├── deployment.yml         # Declarative config for your deployment
+├── src/
+│   └── workflow.py        # Sample CompletionWorkflow (OpenAI-powered)
+└── ui/                    # (optional) Next.js UI scaffold
 ```
 
-The API server will be available at `http://localhost:4501` on your host, so `llamactl` will work the same as if you
-run `python -m llama_deploy.apiserver`.
+### Key files
 
-> [!NOTE]
-> The `llamaindex/llama-deploy:main` Docker image is continuously built from the latest commit in the `main`
-> branch of the git repository. While this ensures you get the most recent version of the project, the
-> image might contain unreleased features that are not fully stable, use with caution!
+* **deployment.yml** – everything is **commented** for easy editing. Update:
+  * `env.OPENAI_API_KEY` – set your key or reference a `.env` file.
+  * `services` – add/remove workflows, tweak python deps, etc.
+* **src/workflow.py** – a minimal `Workflow` using a single `@step`.
+* **ui/** – a ready-made React front-end that calls your deployment.
+
+---
+
+## 4. Run the project locally
+
+1. Start the API server (default port 4501):
+
+   ```bash
+   cd hello-deploy
+   python -m llama_deploy.apiserver
+   ```
+
+   or with Docker:
+
+   ```bash
+   docker run -p 4501:4501 -v "$PWD":/opt/app -w /opt/app llamaindex/llama-deploy:main
+   ```
+
+2. From another terminal **deploy** the workflow:
+
+   ```bash
+   llamactl deploy deployment.yml
+   ```
+
+3. **Call** the workflow:
+
+   ```bash
+   llamactl run --deployment hello-deploy --arg message "Hello from Llama!"
+   # ➜ Message received: Hello from Llama!
+   ```
+
+4. (Optional) open the UI at <http://localhost:4501/ui/hello-deploy/>.
+
+---
+
+## 5. Next steps & customization ideas
+
+| What you want to do | Where to look |
+|--------------------|---------------|
+| Change the LLM, add tools or multiple steps | `src/workflow.py` – build with any [LlamaIndex Workflow](https://docs.llamaindex.ai/en/stable/understanding/workflows/). |
+| Add more workflows/services | Duplicate the `example_workflow` block in `deployment.yml` and point to your new workflow. |
+| Set secrets & environment variables | Use `env`/`env_files` inside each service. |
+| Switch message queue (e.g., Redis, Kafka) | Re-run `llamactl init` with a different `--message-queue-type` **or** edit the `message_queue` section manually. |
+| Deploy to production | Containerize your deployment (for example, see the [Google Cloud Run Example](https://github.com/run-llama/llama_deploy/tree/main/examples/google_cloud_run)), then run and scale the deployment anywhere you can run Docker/K8s. |

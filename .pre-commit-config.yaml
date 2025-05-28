@@ -4,7 +4,7 @@ default_language_version:
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+    rev: v5.0.0
     hooks:
       - id: check-byte-order-marker
       - id: check-merge-conflict
@@ -23,11 +23,10 @@ repos:
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
-        exclude: ".*poetry.lock"
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
+    rev: v1.15.0
     hooks:
       - id: mypy
         additional_dependencies:
@@ -42,6 +41,7 @@ repos:
             "types-redis",
             "types-requests",
             "types-setuptools",
+            "types-click",
           ]
         args:
           [
@@ -72,4 +72,3 @@ repos:
     rev: v0.23.1
     hooks:
       - id: toml-sort-fix
-        exclude: ".*poetry.lock"

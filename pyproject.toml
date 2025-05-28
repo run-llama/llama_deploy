@@ -1,87 +1,75 @@
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+  "pytest>=8.2.2,<9",
+  "pytest-asyncio>=0.23.7,<0.24",
+  "pytest-mock>=3.14.0,<4",
+  "exceptiongroup>=1.2.0,<2",
+  "ruff>=0.4.7,<0.5",
+  "mypy>=1.10.0,<2",
+  "aio-pika>=9.4.2,<10",
+  "redis>=5.0.7,<6",
+  "pytest-cov>=5.0.0,<6",
+  "coverage>=7.6.0,<8",
+  "aiokafka>=0.11.0,<0.12",
+  "kafka-python-ng>=2.2.2,<3",
+  "pre-commit>=4.2.0"
+]
+
+[project]
+name = "llama-deploy"
+version = "0.8.0"
+description = ""
+authors = [
+  {name = "Logan Markewich", email = "logan.markewich@live.com"},
+  {name = "Andrei Fajardo", email = "andrei@runllama.ai"}
+]
+requires-python = ">=3.10,<4.0"
+readme = "README.md"
+maintainers = [
+  {name = "Logan Markewich", email = "logan@llamaindex.ai"},
+  {name = "Andrei Fajardo", email = "andrei@runllama.ai"},
+  {name = "Jerry Liu", email = "jerry@llamaindex.ai"}
+]
+dependencies = [
+  "fastapi>=0.109.1",
+  "llama-index-core>=0.11.17,<0.13.0",
+  "pydantic!=2.10",
+  "pydantic-settings>=2.0,<3.0",
+  "PyYAML>6",
+  "uvicorn[standard]>=0.12.0",
+  "gitpython>=3.1.43,<4",
+  "python-multipart>=0.0.18,<0.0.19",
+  "typing_extensions>=4.0.0,<5",
+  "asgiref>=3.8.1,<4",
+  "python-dotenv>=1.0.1,<2",
+  "prometheus-client>=0.21.1,<0.22",
+  "platformdirs>=4.3.6,<5",
+  "rich>=13.9.4,<14",
+  "brotli>=1.1.0"
+]
+
+[project.optional-dependencies]
+kafka = [
+  "aiokafka>=0.11.0,<0.12",
+  "kafka-python-ng>=2.2.2,<3"
+]
+rabbitmq = ["aio-pika>=9.4.2,<10"]
+redis = ["redis>=5.0.7,<6"]
+
+[project.scripts]
+llamactl = "llama_deploy.cli.__main__:main"
 
 [tool.codespell]
 ignore-words-list = "LITS"
-skip = "poetry.lock,./examples,*/algolia.js,docs/poetry.lock"
+skip = "./examples,*/algolia.js,docs/poetry.lock"
 
 [tool.coverage.run]
 omit = [
   "__main__.py",
   "tests/*",
-  # deprecated modules
-  "llama_deploy/client/async_client.py",
-  "llama_deploy/client/sync_client.py",
-  # observability definitions
   "llama_deploy/apiserver/stats.py"
 ]
-
-[tool.poetry]
-name = "llama-deploy"
-version = "0.7.1"
-description = ""
-authors = [
-  "Logan Markewich <logan.markewich@live.com>",
-  "Andrei Fajardo <andrei@runllama.ai>"
-]
-maintainers = [
-  "Logan Markewich <logan@llamaindex.ai>",
-  "Andrei Fajardo <andrei@runllama.ai>",
-  "Jerry Liu <jerry@llamaindex.ai>"
-]
-readme = "README.md"
-
-[tool.poetry.dependencies]
-python = ">=3.10,<4.0"
-fastapi = ">=0.109.1"
-llama-index-core = ">=0.11.17,<0.13.0"
-pydantic = "!=2.10"
-pydantic-settings = ">=2.0,<3.0"
-PyYAML = ">6"
-uvicorn = ">=0.12.0"
-aiobotocore = {version = "^2.14.0", optional = true}
-aiokafka = {version = "^0.11.0", optional = true}
-aio-pika = {version = "^9.4.2", optional = true}
-kafka-python-ng = {version = "^2.2.2", optional = true}
-redis = {version = "^5.0.7", optional = true}
-solace-pubsubplus = {version = "^1.8.0", optional = true}
-types-aiobotocore = {version = "^2.14.0", optional = true, extras = [
-  "sqs",
-  "sns"
-]}
-gitpython = "^3.1.43"
-python-multipart = "^0.0.18"
-typing_extensions = "^4.0.0"
-asgiref = "^3.8.1"
-python-dotenv = "^1.0.1"
-prometheus-client = "^0.21.1"
-platformdirs = "^4.3.6"
-rich = "^13.9.4"
-
-[tool.poetry.extras]
-kafka = ["aiokafka", "kafka-python-ng"]
-rabbitmq = ["aio-pika"]
-redis = ["redis"]
-awssqs = ["aiobotocore", "types-aiobotocore"]
-solace = ["solace-pubsubplus"]
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.2.2"
-pytest-asyncio = "^0.23.7"
-pytest-mock = "^3.14.0"
-exceptiongroup = "^1.2.0"
-ruff = "^0.4.7"
-mypy = "^1.10.0"
-aio-pika = "^9.4.2"
-redis = "^5.0.7"
-solace-pubsubplus = "^1.8.0"
-pytest-cov = "^5.0.0"
-coverage = "^7.6.0"
-aiokafka = "^0.11.0"
-kafka-python-ng = "^2.2.2"
-aiobotocore = "^2.14.0"
-types-aiobotocore = {version = "^2.14.0", extras = ["sqs", "sns"]}
-
-[tool.poetry.scripts]
-llamactl = "llama_deploy.cli.__main__:main"

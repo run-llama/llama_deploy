@@ -19,9 +19,9 @@ class ApiserverSettings(BaseSettings):
         default=Path("./.llama_deploy_rc"),
         description="Path to the folder containing the deployment configs that will be loaded at startup",
     )
-    deployments_path: Path = Field(
-        default=Path("./deployments"),
-        description="Path to the folder where deployments will create their root path",
+    deployments_path: Path | None = Field(
+        default=None,
+        description="Path to the folder where deployments will create their root path, defaults to a temp dir",
     )
     use_tls: bool = Field(
         default=False,
@@ -42,3 +42,6 @@ class ApiserverSettings(BaseSettings):
         if self.port == 80:
             return f"{protocol}{self.host}"
         return f"{protocol}{self.host}:{self.port}"
+
+
+settings = ApiserverSettings()

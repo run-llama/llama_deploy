@@ -16,3 +16,6 @@ services:
     python-dependencies:
       - "llama-index-core<1"
       - "llama-index-llms-openai"
+    source:
+      type: local
+      location: test

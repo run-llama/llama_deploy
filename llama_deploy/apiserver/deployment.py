@@ -4,10 +4,10 @@ import logging
 import os
 import subprocess
 import sys
+import tempfile
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from shutil import rmtree
-from typing import Any, Type
+from typing import Type
 
 import httpx
 from dotenv import dotenv_values
@@ -17,20 +17,17 @@ from llama_deploy import (
     Client,
     ControlPlaneServer,
     SimpleMessageQueueServer,
-    SimpleOrchestrator,
-    SimpleOrchestratorConfig,
     WorkflowService,
     WorkflowServiceConfig,
 )
+from llama_deploy.apiserver.source_managers.base import SyncPolicy
 from llama_deploy.message_queues import (
     AbstractMessageQueue,
-    AWSMessageQueue,
     KafkaMessageQueue,
     RabbitMQMessageQueue,
     RedisMessageQueue,
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
-    SolaceMessageQueue,
 )
 
 from .deployment_config_parser import (
@@ -59,21 +56,32 @@ class Deployment:
     and the message queue along with any service defined in the configuration object.
     """
 
-    def __init__(self, *, config: DeploymentConfig, root_path: Path) -> None:
+    def __init__(
+        self,
+        *,
+        config: DeploymentConfig,
+        base_path: Path,
+        deployment_path: Path,
+        local: bool = False,
+    ) -> None:
         """Creates a Deployment instance.
 
         Args:
             config: The configuration object defining this deployment
             root_path: The path on the filesystem used to store deployment data
+            local: Whether the deployment is local. If true, sources won't be synced
         """
+        self._local = local
         self._name = config.name
-        self._path = root_path / config.name
+        self._base_path = base_path
+        # If not local, isolate the deployment in a folder with the same name to avoid conflicts
+        self._deployment_path = (
+            deployment_path if local else deployment_path / config.name
+        )
         self._queue_client = self._load_message_queue_client(config.message_queue)
         self._control_plane_config = config.control_plane
         self._control_plane = ControlPlaneServer(
-            self._queue_client,
-            SimpleOrchestrator(**SimpleOrchestratorConfig().model_dump()),
-            config=config.control_plane,
+            self._queue_client, config=config.control_plane
         )
         self._client = Client(control_plane_url=config.control_plane.url)
         self._default_service: str | None = None
@@ -84,6 +92,7 @@ class Deployment:
         self._workflow_services: dict[str, WorkflowService] = self._load_services(
             config
         )
+        self._config = config
         deployment_state.labels(self._name).state("ready")
 
     @property
@@ -99,11 +108,6 @@ class Deployment:
     def name(self) -> str:
         """Returns the name of this deployment."""
         return self._name
-
-    @property
-    def path(self) -> Path:
-        """Returns the absolute path to the root of this deployment."""
-        return self._path.resolve()
 
     @property
     def service_names(self) -> list[str]:
@@ -126,6 +130,10 @@ class Deployment:
         deployment_state.labels(self._name).state("starting_services")
         if self._workflow_services:
             tasks.append(asyncio.create_task(self._run_services()))
+
+        # UI
+        if self._config.ui:
+            await self._start_ui_server()
 
         # Run allthethings
         deployment_state.labels(self._name).state("running")
@@ -153,9 +161,7 @@ class Deployment:
 
     async def _start_control_plane(self) -> list[asyncio.Task]:
         tasks = []
-        cp_consumer_fn = await self._control_plane.register_to_message_queue()
         tasks.append(asyncio.create_task(self._control_plane.launch_server()))
-        tasks.append(asyncio.create_task(cp_consumer_fn()))
         # Wait for the Control Plane to boot
         try:
             async for attempt in AsyncRetrying(
@@ -181,31 +187,49 @@ class Deployment:
         while self._running:
             self._service_tasks = []
             # If this is a reload, self._workflow_services contains the updated configurations
-            for wfs in self._workflow_services.values():
+            for name, wfs in self._workflow_services.items():
+                logger.debug(f"Starting service {name}")
                 service_task = asyncio.create_task(wfs.launch_server())
                 self._service_tasks.append(service_task)
-                consumer_fn = await wfs.register_to_message_queue()
                 await wfs.register_to_control_plane(self._control_plane_config.url)
-                consumer_task = asyncio.create_task(consumer_fn())
-                # Make sure the service is up and running before proceeding
-                url = wfs.config.url
-                try:
-                    async for attempt in AsyncRetrying(
-                        wait=wait_exponential(min=1, max=10),
-                    ):
-                        with attempt:
-                            async with httpx.AsyncClient() as client:
-                                response = await client.get(url)
-                                response.raise_for_status()
-                except RetryError:
-                    msg = f"Unable to reach WorkflowService at {url}"
-                    raise DeploymentError(msg)
-
-                self._service_tasks.append(consumer_task)
 
             # If this is a reload, unblock the reload() function signalling that tasks are up and running
             self._service_startup_complete.set()
             await asyncio.gather(*self._service_tasks)
+
+    async def _start_ui_server(self) -> None:
+        """Creates WorkflowService instances according to the configuration object."""
+        if not self._config.ui:
+            raise ValueError("missing ui configuration settings")
+
+        source = self._config.ui.source
+        if source is None:
+            raise ValueError("source must be defined")
+
+        # Sync the service source
+        destination = self._deployment_path.resolve()
+        source_manager = SOURCE_MANAGERS[source.type](self._config, self._base_path)
+        policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
+        source_manager.sync(source.location, str(destination), policy)
+
+        install = await asyncio.create_subprocess_exec(
+            "pnpm", "install", cwd=destination / "ui"
+        )
+        await install.wait()
+
+        env = os.environ.copy()
+        env["LLAMA_DEPLOY_NEXTJS_ASSET_PREFIX"] = f"/ui/{self._config.name}/"
+        env["LLAMA_DEPLOY_NEXTJS_DEPLOYMENT_NAME"] = self._config.name
+
+        process = await asyncio.create_subprocess_exec(
+            "pnpm",
+            "run",
+            "dev",
+            cwd=destination / "ui",
+            env=env,
+        )
+
+        print(f"Started Next.js app with PID {process.pid}")
 
     def _load_services(self, config: DeploymentConfig) -> dict[str, WorkflowService]:
         """Creates WorkflowService instances according to the configuration object."""
@@ -221,7 +245,7 @@ class Deployment:
                 continue
 
             # FIXME: Momentarily assuming everything is a workflow
-            if service_config.path is None:
+            if service_config.import_path is None:
                 msg = "path field in service definition must be set"
                 raise ValueError(msg)
 
@@ -236,20 +260,11 @@ class Deployment:
                 raise ValueError(msg)
 
             # Sync the service source
-            destination = (self._path / service_id).resolve()
-
-            if destination.exists():
-                # FIXME: this could be managed at the source manager level, so that
-                # each implementation can decide what to do with existing data. For
-                # example, the git source manager might decide to perform a git pull
-                # instead of a brand new git clone. Leaving these optimnizations for
-                # later, for the time being having an empty data folder works smoothly
-                # for any source manager currently supported.
-                rmtree(str(destination))
-
             service_state.labels(self._name, service_id).state("syncing")
-            source_manager = SOURCE_MANAGERS[source.type](config)
-            source_manager.sync(source.name, str(destination))
+            destination = self._deployment_path.resolve()
+            source_manager = SOURCE_MANAGERS[source.type](config, self._base_path)
+            policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
+            source_manager.sync(source.location, str(destination), policy)
 
             # Install dependencies
             service_state.labels(self._name, service_id).state("installing")
@@ -259,9 +274,12 @@ class Deployment:
             self._set_environment_variables(service_config, destination)
 
             # Search for a workflow instance in the service path
-            pythonpath = (destination / service_config.path).parent.resolve()
+            module_path_str, workflow_name = service_config.import_path.split(":")
+            module_path = Path(module_path_str)
+            module_name = module_path.name
+            pythonpath = (destination / module_path.parent).resolve()
+            logger.debug("Extending PYTHONPATH to %s", pythonpath)
             sys.path.append(str(pythonpath))
-            module_name, workflow_name = Path(service_config.path).name.split(":")
             module = importlib.import_module(module_name)
 
             workflow = getattr(module, workflow_name)
@@ -335,9 +353,7 @@ class Deployment:
             # we use model_validate instead of __init__ to avoid static checkers complaining over field aliases
             cfg = SimpleMessageQueueConfig()
 
-        if cfg.type == "aws":
-            return AWSMessageQueue(cfg)
-        elif cfg.type == "kafka":
+        if cfg.type == "kafka":
             return KafkaMessageQueue(cfg)
         elif cfg.type == "rabbitmq":
             return RabbitMQMessageQueue(cfg)
@@ -345,8 +361,6 @@ class Deployment:
             return RedisMessageQueue(cfg)
         elif cfg.type == "simple":
             return SimpleMessageQueue(cfg)
-        elif cfg.type == "solace":
-            return SolaceMessageQueue(cfg)  # pragma: no cover
         else:
             msg = f"Unsupported message queue: {cfg.type}"
             raise ValueError(msg)
@@ -366,32 +380,46 @@ class Manager:
         ```
     """
 
-    def __init__(
-        self, deployments_path: Path = Path(".deployments"), max_deployments: int = 10
-    ) -> None:
+    def __init__(self, max_deployments: int = 10) -> None:
         """Creates a Manager instance.
 
         Args:
-            deployments_path: The filesystem path where deployments will create their root path.
             max_deployments: The maximum number of deployments supported by this manager.
         """
-        self._deployments: dict[str, Any] = {}
-        self._deployments_path = deployments_path
+        self._deployments: dict[str, Deployment] = {}
+        self._deployments_path: Path | None = None
         self._max_deployments = max_deployments
         self._pool = ThreadPool(processes=max_deployments)
         self._last_control_plane_port = 8002
         self._simple_message_queue_server: asyncio.Task | None = None
+        self._serving = False
 
     @property
     def deployment_names(self) -> list[str]:
         """Return a list of names for the active deployments."""
         return list(self._deployments.keys())
 
+    @property
+    def deployments_path(self) -> Path:
+        if self._deployments_path is None:
+            raise ValueError("Deployments path not set")
+        return self._deployments_path
+
+    def set_deployments_path(self, path: Path | None) -> None:
+        self._deployments_path = (
+            path or Path(tempfile.gettempdir()) / "llama_deploy" / "deployments"
+        )
+
     def get_deployment(self, deployment_name: str) -> Deployment | None:
         return self._deployments.get(deployment_name)
 
     async def serve(self) -> None:
         """The server loop, it keeps the manager running."""
+        if self._deployments_path is None:
+            raise RuntimeError("Deployments path not set")
+
+        self._serving = True
+
         event = asyncio.Event()
         try:
             # Waits indefinitely since `event` will never be set
@@ -401,17 +429,27 @@ class Manager:
                 self._simple_message_queue_server.cancel()
                 await self._simple_message_queue_server
 
-    async def deploy(self, config: DeploymentConfig, reload: bool = False) -> None:
+    async def deploy(
+        self,
+        config: DeploymentConfig,
+        base_path: str,
+        reload: bool = False,
+        local: bool = False,
+    ) -> None:
         """Creates a Deployment instance and starts the relative runtime.
 
         Args:
             config: The deployment configuration.
             reload: Reload an existing deployment instead of raising an error.
+            local: Deploy a local configuration. Source code will be used in place locally.
 
         Raises:
             ValueError: If a deployment with the same name already exists or the maximum number of deployment exceeded.
             DeploymentError: If it wasn't possible to create a deployment.
         """
+        if not self._serving:
+            raise RuntimeError("Manager main loop not started, call serve() first.")
+
         if not reload:
             # Raise an error if deployment already exists
             if config.name in self._deployments:
@@ -451,7 +489,12 @@ class Manager:
                     msg = f"Unable to reach SimpleMessageQueueServer at {msg_queue.base_url}"
                     raise DeploymentError(msg)
 
-            deployment = Deployment(config=config, root_path=self._deployments_path)
+            deployment = Deployment(
+                config=config,
+                base_path=Path(base_path),
+                deployment_path=self.deployments_path,
+                local=local,
+            )
             self._deployments[config.name] = deployment
             self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
         else:

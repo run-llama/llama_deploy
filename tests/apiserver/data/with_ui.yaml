@@ -1,0 +1,23 @@
+name: test-deployment
+
+control-plane:
+  port: 8000
+
+default-service: echo_workflow
+
+services:
+  test-workflow:
+    name: Test Workflow
+    port: 8002
+    host: localhost
+    source:
+      type: local
+      location: workflow
+    import-path: workflow:my_workflow
+
+ui:
+  name: My Nextjs App
+  source:
+    type: git
+    location: https://github.com/run-llama/llama_deploy.git
+  import-path: src/ui

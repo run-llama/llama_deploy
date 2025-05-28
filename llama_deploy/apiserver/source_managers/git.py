@@ -1,14 +1,21 @@
+import shutil
+from pathlib import Path
 from typing import Any
 
 from git import Repo
 
-from .base import SourceManager
+from .base import SourceManager, SyncPolicy
 
 
 class GitSourceManager(SourceManager):
     """A SourceManager specialized for sources of type `git`."""
 
-    def sync(self, source: str, destination: str | None = None) -> None:
+    def sync(
+        self,
+        source: str,
+        destination: str | None = None,
+        sync_policy: SyncPolicy = SyncPolicy.REPLACE,
+    ) -> None:
         """Clones the repository at URL `source` into a local path `destination`.
 
         Args:
@@ -18,6 +25,10 @@ class GitSourceManager(SourceManager):
         """
         if not destination:
             raise ValueError("Destination cannot be empty")
+
+        if Path(destination).exists():
+            # FIXME: pull when SyncPolicy is MERGE
+            shutil.rmtree(destination)
 
         url, branch_name = self._parse_source(source)
         kwargs: dict[str, Any] = {"url": url, "to_path": destination}

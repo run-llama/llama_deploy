@@ -1,4 +1,3 @@
-import asyncio
 import logging
 
 import pytest
@@ -11,8 +10,6 @@ from llama_deploy.message_queues.simple import (
 )
 from llama_deploy.message_queues.simple.server import MessagesPollFilter
 from llama_deploy.messages.base import QueueMessage
-
-from .conftest import MockMessageConsumer
 
 
 def test_home(http_client: TestClient) -> None:
@@ -41,18 +38,12 @@ def test_get_messages(http_client: TestClient) -> None:
     assert response.status_code == 404
 
 
+# https://github.com/encode/uvicorn/issues/1908
+@pytest.mark.filterwarnings("ignore:websockets")
 @pytest.mark.asyncio()
 async def test_roundtrip(message_queue_server: SimpleMessageQueueServer) -> None:
     # Arrange
     mq = SimpleMessageQueue(SimpleMessageQueueConfig(raise_exceptions=True))
-
-    consumer_one = MockMessageConsumer(message_type="test_one")
-    consumer_one_fn = await mq.register_consumer(consumer_one, "test_one")
-    consumer_one_task = asyncio.create_task(consumer_one_fn())
-
-    consumer_two = MockMessageConsumer(message_type="test_two")
-    consumer_two_fn = await mq.register_consumer(consumer_two, "test_two")
-    consumer_two_task = asyncio.create_task(consumer_two_fn())
 
     # Act
     await mq.publish(
@@ -65,17 +56,17 @@ async def test_roundtrip(message_queue_server: SimpleMessageQueueServer) -> None
         QueueMessage(publisher_id="test", id_="3", type="test_two"), topic="test_two"
     )
 
-    # Give some time for last message to get published and sent to consumers
-    await asyncio.sleep(1)
+    expected = ["1", "2"]
+    async for message in mq.get_messages("test_one"):
+        assert expected.pop(0) == message.id_
+        if not expected:
+            break
 
-    consumer_one_task.cancel()
-    consumer_two_task.cancel()
-
-    await asyncio.gather(consumer_one_task, consumer_two_task)
-
-    # Assert
-    assert ["1", "2"] == [m.id_ for m in consumer_one.processed_messages]
-    assert ["3"] == [m.id_ for m in consumer_two.processed_messages]
+    expected = ["3"]
+    async for message in mq.get_messages("test_two"):
+        assert expected.pop(0) == message.id_
+        if not expected:
+            break
 
 
 def test_log_filter() -> None:

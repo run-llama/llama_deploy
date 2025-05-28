@@ -8,6 +8,7 @@ from .core import (
     PydanticValidatedUrl,
     ServiceDefinition,
     SessionDefinition,
+    StartConsumingCallable,
     TaskDefinition,
     TaskResult,
     TaskStream,
@@ -36,4 +37,5 @@ __all__ = [
     "DeploymentDefinition",
     "Status",
     "StatusEnum",
+    "StartConsumingCallable",
 ]

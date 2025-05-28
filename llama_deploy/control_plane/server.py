@@ -2,7 +2,7 @@ import asyncio
 import json
 import uuid
 from logging import getLogger
-from typing import Any, AsyncGenerator, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -11,17 +11,8 @@ from fastapi.responses import StreamingResponse
 from llama_index.core.storage.kvstore import SimpleKVStore
 from llama_index.core.storage.kvstore.types import BaseKVStore
 
-from llama_deploy.control_plane.base import BaseControlPlane
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
-from llama_deploy.message_consumers.remote import RemoteMessageConsumer
 from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.messages.base import QueueMessage
-from llama_deploy.orchestrators import SimpleOrchestrator, SimpleOrchestratorConfig
-from llama_deploy.orchestrators.base import BaseOrchestrator
-from llama_deploy.orchestrators.utils import get_result_key, get_stream_key
 from llama_deploy.types import (
     ActionTypes,
     EventDefinition,
@@ -33,13 +24,14 @@ from llama_deploy.types import (
 )
 
 from .config import ControlPlaneConfig, parse_state_store_uri
+from .utils import get_result_key, get_stream_key
 
 logger = getLogger(__name__)
 
 CONTROL_PLANE_MESSAGE_TYPE = "control_plane"
 
 
-class ControlPlaneServer(BaseControlPlane):
+class ControlPlaneServer:
     """Control plane server.
 
     The control plane is responsible for managing the state of the system, including:
@@ -51,9 +43,9 @@ class ControlPlaneServer(BaseControlPlane):
 
     Args:
         message_queue (AbstractMessageQueue): Message queue for the system.
-        orchestrator (BaseOrchestrator): Orchestrator for the system.
         publish_callback (Optional[PublishCallback], optional): Callback for publishing messages. Defaults to None.
         state_store (Optional[BaseKVStore], optional): State store for the system. Defaults to None.
+        config (ControlPlaneConfig, optional): Configuration for the control plane. Defaults to None.
 
     Examples:
         ```python
@@ -71,14 +63,10 @@ class ControlPlaneServer(BaseControlPlane):
     def __init__(
         self,
         message_queue: AbstractMessageQueue,
-        orchestrator: BaseOrchestrator | None = None,
         publish_callback: PublishCallback | None = None,
         state_store: BaseKVStore | None = None,
         config: ControlPlaneConfig | None = None,
     ) -> None:
-        self._orchestrator = orchestrator or SimpleOrchestrator(
-            **SimpleOrchestratorConfig().model_dump()
-        )
         self._config = config or ControlPlaneConfig()
 
         if state_store is not None and self._config.state_store_uri is not None:
@@ -245,18 +233,36 @@ class ControlPlaneServer(BaseControlPlane):
         else:
             raise ValueError(f"Action {action} not supported by control plane")
 
-    def as_consumer(self) -> BaseMessageQueueConsumer:
-        return RemoteMessageConsumer(
-            id_=self.publisher_id,
-            url=f"{self._config.url}/process_message",
-            message_type=CONTROL_PLANE_MESSAGE_TYPE,
-        )
+    async def _process_messages(self, topic: str) -> None:
+        async for message in self._message_queue.get_messages(topic):
+            if not message.data:
+                raise ValueError(
+                    f"Invalid field 'data' in QueueMessage: {message.data}"
+                )
+
+            action = message.action
+            if action == ActionTypes.NEW_TASK:
+                task_def = TaskDefinition(**message.data)
+                if task_def.session_id is None:
+                    task_def.session_id = await self.create_session()
+
+                await self.add_task_to_session(task_def.session_id, task_def)
+            elif action == ActionTypes.COMPLETED_TASK:
+                await self.handle_service_completion(TaskResult(**message.data))
+            elif action == ActionTypes.TASK_STREAM:
+                await self.add_stream_to_session(TaskStream(**message.data))
+            else:
+                raise ValueError(f"Action {action} not supported by control plane")
 
     async def launch_server(self) -> None:
         # give precedence to external settings
         host = self._config.internal_host or self._config.host
         port = self._config.internal_port or self._config.port
         logger.info(f"Launching control plane server at {host}:{port}")
+
+        message_queue_consumer = asyncio.create_task(
+            self._process_messages(self.get_topic(CONTROL_PLANE_MESSAGE_TYPE))
+        )
 
         class CustomServer(uvicorn.Server):
             def install_signal_handlers(self) -> None:
@@ -268,7 +274,10 @@ class ControlPlaneServer(BaseControlPlane):
             await server.serve()
         except asyncio.CancelledError:
             self._running = False
-            await asyncio.gather(server.shutdown(), return_exceptions=True)
+            message_queue_consumer.cancel()
+            await asyncio.gather(
+                server.shutdown(), message_queue_consumer, return_exceptions=True
+            )
 
     async def home(self) -> Dict[str, str]:
         return {
@@ -398,7 +407,7 @@ class ControlPlaneServer(BaseControlPlane):
 
         session = await self.get_session(task_def.session_id)
 
-        next_messages, session_state = await self._orchestrator.get_next_messages(
+        next_messages, session_state = await self.get_next_messages(
             task_def, session.state
         )
 
@@ -427,7 +436,7 @@ class ControlPlaneServer(BaseControlPlane):
             raise ValueError(f"Task with id {task_result.task_id} has no session")
 
         session = await self.get_session(task_def.session_id)
-        state = await self._orchestrator.add_result_to_state(task_result, session.state)
+        state = await self.add_result_to_state(task_result, session.state)
 
         # update session state
         session.state.update(state)
@@ -606,10 +615,60 @@ class ControlPlaneServer(BaseControlPlane):
         queue_config = self._message_queue.as_config()
         return {queue_config.__class__.__name__: queue_config.model_dump()}
 
-    async def register_to_message_queue(self) -> StartConsumingCallable:
-        return await self.message_queue.register_consumer(
-            self.as_consumer(), topic=self.get_topic(CONTROL_PLANE_MESSAGE_TYPE)
-        )
-
     def get_topic(self, msg_type: str) -> str:
         return f"{self._config.topic_namespace}.{msg_type}"
+
+    async def get_next_messages(
+        self, task_def: TaskDefinition, state: Dict[str, Any]
+    ) -> Tuple[List[QueueMessage], Dict[str, Any]]:
+        """Get the next message to process. Returns the message and the new state.
+
+        Assumes the service_id is the destination for the next message.
+
+        Runs the required service, then sends the result to the final message type.
+        """
+        if task_def.service_id is None:
+            raise ValueError(
+                "Task definition must have an service_id specified to identify a service"
+            )
+
+        if task_def.task_id not in state:
+            state[task_def.task_id] = {}
+
+        if state.get(get_result_key(task_def.task_id)) is not None:
+            return [], state
+
+        destination = task_def.service_id
+        destination_messages = [
+            QueueMessage(
+                type=destination,
+                action=ActionTypes.NEW_TASK,
+                data=task_def.model_dump(),
+            )
+        ]
+
+        return destination_messages, state
+
+    async def add_result_to_state(
+        self, result: TaskResult, state: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Add the result of processing a message to the state. Returns the new state."""
+
+        # TODO: detect failures + retries
+        cur_retries = state.get("retries", -1) + 1
+        state["retries"] = cur_retries
+
+        # add result to state
+        state[get_result_key(result.task_id)] = result
+
+        return state
+
+    async def publish(self, message: QueueMessage, **kwargs: Any) -> Any:
+        """Publish message."""
+        message.publisher_id = self.publisher_id
+        return await self.message_queue.publish(
+            message,
+            callback=self.publish_callback,
+            topic=self.get_topic(message.type),
+            **kwargs,
+        )

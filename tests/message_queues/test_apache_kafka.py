@@ -1,5 +1,5 @@
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -42,6 +42,7 @@ async def test_publish() -> None:
 
     # Arrange
     mq = KafkaMessageQueue()
+    mq._create_new_topic = MagicMock()  # type: ignore
 
     # message types
     queue_message = QueueMessage(publisher_id="test", id_="1")
@@ -52,7 +53,7 @@ async def test_publish() -> None:
             AIOKafkaProducer, "send_and_wait", new_callable=AsyncMock
         ) as mock_send_and_wait:
             # Act
-            _ = await mq._publish(queue_message, "test")
+            _ = await mq._publish(queue_message, "test", True)
 
             # Assert
             mock_start.assert_awaited_once()

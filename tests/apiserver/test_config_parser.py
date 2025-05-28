@@ -16,8 +16,8 @@ def do_assert(config: DeploymentConfig) -> None:
     assert wf_config.name == "My Python Workflow"
     assert wf_config.source
     assert wf_config.source.type == "git"
-    assert wf_config.source.name == "git@github.com/myorg/myrepo"
-    assert wf_config.path == "src/python/app"
+    assert wf_config.source.location == "git@github.com/myorg/myrepo"
+    assert wf_config.import_path == "src/python/app"
     assert wf_config.port == 1313
     assert wf_config.python_dependencies
     assert len(wf_config.python_dependencies) == 3
@@ -28,22 +28,12 @@ def do_assert(config: DeploymentConfig) -> None:
     assert wf_config.name == "My LITS Workflow"
     assert wf_config.source
     assert wf_config.source.type == "git"
-    assert wf_config.source.name == "git@github.com/myorg/myrepo"
-    assert wf_config.path == "src/ts/app"
+    assert wf_config.source.location == "git@github.com/myorg/myrepo"
+    assert wf_config.import_path == "src/ts/app"
     assert wf_config.port == 1313
     assert wf_config.ts_dependencies
     assert len(wf_config.ts_dependencies) == 2
     assert wf_config.ts_dependencies["@llamaindex/core"] == "^0.2.0"
-
-    wf_config = config.services["dockerservice"]
-    assert wf_config.name == "My additional service"
-    assert wf_config.source
-    assert wf_config.source.type == "docker"
-    assert wf_config.source.name == "myorg/myimage:latest"
-    assert wf_config.port == 1313
-
-    wf_config = config.services["memory"]
-    assert wf_config.name == "Chat Memory"
 
 
 def test_load_config_file(data_path: Path) -> None:

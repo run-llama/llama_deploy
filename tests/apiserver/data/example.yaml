@@ -16,8 +16,8 @@ services:
     name: My Python Workflow
     source:
       type: git
-      name: git@github.com/myorg/myrepo
-    path: src/python/app # relative to root of the repo
+      location: git@github.com/myorg/myrepo
+    import-path: src/python/app # relative to root of the repo
     port: 1313
     python-dependencies:
       # this is a list to match the requirements.txt format
@@ -37,21 +37,10 @@ services:
     name: My LITS Workflow
     source:
       type: git
-      name: git@github.com/myorg/myrepo
-    path: src/ts/app
+      location: git@github.com/myorg/myrepo
+    import-path: src/ts/app
     port: 1313
     ts-dependencies:
       # this is a mapping to match the package.json format
       "@llamaindex/core": "^0.2.0"
       "@notionhq/client": "^2.2.15"
-
-  dockerservice:
-    # A rust binary running in a container
-    name: My additional service
-    source:
-      type: docker
-      name: myorg/myimage:latest
-    port: 1313
-
-  memory:
-    name: Chat Memory

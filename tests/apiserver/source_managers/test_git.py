@@ -39,3 +39,13 @@ def test_sync(config: DeploymentConfig) -> None:
         repo_mock.clone_from.assert_called_with(
             to_path="dest", url="source", multi_options=["-b branch", "--single-branch"]
         )
+
+
+def test_sync_dir_exists(config: DeploymentConfig, tmp_path: Path) -> None:
+    sm = GitSourceManager(config)
+    with mock.patch("llama_deploy.apiserver.source_managers.git.Repo"):
+        with mock.patch(
+            "llama_deploy.apiserver.source_managers.git.shutil"
+        ) as shutil_mock:
+            sm.sync("source", str(tmp_path))
+            shutil_mock.rmtree.assert_called_once()

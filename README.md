@@ -1,5 +1,6 @@
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![PyPI - Version](https://img.shields.io/pypi/v/llama-deploy.svg)](https://pypi.org/project/llama-deploy)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/llama-deploy.svg)](https://pypi.org/project/llama-deploy)
+![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Frun-llama%2Fllama_deploy%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)
 [![Static Badge](https://img.shields.io/badge/docs-latest-blue)](https://docs.llamaindex.ai/en/latest/module_guides/llama_deploy/)
 
 
@@ -19,13 +20,13 @@ The goal of LlamaDeploy is to easily transition something that you built in a no
 cloud with the minimum amount of changes to the original code, possibly zero. In order to make this transition a
 pleasant one, you can interact with LlamaDeploy in two ways:
 
-- Using the [`llamactl`](https://docs.llamaindex.ai/en/latest/module_guides/llama_deploy/50_llamactl/) CLI from a shell.
-- Through the [_LlamaDeploy SDK_](https://docs.llamaindex.ai/en/latest/module_guides/llama_deploy/40_python_sdk/) from a Python application or script.
+- Using the [`llamactl`](https://docs.llamaindex.ai/en/latest/module_guides/llama_deploy/40_llamactl/) CLI from a shell.
+- Through the [_LlamaDeploy SDK_](https://docs.llamaindex.ai/en/latest/module_guides/llama_deploy/30_python_sdk/) from a Python application or script.
 
 Both the SDK and the CLI are part of the LlamaDeploy Python package. To install, just run:
 
 ```bash
-pip install llama_deploy
+pip install -U llama-deploy
 ```
 > [!TIP]
 > For a comprehensive guide to LlamaDeploy's architecture and detailed descriptions of its components, visit our
@@ -47,15 +48,31 @@ pip install llama_deploy
 > [!NOTE]
 > This project was initially released under the name `llama-agents`,  but the introduction of [Workflows](https://docs.llamaindex.ai/en/stable/module_guides/workflow/#workflows) in `llama_index` turned out to be the most intuitive way for our users to develop agentic applications. We then decided to add new agentic features in `llama_index` directly, and focus LlamaDeploy on closing the gap between local development and remote execution of agents as services.
 
-## Getting Started
+## Quick Start with `llamactl`
 
-The fastest way to start using LlamaDeploy is playing with a practical example. This repository contains a few applications you can use as a reference:
+Spin up a running deployment in minutes using the interactive CLI wizard:
 
-- [Quick start](examples/quick_start)
-- [Use a deployment from a web-based user interface](examples/python_fullstack)
-- [Message queue examples](examples/message-queue-integrations)
+```bash
+# 1. Install the package & CLI
+pip install -U llama-deploy
 
-We recommend to start from the [Quick start](examples/quick_start) example and move
-to [Use a deployment from a web-based user interface](examples/python_fullstack)
-immediately after. Each folder contains a README file that will guide you through
-the process.
+# 2. Scaffold a new project (interactive)
+llamactl init
+
+#    or non-interactive
+llamactl init --name project-name --template basic
+
+# 3. Enter the project
+cd project-name
+
+# 4. Start the control-plane API server (new terminal)
+python -m llama_deploy.apiserver
+
+# 5. Deploy the generated workflow (another terminal)
+llamactl deploy deployment.yml
+
+# 6. Call it!
+llamactl run --deployment hello-deploy --arg message "Hello world!"
+```
+
+Looking for more templates or integrations? Check the [`examples`](examples) directory for end-to-end demos (message queues, web UIs, etc.) or read the full [documentation](https://docs.llamaindex.ai/en/latest/module_guides/llama_deploy/).

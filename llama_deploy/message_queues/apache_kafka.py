@@ -4,15 +4,11 @@ import asyncio
 import json
 import logging
 from logging import getLogger
-from typing import Any, Dict, Literal
+from typing import Any, AsyncIterator, Dict, Literal
 
 from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from llama_deploy.message_consumers.base import (
-    BaseMessageQueueConsumer,
-    StartConsumingCallable,
-)
 from llama_deploy.message_queues.base import AbstractMessageQueue
 from llama_deploy.messages.base import QueueMessage
 
@@ -32,7 +28,7 @@ class KafkaMessageQueueConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="KAFKA_")
 
-    type: Literal["kafka"] = Field(default="kafka", exclude=True)
+    type: Literal["kafka"] = Field(default="kafka")
     url: str = DEFAULT_URL
     host: str | None = None
     port: int | None = None
@@ -127,7 +123,9 @@ class KafkaMessageQueue(AbstractMessageQueue):
             logger.info(f"Topic {topic_name} already exists.")
             pass
 
-    async def _publish(self, message: QueueMessage, topic: str) -> Any:
+    async def _publish(
+        self, message: QueueMessage, topic: str, create_topic: bool
+    ) -> Any:
         """Publish message to the queue."""
         try:
             from aiokafka import AIOKafkaProducer
@@ -136,6 +134,9 @@ class KafkaMessageQueue(AbstractMessageQueue):
                 "aiokafka is not installed. "
                 "Please install it using `pip install aiokafka`."
             )
+
+        if create_topic:
+            self._create_new_topic(topic)
 
         producer = AIOKafkaProducer(bootstrap_servers=self._config.url)
         await producer.start()
@@ -169,15 +170,7 @@ class KafkaMessageQueue(AbstractMessageQueue):
         if topics_to_delete:
             admin_client.delete_topics(topics_to_delete)
 
-    async def deregister_consumer(self, consumer: BaseMessageQueueConsumer) -> Any:
-        """Deregister a consumer."""
-        if consumer.id_ in self._kafka_consumers:
-            await self._kafka_consumers[consumer.id_].stop()
-
-    async def register_consumer(
-        self, consumer: BaseMessageQueueConsumer, topic: str
-    ) -> StartConsumingCallable:
-        """Register a new consumer."""
+    async def get_messages(self, topic: str) -> AsyncIterator[QueueMessage]:
         try:
             from aiokafka import AIOKafkaConsumer
         except ImportError:
@@ -186,45 +179,24 @@ class KafkaMessageQueue(AbstractMessageQueue):
                 "Please install it using `pip install aiokafka`."
             )
 
-        if consumer.id_ in self._kafka_consumers:
-            msg = f"Consumer {consumer.id_} already registered for topic {topic}"
-            raise ValueError(msg)
-
-        self._create_new_topic(topic)
         kafka_consumer = AIOKafkaConsumer(
             topic,
             bootstrap_servers=self._config.url,
             group_id=DEFAULT_GROUP_ID,
             auto_offset_reset="earliest",
         )
-        self._kafka_consumers[consumer.id_] = kafka_consumer
 
         await kafka_consumer.start()
 
-        logger.info(
-            f"Registered consumer {consumer.id_} for message type '{consumer.message_type}' on topic '{topic}'",
-        )
-
-        async def start_consuming_callable() -> None:
-            """StartConsumingCallable."""
-            try:
-                async for msg in kafka_consumer:
-                    if msg.value is None:
-                        raise RuntimeError("msg.value is None")
-                    decoded_message = json.loads(msg.value.decode("utf-8"))
-                    queue_message = QueueMessage.model_validate(decoded_message)
-                    await consumer.process_message(queue_message)
-            finally:
-                stop_task = asyncio.create_task(kafka_consumer.stop())
-                stop_task.add_done_callback(
-                    lambda _: logger.info(
-                        f"stopped kafka consumer {consumer.id_}: {consumer.message_type} on topic {topic}"
-                    )
-                )
-                await asyncio.shield(stop_task)
-                del self._kafka_consumers[consumer.id_]
-
-        return start_consuming_callable
+        try:
+            async for msg in kafka_consumer:
+                if msg.value is None:
+                    raise RuntimeError("msg.value is None")
+                decoded_message = json.loads(msg.value.decode("utf-8"))
+                yield QueueMessage.model_validate(decoded_message)
+        finally:
+            stop_task = asyncio.create_task(kafka_consumer.stop())
+            await asyncio.shield(stop_task)
 
     def as_config(self) -> BaseModel:
         return self._config

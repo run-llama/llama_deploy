@@ -88,7 +88,7 @@ class Task(Model):
     )
     session_id: str = Field(description="The ID of the session this task belongs to.")
 
-    async def results(self) -> TaskResult:
+    async def results(self) -> TaskResult | None:
         """Returns the result of a given task."""
         results_url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/{self.id}/results"
 
@@ -99,7 +99,9 @@ class Task(Model):
             params={"session_id": self.session_id},
             timeout=self.client.timeout,
         )
-        return TaskResult.model_validate(r.json())
+        if r.json():
+            return TaskResult.model_validate(r.json())
+        return None
 
     async def send_event(self, ev: Event, service_name: str) -> EventDefinition:
         """Sends a human response event."""
@@ -241,11 +243,16 @@ class Deployment(Model):
 class DeploymentCollection(Collection):
     """A model representing a collection of deployments currently active."""
 
-    async def create(self, config: TextIO, reload: bool = False) -> Deployment:
+    async def create(
+        self, config: TextIO, base_path: str, reload: bool = False, local: bool = False
+    ) -> Deployment:
         """Creates a new deployment from a deployment file.
 
         If `reload` is true, an existing deployment will be reloaded, otherwise
         an error will be raised.
+
+        If `local` is true, the sync managers won't attempt at syncing data.
+        This is mostly for supporting local development.
 
         Example:
             ```
@@ -260,7 +267,7 @@ class DeploymentCollection(Collection):
             "POST",
             create_url,
             files=files,
-            params={"reload": reload},
+            params={"reload": reload, "local": local, "base_path": base_path},
             verify=not self.client.disable_ssl,
             timeout=self.client.timeout,
         )

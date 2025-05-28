@@ -4,17 +4,25 @@ from unittest import mock
 
 import pytest
 from fastapi.testclient import TestClient
-from llama_index.core.workflow import Workflow
+from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 
 from llama_deploy.apiserver.app import app
 from llama_deploy.apiserver.deployment import Deployment
 from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 
 
+class SmallWorkflow(Workflow):
+    @step()
+    async def run_step(self, ev: StartEvent) -> StopEvent:
+        return StopEvent(result="Hello, world!")
+
+
 @pytest.fixture
 def mock_importlib() -> Iterator[None]:
     with mock.patch("llama_deploy.apiserver.deployment.importlib") as importlib:
-        importlib.import_module.return_value = mock.MagicMock(my_workflow=Workflow())
+        importlib.import_module.return_value = mock.MagicMock(
+            my_workflow=SmallWorkflow()
+        )
         yield
 
 
@@ -29,7 +37,7 @@ def mocked_deployment(data_path: Path, mock_importlib: Any) -> Iterator[Deployme
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         sm_dict["git"] = mock.MagicMock()
-        yield Deployment(config=config, root_path=Path("."))
+        yield Deployment(config=config, base_path=data_path, deployment_path=Path("."))
 
 
 @pytest.fixture

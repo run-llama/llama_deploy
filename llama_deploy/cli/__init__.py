@@ -4,8 +4,10 @@ import click
 
 from .config import config as config_cmd
 from .deploy import deploy as deploy_cmd
+from .init import init as init_cmd
 from .internal.config import DEFAULT_PROFILE_NAME, load_config
 from .run import run as run_cmd
+from .serve import serve as serve_cmd
 from .sessions import sessions as sessions_cmd
 from .status import status as status_cmd
 
@@ -75,8 +77,10 @@ def llamactl(
         click.echo(ctx.get_help())  # show the help if no subcommand was provided
 
 
-llamactl.add_command(deploy_cmd)
-llamactl.add_command(run_cmd)
-llamactl.add_command(status_cmd)
-llamactl.add_command(sessions_cmd)
 llamactl.add_command(config_cmd)
+llamactl.add_command(deploy_cmd)
+llamactl.add_command(init_cmd)
+llamactl.add_command(run_cmd)
+llamactl.add_command(serve_cmd)
+llamactl.add_command(sessions_cmd)
+llamactl.add_command(status_cmd)

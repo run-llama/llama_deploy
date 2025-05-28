@@ -212,13 +212,13 @@ async def test_task_deployment_collection_create(client: Any) -> None:
     client.request.return_value = mock.MagicMock(json=lambda: {"name": "deployment"})
 
     coll = DeploymentCollection(client=client, items={})
-    await coll.create(io.StringIO("some config"))
+    await coll.create(io.StringIO("some config"), base_path="tmp")
 
     client.request.assert_awaited_with(
         "POST",
         "http://localhost:4501/deployments/create",
         files={"config_file": "some config"},
-        params={"reload": False},
+        params={"reload": False, "local": False, "base_path": "tmp"},
         verify=True,
         timeout=120.0,
     )

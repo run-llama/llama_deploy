@@ -1,4 +1,4 @@
-from llama_deploy.apiserver import ApiserverSettings
+from llama_deploy.apiserver.settings import ApiserverSettings
 
 
 def test_settings_url() -> None:

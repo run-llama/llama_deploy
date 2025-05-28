@@ -9,21 +9,21 @@ When new folders are added, they will be executed automatically in the CI/CD pip
 To run all the tests:
 
 ```sh
-$ poetry run pytest -m"e2e"
+$ uv run -- pytest -m"e2e"
 ```
 or
 ```sh
-$ poetry run pytest ./e2e_tests
+$ uv run -- pytest ./e2e_tests
 ```
 
 To run a specific scenario:
 
 ```sh
-$ poetry run pytest e2e_tests/basic_streaming
+$ uv run -- pytest e2e_tests/basic_streaming
 ```
 
 If you want to see the output of the different services running, pass the `-s` flag to pytest:
 
 ```sh
-$ poetry run pytest e2e_tests/basic_streaming -s
+$ uv run -- pytest e2e_tests/basic_streaming -s
 ```

@@ -1,15 +1,10 @@
 name: Publish llama-index to PyPI / GitHub
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
-
-  workflow_dispatch:
-
-env:
-  POETRY_VERSION: "1.8.3"
-  PYTHON_VERSION: "3.11"
 
 jobs:
   build-n-publish:
@@ -22,12 +17,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build and publish to pypi
-        uses: JRubics/poetry-publish@v2.0
-        with:
-          python_version: ${{ env.PYTHON_VERSION }}
-          pypi_token: ${{ secrets.LLAMA_AGENTS_PYPI_TOKEN }}
-          poetry_install_options: "--with dev"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Build and publish
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.LLAMA_AGENTS_PYPI_TOKEN }}
+        run: |
+          uv build
+          uv publish
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
