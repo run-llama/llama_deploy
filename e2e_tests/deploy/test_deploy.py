@@ -15,6 +15,8 @@ class BasicWorkflow(Workflow):
         return StopEvent(result="done")
 
 
+# https://github.com/encode/uvicorn/issues/1908
+@pytest.mark.filterwarnings("ignore:websockets")
 @pytest.mark.asyncio
 async def test_deploy_core(caplog):
     caplog.set_level(logging.INFO)

@@ -20,4 +20,4 @@ services:
       - .env
     source:
       type: local
-      name: workflow
+      location: workflow

@@ -38,6 +38,8 @@ def test_get_messages(http_client: TestClient) -> None:
     assert response.status_code == 404
 
 
+# https://github.com/encode/uvicorn/issues/1908
+@pytest.mark.filterwarnings("ignore:websockets")
 @pytest.mark.asyncio()
 async def test_roundtrip(message_queue_server: SimpleMessageQueueServer) -> None:
     # Arrange

@@ -9,5 +9,5 @@ services:
     host: localhost
     source:
       type: local
-      name: workflow
-    path: workflow:my_workflow
+      location: workflow
+    import-path: workflow:my_workflow

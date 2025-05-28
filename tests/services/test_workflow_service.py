@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import AsyncIterator
+from typing import Any, AsyncIterator
 from unittest import mock
 
 import httpx
@@ -305,14 +305,22 @@ async def test_process_call_success(
     workflow_service: WorkflowService, mock_workflow: Workflow
 ) -> None:
     """Test successful process_call."""
+
     # Mock workflow handler
+    class MockAsyncIterator:
+        def __aiter__(self) -> AsyncIterator[Event]:
+            return self
+
+        async def __anext__(self) -> Event:
+            if not hasattr(self, "used"):
+                self.used = True
+                return Event()
+            else:
+                raise StopAsyncIteration
+
     mock_handler = mock.AsyncMock(spec=WorkflowHandler)
     mock_handler.ctx = mock.MagicMock(spec=Context)
-    # mock_handler.__aiter__ = mock.AsyncMock(return_value=iter([]))
-    mock_handler.stream_events = mock.AsyncMock(
-        return_value=mock.AsyncMock(__aiter__=lambda x: iter([]))
-    )
-    mock_handler.__await__ = lambda: iter([mock.AsyncMock()])
+    mock_handler.stream_events = MockAsyncIterator()
 
     # Mock workflow.run to return the handler
     mock_workflow.run.return_value = mock_handler  # type: ignore
@@ -465,18 +473,27 @@ async def test_process_messages_send_event(workflow_service: WorkflowService) ->
 
 @pytest.mark.asyncio
 async def test_process_messages_unknown_action(
-    workflow_service: WorkflowService,
+    workflow_service: WorkflowService, monkeypatch: Any
 ) -> None:
     """Test _process_messages with unknown action."""
     message = QueueMessage(
         type="test_type", action=ActionTypes.REQUEST_FOR_HELP, data={}
     )
 
-    # Mock the async iterator
-    async def mock_get_messages(topic: str) -> AsyncIterator[QueueMessage]:
-        yield message
+    class MockAsyncIterator:
+        def __aiter__(self) -> AsyncIterator[QueueMessage]:
+            return self
 
-    workflow_service._message_queue.get_messages = mock_get_messages  # type: ignore
+        async def __anext__(self) -> QueueMessage:
+            if not hasattr(self, "used"):
+                self.used = True
+                return message
+            else:
+                raise StopAsyncIteration
+
+    monkeypatch.setattr(
+        workflow_service._message_queue, "get_messages", lambda _: MockAsyncIterator()
+    )
 
     # Should raise ValueError for unknown action
     with pytest.raises(ValueError, match="Unhandled action"):
@@ -488,7 +505,9 @@ async def test_launch_server(workflow_service: WorkflowService) -> None:
     """Test launch_server method."""
     with (
         mock.patch.object(workflow_service, "processing_loop") as mock_processing,
-        mock.patch.object(workflow_service, "_process_messages") as mock_messages,
+        mock.patch.object(
+            workflow_service, "_process_messages", new_callable=mock.AsyncMock
+        ) as mock_messages,
     ):
         await workflow_service.launch_server()
 

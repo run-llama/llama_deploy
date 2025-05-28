@@ -14,7 +14,8 @@ from llama_deploy.apiserver.deployment_config_parser import (
     DeploymentConfig,
 )
 from llama_deploy.control_plane import ControlPlaneConfig, ControlPlaneServer
-from llama_deploy.message_queues import AWSMessageQueueConfig, SimpleMessageQueue
+from llama_deploy.message_queues import SimpleMessageQueue
+from llama_deploy.message_queues.redis import RedisMessageQueueConfig
 
 
 @pytest.fixture
@@ -123,12 +124,6 @@ def test_deployment___load_message_queue_not_supported(
 
 
 def test_deployment__load_message_queues(mocked_deployment: Deployment) -> None:
-    with mock.patch("llama_deploy.apiserver.deployment.AWSMessageQueue") as m:
-        mocked_config = mock.MagicMock(type="aws")
-        mocked_config.model_dump.return_value = {"foo": "aws"}
-        mocked_deployment._load_message_queue_client(mocked_config)
-        m.assert_called_with(mocked_config)
-
     with mock.patch("llama_deploy.apiserver.deployment.KafkaMessageQueue") as m:
         mocked_config = mock.MagicMock(type="kafka")
         mocked_config.model_dump.return_value = {"foo": "kafka"}
@@ -246,7 +241,7 @@ async def test_manager_deploy_maximum_reached(data_path: Path) -> None:
 async def test_manager_deploy(data_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     # Do not use SimpleMessageQueue here, to avoid starting the server
-    config.message_queue = AWSMessageQueueConfig()
+    config.message_queue = RedisMessageQueueConfig()
 
     with mock.patch(
         "llama_deploy.apiserver.deployment.Deployment"

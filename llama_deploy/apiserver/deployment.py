@@ -23,13 +23,11 @@ from llama_deploy import (
 from llama_deploy.apiserver.source_managers.base import SyncPolicy
 from llama_deploy.message_queues import (
     AbstractMessageQueue,
-    AWSMessageQueue,
     KafkaMessageQueue,
     RabbitMQMessageQueue,
     RedisMessageQueue,
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
-    SolaceMessageQueue,
 )
 
 from .deployment_config_parser import (
@@ -355,9 +353,7 @@ class Deployment:
             # we use model_validate instead of __init__ to avoid static checkers complaining over field aliases
             cfg = SimpleMessageQueueConfig()
 
-        if cfg.type == "aws":
-            return AWSMessageQueue(cfg)
-        elif cfg.type == "kafka":
+        if cfg.type == "kafka":
             return KafkaMessageQueue(cfg)
         elif cfg.type == "rabbitmq":
             return RabbitMQMessageQueue(cfg)
@@ -365,8 +361,6 @@ class Deployment:
             return RedisMessageQueue(cfg)
         elif cfg.type == "simple":
             return SimpleMessageQueue(cfg)
-        elif cfg.type == "solace":
-            return SolaceMessageQueue(cfg)  # pragma: no cover
         else:
             msg = f"Unsupported message queue: {cfg.type}"
             raise ValueError(msg)
