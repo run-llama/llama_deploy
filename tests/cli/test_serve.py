@@ -31,10 +31,14 @@ def test_serve_no_deployment_file(runner: CliRunner) -> None:
     with (
         patch("subprocess.Popen") as mock_popen,
         patch("llama_deploy.cli.serve.start_http_server") as mock_start_http_server,
+        patch("llama_deploy.cli.serve.Client") as mock_client_class,
     ):
         mock_process = MagicMock()
         mock_popen.return_value = mock_process
         settings.prometheus_enabled = False
+
+        mock_sdk_client = MagicMock()
+        mock_client_class.return_value = mock_sdk_client
 
         result = runner.invoke(serve)
 
@@ -53,6 +57,7 @@ def test_serve_no_deployment_file(runner: CliRunner) -> None:
         )
         mock_start_http_server.assert_not_called()
         mock_process.wait.assert_called_once()
+        mock_sdk_client.sync.apiserver.deployments.create.assert_not_called()
 
 
 def test_serve_prometheus_enabled(runner: CliRunner) -> None:
@@ -123,40 +128,9 @@ def test_serve_with_deployment_file(runner: CliRunner, tmp_path: Path) -> None:
         # Check the local keyword argument
         assert (
             mock_sdk_client.sync.apiserver.deployments.create.call_args[1]["local"]
-            is False
-        )
-
-        mock_process.wait.assert_called_once()
-
-
-def test_serve_with_deployment_file_and_local_flag(
-    runner: CliRunner, tmp_path: Path
-) -> None:
-    """Test serve command with a deployment file and --local flag."""
-    deployment_file = tmp_path / "test_deployment_local.yaml"
-    deployment_file.write_text("dummy local content")
-
-    with (
-        patch("subprocess.Popen") as mock_popen,
-        patch("llama_deploy.cli.serve.start_http_server"),
-        patch("llama_deploy.cli.serve.Client") as mock_client_class,
-        patch("pathlib.Path.open", mock_open(read_data=b"dummy content")),
-    ):
-        mock_process = MagicMock()
-        mock_popen.return_value = mock_process
-
-        mock_sdk_client = MagicMock()
-        mock_client_class.return_value = mock_sdk_client
-        settings.prometheus_enabled = False
-
-        result = runner.invoke(serve, ["--local", str(deployment_file)])
-
-        assert result.exit_code == 0
-        mock_sdk_client.sync.apiserver.deployments.create.assert_called_once()
-        assert (
-            mock_sdk_client.sync.apiserver.deployments.create.call_args[1]["local"]
             is True
         )
+
         mock_process.wait.assert_called_once()
 
 

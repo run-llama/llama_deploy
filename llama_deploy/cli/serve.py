@@ -13,13 +13,12 @@ RETRY_WAIT_SECONDS = 1
 
 
 @click.command()
-@click.option("--local", is_flag=True)
 @click.argument(
     "deployment_file",
     required=False,
     type=click.Path(dir_okay=False, resolve_path=True, path_type=Path),  # type: ignore
 )
-def serve(local: bool, deployment_file: Path | None) -> None:
+def serve(deployment_file: Path | None) -> None:
     """Run the API Server in the foreground."""
     if settings.prometheus_enabled:
         start_http_server(settings.prometheus_port)
@@ -51,7 +50,7 @@ def serve(local: bool, deployment_file: Path | None) -> None:
                     client.sync.apiserver.deployments.create(
                         deployment_file.open("rb"),
                         base_path=deployment_file.parent,
-                        local=local,
+                        local=True,
                     )
         except RetryError:
             uvicorn_p.terminate()
