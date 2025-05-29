@@ -3,7 +3,6 @@ import logging
 
 from llama_deploy.client import Client
 from llama_deploy.control_plane import ControlPlaneConfig, ControlPlaneServer
-from llama_deploy.deploy import deploy_core, deploy_workflow
 from llama_deploy.message_queues import (
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
@@ -38,9 +37,6 @@ __all__ = [
     "SimpleMessageQueueServer",
     "SimpleMessageQueueConfig",
     "SimpleMessageQueue",
-    # deployment
-    "deploy_core",
-    "deploy_workflow",
     # control planes
     "ControlPlaneServer",
     "ControlPlaneConfig",
