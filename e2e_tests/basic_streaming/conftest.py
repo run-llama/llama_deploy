@@ -7,9 +7,9 @@ import pytest
 from llama_deploy import (
     ControlPlaneConfig,
     WorkflowServiceConfig,
-    deploy_workflow,
 )
 
+from ..utils import deploy_workflow
 from .workflow import StreamingWorkflow
 
 

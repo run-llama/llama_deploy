@@ -8,7 +8,7 @@ from llama_deploy.client import Client
 from llama_deploy.control_plane.server import ControlPlaneConfig
 
 
-class NetworkWorkflow(Workflow):
+class _NetworkWorkflow(Workflow):
     def __init__(
         self,
         remote_service_name: str,
@@ -36,6 +36,11 @@ class NetworkWorkflow(Workflow):
 
 
 class NetworkServiceManager(ServiceManager):
+    """Service manager implementing remote nested workflows.
+
+    See https://docs.llamaindex.ai/en/stable/understanding/workflows/nested/
+    """
+
     def __init__(
         self,
         existing_services: Dict[str, Workflow] | None = None,
@@ -68,7 +73,7 @@ class NetworkServiceManager(ServiceManager):
 
         # If the remove service exists, swap it in
         if remote_service is not None:
-            return NetworkWorkflow(name, timeout=None)
+            return _NetworkWorkflow(name, timeout=None)
 
         # else default to the local workflow -- if it exists
         if local_workflow is None:

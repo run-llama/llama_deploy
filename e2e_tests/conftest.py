@@ -5,7 +5,8 @@ import time
 import pytest
 
 from llama_deploy import ControlPlaneConfig, SimpleMessageQueueConfig
-from llama_deploy.deploy import deploy_core
+
+from .utils import deploy_core
 
 
 def run_async_core():

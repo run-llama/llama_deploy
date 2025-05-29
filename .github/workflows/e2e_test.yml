@@ -20,7 +20,6 @@ jobs:
           [
             "basic_hitl",
             "basic_streaming",
-            "deploy",
             "apiserver",
             "basic_session",
             "basic_workflow",

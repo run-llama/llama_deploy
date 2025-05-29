@@ -4,21 +4,21 @@ import pytest
 from llama_index.core.workflow import StartEvent
 
 from llama_deploy import ControlPlaneConfig
-from llama_deploy.deploy.network_workflow import (
+from llama_deploy.services.network_service_manager import (
     NetworkServiceManager,
-    NetworkWorkflow,
     ServiceNotFoundError,
+    _NetworkWorkflow,
 )
 
 
 def test_network_workflow_ctor() -> None:
-    nw = NetworkWorkflow(remote_service_name="test_workflow")
+    nw = _NetworkWorkflow(remote_service_name="test_workflow")
     assert nw.remote_service_name == "test_workflow"
 
     with pytest.warns(
         DeprecationWarning, match="The control_plane_config parameter is deprecated"
     ):
-        nw = NetworkWorkflow(
+        nw = _NetworkWorkflow(
             remote_service_name="test_workflow",
             control_plane_config=ControlPlaneConfig(),
         )
@@ -37,7 +37,7 @@ async def test_network_workflow_run_remote_workflow() -> None:
     mock_client.core.sessions.delete = mock.AsyncMock()
 
     # Create workflow
-    workflow = NetworkWorkflow(remote_service_name="test_workflow")
+    workflow = _NetworkWorkflow(remote_service_name="test_workflow")
     workflow._client = mock_client  # Inject mock client
 
     # Create start event with test data
@@ -84,7 +84,7 @@ def test_service_manager_get() -> None:
 
     # Test getting remote service
     remote_workflow = sm.get("test_service")
-    assert isinstance(remote_workflow, NetworkWorkflow)
+    assert isinstance(remote_workflow, _NetworkWorkflow)
     assert remote_workflow.remote_service_name == "test_service"
     assert remote_workflow._timeout == remote_workflow._client.timeout
     assert remote_workflow._timeout is None

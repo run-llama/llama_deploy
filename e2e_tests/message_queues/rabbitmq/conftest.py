@@ -7,9 +7,9 @@ from pathlib import Path
 import pytest
 
 from llama_deploy import ControlPlaneConfig, WorkflowServiceConfig
-from llama_deploy.deploy import deploy_core, deploy_workflow
 from llama_deploy.message_queues import RabbitMQMessageQueue, RabbitMQMessageQueueConfig
 
+from ...utils import deploy_core, deploy_workflow
 from .workflow import BasicWorkflow
 
 
