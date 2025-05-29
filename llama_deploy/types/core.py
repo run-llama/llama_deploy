@@ -119,13 +119,6 @@ class SessionDefinition(BaseModel):
     task_ids: list[str] = Field(default_factory=list)
     state: dict = Field(default_factory=dict)
 
-    @property
-    def current_task_id(self) -> str | None:
-        if len(self.task_ids) == 0:
-            return None
-
-        return self.task_ids[-1]
-
 
 class EventDefinition(BaseModel):
     """The definition of event.

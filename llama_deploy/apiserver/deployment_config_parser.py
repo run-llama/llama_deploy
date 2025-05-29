@@ -49,7 +49,7 @@ class ServiceSource(BaseModel):
     @classmethod
     def handle_deprecated_fields(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            if "name" in data and "location" not in data:
+            if "name" in data and "location" not in data:  # pragma: no cover
                 warnings.warn(
                     "The 'name' field is deprecated. Use 'location' instead.",
                     DeprecationWarning,
@@ -75,7 +75,7 @@ class Service(BaseModel):
     @classmethod
     def validate_fields(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            if "path" in data and "import-path" not in data:
+            if "path" in data and "import-path" not in data:  # pragma: no cover
                 warnings.warn(
                     "The 'path' field is deprecated. Use 'import-path' instead.",
                     DeprecationWarning,
