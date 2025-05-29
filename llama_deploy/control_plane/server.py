@@ -93,12 +93,6 @@ class ControlPlaneServer:
             )
         self.app.add_api_route("/", self.home, methods=["GET"], tags=["Control Plane"])
         self.app.add_api_route(
-            "/process_message",
-            self.process_message,
-            methods=["POST"],
-            tags=["Control Plane"],
-        )
-        self.app.add_api_route(
             "/queue_config",
             self.get_message_queue_config,
             methods=["GET"],
@@ -214,24 +208,6 @@ class ControlPlaneServer:
     @property
     def publish_callback(self) -> Optional[PublishCallback]:
         return self._publish_callback
-
-    async def process_message(self, message: QueueMessage) -> None:
-        if not message.data:
-            raise ValueError(f"Invalid field 'data' in QueueMessage: {message.data}")
-
-        action = message.action
-        if action == ActionTypes.NEW_TASK:
-            task_def = TaskDefinition(**message.data)
-            if task_def.session_id is None:
-                task_def.session_id = await self.create_session()
-
-            await self.add_task_to_session(task_def.session_id, task_def)
-        elif action == ActionTypes.COMPLETED_TASK:
-            await self.handle_service_completion(TaskResult(**message.data))
-        elif action == ActionTypes.TASK_STREAM:
-            await self.add_stream_to_session(TaskStream(**message.data))
-        else:
-            raise ValueError(f"Action {action} not supported by control plane")
 
     async def _process_messages(self, topic: str) -> None:
         async for message in self._message_queue.get_messages(topic):
