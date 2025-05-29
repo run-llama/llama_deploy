@@ -5,7 +5,6 @@ from llama_index.core.workflow import Workflow
 from pydantic_settings import BaseSettings
 
 from llama_deploy.control_plane.server import ControlPlaneConfig, ControlPlaneServer
-from llama_deploy.deploy.network_workflow import NetworkServiceManager
 from llama_deploy.message_queues import (
     AbstractMessageQueue,
     KafkaMessageQueue,
@@ -18,6 +17,7 @@ from llama_deploy.message_queues import (
     SimpleMessageQueueServer,
 )
 from llama_deploy.message_queues.simple import SimpleMessageQueue
+from llama_deploy.services.network_service_manager import NetworkServiceManager
 from llama_deploy.services.workflow import WorkflowService, WorkflowServiceConfig
 
 DEFAULT_TIMEOUT = 120.0

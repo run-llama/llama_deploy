@@ -10,11 +10,10 @@ import pytest_asyncio
 from llama_deploy import (
     ControlPlaneConfig,
     WorkflowServiceConfig,
-    deploy_core,
-    deploy_workflow,
 )
 from llama_deploy.message_queues import RedisMessageQueue, RedisMessageQueueConfig
 
+from ...utils import deploy_core, deploy_workflow
 from .workflow import BasicWorkflow
 
 
