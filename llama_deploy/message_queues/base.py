@@ -7,7 +7,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable
 
 from pydantic import BaseModel
 
-from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import QueueMessage
 
 logger = getLogger(__name__)
 

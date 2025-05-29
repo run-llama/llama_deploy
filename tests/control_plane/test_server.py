@@ -6,8 +6,7 @@ from fastapi.testclient import TestClient
 
 from llama_deploy.control_plane import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.message_queues import SimpleMessageQueueServer
-from llama_deploy.messages.base import QueueMessage
-from llama_deploy.types import TaskDefinition
+from llama_deploy.types import QueueMessage, TaskDefinition
 from llama_deploy.types.core import ActionTypes
 
 

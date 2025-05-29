@@ -12,10 +12,10 @@ from llama_index.core.storage.kvstore import SimpleKVStore
 from llama_index.core.storage.kvstore.types import BaseKVStore
 
 from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
-from llama_deploy.messages.base import QueueMessage
 from llama_deploy.types import (
     ActionTypes,
     EventDefinition,
+    QueueMessage,
     ServiceDefinition,
     SessionDefinition,
     TaskDefinition,

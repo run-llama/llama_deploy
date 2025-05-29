@@ -8,7 +8,7 @@ from typing import Any, Dict
 import uvicorn
 from fastapi import FastAPI, HTTPException, status
 
-from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import QueueMessage
 
 from .config import SimpleMessageQueueConfig
 
