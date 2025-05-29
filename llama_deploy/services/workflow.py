@@ -23,9 +23,9 @@ from llama_deploy.control_plane.server import (
     ControlPlaneConfig,
 )
 from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
-from llama_deploy.messages.base import QueueMessage
 from llama_deploy.types import (
     ActionTypes,
+    QueueMessage,
     ServiceDefinition,
     TaskDefinition,
     TaskResult,

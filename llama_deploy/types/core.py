@@ -1,10 +1,10 @@
 import uuid
+from datetime import datetime
 from enum import Enum
-from typing import Any, Callable, Coroutine
+from typing import Any, Dict
 
 from llama_index.core.llms import ChatMessage
-from pydantic import BaseModel, BeforeValidator, Field, HttpUrl, TypeAdapter
-from typing_extensions import Annotated
+from pydantic import BaseModel, ConfigDict, Field
 
 
 def generate_id() -> str:
@@ -12,8 +12,6 @@ def generate_id() -> str:
 
 
 CONTROL_PLANE_NAME = "control_plane"
-
-StartConsumingCallable = Callable[..., Coroutine[Any, Any, None]]
 
 
 class ActionTypes(str, Enum):
@@ -29,6 +27,57 @@ class ActionTypes(str, Enum):
     COMPLETED_TOOL_CALL = "completed_tool_call"
     TASK_STREAM = "task_stream"
     SEND_EVENT = "send_event"
+
+
+class QueueMessageStats(BaseModel):
+    """Stats for a queue message.
+
+    Attributes:
+        publish_time (Optional[str]):
+            The time the message was published.
+        process_start_time (Optional[str]):
+            The time the message processing started.
+        process_end_time (Optional[str]):
+            The time the message processing ended.
+    """
+
+    publish_time: str | None = Field(default=None)
+    process_start_time: str | None = Field(default=None)
+    process_end_time: str | None = Field(default=None)
+
+    @staticmethod
+    def timestamp_str(format: str = "%Y-%m-%d %H:%M:%S") -> str:
+        return datetime.now().strftime(format)
+
+
+class QueueMessage(BaseModel):
+    """A message for the message queue.
+
+    Attributes:
+        id_ (str):
+            The id of the message.
+        publisher_id (str):
+            The id of the publisher.
+        data (Dict[str, Any]):
+            The data of the message.
+        action (Optional[ActionTypes]):
+            The action of the message, used for deciding how to process the message.
+        stats (QueueMessageStats):
+            The stats of the message.
+        type (str):
+            The type of the message. Typically this is a service name.
+    """
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    id_: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    publisher_id: str = Field(default="default", description="Id of publisher.")
+    data: Dict[str, Any] = Field(default_factory=dict)
+    action: ActionTypes | None = None
+    stats: QueueMessageStats = Field(default_factory=QueueMessageStats)
+    type: str = Field(
+        default="default", description="Type of the message, used for routing."
+    )
 
 
 class TaskDefinition(BaseModel):
@@ -105,10 +154,6 @@ class TaskResult(BaseModel):
             The task result.
         data (dict):
             Additional data about the task or result.
-        is_last (bool):
-            If not true, there are more results to be streamed.
-        index (int):
-            The index of the task in the session.
     """
 
     task_id: str
@@ -134,60 +179,6 @@ class TaskStream(BaseModel):
     session_id: str | None
     data: dict
     index: int
-
-
-class ToolCallBundle(BaseModel):
-    """
-    A bundle of information for a tool call.
-
-    Attributes:
-        tool_name (str):
-            The name of the tool.
-        tool_args (list[Any]):
-            The tool arguments.
-        tool_kwargs (dict[str, Any]):
-            The tool keyword arguments
-    """
-
-    tool_name: str
-    tool_args: list[Any]
-    tool_kwargs: dict[str, Any]
-
-
-class ToolCall(BaseModel):
-    """
-    A tool call.
-
-    Attributes:
-        id_ (str):
-            The tool call ID. Defaults to a random UUID.
-        tool_call_bundle (ToolCallBundle):
-            The tool call bundle.
-        source_id (str):
-            The source ID.
-    """
-
-    id_: str = Field(default_factory=generate_id)
-    tool_call_bundle: ToolCallBundle
-    source_id: str
-
-
-class ToolCallResult(BaseModel):
-    """
-    A tool call result.
-
-    Attributes:
-        id_ (str):
-            The tool call ID. Should match the ID of the tool call.
-        tool_message (ChatMessage):
-            The tool message.
-        result (str):
-            The tool result.
-    """
-
-    id_: str
-    tool_message: ChatMessage
-    result: str
 
 
 class ServiceDefinition(BaseModel):
@@ -228,9 +219,3 @@ class HumanResponse(BaseModel):
     """
 
     result: str
-
-
-http_url_adapter = TypeAdapter(HttpUrl)
-PydanticValidatedUrl = Annotated[
-    str, BeforeValidator(lambda value: str(http_url_adapter.validate_python(value)))
-]

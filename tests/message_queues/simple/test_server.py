@@ -9,7 +9,7 @@ from llama_deploy.message_queues.simple import (
     SimpleMessageQueueServer,
 )
 from llama_deploy.message_queues.simple.server import MessagesPollFilter
-from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import QueueMessage
 
 
 def test_home(http_client: TestClient) -> None:

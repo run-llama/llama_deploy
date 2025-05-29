@@ -5,7 +5,7 @@ from typing import Any, AsyncIterator, Dict
 import httpx
 
 from llama_deploy.message_queues.base import AbstractMessageQueue
-from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import QueueMessage
 
 from .config import SimpleMessageQueueConfig
 

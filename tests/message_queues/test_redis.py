@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 
 from llama_deploy.message_queues.redis import RedisMessageQueue, RedisMessageQueueConfig
-from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import QueueMessage
 
 
 @pytest.fixture

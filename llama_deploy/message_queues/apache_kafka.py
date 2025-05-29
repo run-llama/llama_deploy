@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from llama_deploy.message_queues.base import AbstractMessageQueue
-from llama_deploy.messages.base import QueueMessage
+from llama_deploy.types import QueueMessage
 
 logger = getLogger(__name__)
 logger.setLevel(logging.INFO)

@@ -10,14 +10,18 @@ from llama_index.core.workflow.events import Event
 from llama_index.core.workflow.handler import WorkflowHandler
 
 from llama_deploy.message_queues.base import AbstractMessageQueue
-from llama_deploy.messages.base import QueueMessage
 from llama_deploy.services.workflow import (
     WorkflowService,
     WorkflowServiceConfig,
     WorkflowState,
     _make_hash,
 )
-from llama_deploy.types import ActionTypes, ServiceDefinition, TaskDefinition
+from llama_deploy.types import (
+    ActionTypes,
+    QueueMessage,
+    ServiceDefinition,
+    TaskDefinition,
+)
 
 
 @pytest.fixture

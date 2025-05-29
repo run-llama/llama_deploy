@@ -9,11 +9,11 @@ from llama_deploy.message_queues import (
     SimpleMessageQueueConfig,
     SimpleMessageQueueServer,
 )
-from llama_deploy.messages import QueueMessage
 from llama_deploy.services import (
     WorkflowService,
     WorkflowServiceConfig,
 )
+from llama_deploy.types import QueueMessage
 
 root_logger = logging.getLogger("llama_deploy")
 
