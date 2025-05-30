@@ -1,12 +1,15 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const [inputText, setInputText] = useState("");
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
+
   // Get deployment name from environment variable or use "default" as fallback
   const deploymentName =
     process.env.NEXT_PUBLIC_LLAMA_DEPLOY_NEXTJS_DEPLOYMENT_NAME || "default";
@@ -19,7 +22,7 @@ export default function Home() {
 
     try {
       const response = await fetch(
-        `http://localhost:4501/deployments/${deploymentName}/tasks/run`,
+        `/deployments/${deploymentName}/tasks/run`,
         {
           method: "POST",
           headers: {
@@ -48,16 +51,22 @@ export default function Home() {
   };
 
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="w-full max-w-lg p-6"
-          src="logo-dark-light.svg"
-          alt="LlamaIndex logo"
-          width={180}
-          height={180}
-          priority
-        />
+    <div className="flex flex-col min-h-screen p-6 sm:p-8 font-[family-name:var(--font-geist-sans)]">
+      <main className="flex-1 flex flex-col gap-8 items-center justify-center max-w-2xl mx-auto w-full">
+        <button
+          onClick={() => router.push("/confetti")}
+          className="hover:scale-105 transition-transform duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg cursor-pointer"
+        >
+          <Image
+            className="w-full max-w-lg p-6"
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH}/logo-dark-light.svg`}
+            alt="LlamaIndex logo - Click for confetti!"
+            width={180}
+            height={180}
+            priority
+          />
+        </button>
+
         {/* API Form */}
         <div className="w-full max-w-lg p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md">
           <h2 className="text-xl font-bold mb-4">Workflow Test</h2>
@@ -107,14 +116,15 @@ export default function Home() {
           {result && (
             <div className="mt-4">
               <h3 className="text-lg font-medium mb-2">Result:</h3>
-              <pre className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md overflow-auto text-sm">
+              <pre className="p-3 bg-gray-100 dark:bg-gray-700 rounded-md overflow-auto text-sm max-h-64">
                 {result}
               </pre>
             </div>
           )}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
+
+      <footer className="flex gap-6 flex-wrap items-center justify-center py-4 mt-8">
         <a
           className="flex items-center gap-2 hover:underline hover:underline-offset-4"
           href="https://docs.llamaindex.ai/en/stable/"
@@ -123,7 +133,7 @@ export default function Home() {
         >
           <Image
             aria-hidden
-            src="file.svg"
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH}/file.svg`}
             alt="File icon"
             width={16}
             height={16}

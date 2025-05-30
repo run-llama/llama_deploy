@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 from fastapi.testclient import TestClient
 from llama_index.core.workflow.context_serializers import JsonSerializer
-from llama_index.core.workflow.events import Event, HumanResponseEvent
+from llama_index.core.workflow.events import Event
 
 from llama_deploy.apiserver import DeploymentConfig
 from llama_deploy.types import TaskResult
@@ -205,6 +205,10 @@ def test_send_event_not_found(http_client: TestClient, data_path: Path) -> None:
         assert response.status_code == 404
 
 
+class SomeEvent(Event):
+    response: str
+
+
 def test_send_event(http_client: TestClient, data_path: Path) -> None:
     with mock.patch(
         "llama_deploy.apiserver.routers.deployments.manager"
@@ -217,7 +221,7 @@ def test_send_event(http_client: TestClient, data_path: Path) -> None:
         mocked_manager.get_deployment.return_value = deployment
 
         serializer = JsonSerializer()
-        ev = HumanResponseEvent(response="test human response")
+        ev = SomeEvent(response="test human response")
         event_def = EventDefinition(
             event_obj_str=serializer.serialize(ev), service_id="TestService"
         )
