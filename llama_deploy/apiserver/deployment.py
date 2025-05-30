@@ -218,7 +218,7 @@ class Deployment:
         await install.wait()
 
         env = os.environ.copy()
-        env["LLAMA_DEPLOY_NEXTJS_ASSET_PREFIX"] = f"/ui/{self._config.name}/"
+        env["LLAMA_DEPLOY_NEXTJS_BASE_PATH"] = f"/ui/{self._config.name}"
         env["LLAMA_DEPLOY_NEXTJS_DEPLOYMENT_NAME"] = self._config.name
 
         process = await asyncio.create_subprocess_exec(

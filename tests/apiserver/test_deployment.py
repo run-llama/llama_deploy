@@ -456,7 +456,7 @@ async def test_start_ui_server_success(data_path: Path, tmp_path: Path) -> None:
         # Verify environment variables were set
         assert mock_os.environ.copy.called
         env = mock_subprocess.call_args_list[1][1]["env"]
-        assert env["LLAMA_DEPLOY_NEXTJS_ASSET_PREFIX"] == "/ui/test-deployment/"
+        assert env["LLAMA_DEPLOY_NEXTJS_BASE_PATH"] == "/ui/test-deployment"
         assert env["LLAMA_DEPLOY_NEXTJS_DEPLOYMENT_NAME"] == "test-deployment"
 
 
