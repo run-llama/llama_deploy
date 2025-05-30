@@ -32,7 +32,7 @@ async def proxy(
     try:
         response = await client.request(
             method=request.method,
-            url=f"http://localhost:3000/{path}",
+            url=f"http://localhost:3000/ui/{deployment_name}/{path}",
             headers=request.headers,
             content=await request.body(),
             params=dict(request.query_params),

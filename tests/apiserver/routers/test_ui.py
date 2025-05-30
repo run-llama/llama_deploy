@@ -57,7 +57,7 @@ def test_proxy_successful(
     mock_httpx_client.request.assert_called_once()
     args, kwargs = mock_httpx_client.request.call_args
     assert kwargs["method"] == "GET"
-    assert kwargs["url"] == "http://localhost:3000/index.html"
+    assert kwargs["url"] == "http://localhost:3000/ui/test_deployment/index.html"
 
     # Verify compression is applied
     assert response.status_code == 200
