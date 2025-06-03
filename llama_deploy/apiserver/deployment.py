@@ -13,14 +13,9 @@ import httpx
 from dotenv import dotenv_values
 from tenacity import AsyncRetrying, RetryError, wait_exponential
 
-from llama_deploy import (
-    Client,
-    ControlPlaneServer,
-    SimpleMessageQueueServer,
-    WorkflowService,
-    WorkflowServiceConfig,
-)
 from llama_deploy.apiserver.source_managers.base import SyncPolicy
+from llama_deploy.client import Client
+from llama_deploy.control_plane import ControlPlaneServer
 from llama_deploy.message_queues import (
     AbstractMessageQueue,
     KafkaMessageQueue,
@@ -29,6 +24,8 @@ from llama_deploy.message_queues import (
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
 )
+from llama_deploy.message_queues.simple import SimpleMessageQueueServer
+from llama_deploy.services import WorkflowService, WorkflowServiceConfig
 
 from .deployment_config_parser import (
     DeploymentConfig,

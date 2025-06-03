@@ -1,6 +1,6 @@
 import click
 
-from llama_deploy import Client
+from llama_deploy.client import Client
 from llama_deploy.types.apiserver import StatusEnum
 
 from .internal.config import ConfigProfile

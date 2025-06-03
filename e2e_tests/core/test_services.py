@@ -3,9 +3,7 @@ import multiprocessing
 
 import pytest
 
-from llama_deploy import (
-    Client,
-)
+from llama_deploy.client import Client
 from llama_deploy.types.core import ServiceDefinition
 
 from .conftest import run_async_workflow
@@ -70,16 +68,6 @@ async def test_service_restart(core):
     # run again, same session
     result = await session.run("basic")
     assert result == "n/a_result"
-
-    # assert len(await client.core.services.list()) == 1
-    # await client.core.services.deregister("basic")
-    # assert len(await client.core.services.list()) == 0
-
-    # new_s = await client.core.services.register(
-    #     ServiceDefinition(service_name="another_basic", description="none")
-    # )
-    # assert new_s.id == "another_basic"
-    # assert len(await client.core.services.list()) == 1
 
     p.kill()
     p.join()

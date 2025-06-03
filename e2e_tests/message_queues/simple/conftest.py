@@ -3,7 +3,7 @@ import asyncio
 import pytest
 import pytest_asyncio
 
-from llama_deploy import (
+from llama_deploy.message_queues.simple import (
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
     SimpleMessageQueueServer,

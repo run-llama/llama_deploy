@@ -2,7 +2,7 @@ import json
 
 import click
 
-from llama_deploy import Client
+from llama_deploy.client import Client
 from llama_deploy.types import TaskDefinition
 
 from .internal.config import ConfigProfile

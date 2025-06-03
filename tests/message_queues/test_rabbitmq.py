@@ -6,11 +6,11 @@ import pytest
 from aio_pika import DeliveryMode
 from aio_pika import Message as AioPikaMessage
 
-from llama_deploy import QueueMessage
 from llama_deploy.message_queues.rabbitmq import (
     RabbitMQMessageQueue,
     RabbitMQMessageQueueConfig,
 )
+from llama_deploy.types import QueueMessage
 
 
 def test_config_init() -> None:
