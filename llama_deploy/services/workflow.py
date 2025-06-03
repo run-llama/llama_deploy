@@ -31,6 +31,12 @@ from llama_deploy.types import (
     TaskResult,
     TaskStream,
 )
+from llama_deploy.apiserver.tracing.utils import (
+    trace_async_method,
+    create_span,
+    add_span_attribute,
+    add_span_event,
+)
 
 logger = getLogger(__name__)
 hash_secret = os.environ.get("LLAMA_DEPLOY_WF_SERVICE_HASH_SECRET", "default")
@@ -212,6 +218,7 @@ class WorkflowService:
             # Store the state in the control plane
             await self.update_session_state(current_state.session_id, session_state)
 
+    @trace_async_method("workflow.process_call")
     async def process_call(self, current_call: WorkflowState) -> None:
         """Processes a given task, and writes a response to the message queue.
 
@@ -222,78 +229,98 @@ class WorkflowService:
             current_call (WorkflowState):
                 The state of the current task, including run_kwargs and other session state.
         """
+        add_span_attribute("task.id", current_call.task_id)
+        add_span_attribute("task.session_id", current_call.session_id or "none")
+        add_span_attribute("workflow.service_name", self.service_name)
+
         # create send_event background task
         close_send_events = asyncio.Event()
         handler = None
 
         try:
+            add_span_event("workflow.state.loading")
             # load the state
-            ctx = await self.get_workflow_state(current_call)
+            with create_span("workflow.get_state", {"task.id": current_call.task_id}):
+                ctx = await self.get_workflow_state(current_call)
 
+            add_span_event("workflow.execution.starting")
             # run the workflow
-            handler = self.workflow.run(ctx=ctx, **current_call.run_kwargs)
-            if handler.ctx is None:
-                # This should never happen, workflow.run actually sets the Context
-                # even if handler.ctx is typed as Optional[Context]
-                raise ValueError("Context cannot be None.")
-
-            async def send_events(
-                handler: WorkflowHandler, close_event: asyncio.Event
-            ) -> None:
+            with create_span("workflow.run", {"task.id": current_call.task_id}):
+                handler = self.workflow.run(ctx=ctx, **current_call.run_kwargs)
                 if handler.ctx is None:
-                    raise ValueError("handler does not have a valid Context.")
+                    # This should never happen, workflow.run actually sets the Context
+                    # even if handler.ctx is typed as Optional[Context]
+                    raise ValueError("Context cannot be None.")
 
-                while not close_event.is_set():
-                    try:
-                        event = self._events_buffer[current_call.task_id].get_nowait()
-                        handler.ctx.send_event(event)
-                    except asyncio.QueueEmpty:
-                        pass
-                    await asyncio.sleep(self.config.step_interval)
+                async def send_events(
+                    handler: WorkflowHandler, close_event: asyncio.Event
+                ) -> None:
+                    if handler.ctx is None:
+                        raise ValueError("handler does not have a valid Context.")
 
-            _ = asyncio.create_task(send_events(handler, close_send_events))
+                    while not close_event.is_set():
+                        try:
+                            event = self._events_buffer[
+                                current_call.task_id
+                            ].get_nowait()
+                            handler.ctx.send_event(event)
+                        except asyncio.QueueEmpty:
+                            pass
+                        await asyncio.sleep(self.config.step_interval)
 
-            index = 0
-            async for ev in handler.stream_events():
-                # send the event to control plane for client / api server streaming
-                logger.debug(f"Publishing event: {ev}")
+                _ = asyncio.create_task(send_events(handler, close_send_events))
+
+                index = 0
+                async for ev in handler.stream_events():
+                    # send the event to control plane for client / api server streaming
+                    logger.debug(f"Publishing event: {ev}")
+                    with create_span("workflow.event.publish", {"event.index": index}):
+                        await self.message_queue.publish(
+                            QueueMessage(
+                                type=CONTROL_PLANE_MESSAGE_TYPE,
+                                action=ActionTypes.TASK_STREAM,
+                                data=TaskStream(
+                                    task_id=current_call.task_id,
+                                    session_id=current_call.session_id,
+                                    data=ev.model_dump(),
+                                    index=index,
+                                ).model_dump(),
+                            ),
+                            self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
+                        )
+                    index += 1
+
+                final_result = await handler
+                add_span_attribute("workflow.result.type", type(final_result).__name__)
+
+            add_span_event("workflow.state.saving")
+            # dump the state
+            with create_span("workflow.set_state", {"task.id": current_call.task_id}):
+                await self.set_workflow_state(handler.ctx, current_call)
+
+            add_span_event("workflow.result.publishing")
+            logger.info(
+                f"Publishing final result: {final_result} to '{self.get_topic(CONTROL_PLANE_MESSAGE_TYPE)}'"
+            )
+            with create_span("workflow.result.publish"):
                 await self.message_queue.publish(
                     QueueMessage(
                         type=CONTROL_PLANE_MESSAGE_TYPE,
-                        action=ActionTypes.TASK_STREAM,
-                        data=TaskStream(
+                        action=ActionTypes.COMPLETED_TASK,
+                        data=TaskResult(
                             task_id=current_call.task_id,
-                            session_id=current_call.session_id,
-                            data=ev.model_dump(),
-                            index=index,
+                            history=[],
+                            result=str(final_result),
+                            data={},
                         ).model_dump(),
                     ),
                     self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
                 )
-                index += 1
-
-            final_result = await handler
-
-            # dump the state
-            await self.set_workflow_state(handler.ctx, current_call)
-
-            logger.info(
-                f"Publishing final result: {final_result} to '{self.get_topic(CONTROL_PLANE_MESSAGE_TYPE)}'"
-            )
-            await self.message_queue.publish(
-                QueueMessage(
-                    type=CONTROL_PLANE_MESSAGE_TYPE,
-                    action=ActionTypes.COMPLETED_TASK,
-                    data=TaskResult(
-                        task_id=current_call.task_id,
-                        history=[],
-                        result=str(final_result),
-                        data={},
-                    ).model_dump(),
-                ),
-                self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
-            )
         except Exception as e:
+            add_span_attribute("error.occurred", True)
+            add_span_attribute("error.type", type(e).__name__)
+            add_span_attribute("error.message", str(e))
+
             if self.config.raise_exceptions:
                 raise e
 
@@ -306,19 +333,20 @@ class WorkflowService:
                 await self.set_workflow_state(handler.ctx, current_call)
 
             # return failure
-            await self.message_queue.publish(
-                QueueMessage(
-                    type=CONTROL_PLANE_MESSAGE_TYPE,
-                    action=ActionTypes.COMPLETED_TASK,
-                    data=TaskResult(
-                        task_id=current_call.task_id,
-                        history=[],
-                        result=str(e),
-                        data={},
-                    ).model_dump(),
-                ),
-                self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
-            )
+            with create_span("workflow.error.publish"):
+                await self.message_queue.publish(
+                    QueueMessage(
+                        type=CONTROL_PLANE_MESSAGE_TYPE,
+                        action=ActionTypes.COMPLETED_TASK,
+                        data=TaskResult(
+                            task_id=current_call.task_id,
+                            history=[],
+                            result=str(e),
+                            data={},
+                        ).model_dump(),
+                    ),
+                    self.get_topic(CONTROL_PLANE_MESSAGE_TYPE),
+                )
         finally:
             # clean up
             close_send_events.set()

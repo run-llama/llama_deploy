@@ -11,6 +11,10 @@ from fastapi.responses import StreamingResponse
 from llama_index.core.storage.kvstore import SimpleKVStore
 from llama_index.core.storage.kvstore.types import BaseKVStore
 
+from llama_deploy.apiserver.tracing import (
+    add_span_attribute,
+    trace_async_method,
+)
 from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
 from llama_deploy.types import (
     ActionTypes,
@@ -345,9 +349,14 @@ class ControlPlaneServer:
             return None
         return await self.get_task(session.task_ids[-1])
 
+    @trace_async_method("control_plane.add_task_to_session")
     async def add_task_to_session(
         self, session_id: str, task_def: TaskDefinition
     ) -> str:
+        add_span_attribute("session.id", session_id)
+        add_span_attribute("task.id", task_def.task_id)
+        add_span_attribute("task.service_id", task_def.service_id or "auto")
+
         session_dict = await self._state_store.aget(
             session_id, collection=self._config.session_store_key
         )
@@ -402,10 +411,14 @@ class ControlPlaneServer:
 
         return task_def
 
+    @trace_async_method("control_plane.handle_service_completion")
     async def handle_service_completion(
         self,
         task_result: TaskResult,
     ) -> None:
+        add_span_attribute("task.id", task_result.task_id)
+        add_span_attribute("task.result_length", len(task_result.result))
+
         # add result to task state
         task_def = await self.get_task(task_result.task_id)
         if task_def.session_id is None:

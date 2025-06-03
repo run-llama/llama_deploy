@@ -58,6 +58,16 @@ dependencies = [
 kafka = ["aiokafka>=0.11.0,<0.12", "kafka-python-ng>=2.2.2,<3"]
 rabbitmq = ["aio-pika>=9.4.2,<10"]
 redis = ["redis>=5.0.7,<6"]
+observability = [
+  "opentelemetry-api>=1.20.0,<2.0",
+  "opentelemetry-sdk>=1.20.0,<2.0",
+  "opentelemetry-instrumentation-fastapi>=0.41b0,<1.0",
+  "opentelemetry-instrumentation-httpx>=0.41b0,<1.0",
+  "opentelemetry-instrumentation-asyncio>=0.41b0,<1.0",
+  "opentelemetry-exporter-jaeger>=1.20.0,<2.0",
+  "opentelemetry-exporter-otlp>=1.20.0,<2.0",
+  "opentelemetry-exporter-console>=1.20.0,<2.0"
+]
 
 [project.scripts]
 llamactl = "llama_deploy.cli.__main__:main"
