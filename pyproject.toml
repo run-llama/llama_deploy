@@ -16,7 +16,8 @@ dev = [
   "coverage>=7.6.0,<8",
   "aiokafka>=0.11.0,<0.12",
   "kafka-python-ng>=2.2.2,<3",
-  "pre-commit>=4.2.0"
+  "pre-commit>=4.2.0",
+  "respx>=0.22.0"
 ]
 
 [project]
@@ -49,7 +50,8 @@ dependencies = [
   "prometheus-client>=0.21.1,<0.22",
   "platformdirs>=4.3.6,<5",
   "rich>=13.9.4,<14",
-  "brotli>=1.1.0"
+  "brotli>=1.1.0",
+  "websockets>=15.0.1"
 ]
 
 [project.optional-dependencies]

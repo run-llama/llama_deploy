@@ -67,7 +67,7 @@ export default function Home() {
         <div className="text-center mb-12">
           <Image
             className="mx-auto mb-6"
-            src="logo-dark-light.svg"
+            src={`${process.env.NEXT_PUBLIC_BASE_PATH}/logo-dark-light.svg`}
             alt="LlamaIndex logo"
             width={120}
             height={120}
@@ -247,7 +247,7 @@ export default function Home() {
           >
             <Image
               aria-hidden
-              src="file.svg"
+              src={`${process.env.NEXT_PUBLIC_BASE_PATH}/file.svg`}
               alt="File icon"
               width={16}
               height={16}
