@@ -3,11 +3,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from llama_deploy import QueueMessage
 from llama_deploy.message_queues.apache_kafka import (
     KafkaMessageQueue,
     KafkaMessageQueueConfig,
 )
+from llama_deploy.types import QueueMessage
 
 try:
     import aiokafka

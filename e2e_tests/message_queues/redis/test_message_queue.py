@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from llama_deploy import Client
+from llama_deploy.client import Client
 from llama_deploy.message_queues.redis import RedisMessageQueue
 from llama_deploy.types import QueueMessage
 

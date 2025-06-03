@@ -3,7 +3,7 @@ from unittest import mock
 import pytest
 from llama_index.core.workflow import StartEvent
 
-from llama_deploy import ControlPlaneConfig
+from llama_deploy.control_plane import ControlPlaneConfig
 from llama_deploy.services.network_service_manager import (
     NetworkServiceManager,
     ServiceNotFoundError,

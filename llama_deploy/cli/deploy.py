@@ -2,7 +2,7 @@ from pathlib import Path
 
 import click
 
-from llama_deploy import Client
+from llama_deploy.client import Client
 
 from .internal.config import ConfigProfile
 

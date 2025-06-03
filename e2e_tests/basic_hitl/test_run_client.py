@@ -4,7 +4,7 @@ import time
 import pytest
 from llama_index.core.workflow.events import HumanResponseEvent
 
-from llama_deploy import Client
+from llama_deploy.client import Client
 
 
 def test_run_client(services):

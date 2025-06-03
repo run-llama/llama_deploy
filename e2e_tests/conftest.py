@@ -4,7 +4,8 @@ import time
 
 import pytest
 
-from llama_deploy import ControlPlaneConfig, SimpleMessageQueueConfig
+from llama_deploy.control_plane import ControlPlaneConfig
+from llama_deploy.message_queues.simple import SimpleMessageQueueConfig
 
 from .utils import deploy_core
 

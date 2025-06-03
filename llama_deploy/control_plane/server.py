@@ -49,8 +49,8 @@ class ControlPlaneServer:
 
     Examples:
         ```python
-        from llama_deploy import ControlPlaneServer
-        from llama_deploy import SimpleMessageQueue, SimpleOrchestrator
+        from llama_deploy.control_plane import ControlPlaneServer
+        from llama_deploy.message_queue import SimpleMessageQueue
         from llama_index.llms.openai import OpenAI
 
         control_plane = ControlPlaneServer(

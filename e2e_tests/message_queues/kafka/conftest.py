@@ -6,11 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from llama_deploy import (
-    ControlPlaneConfig,
-    WorkflowServiceConfig,
-)
+from llama_deploy.control_plane import ControlPlaneConfig
 from llama_deploy.message_queues import KafkaMessageQueue, KafkaMessageQueueConfig
+from llama_deploy.services import WorkflowServiceConfig
 
 from ...utils import deploy_core, deploy_workflow
 from .workflow import BasicWorkflow
