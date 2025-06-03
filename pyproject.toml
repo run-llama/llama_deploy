@@ -55,10 +55,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-kafka = [
-  "aiokafka>=0.11.0,<0.12",
-  "kafka-python-ng>=2.2.2,<3"
-]
+kafka = ["aiokafka>=0.11.0,<0.12", "kafka-python-ng>=2.2.2,<3"]
 rabbitmq = ["aio-pika>=9.4.2,<10"]
 redis = ["redis>=5.0.7,<6"]
 
@@ -70,8 +67,4 @@ ignore-words-list = "LITS"
 skip = "./examples,*/algolia.js,docs/poetry.lock"
 
 [tool.coverage.run]
-omit = [
-  "__main__.py",
-  "tests/*",
-  "llama_deploy/apiserver/stats.py"
-]
+omit = ["__main__.py", "tests/*", "llama_deploy/apiserver/stats.py"]
