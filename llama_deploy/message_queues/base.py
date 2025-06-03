@@ -7,7 +7,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable
 
 from pydantic import BaseModel
 
-from llama_deploy.apiserver.tracing.utils import add_span_attribute, create_span
+from llama_deploy.apiserver.tracing import add_span_attribute, create_span
 from llama_deploy.types import QueueMessage
 
 logger = getLogger(__name__)

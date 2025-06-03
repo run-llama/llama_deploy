@@ -2,9 +2,10 @@
 
 import logging
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
 
-from llama_deploy.apiserver.settings import ApiserverSettings
+if TYPE_CHECKING:
+    from llama_deploy.apiserver.settings import ApiserverSettings
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ _tracing_enabled = False
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def configure_tracing(settings: ApiserverSettings) -> None:
+def configure_tracing(settings: "ApiserverSettings") -> None:
     """Configure OpenTelemetry tracing based on the provided configuration."""
     global _tracer, _tracing_enabled
 

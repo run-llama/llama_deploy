@@ -5,6 +5,7 @@ from .utils import (
     add_span_attribute,
     add_span_event,
     configure_tracing,
+    create_span,
     get_tracer,
     trace_async_method,
     trace_method,
@@ -18,4 +19,5 @@ __all__ = [
     "setup_tracing",
     "add_span_attribute",
     "add_span_event",
+    "create_span",
 ]

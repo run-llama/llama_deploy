@@ -6,7 +6,7 @@ import click
 from prometheus_client import start_http_server
 from tenacity import RetryError, Retrying, stop_after_attempt, wait_fixed
 
-from llama_deploy.apiserver import settings
+from llama_deploy.apiserver.settings import settings
 from llama_deploy.client import Client
 
 RETRY_WAIT_SECONDS = 1

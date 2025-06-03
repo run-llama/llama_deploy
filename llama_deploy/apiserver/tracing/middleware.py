@@ -1,13 +1,16 @@
 """Tracing middleware for API server."""
 
+from typing import TYPE_CHECKING
+
 from fastapi import FastAPI
 
-from llama_deploy.apiserver.settings import ApiserverSettings
+if TYPE_CHECKING:
+    from llama_deploy.apiserver.settings import ApiserverSettings
 
 from .utils import configure_tracing
 
 
-def setup_tracing(app: FastAPI, config: ApiserverSettings) -> None:
+def setup_tracing(app: FastAPI, config: "ApiserverSettings") -> None:
     """Setup OpenTelemetry tracing for FastAPI application."""
     if not config.tracing_enabled:
         return

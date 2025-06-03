@@ -4,7 +4,7 @@ from unittest import mock
 import httpx
 from fastapi.testclient import TestClient
 
-from llama_deploy.apiserver import settings
+from llama_deploy.apiserver.settings import settings
 
 
 def test_read_main(http_client: TestClient) -> None:

@@ -2,7 +2,7 @@ import asyncio
 import json
 import uuid
 from logging import getLogger
-from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, AsyncGenerator, Dict, List, Optional, Tuple
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -15,7 +15,10 @@ from llama_deploy.apiserver.tracing import (
     add_span_attribute,
     trace_async_method,
 )
-from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
+
+if TYPE_CHECKING:
+    from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
+
 from llama_deploy.types import (
     ActionTypes,
     EventDefinition,
@@ -66,8 +69,8 @@ class ControlPlaneServer:
 
     def __init__(
         self,
-        message_queue: AbstractMessageQueue,
-        publish_callback: PublishCallback | None = None,
+        message_queue: "AbstractMessageQueue",
+        publish_callback: "PublishCallback | None" = None,
         state_store: BaseKVStore | None = None,
         config: ControlPlaneConfig | None = None,
     ) -> None:
@@ -202,7 +205,7 @@ class ControlPlaneServer:
         )
 
     @property
-    def message_queue(self) -> AbstractMessageQueue:
+    def message_queue(self) -> "AbstractMessageQueue":
         return self._message_queue
 
     @property
@@ -210,7 +213,7 @@ class ControlPlaneServer:
         return self._publisher_id
 
     @property
-    def publish_callback(self) -> Optional[PublishCallback]:
+    def publish_callback(self) -> Optional["PublishCallback"]:
         return self._publish_callback
 
     async def _process_messages(self, topic: str) -> None:
