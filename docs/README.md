@@ -6,21 +6,21 @@ This repository contains the documentation for LlamaDeploy, built using MkDocs w
 
 ### Prerequisites
 - Python 3.10 or higher
-- Poetry (for dependency management)
+- uv (for dependency management)
 
 ### Installation
 
 1. Clone the repository
-2. Install dependencies using Poetry:
+2. Install dependencies using uv:
 ```bash
-poetry install
+uv sync
 ```
 
 ## Development
 
 To start the documentation server locally:
 ```bash
-poetry run mkdocs serve
+uv run mkdocs serve
 ```
 
 This will start a development server at `http://127.0.0.1:8000`.
@@ -41,5 +41,5 @@ Contributions are very welcome!
 
 1. Create a new branch for your changes
 2. Make your changes to the documentation
-3. Test locally using `poetry run mkdocs serve`
+3. Test locally using `uv run mkdocs serve`
 4. Submit a pull request

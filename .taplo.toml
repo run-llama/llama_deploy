@@ -1,0 +1,5 @@
+[formatting]
+align_comments = false
+reorder_keys = false
+indent_string = "  " # adapt to toml-sort
+array_trailing_comma = false # adapt to toml-sort

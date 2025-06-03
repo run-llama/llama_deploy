@@ -13,10 +13,10 @@ dist/
 
 # Project related
 .tool-versions
-docs/*.lock
 
 # IDEs
 .idea
 .DS_Store
 .vscode
 .zed
+.claude
