@@ -1,5 +1,8 @@
 [formatting]
 align_comments = false
 reorder_keys = false
-indent_string = "  " # adapt to toml-sort
-array_trailing_comma = false # adapt to toml-sort
+# Following are to be consistent with toml-sort
+indent_string = "  "
+array_trailing_comma = false
+compact_arrays = true
+compact_inline_tables = true
