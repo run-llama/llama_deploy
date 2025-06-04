@@ -644,7 +644,8 @@ class MockWebSocketServer:
 def test_websocket_deployment_not_found(http_client: TestClient) -> None:
     """Test WebSocket proxy when deployment is not found."""
     with patch(
-        "llama_deploy.apiserver.routers.ui.manager.get_deployment", return_value=None
+        "llama_deploy.apiserver.routers.deployments.manager.get_deployment",
+        return_value=None,
     ):
         with pytest.raises(Exception):  # Should close connection
             with http_client.websocket_connect("/deployments/ui/nonexistent/ws"):
@@ -657,7 +658,9 @@ def test_websocket_url_construction(
     """Test WebSocket proxy constructs upstream URL correctly."""
     mock_server = MockWebSocketServer()
 
-    with patch("llama_deploy.apiserver.routers.ui.websockets.connect") as mock_connect:
+    with patch(
+        "llama_deploy.apiserver.routers.deployments.websockets.connect"
+    ) as mock_connect:
         mock_connect.return_value = mock_server
 
         with http_client.websocket_connect("/deployments/test_deployment/ui/chat"):
@@ -675,7 +678,9 @@ def test_websocket_query_params(
     """Test WebSocket proxy forwards query parameters."""
     mock_server = MockWebSocketServer()
 
-    with patch("llama_deploy.apiserver.routers.ui.websockets.connect") as mock_connect:
+    with patch(
+        "llama_deploy.apiserver.routers.deployments.websockets.connect"
+    ) as mock_connect:
         mock_connect.return_value = mock_server
 
         with http_client.websocket_connect(
@@ -695,7 +700,9 @@ def test_websocket_message_forwarding(
     """Test WebSocket proxy forwards messages correctly."""
     mock_server = MockWebSocketServer()
 
-    with patch("llama_deploy.apiserver.routers.ui.websockets.connect") as mock_connect:
+    with patch(
+        "llama_deploy.apiserver.routers.deployments.websockets.connect"
+    ) as mock_connect:
         mock_connect.return_value = mock_server
 
         with http_client.websocket_connect(
@@ -716,7 +723,9 @@ def test_websocket_receive_text(
         messages_to_send=["Hello from upstream", "Second message"]
     )
 
-    with patch("llama_deploy.apiserver.routers.ui.websockets.connect") as mock_connect:
+    with patch(
+        "llama_deploy.apiserver.routers.deployments.websockets.connect"
+    ) as mock_connect:
         mock_connect.return_value = mock_server
 
         with http_client.websocket_connect(
@@ -734,7 +743,9 @@ def test_websocket_send_bytes(http_client: TestClient, mock_manager: MagicMock) 
     """Test WebSocket proxy forwards binary messages from client to upstream."""
     mock_server = MockWebSocketServer()
 
-    with patch("llama_deploy.apiserver.routers.ui.websockets.connect") as mock_connect:
+    with patch(
+        "llama_deploy.apiserver.routers.deployments.websockets.connect"
+    ) as mock_connect:
         mock_connect.return_value = mock_server
 
         with http_client.websocket_connect(
@@ -755,7 +766,9 @@ def test_websocket_receive_bytes(
     binary_data = b"binary data from upstream"
     mock_server = MockWebSocketServer(messages_to_send=[binary_data])
 
-    with patch("llama_deploy.apiserver.routers.ui.websockets.connect") as mock_connect:
+    with patch(
+        "llama_deploy.apiserver.routers.deployments.websockets.connect"
+    ) as mock_connect:
         mock_connect.return_value = mock_server
 
         with http_client.websocket_connect(
@@ -775,7 +788,9 @@ def test_websocket_mixed_message_types(
     messages: list[str | bytes] = ["text message", b"binary message", "another text"]
     mock_server = MockWebSocketServer(messages_to_send=messages)
 
-    with patch("llama_deploy.apiserver.routers.ui.websockets.connect") as mock_connect:
+    with patch(
+        "llama_deploy.apiserver.routers.deployments.websockets.connect"
+    ) as mock_connect:
         mock_connect.return_value = mock_server
 
         with http_client.websocket_connect(
@@ -803,7 +818,9 @@ def test_websocket_connection_error(
     http_client: TestClient, mock_manager: MagicMock
 ) -> None:
     """Test WebSocket proxy handles connection errors gracefully."""
-    with patch("llama_deploy.apiserver.routers.ui.websockets.connect") as mock_connect:
+    with patch(
+        "llama_deploy.apiserver.routers.deployments.websockets.connect"
+    ) as mock_connect:
         mock_connect.side_effect = ConnectionError("Cannot connect to upstream")
 
         # Connection should be established but then closed gracefully
