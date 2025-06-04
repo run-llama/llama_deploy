@@ -1,17 +1,20 @@
 """Tracing utilities for llama_deploy."""
 
 import logging
+from contextlib import contextmanager, nullcontext
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Generator, TypeVar
 
 if TYPE_CHECKING:
     from llama_deploy.apiserver.settings import ApiserverSettings
 
+
 logger = logging.getLogger(__name__)
 
-# Global tracer instance
-_tracer: Optional[Any] = None
+# Since opentelemetry is optional, we have to use Any to type the tracer
+_tracer: Any | None = None
 _tracing_enabled = False
+_null_context = nullcontext()
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -27,6 +30,7 @@ def configure_tracing(settings: "ApiserverSettings") -> None:
 
     try:
         from opentelemetry import trace
+        from opentelemetry.instrumentation.asyncio import AsyncioInstrumentor
         from opentelemetry.sdk.resources import SERVICE_NAME, Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
@@ -42,33 +46,19 @@ def configure_tracing(settings: "ApiserverSettings") -> None:
 
         # Configure exporter based on config
         if settings.tracing_exporter == "console":
-            from opentelemetry.exporter.console import (  # type: ignore
-                ConsoleSpanExporter,
-            )
+            from opentelemetry.sdk.trace.export import ConsoleSpanExporter
 
             exporter = ConsoleSpanExporter()
-        elif settings.tracing_exporter == "jaeger":
-            from opentelemetry.exporter.jaeger.thrift import JaegerExporter
 
-            if not settings.tracing_endpoint:
-                raise ValueError("Jaeger exporter requires an endpoint")
-            exporter = JaegerExporter(
-                agent_host_name=settings.tracing_endpoint.split(":")[0]
-                if ":" in settings.tracing_endpoint
-                else settings.tracing_endpoint,
-                agent_port=int(settings.tracing_endpoint.split(":")[1])
-                if ":" in settings.tracing_endpoint
-                else 6831,
-            )
         elif settings.tracing_exporter == "otlp":
-            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (  # type: ignore
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (
                 OTLPSpanExporter,
             )
 
             if not settings.tracing_endpoint:
                 raise ValueError("OTLP exporter requires an endpoint")
             exporter = OTLPSpanExporter(
-                endpoint=settings.tracing_endpoint,
+                endpoint=f"{settings.tracing_endpoint}/v1/traces",
                 insecure=settings.tracing_insecure,
                 timeout=settings.tracing_timeout,
             )
@@ -86,19 +76,26 @@ def configure_tracing(settings: "ApiserverSettings") -> None:
         _tracer = trace.get_tracer(__name__)
         _tracing_enabled = True
 
+        # Setup auto-instrumentation
+        AsyncioInstrumentor().instrument()
+
         logger.info(
             f"Tracing configured with {settings.tracing_exporter} exporter, service: {settings.tracing_service_name}"
         )
 
     except ImportError as e:
-        logger.warning(f"OpenTelemetry dependencies not available: {e}")
+        msg = (
+            f"Tracing is enabled but OpenTelemetry instrumentation packages are missing: {e}. "
+            "Run `pip install llama_deploy[observability]`"
+        )
+        logger.warning(msg)
         _tracing_enabled = False
     except Exception as e:
         logger.error(f"Failed to configure tracing: {e}")
         _tracing_enabled = False
 
 
-def get_tracer() -> Optional[Any]:
+def get_tracer() -> Any | None:
     """Get the configured tracer instance."""
     return _tracer if _tracing_enabled else None
 
@@ -109,7 +106,7 @@ def is_tracing_enabled() -> bool:
 
 
 def trace_method(
-    span_name: Optional[str] = None, attributes: Optional[dict] = None
+    span_name: str | None = None, attributes: dict | None = None
 ) -> Callable[[F], F]:
     """Decorator to add tracing to synchronous methods."""
 
@@ -128,16 +125,9 @@ def trace_method(
                 if attributes:
                     span.set_attributes(attributes)
 
-                # Add method arguments as attributes (excluding sensitive data)
                 if hasattr(func, "__annotations__"):
                     for i, (param_name, _) in enumerate(func.__annotations__.items()):
-                        if i < len(args) and param_name not in {
-                            "self",
-                            "cls",
-                            "password",
-                            "token",
-                            "secret",
-                        }:
+                        if i < len(args) and param_name not in {"self", "cls"}:
                             span.set_attribute(
                                 f"arg.{param_name}", str(args[i])[:100]
                             )  # Truncate long values
@@ -158,7 +148,7 @@ def trace_method(
 
 
 def trace_async_method(
-    span_name: Optional[str] = None, attributes: Optional[dict] = None
+    span_name: str | None = None, attributes: dict | None = None
 ) -> Callable[[F], F]:
     """Decorator to add tracing to asynchronous methods."""
 
@@ -177,16 +167,9 @@ def trace_async_method(
                 if attributes:
                     span.set_attributes(attributes)
 
-                # Add method arguments as attributes (excluding sensitive data)
                 if hasattr(func, "__annotations__"):
                     for i, (param_name, _) in enumerate(func.__annotations__.items()):
-                        if i < len(args) and param_name not in {
-                            "self",
-                            "cls",
-                            "password",
-                            "token",
-                            "secret",
-                        }:
+                        if i < len(args) and param_name not in {"self", "cls"}:
                             span.set_attribute(
                                 f"arg.{param_name}", str(args[i])[:100]
                             )  # Truncate long values
@@ -206,19 +189,20 @@ def trace_async_method(
     return decorator
 
 
-def create_span(name: str, attributes: Optional[dict] = None) -> Any:
-    """Create a new span context manager."""
+@contextmanager
+def create_span(
+    name: str, attributes: dict | None = None
+) -> Generator[Any, None, None]:
     tracer = get_tracer()
-    if not tracer:
-        # Return a no-op context manager
-        from contextlib import nullcontext
+    if tracer is None:
+        yield
+        return
 
-        return nullcontext()
-
-    span = tracer.start_as_current_span(name)
-    if attributes:
-        span.set_attributes(attributes)
-    return span
+    with tracer.start_as_current_span(name) as span:
+        if attributes:
+            for k, v in attributes.items():
+                span.set_attribute(k, v)
+        yield span
 
 
 def add_span_attribute(key: str, value: Any) -> None:
@@ -237,7 +221,7 @@ def add_span_attribute(key: str, value: Any) -> None:
         pass
 
 
-def add_span_event(name: str, attributes: Optional[dict] = None) -> None:
+def add_span_event(name: str, attributes: dict | None = None) -> None:
     """Add an event to the current span if tracing is enabled."""
     if not _tracing_enabled:
         return

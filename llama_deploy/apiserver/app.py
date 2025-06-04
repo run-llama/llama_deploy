@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from .routers import deployments_router, status_router, ui_router
 from .server import lifespan
 from .settings import settings
-from .tracing import setup_tracing
+from .tracing import configure_tracing
 
 logger = logging.getLogger("uvicorn.info")
 
@@ -17,7 +17,7 @@ logger = logging.getLogger("uvicorn.info")
 app = FastAPI(lifespan=lifespan)
 
 # Setup tracing
-setup_tracing(app, settings)
+configure_tracing(settings)
 
 # Configure CORS middleware if the environment variable is set
 if not os.environ.get("DISABLE_CORS", False):

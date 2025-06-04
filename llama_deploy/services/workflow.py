@@ -18,6 +18,12 @@ from llama_index.core.workflow.handler import WorkflowHandler
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from llama_deploy.apiserver.tracing import (
+    add_span_attribute,
+    add_span_event,
+    create_span,
+    trace_async_method,
+)
 from llama_deploy.control_plane.server import (
     CONTROL_PLANE_MESSAGE_TYPE,
     ControlPlaneConfig,
@@ -30,12 +36,6 @@ from llama_deploy.types import (
     TaskDefinition,
     TaskResult,
     TaskStream,
-)
-from llama_deploy.apiserver.tracing.utils import (
-    trace_async_method,
-    create_span,
-    add_span_attribute,
-    add_span_event,
 )
 
 logger = getLogger(__name__)

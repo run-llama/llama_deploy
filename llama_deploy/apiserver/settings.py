@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -52,7 +51,7 @@ class ApiserverSettings(BaseSettings):
         default="console",
         description="Trace exporter type: 'console', 'jaeger', 'otlp'. Defaults to 'console'.",
     )
-    tracing_endpoint: Optional[str] = Field(
+    tracing_endpoint: str | None = Field(
         default=None,
         description="Trace exporter endpoint. Required for 'jaeger' and 'otlp' exporters.",
     )
