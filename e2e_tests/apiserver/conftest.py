@@ -10,7 +10,7 @@ from llama_deploy.client import Client
 
 
 def run_apiserver():
-    uvicorn.run("llama_deploy.apiserver:app", host="127.0.0.1", port=4501)
+    uvicorn.run("llama_deploy.apiserver.app:app", host="127.0.0.1", port=4501)
 
 
 @retry(wait=wait_exponential(min=1, max=10))
