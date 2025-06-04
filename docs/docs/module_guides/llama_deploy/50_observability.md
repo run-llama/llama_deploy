@@ -17,7 +17,6 @@ Traces show the complete journey of a request from the API server through messag
 
 ### What Gets Traced
 
-- **API Server**: HTTP requests and deployment operations
 - **Control Plane**: Service registration, task orchestration, and session management
 - **Workflow Services**: Complete workflow execution lifecycle including state loading, workflow running, event
   streaming, and result publishing
@@ -25,11 +24,7 @@ Traces show the complete journey of a request from the API server through messag
 
 ### Configuration
 
-Tracing is disabled by default and can be enabled through environment variables or programmatic configuration.
-
-#### API Server Tracing
-
-Configure tracing for the API server using environment variables:
+Tracing is disabled by default and can be enabled through environment variables:
 
 ```bash
 # Enable tracing
@@ -46,68 +41,21 @@ export LLAMA_DEPLOY_APISERVER_TRACING_ENDPOINT=localhost:14268
 export LLAMA_DEPLOY_APISERVER_TRACING_SAMPLE_RATE=0.1
 ```
 
-#### Global Tracing Configuration
-
-For other components (control plane, workflow services, etc.), use the global tracing configuration:
-
-```bash
-# Enable tracing globally
-export LLAMA_DEPLOY_TRACING_ENABLED=true
-
-# Set service name
-export LLAMA_DEPLOY_TRACING_SERVICE_NAME=llama-deploy
-
-# Configure exporter
-export LLAMA_DEPLOY_TRACING_EXPORTER=jaeger
-export LLAMA_DEPLOY_TRACING_ENDPOINT=localhost:14268
-
-# Configure sampling
-export LLAMA_DEPLOY_TRACING_SAMPLE_RATE=1.0
-```
-
-#### Programmatic Configuration
-
-You can also configure tracing programmatically:
-
-```python
-from llama_deploy.apiserver.tracing import TracingConfig, configure_tracing
-
-# Configure tracing
-config = TracingConfig(
-    enabled=True,
-    service_name="my-workflow-service",
-    exporter="jaeger",
-    endpoint="localhost:14268",
-    sample_rate=0.1,
-)
-
-configure_tracing(config)
-```
-
 ### Supported Exporters
 
 #### Console Exporter
 Prints traces to the console - useful for development:
 
 ```bash
-export LLAMA_DEPLOY_TRACING_EXPORTER=console
-```
-
-#### Jaeger Exporter
-Exports traces to Jaeger for visualization:
-
-```bash
-export LLAMA_DEPLOY_TRACING_EXPORTER=jaeger
-export LLAMA_DEPLOY_TRACING_ENDPOINT=localhost:14268
+export LLAMA_DEPLOY_APISERVER_TRACING_EXPORTER=console
 ```
 
 #### OTLP Exporter
-Exports traces using OpenTelemetry Protocol (works with many backends):
+Exports traces using OpenTelemetry Protocol (works with many backends like Jaeger):
 
 ```bash
-export LLAMA_DEPLOY_TRACING_EXPORTER=otlp
-export LLAMA_DEPLOY_TRACING_ENDPOINT=http://localhost:4317
-export LLAMA_DEPLOY_TRACING_INSECURE=true
+export LLAMA_DEPLOY_APISERVER_TRACING_EXPORTER=otlp
+export LLAMA_DEPLOY_APISERVER_TRACING_ENDPOINT=http://localhost:4317
 ```
 
 ### Setting Up Jaeger
@@ -116,39 +64,26 @@ To set up Jaeger for trace collection and visualization:
 
 ```bash
 # Run Jaeger all-in-one container
-docker run -d --name jaeger \
+docker run --rm -d \
+  -e COLLECTOR_ZIPKIN_HOST_PORT=:9411 \
   -p 16686:16686 \
-  -p 14268:14268 \
+  -p 4317:4317 \
+  -p 4318:4318 \
+  -p 9411:9411 \
   jaegertracing/all-in-one:latest
 
 # Configure LlamaDeployment to use Jaeger
-export LLAMA_DEPLOY_TRACING_ENABLED=true
-export LLAMA_DEPLOY_TRACING_EXPORTER=jaeger
-export LLAMA_DEPLOY_TRACING_ENDPOINT=localhost:14268
+export LLAMA_DEPLOY_APISERVER_TRACING_ENABLED=true
+export LLAMA_DEPLOY_APISERVER_TRACING_EXPORTER=otlp
+export LLAMA_DEPLOY_APISERVER_TRACING_ENDPOINT=http://localhost:4317
 ```
 
 Access the Jaeger UI at http://localhost:16686 to view traces.
 
 ### Trace Context Propagation
 
-Traces automatically propagate across service boundaries through message queues. Each message includes trace context (`trace_id` and `span_id`) in the `QueueMessageStats`, ensuring complete end-to-end tracing.
-
-### Example Trace Flow
-
-A typical workflow execution creates spans like:
-
-```
-HTTP Request (API Server)
-├── control_plane.add_task_to_session
-├── message_queue.publish
-├── workflow.process_call
-│   ├── workflow.get_state
-│   ├── workflow.run
-│   ├── workflow.event.publish (multiple)
-│   ├── workflow.set_state
-│   └── workflow.result.publish
-└── control_plane.handle_service_completion
-```
+Traces automatically propagate across service boundaries through message queues. Each message includes trace context
+(`trace_id` and `span_id`) in the `QueueMessageStats`, ensuring complete end-to-end tracing.
 
 ## Metrics Collection
 
@@ -229,7 +164,7 @@ For production deployments, configure appropriate sampling rates to balance obse
 
 ```bash
 # Sample 10% of traces
-export LLAMA_DEPLOY_TRACING_SAMPLE_RATE=0.1
+export LLAMA_DEPLOY_APISERVER_TRACING_SAMPLE_RATE=0.1
 ```
 
 ### Service Names
@@ -237,7 +172,7 @@ export LLAMA_DEPLOY_TRACING_SAMPLE_RATE=0.1
 Use descriptive service names to distinguish between different deployments:
 
 ```bash
-export LLAMA_DEPLOY_TRACING_SERVICE_NAME=prod-rag-workflow
+export LLAMA_DEPLOY_APISERVER_TRACING_SERVICE_NAME=prod-rag-workflow
 export LLAMA_DEPLOY_APISERVER_TRACING_SERVICE_NAME=prod-api-server
 ```
 
@@ -272,7 +207,7 @@ Set up alerts based on metrics:
 
 ### Traces Not Appearing
 
-1. Verify tracing is enabled: `LLAMA_DEPLOY_TRACING_ENABLED=true`
+1. Verify tracing is enabled: `LLAMA_DEPLOY_APISERVER_TRACING_ENABLED=true`
 2. Check exporter configuration and endpoint connectivity
 3. Verify sampling rate is not too low
 4. Check application logs for tracing errors
@@ -282,7 +217,7 @@ Set up alerts based on metrics:
 Install tracing dependencies:
 
 ```bash
-pip install llama-deploy[tracing]
+pip install llama-deploy[observability]
 ```
 
 ### Performance Impact
@@ -301,7 +236,8 @@ pip install llama-deploy[tracing]
 
 ### Sensitive Data
 
-Tracing automatically excludes sensitive parameters (password, token, secret) from span attributes. Review custom span attributes to ensure no sensitive data is included.
+Tracing doesn't automatically exclude sensitive parameters from span attributes. Review custom span attributes to
+ensure no sensitive data is included.
 
 ### Network Security
 
@@ -309,13 +245,6 @@ When using OTLP in production:
 
 ```bash
 # Use secure connections
-export LLAMA_DEPLOY_TRACING_INSECURE=false
-export LLAMA_DEPLOY_TRACING_ENDPOINT=https://your-secure-endpoint.com
+export LLAMA_DEPLOY_APISERVER_TRACING_INSECURE=false
+export LLAMA_DEPLOY_APISERVER_TRACING_ENDPOINT=https://your-secure-endpoint.com
 ```
-
-### Access Control
-
-Secure access to observability endpoints:
-- Use authentication for Prometheus metrics endpoints
-- Restrict network access to tracing collectors
-- Implement proper RBAC for Grafana/Jaeger access
