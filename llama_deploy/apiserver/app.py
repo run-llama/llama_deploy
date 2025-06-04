@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 
-from .routers import deployments_router, status_router, ui_router
+from .routers import deployments_router, status_router
 from .server import lifespan
 
 logger = logging.getLogger("uvicorn.info")
@@ -26,7 +26,6 @@ if not os.environ.get("DISABLE_CORS", False):
 
 app.include_router(deployments_router)
 app.include_router(status_router)
-app.include_router(ui_router)
 
 
 @app.get("/")
