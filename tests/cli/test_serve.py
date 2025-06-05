@@ -47,7 +47,7 @@ def test_serve_no_deployment_file(runner: CliRunner) -> None:
         mock_popen.assert_called_once_with(
             [
                 "uvicorn",
-                "llama_deploy.apiserver:app",
+                "llama_deploy.apiserver.app:app",
                 "--host",
                 "localhost",
                 "--port",
@@ -108,7 +108,7 @@ def test_serve_with_deployment_file(runner: CliRunner, tmp_path: Path) -> None:
         mock_popen.assert_called_once_with(
             [
                 "uvicorn",
-                "llama_deploy.apiserver:app",
+                "llama_deploy.apiserver.app:app",
                 "--host",
                 "localhost",
                 "--port",

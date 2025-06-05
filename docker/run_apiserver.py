@@ -8,7 +8,7 @@ if __name__ == "__main__":
         start_http_server(settings.prometheus_port)
 
     uvicorn.run(
-        "llama_deploy.apiserver:app",
+        "llama_deploy.apiserver.app:app",
         host=settings.host,
         port=settings.port,
     )

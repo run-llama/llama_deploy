@@ -82,7 +82,7 @@ if __name__ == "__main__":
     # Ready to go
     os.environ["LLAMA_DEPLOY_APISERVER_RC_PATH"] = str(work_dir)
     uvicorn.run(
-        "llama_deploy.apiserver:app",
+        "llama_deploy.apiserver.app:app",
         host=settings.host,
         port=settings.port,
     )
