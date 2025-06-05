@@ -99,7 +99,7 @@ Message received: Hello from my shell!
 ### UI Interface
 
 LlamaDeploy will serve the UI through the apiserver, at the address `http://localhost:4501/ui/<deployment name>`. In
-this case, point the browser to [http://localhost:4501/ui/QuickStart/](http://localhost:4501/ui/QuickStart/) to interact
+this case, point the browser to [http://localhost:4501/deployments/QuickStart/ui](http://localhost:4501/deployments/QuickStart/ui) to interact
 with your deployment through a user-friendly interface.
 
 ## Running with Docker
