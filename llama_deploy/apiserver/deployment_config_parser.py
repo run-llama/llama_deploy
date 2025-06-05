@@ -22,10 +22,10 @@ from llama_deploy.message_queues import (
 
 MessageQueueConfig = Annotated[
     Union[
-        KafkaMessageQueueConfig,
-        RabbitMQMessageQueueConfig,
-        RedisMessageQueueConfig,
-        SimpleMessageQueueConfig,
+        "KafkaMessageQueueConfig",
+        "RabbitMQMessageQueueConfig",
+        "RedisMessageQueueConfig",
+        "SimpleMessageQueueConfig",
     ],
     Field(discriminator="type"),
 ]
@@ -105,7 +105,7 @@ class DeploymentConfig(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
 
     name: str
-    control_plane: ControlPlaneConfig
+    control_plane: "ControlPlaneConfig"
     message_queue: MessageQueueConfig | None = Field(None)
     default_service: str | None = Field(None)
     services: dict[str, Service]

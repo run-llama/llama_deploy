@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from llama_index.core.workflow.context_serializers import JsonSerializer
 from llama_index.core.workflow.events import Event
 
-from llama_deploy.apiserver import DeploymentConfig
+from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 from llama_deploy.types import TaskResult
 from llama_deploy.types.core import EventDefinition, TaskDefinition
 

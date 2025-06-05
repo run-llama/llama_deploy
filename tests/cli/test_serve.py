@@ -6,7 +6,7 @@ import pytest
 from click.testing import CliRunner
 from tenacity import RetryError
 
-from llama_deploy.apiserver import settings
+from llama_deploy.apiserver.settings import settings
 from llama_deploy.cli.serve import serve
 
 

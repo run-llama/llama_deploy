@@ -3,7 +3,7 @@ from unittest import mock
 
 import pytest
 
-from llama_deploy.apiserver import DeploymentConfig
+from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 from llama_deploy.apiserver.source_managers.base import SyncPolicy
 from llama_deploy.apiserver.source_managers.local import LocalSourceManager
 

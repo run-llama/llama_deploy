@@ -7,6 +7,7 @@ from typing import Any, AsyncIterator, Awaitable, Callable
 
 from pydantic import BaseModel
 
+from llama_deploy.apiserver.tracing import add_span_attribute, create_span
 from llama_deploy.types import QueueMessage
 
 logger = getLogger(__name__)
@@ -35,19 +36,28 @@ class AbstractMessageQueue(ABC):
         **kwargs: Any,
     ) -> Any:
         """Send message to a consumer."""
-        logger.info(
-            f"Publishing message of type '{message.type}' with action '{message.action}' to topic '{topic}'"
-        )
-        logger.debug(f"Message: {message.model_dump()}")
+        with create_span("message_queue.publish"):
+            add_span_attribute("message.type", message.type)
+            add_span_attribute("message.action", str(message.action))
+            add_span_attribute("message.topic", topic)
+            add_span_attribute("message.id", message.id_)
 
-        message.stats.publish_time = message.stats.timestamp_str()
-        await self._publish(message, topic, create_topic)
+            logger.info(
+                f"Publishing message of type '{message.type}' with action '{message.action}' to topic '{topic}'"
+            )
+            logger.debug(f"Message: {message.model_dump()}")
 
-        if callback:
-            if inspect.iscoroutinefunction(callback):
-                await callback(message, **kwargs)
-            else:
-                callback(message, **kwargs)
+            message.stats.publish_time = message.stats.timestamp_str()
+            message.stats.set_trace_context()
+
+            await self._publish(message, topic, create_topic)
+
+            if callback:
+                with create_span("message_queue.callback"):
+                    if inspect.iscoroutinefunction(callback):
+                        await callback(message, **kwargs)
+                    else:
+                        callback(message, **kwargs)
 
     @abstractmethod
     async def cleanup(self, *args: Any, **kwargs: dict[str, Any]) -> None:

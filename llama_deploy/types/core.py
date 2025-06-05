@@ -39,15 +39,38 @@ class QueueMessageStats(BaseModel):
             The time the message processing started.
         process_end_time (Optional[str]):
             The time the message processing ended.
+        trace_id (Optional[str]):
+            The trace ID for distributed tracing.
+        span_id (Optional[str]):
+            The span ID for distributed tracing.
     """
 
     publish_time: str | None = Field(default=None)
     process_start_time: str | None = Field(default=None)
     process_end_time: str | None = Field(default=None)
+    trace_id: str | None = Field(default=None)
+    span_id: str | None = Field(default=None)
 
     @staticmethod
     def timestamp_str(format: str = "%Y-%m-%d %H:%M:%S") -> str:
         return datetime.now().strftime(format)
+
+    def set_trace_context(self) -> None:
+        """Set trace context from current span if tracing is enabled."""
+        try:
+            from opentelemetry import trace
+
+            current_span = trace.get_current_span()
+            if current_span and current_span.is_recording():
+                ctx = current_span.get_span_context()
+                self.trace_id = format(ctx.trace_id, "032x")
+                self.span_id = format(ctx.span_id, "016x")
+        except ImportError:
+            # OpenTelemetry not available
+            pass
+        except Exception:
+            # Silently ignore tracing errors
+            pass
 
 
 class QueueMessage(BaseModel):

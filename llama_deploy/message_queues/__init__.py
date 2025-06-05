@@ -1,14 +1,14 @@
-from llama_deploy.message_queues.apache_kafka import (
+from .apache_kafka import (
     KafkaMessageQueue,
     KafkaMessageQueueConfig,
 )
-from llama_deploy.message_queues.base import AbstractMessageQueue
-from llama_deploy.message_queues.rabbitmq import (
+from .base import AbstractMessageQueue
+from .rabbitmq import (
     RabbitMQMessageQueue,
     RabbitMQMessageQueueConfig,
 )
-from llama_deploy.message_queues.redis import RedisMessageQueue, RedisMessageQueueConfig
-from llama_deploy.message_queues.simple import (
+from .redis import RedisMessageQueue, RedisMessageQueueConfig
+from .simple import (
     SimpleMessageQueue,
     SimpleMessageQueueConfig,
     SimpleMessageQueueServer,

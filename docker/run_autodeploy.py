@@ -6,7 +6,7 @@ from pathlib import Path
 import uvicorn
 from prometheus_client import start_http_server
 
-from llama_deploy.apiserver import settings
+from llama_deploy.apiserver.settings import settings
 
 CLONED_REPO_FOLDER = Path("cloned_repo")
 RC_PATH = Path("/data")
