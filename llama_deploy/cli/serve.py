@@ -30,7 +30,7 @@ def serve(deployment_file: Path | None) -> None:
     uvicorn_p = subprocess.Popen(
         [
             "uvicorn",
-            "llama_deploy.apiserver:app",
+            "llama_deploy.apiserver.app:app",
             "--host",
             "localhost",
             "--port",
