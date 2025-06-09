@@ -1,20 +1,19 @@
-name: QuickStart
+name: CodeArtifact
 
 control-plane:
   port: 8000
 
-default-service: echo_workflow
+default-service: code_artifact_workflow
 
 services:
-  echo_workflow:
-    name: Echo Workflow
+  code_artifact_workflow:
+    name: CodeArtifact
     source:
       type: local
       name: src
-    path: src/workflow:echo_workflow
+    path: src/workflow:code_artifact_workflow
 
 ui:
-  name: My Nextjs App
   starter_questions: # List of starter questions for the chat UI (default: None)
     - "What is LlamaIndex?"
     - "How do I use it with LLMs?"
