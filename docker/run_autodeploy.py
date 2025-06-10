@@ -4,6 +4,7 @@ import subprocess
 from pathlib import Path
 
 import uvicorn
+import yaml
 from prometheus_client import start_http_server
 
 from llama_deploy.apiserver.settings import settings
@@ -72,9 +73,21 @@ if __name__ == "__main__":
 
     deployment_file_path = os.environ.get("DEPLOYMENT_FILE_PATH", "deployment.yml")
     deployment_file_abspath = work_dir / CLONED_REPO_FOLDER / deployment_file_path
-
     if not deployment_file_abspath.exists():
         raise ValueError(f"File {deployment_file_abspath} does not exist")
+
+    deployment_override_name = os.environ.get("DEPLOYMENT_NAME")
+    if deployment_override_name:
+        with open(deployment_file_abspath) as f:
+            # Replace deployment name with the overridden value
+            data = yaml.safe_load(f)
+
+        # Avoid failing here if the deployment config file has a wrong format,
+        # let's do nothing if there's no field `name`
+        if "name" in data:
+            data["name"] = deployment_override_name
+            with open(deployment_file_abspath, "w") as f:
+                yaml.safe_dump(data, f)
 
     copy_sources(work_dir, deployment_file_abspath)
     shutil.rmtree(work_dir / CLONED_REPO_FOLDER)
