@@ -29,6 +29,7 @@ from llama_deploy.control_plane.server import (
     ControlPlaneConfig,
 )
 from llama_deploy.message_queues.base import AbstractMessageQueue, PublishCallback
+from llama_deploy.services.event_serialization import serialize_event
 from llama_deploy.types import (
     ActionTypes,
     QueueMessage,
@@ -282,7 +283,7 @@ class WorkflowService:
                                 data=TaskStream(
                                     task_id=current_call.task_id,
                                     session_id=current_call.session_id,
-                                    data=ev.model_dump(),
+                                    data=serialize_event(ev),
                                     index=index,
                                 ).model_dump(),
                             ),
