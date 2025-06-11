@@ -6,7 +6,6 @@ from llama_index.core.workflow import (
     StartEvent,
     StopEvent,
     step,
-    Context,
     Event,
     HumanResponseEvent,
     InputRequiredEvent,
@@ -39,19 +38,13 @@ class EchoWorkflow(Workflow):
             kwargs["timeout"] = None
         super().__init__(*args, **kwargs)
 
-    @step()
-    async def run_step(self, ev: StartEvent, ctx: Context) -> StopEvent:
-        for i in range(10):
-            await asyncio.sleep(1)
-            ctx.write_event_to_stream(EchoEvent(message=f"Echoing: {i}"))
-        return StopEvent(result="Done!")
+    @step
+    async def step1(self, ev: StartEvent) -> InputRequiredEvent:
+        return InputRequiredEvent(prefix="Enter a number: ")
 
-    # @step()
-    # async def wait_step(self, ev: ContinueEvent, ctx: Context) -> StopEvent:
-    #     for i in range(10):
-    #         await asyncio.sleep(1)
-    #         ctx.write_event_to_stream(EchoEvent(message=f"Echoing: {i}"))
-    #     return StopEvent(result="Done!")
+    @step
+    async def step2(self, ev: HumanResponseEvent) -> StopEvent:
+        return StopEvent(result=ev.response)
 
 
 echo_workflow = EchoWorkflow()

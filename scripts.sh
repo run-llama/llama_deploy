@@ -15,7 +15,6 @@ echo $TASK_ID
 
 
 curl 'http://localhost:4501/deployments/QuickStart/tasks/'$TASK_ID'/events?session_id='$SESSION_ID
-curl 'http://localhost:4501/deployments/QuickStart/tasks/'$TASK_ID'/results?session_id='$SESSION_ID
 
 
 RESPONSE=$(curl -sX 'POST' \
@@ -24,5 +23,7 @@ RESPONSE=$(curl -sX 'POST' \
   -H 'Content-Type: application/json' \
   -d '{
   "service_id": "'$SERVICE_ID'",
-  "event_obj_str": "{\"continue_please\": true, \"response\": \"Hello\"}"
+  "event_obj_str": "{\"__is_pydantic\": true, \"value\": {\"response\": \"hello\"}, \"qualified_name\": \"llama_index.core.workflow.events.HumanResponseEvent\"}"
 }')
+
+curl 'http://localhost:4501/deployments/QuickStart/tasks/'$TASK_ID'/results?session_id='$SESSION_ID
