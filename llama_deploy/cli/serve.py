@@ -1,6 +1,7 @@
 import os
 import subprocess
 from pathlib import Path
+from typing import Optional
 
 import click
 from prometheus_client import start_http_server
@@ -52,9 +53,15 @@ def serve(deployment_file: Path | None) -> None:
                         base_path=deployment_file.parent,
                         local=True,
                     )
-        except RetryError:
+        except RetryError as e:
             uvicorn_p.terminate()
-            raise click.ClickException("Failed to create deployment")
+            last: Optional[BaseException] = e.last_attempt.exception(0)
+            last_msg = ""
+            if last is not None:
+                last_msg = ": " + (
+                    last.message if hasattr(last, "message") else str(last)
+                )
+            raise click.ClickException(f"Failed to create deployment{last_msg}")
 
     try:
         uvicorn_p.wait()
