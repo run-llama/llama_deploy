@@ -24,6 +24,7 @@ def mock_manager() -> Generator[MagicMock]:
     """Mock the manager to return a deployment when requested."""
     with patch("llama_deploy.apiserver.routers.deployments.manager") as mock_mgr:
         mock_deployment = MagicMock()
+        mock_deployment._config.ui.port = 3000
         mock_mgr.get_deployment.return_value = mock_deployment
         yield mock_mgr
 

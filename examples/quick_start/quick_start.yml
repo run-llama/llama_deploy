@@ -15,6 +15,7 @@ services:
 
 ui:
   name: My Nextjs App
+  port: 3001
   source:
     type: local
     name: ui
