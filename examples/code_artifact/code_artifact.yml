@@ -16,6 +16,7 @@ services:
 ui:
   source:
     type: chat_ui
+    service: code_artifact_workflow
     config:
       starter_questions: # List of starter questions for the chat UI (default: None)
         - "What is LlamaIndex?"
