@@ -1,6 +1,5 @@
 import asyncio
 import subprocess
-import sys
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -148,23 +147,44 @@ def test__install_dependencies(data_path: Path) -> None:
     service_config = config.services["myworkflow"]
     with mock.patch("llama_deploy.apiserver.deployment.subprocess") as mocked_subp:
         # Assert the sub process cmd receives the list of dependencies
-        Deployment._install_dependencies(service_config)
-        mocked_subp.check_call.assert_called_with(
-            [
-                sys.executable,
-                "-m",
-                "pip",
-                "install",
-                "llama-index-core<1",
-                "llama-index-llms-openai",
-            ]
-        )
+        Deployment._install_dependencies(service_config, data_path)
+        called_args = [call.args[0] for call in mocked_subp.check_call.call_args_list]
+        # first should've checked for uv
+        print("called_args", called_args)
+        assert called_args[0] == ["uv", "--version"]
+        # then should install vanilla pip dependencies with uv
+        assert called_args[1][:3] == ["uv", "pip", "install"]
+        assert called_args[1][3].startswith("--prefix=")
+        assert called_args[1][4:] == ["llama-index-core<1", "llama-index-llms-openai"]
+        assert called_args[2:] == []
 
         # Assert the method doesn't do anything if the list of dependencies is empty
         mocked_subp.reset_mock()
         service_config.python_dependencies = []
-        Deployment._install_dependencies(service_config)
+        Deployment._install_dependencies(service_config, data_path)
         mocked_subp.check_call.assert_not_called()
+
+
+def test__install_dependencies_kitchen_sink(data_path: Path) -> None:
+    config = DeploymentConfig.from_yaml(
+        data_path / "python_dependencies_kitchen_sink.yaml"
+    )
+    service_config = config.services["myworkflow"]
+    with mock.patch("llama_deploy.apiserver.deployment.subprocess") as mocked_subp:
+        # Assert the sub process cmd receives the list of dependencies
+        Deployment._install_dependencies(service_config, data_path)
+        called_args = mocked_subp.check_call.call_args_list
+        # first should've checked for uv
+        print("called_args", called_args)
+        assert called_args[0].args[0] == ["uv", "--version"]
+        # then should install vanilla pip dependencies with uv
+        assert called_args[1].args[0][4:] == [
+            "test<1",
+            "-r",
+            str(data_path / "bar/requirements.txt"),
+        ]
+        assert called_args[2].args[0] == ["uv", "sync", "--inexact"]
+        assert called_args[2].kwargs["env"]["UV_PROJECT_ENVIRONMENT"] is not None
 
 
 def test__set_environment_variables(data_path: Path) -> None:
@@ -187,15 +207,22 @@ def test__install_dependencies_raises(data_path: Path) -> None:
     service_config = config.services["myworkflow"]
     error_class = subprocess.CalledProcessError
     error = error_class(1, "cmd", output=None, stderr="There was an error")
+
+    def raise_pip_install_error(*args: Any, **kwargs: Any) -> None:
+        if args[0] == ["uv", "--version"]:
+            return
+        raise error
+
     with mock.patch("llama_deploy.apiserver.deployment.subprocess") as mocked_subp:
         # Assert the proper exception is raised if the sub process errors out
+
         mocked_subp.CalledProcessError = error_class
-        mocked_subp.check_call.side_effect = error
+        mocked_subp.check_call.side_effect = raise_pip_install_error
         with pytest.raises(
             DeploymentError,
             match="Unable to install service dependencies using command 'cmd': There was an error",
         ):
-            Deployment._install_dependencies(service_config)
+            Deployment._install_dependencies(service_config, data_path)
 
 
 def test_manager_ctor() -> None:

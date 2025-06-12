@@ -457,6 +457,7 @@ def create_deployment_config(
         env={"OPENAI_API_KEY": "<your-openai-api-key-here>"},
         env_files=None,
         ts_dependencies=None,
+        uv_dependencies=None,
     )
 
     # Create UI service if requested
@@ -472,6 +473,7 @@ def create_deployment_config(
             ts_dependencies={},
             env_files=None,
             python_dependencies=None,
+            uv_dependencies=None,
             env=None,
         )
 

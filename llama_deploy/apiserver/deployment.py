@@ -267,7 +267,7 @@ class Deployment:
 
             # Install dependencies
             service_state.labels(self._name, service_id).state("installing")
-            self._install_dependencies(service_config)
+            self._install_dependencies(service_config, destination)
 
             # Set environment variables
             self._set_environment_variables(service_config, destination)
@@ -325,24 +325,92 @@ class Deployment:
                 os.environ[k] = v
 
     @staticmethod
-    def _install_dependencies(service_config: Service) -> None:
+    def _install_dependencies(service_config: Service, source_root: Path) -> None:
         """Runs `pip install` on the items listed under `python-dependencies` in the service configuration."""
-        if not service_config.python_dependencies:
+        if (
+            not service_config.python_dependencies
+            and not service_config.uv_dependencies
+        ):
             return
+        install_args = []
+        for dep in service_config.python_dependencies or []:
+            if dep.endswith("requirements.txt"):
+                resolved_dep = source_root / dep
+                if not resolved_dep.is_relative_to(source_root):
+                    msg = f"requirements file {dep} is not a subdirectory of the source root {source_root}"
+                    raise DeploymentError(msg)
+                install_args.extend(["-r", str(resolved_dep)])
+            else:
+                install_args.append(dep)
 
+        # Check if uv is available on the path
+        uv_available = False
         try:
             subprocess.check_call(
-                [
-                    sys.executable,
-                    "-m",
-                    "pip",
-                    "install",
-                    *service_config.python_dependencies,
-                ]
+                ["uv", "--version"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
-        except subprocess.CalledProcessError as e:
-            msg = f"Unable to install service dependencies using command '{e.cmd}': {e.stderr}"
-            raise DeploymentError(msg) from None
+            uv_available = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+        if not uv_available:
+            # bootstrap uv with pip
+            try:
+                subprocess.check_call(
+                    [
+                        sys.executable,
+                        "-m",
+                        "pip",
+                        "install",
+                        "uv",
+                    ]
+                )
+            except subprocess.CalledProcessError as e:
+                msg = f"Unable to install uv. Environment must include uv, or uv must be installed with pip: {e.stderr}"
+                raise DeploymentError(msg)
+
+        # Bit of an ugly hack, install to whatever python environment we're currently in
+        # Find the python bin path and get its parent dir, and install into whatever that
+        # python is. Hopefully we're in a container or a venv, otherwise this is installing to
+        # the system python
+        # https://docs.astral.sh/uv/concepts/projects/config/#project-environment-path
+        python_bin_path = os.path.dirname(sys.executable)
+        python_parent_dir = os.path.dirname(python_bin_path)
+        if install_args:
+            try:
+                subprocess.check_call(
+                    [
+                        "uv",
+                        "pip",
+                        "install",
+                        f"--prefix={python_parent_dir}",  # installs to the current python environment
+                        *install_args,
+                    ]
+                )
+            except subprocess.CalledProcessError as e:
+                msg = f"Unable to install service dependencies using command '{e.cmd}': {e.stderr}"
+                raise DeploymentError(msg) from None
+
+        if service_config.uv_dependencies:
+            if "pyproject.toml" in service_config.uv_dependencies:
+                # Get the directory containing the pyproject.toml, relative to the current directory
+                pyproject_path = service_config.uv_dependencies["pyproject.toml"]
+                pyproject_dir = pyproject_path.removesuffix("pyproject.toml")
+                resolved_pyproject_dir = source_root / pyproject_dir
+                # security -- validate that the resolved pyproject dir is a subdirectory of the source root
+                if not resolved_pyproject_dir.is_relative_to(source_root):
+                    msg = f"pyproject.toml path {pyproject_path} is not a subdirectory of the source root {source_root}"
+                    raise DeploymentError(msg)
+
+                print(f"Installing dependencies from {resolved_pyproject_dir}")
+                subprocess.check_call(
+                    # inexact prevents removal of dependencies that are not in the pyproject.toml
+                    ["uv", "sync", "--inexact"],
+                    # Install the dependencies into the current python environment
+                    env={**os.environ, "UV_PROJECT_ENVIRONMENT": python_parent_dir},
+                    cwd=resolved_pyproject_dir,
+                )
 
     def _load_message_queue_client(
         self, cfg: MessageQueueConfig | None
