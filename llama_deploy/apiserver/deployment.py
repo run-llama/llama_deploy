@@ -217,6 +217,8 @@ class Deployment:
         env = os.environ.copy()
         env["LLAMA_DEPLOY_NEXTJS_BASE_PATH"] = f"/deployments/{self._config.name}/ui"
         env["LLAMA_DEPLOY_NEXTJS_DEPLOYMENT_NAME"] = self._config.name
+        # Override PORT and force using the one from the deployment.yaml file
+        env["PORT"] = str(self._config.ui.port)
 
         process = await asyncio.create_subprocess_exec(
             "pnpm",

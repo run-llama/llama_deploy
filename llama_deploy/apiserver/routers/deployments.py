@@ -19,8 +19,6 @@ from llama_deploy.types import (
 )
 from llama_deploy.types.core import TaskResult
 
-UPSTREAM_HTTP = "http://localhost:3000"
-UPSTREAM_WS = "ws://localhost:3000"
 deployments_router = APIRouter(
     prefix="/deployments",
 )
@@ -324,12 +322,15 @@ async def websocket_proxy(
         await websocket.close(code=1008, reason="Deployment not found")
         return
 
+    if deployment._config.ui is None:
+        raise HTTPException(status_code=404, detail="Deployment has no ui configured")
+
     # Build the upstream WebSocket URL using FastAPI's extracted path parameter
     slash_path = f"/{path}" if path else ""
     upstream_path = f"/deployments/{deployment_name}/ui{slash_path}"
 
     # Convert to WebSocket URL
-    upstream_url = f"{UPSTREAM_WS}{upstream_path}"
+    upstream_url = f"ws://localhost:{deployment._config.ui.port}{upstream_path}"
     if websocket.url.query:
         upstream_url += f"?{websocket.url.query}"
 
@@ -355,13 +356,16 @@ async def proxy(
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
+    if deployment._config.ui is None:
+        raise HTTPException(status_code=404, detail="Deployment has no ui configured")
+
     # Build the upstream URL using FastAPI's extracted path parameter
     slash_path = f"/{path}" if path else ""
     upstream_path = f"/deployments/{deployment_name}/ui{slash_path}"
 
-    upstream_url = httpx.URL(f"{UPSTREAM_HTTP}{upstream_path}").copy_with(
-        params=request.query_params
-    )
+    upstream_url = httpx.URL(
+        f"http://localhost:{deployment._config.ui.port}{upstream_path}"
+    ).copy_with(params=request.query_params)
 
     # Debug logging
     logger.debug(f"Proxying {request.method} {request.url} -> {upstream_url}")

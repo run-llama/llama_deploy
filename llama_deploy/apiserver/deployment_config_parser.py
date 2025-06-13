@@ -96,7 +96,10 @@ class Service(BaseModel):
 
 
 class UIService(Service):
-    pass
+    port: int | None = Field(
+        default=3000,
+        description="The TCP port to use for the nextjs server",
+    )
 
 
 class DeploymentConfig(BaseModel):
