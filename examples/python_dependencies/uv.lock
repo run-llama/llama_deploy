@@ -1,0 +1,23 @@
+version = 1
+revision = 2
+requires-python = ">=3.10, <4.0"
+
+[[package]]
+name = "pyfiglet"
+version = "1.0.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/94/49/2554c0b7fef12c0b9633352bbd8751cc616f8e8880e0ebab7732c1535564/pyfiglet-1.0.3.tar.gz", hash = "sha256:bad3b55d2eccb30d4693ccfd94573c2a3477dd75f86a0e5465cea51bdbfe2875", size = 833445, upload-time = "2025-06-02T12:13:29.357Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/51/1d/f2cb03dd71a4dba891f808333fa505a6ed2762a8514d8ead7e423fa77e1b/pyfiglet-1.0.3-py3-none-any.whl", hash = "sha256:671bd101ca6a08dc2d94c6a2cda75a862c5e162b980af47d0ba4023837e36489", size = 1087203, upload-time = "2025-06-02T12:13:27.393Z" },
+]
+
+[[package]]
+name = "uv-requirements"
+version = "0.1.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "pyfiglet" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "pyfiglet", specifier = ">=1.0.3" }]

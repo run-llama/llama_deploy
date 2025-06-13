@@ -1,6 +1,8 @@
 ARG build_image
 ARG dist_image
+ARG uv_image
 
+FROM $uv_image AS uv_image
 FROM $build_image AS build-image
 
 ARG llama_deploy_version
@@ -44,6 +46,7 @@ EXPOSE ${prometheus_port}
 COPY --from=build-image /opt/venv /opt/venv
 COPY ./run_apiserver.py /opt
 COPY ./run_autodeploy.py /opt
+COPY --from=uv_image /uv /bin/
 
 # Default configuration, override with "docker run -e NAME=value"
 ENV LLAMA_DEPLOY_APISERVER_RC_PATH=${rc_path}

@@ -1,6 +1,7 @@
 import json
 
 import click
+import httpx
 
 from llama_deploy.client import Client
 from llama_deploy.types import TaskDefinition
@@ -49,6 +50,10 @@ def run(
         d = client.sync.apiserver.deployments.get(deployment)
         result = d.tasks.run(TaskDefinition(**payload))
     except Exception as e:
-        raise click.ClickException(str(e))
+        extra_info = ""
+        if isinstance(e, httpx.HTTPStatusError):
+            extra_info = f" {e.response.text}"
+
+        raise click.ClickException(f"{str(e)}{extra_info}")
 
     click.echo(result)

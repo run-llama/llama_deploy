@@ -35,16 +35,18 @@ def test_run(runner: CliRunner) -> None:
 
 def test_run_error(runner: CliRunner) -> None:
     with mock.patch("llama_deploy.cli.run.Client") as mocked_client:
+        err_response = mock.MagicMock()
+        err_response.text = '{"error": "test error"}'
         mocked_client.return_value.sync.apiserver.deployments.get.side_effect = (
             httpx.HTTPStatusError(
-                "test error", response=mock.MagicMock(), request=mock.MagicMock()
+                "test error", response=err_response, request=mock.MagicMock()
             )
         )
 
         result = runner.invoke(llamactl, ["run", "-d", "deployment_name"])
 
         assert result.exit_code == 1
-        assert result.output == "Error: test error\n"
+        assert result.output == 'Error: test error {"error": "test error"}\n'
 
 
 def test_run_args(runner: CliRunner) -> None:

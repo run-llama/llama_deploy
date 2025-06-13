@@ -26,6 +26,10 @@ variable "DIST_IMAGE" {
     default = "python:3.12-slim"
 }
 
+variable "UV_IMAGE" {
+    default = "ghcr.io/astral-sh/uv:0.7.13"
+}
+
 variable "APISERVER_PORT" {
     default = 4501
 }
@@ -52,6 +56,7 @@ target "default" {
     target = "base"
     args = {
         build_image = "${BUILD_IMAGE}"
+        uv_image = "${UV_IMAGE}"
         dist_image = "${DIST_IMAGE}"
         llama_deploy_version = "${LLAMA_DEPLOY_VERSION}"
         llama_deploy_version_sha = "${LLAMA_DEPLOY_VERSION_SHA}"
