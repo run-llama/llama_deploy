@@ -51,7 +51,8 @@ dependencies = [
   "platformdirs>=4.3.6,<5",
   "rich>=13.9.4,<14",
   "brotli>=1.1.0",
-  "websockets>=15.0.1"
+  "websockets>=15.0.1",
+  "llama-index-server>=0.1.21",
 ]
 
 [project.optional-dependencies]

@@ -1,0 +1,29 @@
+name: CodeArtifact
+
+control-plane:
+  port: 8000
+
+default-service: code_artifact_workflow
+
+services:
+  code_artifact_workflow:
+    name: CodeArtifact
+    source:
+      type: local
+      name: src
+    path: src/workflow:code_artifact_workflow
+
+ui:
+  source:
+    type: chat_ui
+    service: code_artifact_workflow
+    config:
+      starter_questions: # List of starter questions for the chat UI (default: None)
+        - "What is LlamaIndex?"
+        - "How do I use it with LLMs?"
+      ui_path: ".ui" # Path for downloaded UI static files (default: ".ui")
+      component_dir: "components" # The directory for custom UI components rendering events emitted by the workflow. The default is None, which does not render custom UI components.
+      layout_dir: "layout" # The directory for custom layout sections. The default value is `layout`.
+      llamacloud_index_selector: false # Whether to show the LlamaCloud index selector in the chat UI (default: False). Requires `LLAMA_CLOUD_API_KEY` to be set.
+      dev_mode: false # When enabled, you can update workflow code in the UI and see the changes immediately.
+      suggest_next_questions: true # Whether to suggest next questions after the assistant's response (default: True).
