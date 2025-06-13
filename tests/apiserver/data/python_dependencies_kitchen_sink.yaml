@@ -16,8 +16,7 @@ services:
     python-dependencies:
       - "test<1"
       - "./bar/requirements.txt"
-    uv-dependencies:
-      pyproject.toml: "./foo/bar"
+      - "./foo/bar/" # pyproject.toml
     source:
       type: local
       location: test

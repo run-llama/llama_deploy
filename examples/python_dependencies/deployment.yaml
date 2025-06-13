@@ -1,4 +1,4 @@
-name: uv
+name: dependencies
 
 control-plane:
   port: 8000
@@ -14,5 +14,5 @@ services:
     path: workflow:echo_workflow
     python-dependencies:
       - cowpy
-    uv-dependencies:
-      pyproject.toml: "."
+      - "."
+      - "requirements.txt"

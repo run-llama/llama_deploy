@@ -305,6 +305,27 @@ class Deployment:
         return workflow_services
 
     @staticmethod
+    def _validate_path_is_safe(
+        path: str, source_root: Path, path_type: str = "path"
+    ) -> None:
+        """Validates that a path is within the source root to prevent path traversal attacks.
+
+        Args:
+            path: The path to validate
+            source_root: The root directory that paths should be relative to
+            path_type: Description of the path type for error messages
+
+        Raises:
+            DeploymentError: If the path is outside the source root
+        """
+        resolved_path = (source_root / path).resolve()
+        resolved_source_root = source_root.resolve()
+
+        if not resolved_path.is_relative_to(resolved_source_root):
+            msg = f"{path_type} {path} is not a subdirectory of the source root {source_root}"
+            raise DeploymentError(msg)
+
+    @staticmethod
     def _set_environment_variables(
         service_config: Service, root: Path | None = None
     ) -> None:
@@ -327,21 +348,24 @@ class Deployment:
     @staticmethod
     def _install_dependencies(service_config: Service, source_root: Path) -> None:
         """Runs `pip install` on the items listed under `python-dependencies` in the service configuration."""
-        if (
-            not service_config.python_dependencies
-            and not service_config.uv_dependencies
-        ):
+        if not service_config.python_dependencies:
             return
         install_args = []
         for dep in service_config.python_dependencies or []:
             if dep.endswith("requirements.txt"):
+                Deployment._validate_path_is_safe(dep, source_root, "requirements file")
                 resolved_dep = source_root / dep
-                if not resolved_dep.is_relative_to(source_root):
-                    msg = f"requirements file {dep} is not a subdirectory of the source root {source_root}"
-                    raise DeploymentError(msg)
                 install_args.extend(["-r", str(resolved_dep)])
             else:
-                install_args.append(dep)
+                or_resolved = dep
+                if "." in dep or "/" in dep:
+                    Deployment._validate_path_is_safe(
+                        dep, source_root, "dependency path"
+                    )
+                    resolved_dep = source_root / dep
+                    if os.path.isfile(resolved_dep):
+                        or_resolved = str(resolved_dep.resolve())
+                install_args.append(or_resolved)
 
         # Check if uv is available on the path
         uv_available = False
@@ -391,26 +415,6 @@ class Deployment:
             except subprocess.CalledProcessError as e:
                 msg = f"Unable to install service dependencies using command '{e.cmd}': {e.stderr}"
                 raise DeploymentError(msg) from None
-
-        if service_config.uv_dependencies:
-            if "pyproject.toml" in service_config.uv_dependencies:
-                # Get the directory containing the pyproject.toml, relative to the current directory
-                pyproject_path = service_config.uv_dependencies["pyproject.toml"]
-                pyproject_dir = pyproject_path.removesuffix("pyproject.toml")
-                resolved_pyproject_dir = source_root / pyproject_dir
-                # security -- validate that the resolved pyproject dir is a subdirectory of the source root
-                if not resolved_pyproject_dir.is_relative_to(source_root):
-                    msg = f"pyproject.toml path {pyproject_path} is not a subdirectory of the source root {source_root}"
-                    raise DeploymentError(msg)
-
-                print(f"Installing dependencies from {resolved_pyproject_dir}")
-                subprocess.check_call(
-                    # inexact prevents removal of dependencies that are not in the pyproject.toml
-                    ["uv", "sync", "--inexact"],
-                    # Install the dependencies into the current python environment
-                    env={**os.environ, "UV_PROJECT_ENVIRONMENT": python_parent_dir},
-                    cwd=resolved_pyproject_dir,
-                )
 
     def _load_message_queue_client(
         self, cfg: MessageQueueConfig | None

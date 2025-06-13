@@ -69,7 +69,6 @@ class Service(BaseModel):
     env: dict[str, str] | None = Field(None)
     env_files: list[str] | None = Field(None)
     python_dependencies: list[str] | None = Field(None)
-    uv_dependencies: dict[str, str] | None = Field(None)
     ts_dependencies: dict[str, str] | None = Field(None)
 
     @model_validator(mode="before")
@@ -90,8 +89,6 @@ class Service(BaseModel):
                 data["env_files"] = data.pop("env-files")
             if "python-dependencies" in data:
                 data["python_dependencies"] = data.pop("python-dependencies")
-            if "uv-dependencies" in data:
-                data["uv_dependencies"] = data.pop("uv-dependencies")
             if "ts-dependencies" in data:
                 data["ts_dependencies"] = data.pop("ts-dependencies")
 
