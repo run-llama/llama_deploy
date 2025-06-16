@@ -89,11 +89,11 @@ if __name__ == "__main__":
             with open(deployment_file_abspath, "w") as f:
                 yaml.safe_dump(data, f)
 
-    copy_sources(work_dir, deployment_file_abspath)
+    copy_sources(work_dir, work_dir / CLONED_REPO_FOLDER)
     shutil.rmtree(work_dir / CLONED_REPO_FOLDER)
 
     # Ready to go
-    os.environ["LLAMA_DEPLOY_APISERVER_RC_PATH"] = str(work_dir)
+    os.environ["LLAMA_DEPLOY_APISERVER_RC_PATH"] = str(work_dir / deployment_file_path)
     uvicorn.run(
         "llama_deploy.apiserver.app:app",
         host=settings.host,
