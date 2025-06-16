@@ -1,0 +1,22 @@
+name: MyDeployment
+
+control-plane:
+  port: 8000
+
+message-queue:
+  type: simple
+  host: "127.0.0.1"
+  port: 8001
+
+default-service: myworkflow
+
+services:
+  myworkflow:
+    name: My Python Workflow
+    python-dependencies:
+      - "test<1"
+      - "./bar/requirements.txt"
+      - "./foo/bar/" # pyproject.toml
+    source:
+      type: local
+      location: test

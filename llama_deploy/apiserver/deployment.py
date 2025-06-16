@@ -267,7 +267,7 @@ class Deployment:
 
             # Install dependencies
             service_state.labels(self._name, service_id).state("installing")
-            self._install_dependencies(service_config)
+            self._install_dependencies(service_config, destination)
 
             # Set environment variables
             self._set_environment_variables(service_config, destination)
@@ -305,6 +305,27 @@ class Deployment:
         return workflow_services
 
     @staticmethod
+    def _validate_path_is_safe(
+        path: str, source_root: Path, path_type: str = "path"
+    ) -> None:
+        """Validates that a path is within the source root to prevent path traversal attacks.
+
+        Args:
+            path: The path to validate
+            source_root: The root directory that paths should be relative to
+            path_type: Description of the path type for error messages
+
+        Raises:
+            DeploymentError: If the path is outside the source root
+        """
+        resolved_path = (source_root / path).resolve()
+        resolved_source_root = source_root.resolve()
+
+        if not resolved_path.is_relative_to(resolved_source_root):
+            msg = f"{path_type} {path} is not a subdirectory of the source root {source_root}"
+            raise DeploymentError(msg)
+
+    @staticmethod
     def _set_environment_variables(
         service_config: Service, root: Path | None = None
     ) -> None:
@@ -325,24 +346,75 @@ class Deployment:
                 os.environ[k] = v
 
     @staticmethod
-    def _install_dependencies(service_config: Service) -> None:
+    def _install_dependencies(service_config: Service, source_root: Path) -> None:
         """Runs `pip install` on the items listed under `python-dependencies` in the service configuration."""
         if not service_config.python_dependencies:
             return
+        install_args = []
+        for dep in service_config.python_dependencies or []:
+            if dep.endswith("requirements.txt"):
+                Deployment._validate_path_is_safe(dep, source_root, "requirements file")
+                resolved_dep = source_root / dep
+                install_args.extend(["-r", str(resolved_dep)])
+            else:
+                or_resolved = dep
+                if "." in dep or "/" in dep:
+                    Deployment._validate_path_is_safe(
+                        dep, source_root, "dependency path"
+                    )
+                    resolved_dep = source_root / dep
+                    if os.path.isfile(resolved_dep):
+                        or_resolved = str(resolved_dep.resolve())
+                install_args.append(or_resolved)
 
+        # Check if uv is available on the path
+        uv_available = False
         try:
             subprocess.check_call(
-                [
-                    sys.executable,
-                    "-m",
-                    "pip",
-                    "install",
-                    *service_config.python_dependencies,
-                ]
+                ["uv", "--version"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
             )
-        except subprocess.CalledProcessError as e:
-            msg = f"Unable to install service dependencies using command '{e.cmd}': {e.stderr}"
-            raise DeploymentError(msg) from None
+            uv_available = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            pass
+        if not uv_available:
+            # bootstrap uv with pip
+            try:
+                subprocess.check_call(
+                    [
+                        sys.executable,
+                        "-m",
+                        "pip",
+                        "install",
+                        "uv",
+                    ]
+                )
+            except subprocess.CalledProcessError as e:
+                msg = f"Unable to install uv. Environment must include uv, or uv must be installed with pip: {e.stderr}"
+                raise DeploymentError(msg)
+
+        # Bit of an ugly hack, install to whatever python environment we're currently in
+        # Find the python bin path and get its parent dir, and install into whatever that
+        # python is. Hopefully we're in a container or a venv, otherwise this is installing to
+        # the system python
+        # https://docs.astral.sh/uv/concepts/projects/config/#project-environment-path
+        python_bin_path = os.path.dirname(sys.executable)
+        python_parent_dir = os.path.dirname(python_bin_path)
+        if install_args:
+            try:
+                subprocess.check_call(
+                    [
+                        "uv",
+                        "pip",
+                        "install",
+                        f"--prefix={python_parent_dir}",  # installs to the current python environment
+                        *install_args,
+                    ]
+                )
+            except subprocess.CalledProcessError as e:
+                msg = f"Unable to install service dependencies using command '{e.cmd}': {e.stderr}"
+                raise DeploymentError(msg) from None
 
     def _load_message_queue_client(
         self, cfg: MessageQueueConfig | None
