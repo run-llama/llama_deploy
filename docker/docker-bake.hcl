@@ -51,7 +51,7 @@ variable "RC_PATH" {
 }
 
 target "default" {
-    dockerfile = "Dockerfile.base"
+    dockerfile = "docker/Dockerfile.base"
     tags = ["${IMAGE_NAME}:${IMAGE_TAG_SUFFIX}"]
     target = "base"
     args = {
