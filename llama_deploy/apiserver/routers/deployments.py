@@ -166,13 +166,13 @@ async def get_events(
     async def event_stream(handler) -> AsyncGenerator[str, None]:
         # need to convert back to str to use SSE
         async for event in handler.stream_events():
+            event_dict = event.model_dump()
+            print("EVENT_DICT", event_dict)
             if raw_event:
-                yield json.dumps(event) + "\n"
+                yield json.dumps(event_dict) + "\n"
             else:
-                try:
-                    yield json.dumps(event.value) + "\n"
-                except AttributeError:
-                    continue
+                yield json.dumps(event_dict.get("value")) + "\n"
+            await asyncio.sleep(0.01)
         await handler
 
     return StreamingResponse(

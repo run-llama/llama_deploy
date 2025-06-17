@@ -148,6 +148,7 @@ class Task(Model):
                     ) as response:
                         response.raise_for_status()
                         async for line in response.aiter_lines():
+                            print("LINE", line)
                             json_line = json.loads(line)
                             yield json_line
                         break  # Exit the function if successful
