@@ -1,17 +1,7 @@
 from abc import ABC, abstractmethod
-from enum import Enum, auto
 from pathlib import Path
 
-from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
-
-
-class SyncPolicy(Enum):
-    """Define the sync behaviour in case the destination target exists."""
-
-    REPLACE = auto()
-    MERGE = auto()
-    SKIP = auto()
-    FAIL = auto()
+from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig, SyncPolicy
 
 
 class SourceManager(ABC):
@@ -33,3 +23,11 @@ class SourceManager(ABC):
         Optionally uses `destination` to store data when this makes sense for the
         specific source type.
         """
+
+    def relative_path(self, source: str) -> str:
+        """Unfortunately, there's a difference in behavior of how the source managers sync.
+        The local source manager syncs the source into the <destination_path>/<source>, whereas
+        the git source manager just syncs the source into the <destination_path>. This is a temporary shim, since
+        changing this behavior is a breaking change to deployment.yaml configurations. Local source manager
+        overrides it. In a future major version, this behavior will be made consistent"""
+        return ""

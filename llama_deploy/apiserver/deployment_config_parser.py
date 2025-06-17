@@ -1,8 +1,9 @@
 import sys
 import warnings
-from enum import Enum
 from pathlib import Path
-from typing import Annotated, Any, Union
+from typing import Annotated, Any, Optional, Union
+
+from enum import Enum
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -39,11 +40,21 @@ class SourceType(str, Enum):
     local = "local"
 
 
+class SyncPolicy(Enum):
+    """Define the sync behaviour in case the destination target exists."""
+
+    REPLACE = "replace"
+    MERGE = "merge"
+    SKIP = "skip"
+    FAIL = "fail"
+
+
 class ServiceSource(BaseModel):
     """Configuration for the `source` parameter of a service."""
 
     type: SourceType
     location: str
+    sync_policy: Optional[SyncPolicy] = None
 
     @model_validator(mode="before")
     @classmethod

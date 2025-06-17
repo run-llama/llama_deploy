@@ -92,8 +92,9 @@ if __name__ == "__main__":
     copy_sources(work_dir, deployment_file_abspath)
     shutil.rmtree(work_dir / CLONED_REPO_FOLDER)
 
-    # Ready to go
-    os.environ["LLAMA_DEPLOY_APISERVER_RC_PATH"] = str(work_dir)
+    # update rc_path directly, as it has already been loaded, so setting the environment variable
+    # doesn't work
+    settings.rc_path = work_dir
     uvicorn.run(
         "llama_deploy.apiserver.app:app",
         host=settings.host,
