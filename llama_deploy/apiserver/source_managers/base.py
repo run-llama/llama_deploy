@@ -1,17 +1,7 @@
 from abc import ABC, abstractmethod
-from enum import Enum, auto
 from pathlib import Path
 
-from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
-
-
-class SyncPolicy(Enum):
-    """Define the sync behaviour in case the destination target exists."""
-
-    REPLACE = auto()
-    MERGE = auto()
-    SKIP = auto()
-    FAIL = auto()
+from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig, SyncPolicy
 
 
 class SourceManager(ABC):

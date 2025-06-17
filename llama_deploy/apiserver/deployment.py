@@ -207,7 +207,9 @@ class Deployment:
         # Sync the service source
         destination = self._deployment_path.resolve()
         source_manager = SOURCE_MANAGERS[source.type](self._config, self._base_path)
-        policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
+        policy = source.sync_policy or (
+            SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
+        )
         source_manager.sync(source.location, str(destination), policy)
         installed_path = destination / source_manager.relative_path(source.location)
 

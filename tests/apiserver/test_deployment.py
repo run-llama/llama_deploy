@@ -1,4 +1,5 @@
 import asyncio
+from collections.abc import Generator
 import subprocess
 import sys
 from copy import deepcopy
@@ -9,9 +10,18 @@ from unittest import mock
 import pytest
 from tenacity import RetryError
 
-from llama_deploy.apiserver.deployment import Deployment, DeploymentError, Manager
+from llama_deploy.apiserver.deployment import (
+    SOURCE_MANAGERS,
+    Deployment,
+    DeploymentError,
+    Manager,
+)
 from llama_deploy.apiserver.deployment_config_parser import (
     DeploymentConfig,
+    ServiceSource,
+    SourceType,
+    SyncPolicy,
+    UIService,
 )
 from llama_deploy.control_plane import ControlPlaneConfig, ControlPlaneServer
 from llama_deploy.message_queues import SimpleMessageQueue
@@ -27,6 +37,18 @@ def deployment_config() -> DeploymentConfig:
             "services": {},
         }
     )
+
+
+@pytest.fixture
+def mock_local_source_manager() -> Generator[mock.MagicMock, Any, None]:
+    original = SOURCE_MANAGERS[SourceType.local]
+    mock_sm = mock.MagicMock()
+    # Make the mock class return itself when called, as the SOURCE_MANAGERS dict is a dict of factories
+    mock_sm.return_value = mock_sm
+
+    SOURCE_MANAGERS[SourceType.local] = mock_sm
+    yield mock_sm
+    SOURCE_MANAGERS[SourceType.local] = original
 
 
 def test_deployment_ctor(data_path: Path, mock_importlib: Any, tmp_path: Path) -> None:
@@ -743,7 +765,7 @@ async def test_start_ui_server_missing_config(
 
 
 @pytest.mark.asyncio
-async def test_start_ui_server_missing_source(
+async def test_merges_in_path_to_installation(
     deployment_config: DeploymentConfig, tmp_path: Path
 ) -> None:
     """Test that _start_ui_server raises appropriate error when source is missing."""
@@ -754,3 +776,56 @@ async def test_start_ui_server_missing_source(
 
     with pytest.raises(ValueError, match="source must be defined"):
         await deployment._start_ui_server()
+
+
+@pytest.mark.asyncio
+async def test_start_ui_server_uses_merge_sync_policy(
+    deployment_config: DeploymentConfig,
+    tmp_path: Path,
+    mock_local_source_manager: mock.MagicMock,
+) -> None:
+    """Test that _start_ui_server syncs into the correct directory, and starts services there"""
+    # Setup a mock source with sync_policy set to MERGE
+    mock_source = ServiceSource(
+        type=SourceType.local,
+        location="some/location",
+        sync_policy=SyncPolicy.MERGE,
+    )
+    deployment_config.ui = UIService.model_validate(
+        {
+            "name": "test-ui",
+            "source": mock_source,
+        }
+    )
+    # Patch SOURCE_MANAGERS to return a mock source manager
+    mock_local_source_manager.relative_path = mock.MagicMock()
+    mock_local_source_manager.relative_path.return_value = "some/location"
+
+    # Patch subprocess and os
+    mock_subprocess = mock.AsyncMock()
+    with mock.patch("asyncio.create_subprocess_exec", mock_subprocess):
+        mock_subprocess.return_value.wait = mock.AsyncMock()
+        mock_subprocess.return_value.pid = 1234
+
+        deployment = Deployment(
+            config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        )
+
+        await deployment._start_ui_server()
+
+        # Check that sync was called with SyncPolicy.MERGE
+        assert mock_local_source_manager.sync.call_count == 1
+        args, kwargs = mock_local_source_manager.sync.call_args
+        # The third argument is the policy
+        assert args[2] == SyncPolicy.MERGE
+        # verify that the relative path was used for the commands
+        installed_path = tmp_path / "test-deployment" / "some/location"
+        # The first call to create_subprocess_exec should be for "pnpm", "install"
+        install_call = mock_subprocess.call_args_list[0]
+        assert install_call.args[:2] == ("pnpm", "install")
+        assert install_call.kwargs["cwd"] == installed_path
+
+        # The second call to create_subprocess_exec should be for "pnpm", "run", "dev"
+        run_call = mock_subprocess.call_args_list[1]
+        assert run_call.args[:3] == ("pnpm", "run", "dev")
+        assert run_call.kwargs["cwd"] == installed_path
