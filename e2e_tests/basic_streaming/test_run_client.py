@@ -18,8 +18,9 @@ def test_run_client(services):
 
     progress_received = []
     for event in session.get_task_result_stream(task_id):
-        if "progress" in event:
-            progress_received.append(event["progress"])
+        event_data = event.get("value", {})
+        if "progress" in event_data:
+            progress_received.append(event_data.get("progress"))
     assert progress_received == [0.3, 0.6, 0.9]
 
     # get final result
@@ -42,8 +43,9 @@ async def test_run_client_async(services):
 
     progress_received = []
     async for event in session.get_task_result_stream(task_id):
-        if "progress" in event:
-            progress_received.append(event["progress"])
+        event_data = event.get("value", {})
+        if "progress" in event_data:
+            progress_received.append(event_data.get("progress"))
     assert progress_received == [0.3, 0.6, 0.9]
 
     final_result = await session.get_task_result(task_id)
