@@ -79,6 +79,18 @@ class SessionCollection(Collection):
 
         return r.json()
 
+    async def get(self, id: str) -> SessionDefinition:
+        """Gets a deployment by id."""
+        get_url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/sessions/{id}"
+        await self.client.request(
+            "GET",
+            get_url,
+            verify=not self.client.disable_ssl,
+            timeout=self.client.timeout,
+        )
+        model_class = self._prepare(SessionDefinition)
+        return model_class(client=self.client, id=id)
+
 
 class Task(Model):
     """A model representing a task belonging to a given session in the given deployment."""

@@ -85,7 +85,6 @@ class Deployment:
         self._default_service: str | None = None
         self._running = False
         self._service_tasks: list[asyncio.Task] = []
-        self._service_startup_complete = asyncio.Event()
         # Ready to load services
         self._workflow_services: dict[str, Workflow] = self._load_services(config)
         self._contexts: dict[str, Context] = {}
@@ -145,22 +144,10 @@ class Deployment:
         self._running = False
 
     async def reload(self, config: DeploymentConfig) -> None:
-        """Reload this deployment by restarting its services.
-
-        The reload process consists in cancelling the services tasks
-        and rely on the fact that _run_services() will restart them
-        with the new configuration. This function won't return until
-        _run_services will trigger the _service_startup_complete signal.
-        """
         self._workflow_services = self._load_services(config)
-        self._default_service = config.default_service
-
-        for t in self._service_tasks:
-            # t is awaited in _run_services(), we don't need to await here
-            t.cancel()
-
-        # Hold until _run_services() has restarted all the tasks
-        await self._service_startup_complete.wait()
+        self._default_service = (
+            config.default_service or list(self._workflow_services.keys())[0]
+        )
 
     async def _start_control_plane(self) -> list[asyncio.Task]:
         tasks = []

@@ -1,7 +1,10 @@
 import asyncio
+import json
 from pathlib import Path
 
 import pytest
+
+from llama_deploy.types.core import TaskDefinition
 
 
 @pytest.mark.asyncio
@@ -14,11 +17,9 @@ async def test_read_env_vars_git(apiserver, client):
         )
         await asyncio.sleep(5)
 
-    session = await deployment.sessions.create()
-
-    # run workflow
-    result = await session.run(
-        "workflow_git", env_vars_to_read=["VAR_1", "VAR_2", "API_KEY"]
+    input_str = json.dumps({"env_vars_to_read": ["VAR_1", "VAR_2", "API_KEY"]})
+    result = await deployment.tasks.run(
+        TaskDefinition(service_id="workflow_git", input=input_str)
     )
 
     assert result == "VAR_1: x, VAR_2: y, API_KEY: 123"

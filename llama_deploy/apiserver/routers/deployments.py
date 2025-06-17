@@ -84,7 +84,10 @@ async def create_deployment_task(
             context=context, **json.loads(task_definition.input)
         )
     else:
-        result = await workflow.run(**json.loads(task_definition.input))
+        if task_definition.input:
+            result = await workflow.run(**json.loads(task_definition.input))
+        else:
+            result = await workflow.run()
 
     return JSONResponse(result)
 
@@ -160,18 +163,20 @@ async def get_events(
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    handler = deployment._handlers[task_id]
-
-    async def event_stream() -> AsyncGenerator[str, None]:
+    async def event_stream(handler) -> AsyncGenerator[str, None]:
         # need to convert back to str to use SSE
         async for event in handler.stream_events():
             if raw_event:
                 yield json.dumps(event) + "\n"
             else:
-                yield json.dumps(event.get("value")) + "\n"
+                try:
+                    yield json.dumps(event.value) + "\n"
+                except AttributeError:
+                    continue
+        await handler
 
     return StreamingResponse(
-        event_stream(),
+        event_stream(deployment._handlers[task_id]),
         media_type="application/x-ndjson",
     )
 
