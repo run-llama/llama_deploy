@@ -144,9 +144,18 @@ async def send_event(
 
 @deployments_router.get("/{deployment_name}/tasks/{task_id}/events")
 async def get_events(
-    deployment_name: str, session_id: str, task_id: str
+    deployment_name: str,
+    session_id: str,
+    task_id: str,
+    raw_event: bool = False,
 ) -> StreamingResponse:
-    """Get the stream of events from a given task and session."""
+    """
+    Get the stream of events from a given task and session.
+
+    Args:
+        raw_event (bool, default=False): Whether to return the raw event object
+            or just the event data.
+    """
     deployment = manager.get_deployment(deployment_name)
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
@@ -156,7 +165,10 @@ async def get_events(
     async def event_stream() -> AsyncGenerator[str, None]:
         # need to convert back to str to use SSE
         async for event in session.get_task_result_stream(task_id):
-            yield json.dumps(event) + "\n"
+            if raw_event:
+                yield json.dumps(event) + "\n"
+            else:
+                yield json.dumps(event.get("value")) + "\n"
 
     return StreamingResponse(
         event_stream(),
