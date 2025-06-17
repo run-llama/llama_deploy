@@ -2,6 +2,7 @@ import asyncio
 import importlib
 import logging
 import os
+import site
 import subprocess
 import sys
 import tempfile
@@ -210,7 +211,7 @@ class Deployment:
         source_manager.sync(source.location, str(destination), policy)
 
         install = await asyncio.create_subprocess_exec(
-            "pnpm", "install", cwd=destination / "ui"
+            "pnpm", "install", cwd=destination
         )
         await install.wait()
 
@@ -224,7 +225,7 @@ class Deployment:
             "pnpm",
             "run",
             "dev",
-            cwd=destination / "ui",
+            cwd=destination,
             env=env,
         )
 
@@ -279,6 +280,7 @@ class Deployment:
             pythonpath = (destination / module_path.parent).resolve()
             logger.debug("Extending PYTHONPATH to %s", pythonpath)
             sys.path.append(str(pythonpath))
+
             module = importlib.import_module(module_name)
 
             workflow = getattr(module, workflow_name)
@@ -410,8 +412,15 @@ class Deployment:
                         "install",
                         f"--prefix={python_parent_dir}",  # installs to the current python environment
                         *install_args,
-                    ]
+                    ],
+                    cwd=source_root,
                 )
+
+                # Force Python to refresh its package discovery after installing new packages
+                site.main()  # Refresh site-packages paths
+                # Clear import caches to ensure newly installed packages are discoverable
+                importlib.invalidate_caches()
+
             except subprocess.CalledProcessError as e:
                 msg = f"Unable to install service dependencies using command '{e.cmd}': {e.stderr}"
                 raise DeploymentError(msg) from None
@@ -559,7 +568,6 @@ class Manager:
                 except RetryError:
                     msg = f"Unable to reach SimpleMessageQueueServer at {msg_queue.base_url}"
                     raise DeploymentError(msg)
-
             deployment = Deployment(
                 config=config,
                 base_path=Path(base_path),

@@ -45,8 +45,7 @@ def setup_repo(
         run_process(["git", "pull", "origin", "main"], cwd=str(dest_dir.absolute()))
 
 
-def copy_sources(work_dir: Path, deployment_file_path: Path) -> None:
-    app_folder = deployment_file_path.parent
+def copy_sources(work_dir: Path, app_folder: Path) -> None:
     for item in app_folder.iterdir():
         if item.is_dir():
             # For directories, use copytree with dirs_exist_ok=True
@@ -92,8 +91,9 @@ if __name__ == "__main__":
     copy_sources(work_dir, work_dir / CLONED_REPO_FOLDER)
     shutil.rmtree(work_dir / CLONED_REPO_FOLDER)
 
-    # Ready to go
-    os.environ["LLAMA_DEPLOY_APISERVER_RC_PATH"] = str(work_dir / deployment_file_path)
+    # settings has already been loaded, so mutate it directly rather than setting the
+    # LLAMA_DEPLOY_APISERVER_RC_PATH environment variable
+    settings.rc_path = (work_dir / deployment_file_path).parent
     uvicorn.run(
         "llama_deploy.apiserver.app:app",
         host=settings.host,
