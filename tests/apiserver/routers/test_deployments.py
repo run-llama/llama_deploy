@@ -249,9 +249,9 @@ async def test_get_event_stream(
     http_client: TestClient, data_path: Path, mock_manager: MagicMock
 ) -> None:
     mock_events = [
-        Event(msg="mock event 1"),
-        Event(msg="mock event 2"),
-        Event(msg="mock event 3"),
+        json.loads(JsonSerializer().serialize(Event(msg="mock event 1"))),
+        json.loads(JsonSerializer().serialize(Event(msg="mock event 2"))),
+        json.loads(JsonSerializer().serialize(Event(msg="mock event 3"))),
     ]
 
     deployment = mock.AsyncMock()
@@ -260,9 +260,7 @@ async def test_get_event_stream(
     deployment.client.core.sessions.get.return_value = session
     mock_manager.get_deployment.return_value = deployment
     mocked_get_task_result_stream = mock.MagicMock()
-    mocked_get_task_result_stream.__aiter__.return_value = (
-        ev.dict() for ev in mock_events
-    )
+    mocked_get_task_result_stream.__aiter__.return_value = mock_events
     session.get_task_result_stream.return_value = mocked_get_task_result_stream
 
     response = http_client.get(
@@ -272,7 +270,7 @@ async def test_get_event_stream(
     ix = 0
     async for line in response.aiter_lines():
         data = json.loads(line)
-        assert data == mock_events[ix].dict()
+        assert data == mock_events[ix].get("value")
         ix += 1
     deployment.client.core.sessions.get.assert_called_with("42")
     session.get_task_result_stream.assert_called_with("test_task_id")
@@ -284,9 +282,9 @@ async def test_get_event_stream_raw(
 ) -> None:
     """Test event stream with raw_event=True."""
     mock_events = [
-        Event(msg="mock event 1"),
-        Event(msg="mock event 2"),
-        Event(msg="mock event 3"),
+        json.loads(JsonSerializer().serialize(Event(msg="mock event 1"))),
+        json.loads(JsonSerializer().serialize(Event(msg="mock event 2"))),
+        json.loads(JsonSerializer().serialize(Event(msg="mock event 3"))),
     ]
 
     deployment = mock.AsyncMock()

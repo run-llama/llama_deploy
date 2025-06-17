@@ -271,6 +271,7 @@ class WorkflowService:
                 _ = asyncio.create_task(send_events(handler, close_send_events))
 
                 index = 0
+                serializer = JsonSerializer()
                 async for ev in handler.stream_events():
                     # send the event to control plane for client / api server streaming
                     logger.debug(f"Publishing event: {ev}")
@@ -282,7 +283,7 @@ class WorkflowService:
                                 data=TaskStream(
                                     task_id=current_call.task_id,
                                     session_id=current_call.session_id,
-                                    data=ev.model_dump(),
+                                    data=json.loads(serializer.serialize(ev)),
                                     index=index,
                                 ).model_dump(),
                             ),

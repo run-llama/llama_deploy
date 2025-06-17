@@ -7,7 +7,6 @@ import httpx
 import websockets
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, WebSocket
 from fastapi.responses import JSONResponse, StreamingResponse
-from llama_index.core.workflow.context_serializers import JsonSerializer
 from starlette.background import BackgroundTask
 
 from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
@@ -162,12 +161,14 @@ async def get_events(
         raise HTTPException(status_code=404, detail="Deployment not found")
 
     session = await deployment.client.core.sessions.get(session_id)
-    serializer_fn = JsonSerializer().serialize if raw_event else json.dumps
 
     async def event_stream() -> AsyncGenerator[str, None]:
         # need to convert back to str to use SSE
         async for event in session.get_task_result_stream(task_id):
-            yield serializer_fn(event) + "\n"
+            if raw_event:
+                yield json.dumps(event) + "\n"
+            else:
+                yield json.dumps(event.get("value")) + "\n"
 
     return StreamingResponse(
         event_stream(),
