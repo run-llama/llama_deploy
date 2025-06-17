@@ -3,10 +3,6 @@ from pathlib import Path
 
 from .base import SourceManager, SyncPolicy
 
-import logging
-
-logger = logging.getLogger(__name__)
-
 
 class LocalSourceManager(SourceManager):
     """A SourceManager specialized for sources of type `local`."""
@@ -44,7 +40,12 @@ class LocalSourceManager(SourceManager):
                 dirs_exist_ok = True
 
         try:
-            shutil.copytree(final_path, destination_path, dirs_exist_ok=dirs_exist_ok)
+            shutil.copytree(
+                final_path, destination_path / source, dirs_exist_ok=dirs_exist_ok
+            )
         except Exception as e:
             msg = f"Unable to copy {source} into {destination}: {e}"
             raise ValueError(msg) from e
+
+    def relative_path(self, source: str) -> str:
+        return source

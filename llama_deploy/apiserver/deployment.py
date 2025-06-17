@@ -208,10 +208,11 @@ class Deployment:
         destination = self._deployment_path.resolve()
         source_manager = SOURCE_MANAGERS[source.type](self._config, self._base_path)
         policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
-        source_manager.sync(source.location, str(destination / "ui"), policy)
+        source_manager.sync(source.location, str(destination), policy)
+        installed_path = destination / source_manager.relative_path(source.location)
 
         install = await asyncio.create_subprocess_exec(
-            "pnpm", "install", cwd=destination / "ui"
+            "pnpm", "install", cwd=installed_path
         )
         await install.wait()
 
@@ -225,7 +226,7 @@ class Deployment:
             "pnpm",
             "run",
             "dev",
-            cwd=destination / "ui",
+            cwd=installed_path,
             env=env,
         )
 
