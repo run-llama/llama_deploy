@@ -278,6 +278,43 @@ async def test_get_event_stream(
     session.get_task_result_stream.assert_called_with("test_task_id")
 
 
+@pytest.mark.asyncio
+async def test_get_event_stream_raw(
+    http_client: TestClient, data_path: Path, mock_manager: MagicMock
+) -> None:
+    """Test event stream with raw_event=True."""
+    mock_events = [
+        Event(msg="mock event 1"),
+        Event(msg="mock event 2"),
+        Event(msg="mock event 3"),
+    ]
+
+    deployment = mock.AsyncMock()
+    deployment.default_service = "TestService"
+    session = mock.MagicMock()
+    deployment.client.core.sessions.get.return_value = session
+    mock_manager.get_deployment.return_value = deployment
+    mocked_get_task_result_stream = mock.MagicMock()
+    mocked_get_task_result_stream.__aiter__.return_value = mock_events
+    session.get_task_result_stream.return_value = mocked_get_task_result_stream
+
+    response = http_client.get(
+        "/deployments/test-deployment/tasks/test_task_id/events/?session_id=42&raw_event=true",
+    )
+    assert response.status_code == 200
+    ix = 0
+    async for line in response.aiter_lines():
+        data = json.loads(line)
+        # For raw events, we expect the complete event object
+        assert data["__is_pydantic"] is True
+        assert "value" in data
+        assert "qualified_name" in data
+        assert data["qualified_name"] == "llama_index.core.workflow.events.Event"
+        ix += 1
+    deployment.client.core.sessions.get.assert_called_with("42")
+    session.get_task_result_stream.assert_called_with("test_task_id")
+
+
 def test_get_task_result_not_found(
     http_client: TestClient, data_path: Path, mock_manager: MagicMock
 ) -> None:
