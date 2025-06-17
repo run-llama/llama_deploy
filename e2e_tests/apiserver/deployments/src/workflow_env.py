@@ -1,13 +1,8 @@
 import asyncio
 import os
 
-from llama_index.core.workflow import (
-    Context,
-    StartEvent,
-    StopEvent,
-    Workflow,
-    step,
-)
+from workflows import Context, Workflow, step
+from workflows.events import StartEvent, StopEvent
 
 
 class MyWorkflow(Workflow):
@@ -18,7 +13,7 @@ class MyWorkflow(Workflow):
         api_key = os.environ.get("API_KEY")
         return StopEvent(
             # result depends on variables read from environment
-            result=(f"var_1: {var_1}, " f"var_2: {var_2}, " f"api_key: {api_key}")
+            result=(f"var_1: {var_1}, var_2: {var_2}, api_key: {api_key}")
         )
 
 

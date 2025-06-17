@@ -1,12 +1,9 @@
-from llama_index.core.workflow import (
-    StartEvent,
-    StopEvent,
-    Workflow,
-    step,
-)
-from llama_index.core.workflow.events import (
+from workflows import Workflow, step
+from workflows.events import (
     HumanResponseEvent,
     InputRequiredEvent,
+    StartEvent,
+    StopEvent,
 )
 
 

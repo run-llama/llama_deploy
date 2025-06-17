@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 
 import pytest
-from llama_index.core.workflow.events import HumanResponseEvent
+from workflows.events import HumanResponseEvent
 
 from llama_deploy.types import TaskDefinition
 

@@ -1,5 +1,7 @@
 import os
-from llama_index.core.workflow import Context, StartEvent, StopEvent, Workflow, step
+
+from workflows import Context, Workflow, step
+from workflows.events import StartEvent, StopEvent
 
 
 class MyWorkflow(Workflow):

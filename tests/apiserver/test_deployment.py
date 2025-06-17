@@ -54,24 +54,6 @@ def test_deployment_ctor_missing_service_path(data_path: Path, tmp_path: Path) -
         Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
 
 
-def test_deployment_ctor_missing_service_port(data_path: Path, tmp_path: Path) -> None:
-    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
-    config.services["test-workflow"].port = None
-    with pytest.raises(
-        ValueError, match="port field in service definition must be set"
-    ):
-        Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
-
-
-def test_deployment_ctor_missing_service_host(data_path: Path, tmp_path: Path) -> None:
-    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
-    config.services["test-workflow"].host = None
-    with pytest.raises(
-        ValueError, match="host field in service definition must be set"
-    ):
-        Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
-
-
 def test_deployment_ctor_skip_default_service(
     data_path: Path, mock_importlib: Any, tmp_path: Path
 ) -> None:

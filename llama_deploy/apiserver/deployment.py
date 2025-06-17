@@ -12,6 +12,8 @@ from typing import Type
 import httpx
 from dotenv import dotenv_values
 from tenacity import AsyncRetrying, RetryError, wait_exponential
+from workflows import Context, Workflow
+from workflows.handler import WorkflowHandler
 
 from llama_deploy.apiserver.source_managers.base import SyncPolicy
 from llama_deploy.client import Client
@@ -25,7 +27,6 @@ from llama_deploy.message_queues import (
     SimpleMessageQueueConfig,
 )
 from llama_deploy.message_queues.simple import SimpleMessageQueueServer
-from llama_deploy.services import WorkflowService, WorkflowServiceConfig
 
 from .deployment_config_parser import (
     DeploymentConfig,
@@ -86,10 +87,15 @@ class Deployment:
         self._service_tasks: list[asyncio.Task] = []
         self._service_startup_complete = asyncio.Event()
         # Ready to load services
-        self._workflow_services: dict[str, WorkflowService] = self._load_services(
-            config
-        )
+        self._workflow_services: dict[str, Workflow] = self._load_services(config)
+        self._contexts: dict[str, Context] = {}
+        self._handlers: dict[str, WorkflowHandler] = {}
+        self._handler_inputs: dict[str, str] = {}
         self._config = config
+        # if default service was not set, take the first item of the self._workflow_services dictionary
+        self._default_service = (
+            config.default_service or list(self._workflow_services.keys())[0]
+        )
         deployment_state.labels(self._name).state("ready")
 
     @property
@@ -181,18 +187,7 @@ class Deployment:
         if they are all cancelled. This is to support the reload process
         (see reload() for more details).
         """
-        while self._running:
-            self._service_tasks = []
-            # If this is a reload, self._workflow_services contains the updated configurations
-            for name, wfs in self._workflow_services.items():
-                logger.debug(f"Starting service {name}")
-                service_task = asyncio.create_task(wfs.launch_server())
-                self._service_tasks.append(service_task)
-                await wfs.register_to_control_plane(self._control_plane_config.url)
-
-            # If this is a reload, unblock the reload() function signalling that tasks are up and running
-            self._service_startup_complete.set()
-            await asyncio.gather(*self._service_tasks)
+        return
 
     async def _start_ui_server(self) -> None:
         """Creates WorkflowService instances according to the configuration object."""
@@ -230,7 +225,7 @@ class Deployment:
 
         print(f"Started Next.js app with PID {process.pid}")
 
-    def _load_services(self, config: DeploymentConfig) -> dict[str, WorkflowService]:
+    def _load_services(self, config: DeploymentConfig) -> dict[str, Workflow]:
         """Creates WorkflowService instances according to the configuration object."""
         deployment_state.labels(self._name).state("loading_services")
         workflow_services = {}
@@ -243,19 +238,8 @@ class Deployment:
                 # TODO: possibly start the default service if not running already
                 continue
 
-            # FIXME: Momentarily assuming everything is a workflow
             if service_config.import_path is None:
                 msg = "path field in service definition must be set"
-                raise ValueError(msg)
-
-            if service_config.port is None:
-                # This won't happen if we arrive here from Manager.deploy(), the manager will assign a port
-                msg = "port field in service definition must be set"
-                raise ValueError(msg)
-
-            if service_config.host is None:
-                # This won't happen if we arrive here from Manager.deploy(), the manager will assign a host
-                msg = "host field in service definition must be set"
                 raise ValueError(msg)
 
             # Sync the service source
@@ -280,20 +264,8 @@ class Deployment:
             logger.debug("Extending PYTHONPATH to %s", pythonpath)
             sys.path.append(str(pythonpath))
             module = importlib.import_module(module_name)
+            workflow_services[service_id] = getattr(module, workflow_name)
 
-            workflow = getattr(module, workflow_name)
-            workflow_config = WorkflowServiceConfig(
-                host=service_config.host,
-                port=service_config.port,
-                internal_host="0.0.0.0",
-                internal_port=service_config.port,
-                service_name=service_id,
-            )
-            workflow_services[service_id] = WorkflowService(
-                workflow=workflow,
-                message_queue=self._queue_client,
-                config=workflow_config,
-            )
             service_state.labels(self._name, service_id).state("ready")
 
         if config.default_service in workflow_services:

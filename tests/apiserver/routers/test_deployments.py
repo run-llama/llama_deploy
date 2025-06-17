@@ -130,6 +130,9 @@ def test_run_deployment_task(
 ) -> None:
     deployment = mock.AsyncMock()
     deployment.default_service = "TestService"
+    mocked_workflow = mock.AsyncMock()
+    mocked_workflow.run.return_value = "foo"
+    deployment._workflow_services = {"TestService": mocked_workflow}
 
     session = mock.AsyncMock(id="42")
     deployment.client.core.sessions.create.return_value = session
@@ -145,7 +148,6 @@ def test_run_deployment_task(
         json={"input": "{}"},
     )
     assert response.status_code == 200
-    deployment.client.core.sessions.delete.assert_called_with("42")
 
     deployment.reset_mock()
     response = http_client.post(

@@ -1,13 +1,7 @@
 import asyncio
 
-from llama_index.core.workflow import (
-    Context,
-    Event,
-    StartEvent,
-    StopEvent,
-    Workflow,
-    step,
-)
+from workflows import Context, Workflow, step
+from workflows.events import Event, StartEvent, StopEvent
 
 
 class Message(Event):
@@ -20,7 +14,7 @@ class EchoWorkflow(Workflow):
     @step()
     async def run_step(self, ctx: Context, ev: StartEvent) -> StopEvent:
         for i in range(3):
-            ctx.write_event_to_stream(Message(text=f"message number {i+1}"))
+            ctx.write_event_to_stream(Message(text=f"message number {i + 1}"))
             await asyncio.sleep(0.5)
 
         return StopEvent(result="Done.")
