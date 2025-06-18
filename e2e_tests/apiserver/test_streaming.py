@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 
 import pytest
@@ -16,11 +15,9 @@ async def test_stream(apiserver, client):
         )
 
     task = await deployment.tasks.create(TaskDefinition(input='{"a": "b"}'))
-    await asyncio.sleep(5)
 
     read_events = []
     async for ev in task.events():
-        print("HERE", ev)
         if ev and "text" in ev:
             read_events.append(ev)
     assert len(read_events) == 3
