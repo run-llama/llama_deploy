@@ -46,3 +46,6 @@ class LocalSourceManager(SourceManager):
         except Exception as e:
             msg = f"Unable to copy {source} into {destination}: {e}"
             raise ValueError(msg) from e
+
+    def relative_path(self, source: str) -> str:
+        return source

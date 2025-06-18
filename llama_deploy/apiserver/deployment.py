@@ -2,6 +2,7 @@ import asyncio
 import importlib
 import logging
 import os
+import site
 import subprocess
 import sys
 import tempfile
@@ -128,11 +129,14 @@ class Deployment:
         # Sync the service source
         destination = self._deployment_path.resolve()
         source_manager = SOURCE_MANAGERS[source.type](self._config, self._base_path)
-        policy = SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
+        policy = source.sync_policy or (
+            SyncPolicy.SKIP if self._local else SyncPolicy.REPLACE
+        )
         source_manager.sync(source.location, str(destination), policy)
+        installed_path = destination / source_manager.relative_path(source.location)
 
         install = await asyncio.create_subprocess_exec(
-            "pnpm", "install", cwd=destination / "ui"
+            "pnpm", "install", cwd=installed_path
         )
         await install.wait()
 
@@ -146,7 +150,7 @@ class Deployment:
             "pnpm",
             "run",
             "dev",
-            cwd=destination / "ui",
+            cwd=installed_path,
             env=env,
         )
 
@@ -190,6 +194,7 @@ class Deployment:
             pythonpath = (destination / module_path.parent).resolve()
             logger.debug("Extending PYTHONPATH to %s", pythonpath)
             sys.path.append(str(pythonpath))
+
             module = importlib.import_module(module_name)
             workflow_services[service_id] = getattr(module, workflow_name)
 
@@ -309,8 +314,15 @@ class Deployment:
                         "install",
                         f"--prefix={python_parent_dir}",  # installs to the current python environment
                         *install_args,
-                    ]
+                    ],
+                    cwd=source_root,
                 )
+
+                # Force Python to refresh its package discovery after installing new packages
+                site.main()  # Refresh site-packages paths
+                # Clear import caches to ensure newly installed packages are discoverable
+                importlib.invalidate_caches()
+
             except subprocess.CalledProcessError as e:
                 msg = f"Unable to install service dependencies using command '{e.cmd}': {e.stderr}"
                 raise DeploymentError(msg) from None
