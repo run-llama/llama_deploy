@@ -17,4 +17,4 @@ class HumanInTheLoopWorkflow(Workflow):
         return StopEvent(result=ev.response)
 
 
-workflow = HumanInTheLoopWorkflow()
+workflow = HumanInTheLoopWorkflow(timeout=3)

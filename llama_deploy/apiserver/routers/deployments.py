@@ -141,7 +141,9 @@ async def send_event(
         raise HTTPException(status_code=404, detail="Deployment not found")
 
     ctx = deployment._contexts[session_id]
-    ctx.send_event(json.loads(event_def.event_obj_str))
+    serializer = JsonSerializer()
+    event = serializer.deserialize(event_def.event_obj_str)
+    ctx.send_event(event)
 
     return event_def
 
@@ -192,7 +194,7 @@ async def get_task_result(
         raise HTTPException(status_code=404, detail="Deployment not found")
 
     handler = deployment._handlers[task_id]
-    return await handler
+    return TaskResult(task_id=task_id, history=[], result=await handler)
 
 
 @deployments_router.get("/{deployment_name}/tasks")

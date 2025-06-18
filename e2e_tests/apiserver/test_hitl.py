@@ -15,16 +15,14 @@ async def test_hitl(apiserver, client):
         deployment = await client.apiserver.deployments.create(
             f, base_path=deployment_fp.parent
         )
-        await asyncio.sleep(5)
 
-    tasks = deployment.tasks
-    task_handler = await tasks.create(TaskDefinition(input="{}"))
+    task_handler = await deployment.tasks.create(TaskDefinition(input="{}"))
     ev_def = await task_handler.send_event(
         ev=HumanResponseEvent(response="42"), service_name="hitl_workflow"
     )
 
     # wait for workflow to finish
-    await asyncio.sleep(2)
+    await asyncio.sleep(0.1)
 
     result = await task_handler.results()
     assert ev_def.service_id == "hitl_workflow"
