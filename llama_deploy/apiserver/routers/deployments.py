@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.background import BackgroundTask
 from workflows import Context
 from workflows.context import JsonSerializer
+from workflows.handler import WorkflowHandler
 
 from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 from llama_deploy.apiserver.server import manager
@@ -166,7 +167,7 @@ async def get_events(
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    async def event_stream(handler) -> AsyncGenerator[str, None]:
+    async def event_stream(handler: WorkflowHandler) -> AsyncGenerator[str, None]:
         serializer = JsonSerializer()
         # need to convert back to str to use SSE
         async for event in handler.stream_events():

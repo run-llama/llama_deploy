@@ -74,14 +74,12 @@ class Deployment:
         self._handlers: dict[str, WorkflowHandler] = {}
         self._handler_inputs: dict[str, str] = {}
         self._config = config
-        # if default service was not set, take the first item of the self._workflow_services dictionary
-        self._default_service = (
-            config.default_service or list(self._workflow_services.keys())[0]
-        )
         deployment_state.labels(self._name).state("ready")
 
     @property
-    def default_service(self) -> str | None:
+    def default_service(self) -> str:
+        if not self._default_service:
+            self._default_service = list(self._workflow_services.keys())[0]
         return self._default_service
 
     @property
@@ -112,10 +110,9 @@ class Deployment:
             await self._start_ui_server()
 
     async def reload(self, config: DeploymentConfig) -> None:
+        # reset default service, it might change across reloads
+        self._default_service = None
         self._workflow_services = self._load_services(config)
-        self._default_service = (
-            config.default_service or list(self._workflow_services.keys())[0]
-        )
 
     async def _start_ui_server(self) -> None:
         """Creates WorkflowService instances according to the configuration object."""
@@ -200,11 +197,13 @@ class Deployment:
 
             service_state.labels(self._name, service_id).state("ready")
 
-        if config.default_service in workflow_services:
-            self._default_service = config.default_service
-        else:
-            msg = f"There is no service with id '{config.default_service}' in this deployment, cannot set default."
-            logger.warning(msg)
+        if config.default_service:
+            if config.default_service in workflow_services:
+                self._default_service = config.default_service
+            else:
+                msg = f"Service with id '{config.default_service}' does not exist, cannot set it as default."
+                logger.warning(msg)
+                self._default_service = None
 
         return workflow_services
 

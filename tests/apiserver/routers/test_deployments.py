@@ -165,13 +165,15 @@ def test_create_deployment_task(
     deployment = mock.AsyncMock()
     deployment.default_service = "TestService"
 
-    session = mock.AsyncMock(id="42")
-    deployment.client.core.sessions.create.return_value = session
-    session.run_nowait.return_value = "test_task_id"
-
-    session_from_get = mock.AsyncMock(id="84")
-    deployment.client.core.sessions.get.return_value = session_from_get
-    session_from_get.run_nowait.return_value = "another_test_task_id"
+    # Mock workflow that returns a handler
+    mock_workflow = mock.MagicMock()
+    mock_handler = mock.MagicMock()
+    mock_handler.ctx = mock.MagicMock()
+    mock_workflow.run.return_value = mock_handler
+    deployment._workflow_services = {"TestService": mock_workflow}
+    deployment._handlers = {}
+    deployment._handler_inputs = {}
+    deployment._contexts = {"84": mock.MagicMock()}  # For session_id test
 
     mock_manager.get_deployment.return_value = deployment
     response = http_client.post(
@@ -180,7 +182,7 @@ def test_create_deployment_task(
     )
     assert response.status_code == 200
     td = TaskDefinition(**response.json())
-    assert td.task_id == "test_task_id"
+    assert td.task_id is not None
 
     deployment.reset_mock()
     response = http_client.post(
@@ -189,7 +191,6 @@ def test_create_deployment_task(
         params={"session_id": 84},
     )
     assert response.status_code == 200
-    deployment.client.core.sessions.delete.assert_not_called()
 
 
 def test_send_event_not_found(
@@ -213,9 +214,8 @@ def test_send_event(
 ) -> None:
     deployment = mock.AsyncMock()
     deployment.default_service = "TestService"
-    session = mock.AsyncMock()
-    deployment.client.core.sessions.create.return_value = session
-    session.id = "42"
+    mock_context = mock.MagicMock()
+    deployment._contexts = {"42": mock_context}
     mock_manager.get_deployment.return_value = deployment
 
     serializer = JsonSerializer()
@@ -258,12 +258,23 @@ async def test_get_event_stream(
 
     deployment = mock.AsyncMock()
     deployment.default_service = "TestService"
-    session = mock.MagicMock()
-    deployment.client.core.sessions.get.return_value = session
+
+    # Mock handler that streams events
+    class MockHandler:
+        async def stream_events(self):  # type:ignore
+            for event in mock_events:
+                yield Event(msg=event["value"]["_data"]["msg"])
+
+        def __await__(self):  # type:ignore
+            # Make it awaitable
+            async def await_impl():  # type:ignore
+                return "completed"
+
+            return await_impl().__await__()
+
+    mock_handler = MockHandler()
+    deployment._handlers = {"test_task_id": mock_handler}
     mock_manager.get_deployment.return_value = deployment
-    mocked_get_task_result_stream = mock.MagicMock()
-    mocked_get_task_result_stream.__aiter__.return_value = mock_events
-    session.get_task_result_stream.return_value = mocked_get_task_result_stream
 
     response = http_client.get(
         "/deployments/test-deployment/tasks/test_task_id/events/?session_id=42",
@@ -274,8 +285,6 @@ async def test_get_event_stream(
         data = json.loads(line)
         assert data == mock_events[ix].get("value")
         ix += 1
-    deployment.client.core.sessions.get.assert_called_with("42")
-    session.get_task_result_stream.assert_called_with("test_task_id")
 
 
 @pytest.mark.asyncio
@@ -291,12 +300,23 @@ async def test_get_event_stream_raw(
 
     deployment = mock.AsyncMock()
     deployment.default_service = "TestService"
-    session = mock.MagicMock()
-    deployment.client.core.sessions.get.return_value = session
+
+    # Mock handler that streams events
+    class MockHandler:
+        async def stream_events(self):  # type:ignore
+            for event in mock_events:
+                yield Event(msg=event["value"]["_data"]["msg"])
+
+        def __await__(self):  # type:ignore
+            # Make it awaitable
+            async def await_impl():  # type:ignore
+                return "completed"
+
+            return await_impl().__await__()
+
+    mock_handler = MockHandler()
+    deployment._handlers = {"test_task_id": mock_handler}
     mock_manager.get_deployment.return_value = deployment
-    mocked_get_task_result_stream = mock.MagicMock()
-    mocked_get_task_result_stream.__aiter__.return_value = mock_events
-    session.get_task_result_stream.return_value = mocked_get_task_result_stream
 
     response = http_client.get(
         "/deployments/test-deployment/tasks/test_task_id/events/?session_id=42&raw_event=true",
@@ -311,8 +331,6 @@ async def test_get_event_stream_raw(
         assert "qualified_name" in data
         assert data["qualified_name"] == "llama_index.core.workflow.events.Event"
         ix += 1
-    deployment.client.core.sessions.get.assert_called_with("42")
-    session.get_task_result_stream.assert_called_with("test_task_id")
 
 
 def test_get_task_result_not_found(
@@ -339,10 +357,9 @@ def test_get_tasks(
     http_client: TestClient, data_path: Path, mock_manager: MagicMock
 ) -> None:
     deployment = mock.AsyncMock()
+    deployment._handlers = {"task1": mock.MagicMock()}
+    deployment._handler_inputs = {"task1": "foo"}
     mock_manager.get_deployment.return_value = deployment
-    session = mock.AsyncMock()
-    session.get_tasks.return_value = [TaskDefinition(input="foo")]
-    deployment.client.core.sessions.list.return_value = [session]
 
     response = http_client.get(
         "/deployments/test-deployment/tasks",
@@ -357,11 +374,18 @@ def test_get_task_result(
 ) -> None:
     deployment = mock.AsyncMock()
     deployment.default_service = "TestService"
-    session = mock.AsyncMock()
-    deployment.client.core.sessions.get.return_value = session
-    session.get_task_result.return_value = TaskResult(
-        result="test_result", history=[], task_id="test_task_id"
-    )
+
+    # Mock the handler to return the expected result - needs to be awaitable
+    class MockHandler:
+        def __await__(self):  # type:ignore
+            async def await_impl():  # type:ignore
+                return "test_result"
+
+            return await_impl().__await__()
+
+    mock_handler = MockHandler()
+    deployment._handlers = {"test_task_id": mock_handler}
+
     mock_manager.get_deployment.return_value = deployment
 
     response = http_client.get(
@@ -369,8 +393,6 @@ def test_get_task_result(
     )
     assert response.status_code == 200
     assert TaskResult(**response.json()).result == "test_result"
-    session.get_task_result.assert_called_with("test_task_id")
-    deployment.client.core.sessions.get.assert_called_with("42")
 
 
 def test_get_sessions_not_found(
@@ -388,7 +410,7 @@ def test_get_sessions(
 ) -> None:
     deployment = mock.AsyncMock()
     deployment.default_service = "TestService"
-    deployment.client.list_sessions.return_value = []
+    deployment._contexts = {}  # Empty contexts
     mock_manager.get_deployment.return_value = deployment
 
     response = http_client.get(
@@ -414,13 +436,13 @@ def test_delete_session(
 ) -> None:
     deployment = mock.AsyncMock()
     deployment.default_service = "TestService"
+    deployment._contexts = {"42": mock.MagicMock()}  # Mock context to be deleted
     mock_manager.get_deployment.return_value = deployment
 
     response = http_client.post(
         "/deployments/test-deployment/sessions/delete/?session_id=42",
     )
     assert response.status_code == 200
-    deployment.client.core.sessions.delete.assert_called_with("42")
 
 
 def test_get_session_not_found(
@@ -460,8 +482,9 @@ def test_create_session(
     http_client: TestClient, data_path: Path, mock_manager: MagicMock
 ) -> None:
     deployment = mock.AsyncMock()
-    session = mock.AsyncMock(id="test-session-id")
-    deployment.client.core.sessions.create.return_value = session
+    deployment.default_service = "TestService"
+    deployment._workflow_services = {"TestService": mock.MagicMock()}
+    deployment._contexts = {}
     mock_manager.get_deployment.return_value = deployment
 
     response = http_client.post(
@@ -469,15 +492,13 @@ def test_create_session(
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "session_id": "test-session-id",
-        "state": {},
-        "task_ids": [],
-    }
+    # The response should contain a generated session_id
+    assert "session_id" in response.json()
+    assert response.json()["state"] == {}
+    assert response.json()["task_ids"] == []
 
     # Verify the mocked calls
     mock_manager.get_deployment.assert_called_once_with("test-deployment")
-    deployment.client.core.sessions.create.assert_called_once()
 
 
 @respx.mock
