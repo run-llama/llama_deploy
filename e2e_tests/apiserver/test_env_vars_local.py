@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 
 import pytest
@@ -14,7 +13,6 @@ async def test_read_env_vars_local(apiserver, client):
         deployment = await client.apiserver.deployments.create(
             f, base_path=deployment_fp.parent
         )
-        await asyncio.sleep(5)
 
     result = await deployment.tasks.run(
         TaskDefinition(service_id="test_env_workflow", input="")

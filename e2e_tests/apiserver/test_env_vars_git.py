@@ -1,4 +1,3 @@
-import asyncio
 import json
 from pathlib import Path
 
@@ -15,7 +14,6 @@ async def test_read_env_vars_git(apiserver, client):
         deployment = await client.apiserver.deployments.create(
             f, base_path=deployment_fp.parent
         )
-        await asyncio.sleep(5)
 
     input_str = json.dumps({"env_vars_to_read": ["VAR_1", "VAR_2", "API_KEY"]})
     result = await deployment.tasks.run(

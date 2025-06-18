@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 
 import pytest
@@ -14,7 +13,6 @@ async def test_reload(apiserver, client):
         deployment = await client.apiserver.deployments.create(
             f, base_path=deployment_fp.parent
         )
-        await asyncio.sleep(3)
 
     tasks = deployment.tasks
     res = await tasks.run(TaskDefinition(input='{"data": "bar"}'))
@@ -25,7 +23,6 @@ async def test_reload(apiserver, client):
         deployment = await client.apiserver.deployments.create(
             f, base_path=deployment_fp.parent, reload=True
         )
-        await asyncio.sleep(3)
 
     tasks = deployment.tasks
     res = await tasks.run(TaskDefinition(input='{"data": "bar"}'))
