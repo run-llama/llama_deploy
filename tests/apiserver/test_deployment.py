@@ -476,11 +476,15 @@ async def test_manager_deploy(data_path: Path) -> None:
     with mock.patch(
         "llama_deploy.apiserver.deployment.Deployment"
     ) as mocked_deployment:
+        # Mock the start method as an async method
+        mocked_deployment.return_value.start = mock.AsyncMock()
+
         m = Manager()
         m._serving = True
         m._deployments_path = Path()
         await m.deploy(config, base_path=str(data_path))
         mocked_deployment.assert_called_once()
+        mocked_deployment.return_value.start.assert_awaited_once()
         assert m.deployment_names == ["TestDeployment"]
         assert m.get_deployment("TestDeployment") is not None
 

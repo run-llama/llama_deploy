@@ -6,6 +6,7 @@ import site
 import subprocess
 import sys
 import tempfile
+from asyncio.subprocess import Process
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import Type
@@ -68,6 +69,7 @@ class Deployment:
         self._default_service: str | None = None
         self._running = False
         self._service_tasks: list[asyncio.Task] = []
+        self._ui_server_process: Process | None = None
         # Ready to load services
         self._workflow_services: dict[str, Workflow] = self._load_services(config)
         self._contexts: dict[str, Context] = {}
@@ -110,9 +112,22 @@ class Deployment:
             await self._start_ui_server()
 
     async def reload(self, config: DeploymentConfig) -> None:
-        # reset default service, it might change across reloads
+        # Reset default service, it might change across reloads
         self._default_service = None
+        # Tear down the UI server
+        self._stop_ui_server()
+        # Reload the services
         self._workflow_services = self._load_services(config)
+
+        # UI
+        if self._config.ui:
+            await self._start_ui_server()
+
+    def _stop_ui_server(self) -> None:
+        if self._ui_server_process is None:
+            return
+
+        self._ui_server_process.terminate()
 
     async def _start_ui_server(self) -> None:
         """Creates WorkflowService instances according to the configuration object."""
@@ -143,7 +158,7 @@ class Deployment:
         # Override PORT and force using the one from the deployment.yaml file
         env["PORT"] = str(self._config.ui.port)
 
-        process = await asyncio.create_subprocess_exec(
+        self._ui_server_process = await asyncio.create_subprocess_exec(
             "pnpm",
             "run",
             "dev",
@@ -151,7 +166,7 @@ class Deployment:
             env=env,
         )
 
-        print(f"Started Next.js app with PID {process.pid}")
+        print(f"Started Next.js app with PID {self._ui_server_process.pid}")
 
     def _load_services(self, config: DeploymentConfig) -> dict[str, Workflow]:
         """Creates WorkflowService instances according to the configuration object."""
@@ -429,6 +444,7 @@ class Manager:
                 local=local,
             )
             self._deployments[config.name] = deployment
+            await deployment.start()
         else:
             if config.name not in self._deployments:
                 msg = f"Cannot find deployment to reload: {config.name}"
