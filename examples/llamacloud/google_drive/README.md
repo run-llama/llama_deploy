@@ -115,7 +115,7 @@ services:
 ```
 
 The YAML code above defines the deployment that LlamaDeploy will create and run as a service. As you can
-see, this deployment has a name, some configuration for the control plane and one service to wrap our workflow. The
+see, this deployment has a name and one service to wrap our workflow. The
 service will look for a Python variable named `llamacloud_workflow` in a Python module named `workflow` and run the workflow.
 
 At this point we have all we need to run this deployment. Ideally, we would have the API server already running

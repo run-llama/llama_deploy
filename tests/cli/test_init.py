@@ -1,8 +1,9 @@
 import os
-import pytest
 import tempfile
 
+import pytest
 from click.testing import CliRunner
+
 from llama_deploy.cli import llamactl
 
 
@@ -21,10 +22,6 @@ def test_basic_init_e2e(runner: CliRunner) -> None:
                 "test-project",
                 "--destination",
                 temp_dir,
-                "--port",
-                "8080",
-                "--message-queue-type",
-                "redis",
                 "--template",
                 "basic",
             ],
@@ -37,7 +34,6 @@ def test_basic_init_e2e(runner: CliRunner) -> None:
             text = f.read()
             assert "OPENAI_API_KEY" in text
             assert "ui:" in text
-            assert "type: redis" in text
 
 
 def test_basic_init_e2e_no_ui(runner: CliRunner) -> None:
@@ -50,10 +46,6 @@ def test_basic_init_e2e_no_ui(runner: CliRunner) -> None:
                 "test-project",
                 "--destination",
                 temp_dir,
-                "--port",
-                "8080",
-                "--message-queue-type",
-                "redis",
                 "--template",
                 "none",
             ],

@@ -11,30 +11,11 @@ from pydantic import BaseModel
 # Import pydantic models
 from llama_deploy.apiserver.deployment_config_parser import (
     DeploymentConfig,
-    MessageQueueConfig,
     Service,
     ServiceSource,
     SourceType,
     UIService,
 )
-from llama_deploy.control_plane.server import ControlPlaneConfig
-from llama_deploy.message_queues import (
-    KafkaMessageQueueConfig,
-    RabbitMQMessageQueueConfig,
-    RedisMessageQueueConfig,
-    SimpleMessageQueueConfig,
-)
-
-SUPPORTED_MESSAGE_QUEUES: Dict[str, Type[MessageQueueConfig]] = {
-    x.model_json_schema()["properties"]["type"]["default"]: x  # type: ignore
-    for x in [
-        KafkaMessageQueueConfig,
-        RabbitMQMessageQueueConfig,
-        RedisMessageQueueConfig,
-        SimpleMessageQueueConfig,
-    ]
-    if hasattr(x, "model_json_schema")
-}
 
 
 @click.command()
@@ -51,18 +32,6 @@ SUPPORTED_MESSAGE_QUEUES: Dict[str, Type[MessageQueueConfig]] = {
     help="Directory where the project will be created",
 )
 @click.option(
-    "--port",
-    type=int,
-    default=None,
-    help="Port for the control plane server",
-)
-@click.option(
-    "--message-queue-type",
-    type=click.Choice(["simple", "redis", "rabbitmq", "kafka"]),
-    default=None,
-    help="Type of message queue to use",
-)
-@click.option(
     "--template",
     type=click.Choice(["basic", "none"]),  # For future: add more templates
     default=None,
@@ -71,8 +40,6 @@ SUPPORTED_MESSAGE_QUEUES: Dict[str, Type[MessageQueueConfig]] = {
 def init(
     name: Optional[str] = None,
     destination: Optional[str] = None,
-    port: Optional[int] = None,
-    message_queue_type: Optional[str] = None,
     template: Optional[str] = None,
 ) -> None:
     """Bootstrap a new llama-deploy project with a basic workflow and configuration."""
@@ -85,6 +52,7 @@ def init(
             show_default=True,
             type=str,
         )
+        assert name
 
     if destination is None:
         destination = click.prompt(
@@ -93,22 +61,7 @@ def init(
             type=str,
             show_default=True,
         )
-
-    if port is None:
-        port = click.prompt(
-            "Control plane port",
-            default="8000",
-            type=int,
-            show_default=True,
-        )
-
-    if message_queue_type is None:
-        message_queue_type = click.prompt(
-            "Select message queue type\n",
-            default="simple",
-            type=click.Choice(SUPPORTED_MESSAGE_QUEUES.keys()),
-            show_default=True,
-        )
+        assert destination
 
     if template is None:
         click.echo("\nWorkflow template:")
@@ -143,7 +96,7 @@ def init(
         click.echo(f"Created project directory: {project_dir}")
 
     # Create deployment.yml using pydantic models
-    deployment_config = create_deployment_config(name, port, message_queue_type, use_ui)
+    deployment_config = create_deployment_config(name, use_ui)
     deployment_path = project_dir / "deployment.yml"
 
     # Exclude several fields that would only confuse users
@@ -391,14 +344,6 @@ def write_yaml_with_comments(
 
     # Add section comments
     section_comments = {
-        "control_plane:": [
-            "# Control plane configuration",
-            "# The control plane manages the state of the system and coordinates services",
-        ],
-        "message_queue:": [
-            "# Message queue configuration",
-            "# The message queue handles communication between services",
-        ],
         "default_service:": [
             "# The default service to use when no service is specified",
         ],
@@ -431,20 +376,8 @@ def write_yaml_with_comments(
         f.write(commented_yaml)
 
 
-def create_deployment_config(
-    name: str, port: int, message_queue_type: str, use_ui: bool = False
-) -> DeploymentConfig:
+def create_deployment_config(name: str, use_ui: bool = False) -> DeploymentConfig:
     """Create a deployment configuration using pydantic models."""
-    # Create control plane config
-    control_plane = ControlPlaneConfig(port=port)
-
-    # Create message queue config
-    message_queue_cls = SUPPORTED_MESSAGE_QUEUES.get(message_queue_type)
-    if message_queue_cls is None:
-        raise ValueError(f"Message queue type {message_queue_type} not supported")
-
-    message_queue = message_queue_cls()
-
     # Create the example service
     service = Service(
         name="Example Workflow",
@@ -478,8 +411,6 @@ def create_deployment_config(
     # Create the deployment config
     deployment_config = DeploymentConfig(
         name=name,
-        control_plane=control_plane,
-        message_queue=message_queue,
         default_service="example_workflow",
         services={"example_workflow": service},
         ui=ui_service,

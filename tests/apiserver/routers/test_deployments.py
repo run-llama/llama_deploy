@@ -11,8 +11,8 @@ import httpx
 import pytest
 import respx
 from fastapi.testclient import TestClient
-from llama_index.core.workflow.context_serializers import JsonSerializer
-from llama_index.core.workflow.events import Event
+from workflows.context import JsonSerializer
+from workflows.events import Event
 
 from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 from llama_deploy.types import TaskResult
@@ -329,7 +329,7 @@ async def test_get_event_stream_raw(
         assert data["__is_pydantic"] is True
         assert "value" in data
         assert "qualified_name" in data
-        assert data["qualified_name"] == "llama_index.core.workflow.events.Event"
+        assert data["qualified_name"] == "workflows.events.Event"
         ix += 1
 
 

@@ -1,9 +1,10 @@
-import json
-import asyncio
 import argparse
+import asyncio
+import json
+import os
 from dataclasses import dataclass
-from typing import Dict, Any
 from pathlib import Path
+from typing import Any, Dict
 
 from llama_cloud.client import LlamaCloud
 from llama_cloud.types import (
@@ -11,15 +12,8 @@ from llama_cloud.types import (
     ConfigurableDataSourceNames,
     DataSourceCreate,
 )
-from llama_index.core.workflow import (
-    Event,
-    StartEvent,
-    StopEvent,
-    Workflow,
-    step,
-)
-
-import os
+from workflows import Workflow, step
+from workflows.events import Event, StartEvent, StopEvent
 
 
 @dataclass

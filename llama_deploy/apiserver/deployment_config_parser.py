@@ -1,9 +1,8 @@
 import sys
 import warnings
-from pathlib import Path
-from typing import Annotated, Any, Optional, Union
-
 from enum import Enum
+from pathlib import Path
+from typing import Any, Optional
 
 if sys.version_info >= (3, 11):
     from typing import Self
@@ -12,24 +11,6 @@ else:  # pragma: no cover
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-from llama_deploy.control_plane.server import ControlPlaneConfig
-from llama_deploy.message_queues import (
-    KafkaMessageQueueConfig,
-    RabbitMQMessageQueueConfig,
-    RedisMessageQueueConfig,
-    SimpleMessageQueueConfig,
-)
-
-MessageQueueConfig = Annotated[
-    Union[
-        "KafkaMessageQueueConfig",
-        "RabbitMQMessageQueueConfig",
-        "RedisMessageQueueConfig",
-        "SimpleMessageQueueConfig",
-    ],
-    Field(discriminator="type"),
-]
 
 
 class SourceType(str, Enum):
@@ -116,11 +97,9 @@ class UIService(Service):
 class DeploymentConfig(BaseModel):
     """Model definition mapping a deployment config file."""
 
-    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     name: str
-    control_plane: "ControlPlaneConfig"
-    message_queue: MessageQueueConfig | None = Field(None)
     default_service: str | None = Field(None)
     services: dict[str, Service]
     ui: UIService | None = None

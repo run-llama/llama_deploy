@@ -16,15 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
-        test-package:
-          [
-            "basic_hitl",
-            "basic_streaming",
-            "apiserver",
-            "basic_session",
-            "basic_workflow",
-            "core",
-          ]
+        test-package: ["apiserver"]
     steps:
       - uses: actions/checkout@v3
 
@@ -35,21 +27,3 @@ jobs:
 
       - name: Run All E2E Tests
         run: uv run -- pytest e2e_tests/${{ matrix.test-package }} -s
-
-  e2e-message-queues:
-    runs-on: ubuntu-latest
-    # E2E tests might get stuck, timeout aggressively for faster feedback
-    timeout-minutes: 10
-    strategy:
-      # Let the matrix finish to see if the failure was transient
-      fail-fast: false
-      matrix:
-        test-package: ["kafka", "rabbitmq", "redis", "simple"]
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
-
-      - name: Run E2E Tests for message queues
-        run: uv run -- pytest e2e_tests/message_queues/${{ matrix.test-package }} -s

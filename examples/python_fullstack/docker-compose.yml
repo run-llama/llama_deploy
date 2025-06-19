@@ -8,18 +8,6 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
 
-  redis:
-    # LlamaDeploy message queue
-    image: redis:latest
-    hostname: redis
-    ports:
-      - "6379:6379"
-    healthcheck:
-      test: redis-cli --raw incr ping
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
   apiserver:
     # LlamaDeploy API server, will run the workflows
     image: llamaindex/llama-deploy:main

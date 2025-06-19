@@ -1,11 +1,12 @@
 import asyncio
-from pathlib import Path
-import yaml
 from dataclasses import dataclass
+from pathlib import Path
 
 import nest_asyncio
-from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
+import yaml
 from llama_index.indices.managed.llama_cloud import LlamaCloudIndex
+from workflows import Workflow, step
+from workflows.events import StartEvent, StopEvent
 
 # Apply nest_asyncio at the start
 nest_asyncio.apply()
