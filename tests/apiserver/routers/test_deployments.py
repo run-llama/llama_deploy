@@ -24,6 +24,7 @@ def mock_manager() -> Generator[MagicMock]:
     """Mock the manager to return a deployment when requested."""
     with patch("llama_deploy.apiserver.routers.deployments.manager") as mock_mgr:
         mock_deployment = MagicMock()
+        mock_deployment.name = "test-deployment"
         mock_deployment._config.ui.port = 3000
         mock_mgr.get_deployment.return_value = mock_deployment
         yield mock_mgr
@@ -36,12 +37,11 @@ def test_read_deployments(http_client: TestClient) -> None:
 
 
 def test_read_deployment(http_client: TestClient, mock_manager: MagicMock) -> None:
-    mock_manager.deployment_names = ["test-deployment"]
-
     response = http_client.get("/deployments/test-deployment")
     assert response.status_code == 200
     assert response.json() == {"name": "test-deployment"}
 
+    mock_manager.get_deployment.return_value = None
     response = http_client.get("/deployments/does-not-exist")
     assert response.status_code == 404
     assert response.json() == {"detail": "Deployment not found"}
@@ -130,19 +130,10 @@ def test_run_deployment_task(
 ) -> None:
     deployment = mock.AsyncMock()
     deployment.default_service = "TestService"
-    mocked_workflow = mock.AsyncMock()
-    mocked_workflow.run.return_value = "foo"
-    deployment._workflow_services = {"TestService": mocked_workflow}
-
-    session = mock.AsyncMock(id="42")
-    deployment.client.core.sessions.create.return_value = session
-    session.run.return_value = {"result": "test_result"}
-
-    session_from_get = mock.AsyncMock(id="84")
-    deployment.client.core.sessions.get.return_value = session_from_get
-    session_from_get.run.return_value = {"result": "test_result_from_existing"}
-
+    deployment.service_names = ["TestService"]
+    deployment.run_workflow.return_value = "foo"
     mock_manager.get_deployment.return_value = deployment
+
     response = http_client.post(
         "/deployments/test-deployment/tasks/run/",
         json={"input": "{}"},
@@ -156,26 +147,18 @@ def test_run_deployment_task(
         params={"session_id": 84},
     )
     assert response.status_code == 200
-    deployment.client.core.sessions.delete.assert_not_called()
 
 
 def test_create_deployment_task(
     http_client: TestClient, data_path: Path, mock_manager: MagicMock
 ) -> None:
-    deployment = mock.AsyncMock()
+    deployment = mock.MagicMock()
     deployment.default_service = "TestService"
-
-    # Mock workflow that returns a handler
-    mock_workflow = mock.MagicMock()
-    mock_handler = mock.MagicMock()
-    mock_handler.ctx = mock.MagicMock()
-    mock_workflow.run.return_value = mock_handler
-    deployment._workflow_services = {"TestService": mock_workflow}
-    deployment._handlers = {}
-    deployment._handler_inputs = {}
+    deployment.service_names = ["TestService"]
+    deployment.run_workflow_no_wait.return_value = "42"
     deployment._contexts = {"84": mock.MagicMock()}  # For session_id test
-
     mock_manager.get_deployment.return_value = deployment
+
     response = http_client.post(
         "/deployments/test-deployment/tasks/create/",
         json={"input": "{}"},
@@ -508,14 +491,14 @@ def test_proxy_successful_html(
     """Test successful proxy request for HTML content."""
     # Mock the upstream server response
     mock_content = b"<html><body>Test content</body></html>"
-    respx.get("http://localhost:3000/deployments/test_deployment/ui/index.html").mock(
+    respx.get("http://localhost:3000/deployments/test-deployment/ui/index.html").mock(
         return_value=httpx.Response(
             200, headers={"content-type": "text/html"}, content=mock_content
         )
     )
 
     # Make request to the proxy endpoint
-    response = http_client.get("/deployments/test_deployment/ui/index.html")
+    response = http_client.get("/deployments/test-deployment/ui/index.html")
 
     # Verify the response
     assert response.status_code == 200
@@ -530,7 +513,7 @@ def test_proxy_successful_streaming_content(
     """Test successful proxy request with streaming content."""
     # Mock a larger response that would benefit from streaming
     mock_content = b"x" * 10000  # 10KB content
-    respx.get("http://localhost:3000/deployments/test_deployment/ui/large.js").mock(
+    respx.get("http://localhost:3000/deployments/test-deployment/ui/large.js").mock(
         return_value=httpx.Response(
             200,
             headers={"content-type": "application/javascript"},
@@ -538,7 +521,7 @@ def test_proxy_successful_streaming_content(
         )
     )
 
-    response = http_client.get("/deployments/test_deployment/ui/large.js")
+    response = http_client.get("/deployments/test-deployment/ui/large.js")
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/javascript"
@@ -551,7 +534,7 @@ def test_proxy_with_query_params(
 ) -> None:
     """Test proxy forwards query parameters correctly."""
     mock_content = b'{"result": "success"}'
-    respx.get("http://localhost:3000/deployments/test_deployment/ui/api").mock(
+    respx.get("http://localhost:3000/deployments/test-deployment/ui/api").mock(
         return_value=httpx.Response(
             200, headers={"content-type": "application/json"}, content=mock_content
         )
@@ -572,7 +555,7 @@ def test_proxy_with_query_params(
 def test_proxy_post_with_body(http_client: TestClient, mock_manager: MagicMock) -> None:
     """Test proxy forwards POST requests with body correctly."""
     mock_content = b'{"status": "created"}'
-    respx.post("http://localhost:3000/deployments/test_deployment/ui/submit").mock(
+    respx.post("http://localhost:3000/deployments/test-deployment/ui/submit").mock(
         return_value=httpx.Response(
             201, headers={"content-type": "application/json"}, content=mock_content
         )
@@ -593,7 +576,7 @@ def test_proxy_header_filtering(
     http_client: TestClient, mock_manager: MagicMock
 ) -> None:
     """Test that hop-by-hop headers are properly filtered."""
-    respx.get("http://localhost:3000/deployments/test_deployment/ui/test").mock(
+    respx.get("http://localhost:3000/deployments/test-deployment/ui/test").mock(
         return_value=httpx.Response(
             200,
             headers={
@@ -606,7 +589,7 @@ def test_proxy_header_filtering(
         )
     )
 
-    response = http_client.get("/deployments/test_deployment/ui/test")
+    response = http_client.get("/deployments/test-deployment/ui/test")
 
     assert response.status_code == 200
     assert "connection" not in response.headers
@@ -619,10 +602,10 @@ def test_proxy_redirect_passthrough(
     http_client: TestClient, mock_manager: MagicMock
 ) -> None:
     """Test that redirects are passed through to the client."""
-    respx.get("http://localhost:3000/deployments/test_deployment/ui/redirect").mock(
+    respx.get("http://localhost:3000/deployments/test-deployment/ui/redirect").mock(
         return_value=httpx.Response(
             307,
-            headers={"location": "/deployments/test_deployment/ui/new-location"},
+            headers={"location": "/deployments/test-deployment/ui/new-location"},
             content=b"",
         )
     )
@@ -633,14 +616,14 @@ def test_proxy_redirect_passthrough(
 
     assert response.status_code == 307
     assert (
-        response.headers["location"] == "/deployments/test_deployment/ui/new-location"
+        response.headers["location"] == "/deployments/test-deployment/ui/new-location"
     )
 
 
 def test_proxy_connect_error(http_client: TestClient, mock_manager: MagicMock) -> None:
     """Test proxy when upstream server is unavailable."""
     # Don't mock anything - let it fail to connect to localhost:3000
-    response = http_client.get("/deployments/test_deployment/ui/index.html")
+    response = http_client.get("/deployments/test-deployment/ui/index.html")
 
     assert response.status_code == 502
     assert "server unavailable" in response.json()["detail"].lower()
@@ -652,13 +635,13 @@ def test_proxy_path_without_trailing_slash(
 ) -> None:
     """Test proxy handles paths without trailing slashes correctly."""
     mock_content = b"<html>Home</html>"
-    respx.get("http://localhost:3000/deployments/test_deployment/ui").mock(
+    respx.get("http://localhost:3000/deployments/test-deployment/ui").mock(
         return_value=httpx.Response(
             200, headers={"content-type": "text/html"}, content=mock_content
         )
     )
 
-    response = http_client.get("/deployments/test_deployment/ui")
+    response = http_client.get("/deployments/test-deployment/ui")
 
     assert response.status_code == 200
     assert response.content == mock_content
@@ -728,7 +711,7 @@ def test_websocket_url_construction(
         # Verify correct upstream URL was used
         mock_connect.assert_called_once()
         args = mock_connect.call_args[0]
-        assert args[0] == "ws://localhost:3000/deployments/test_deployment/ui/chat"
+        assert args[0] == "ws://localhost:3000/deployments/test-deployment/ui/chat"
 
 
 def test_websocket_query_params(

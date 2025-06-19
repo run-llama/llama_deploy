@@ -1,17 +1,26 @@
 import asyncio
 import json
 import logging
-from typing import AsyncGenerator, List, Optional
+from typing import Annotated, AsyncGenerator, List, Optional
 
 import httpx
 import websockets
-from fastapi import APIRouter, File, HTTPException, Request, UploadFile, WebSocket
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    HTTPException,
+    Request,
+    UploadFile,
+    WebSocket,
+)
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.background import BackgroundTask
 from workflows import Context
 from workflows.context import JsonSerializer
 from workflows.handler import WorkflowHandler
 
+from llama_deploy.apiserver.deployment import Deployment
 from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 from llama_deploy.apiserver.server import manager
 from llama_deploy.types import (
@@ -28,6 +37,14 @@ deployments_router = APIRouter(
 logger = logging.getLogger(__name__)
 
 
+def deployment(deployment_name: str) -> Deployment:
+    """FastAPI dependency to retrieve a Deployment instance"""
+    deployment = manager.get_deployment(deployment_name)
+    if deployment is None:
+        raise HTTPException(status_code=404, detail="Deployment not found")
+    return deployment
+
+
 @deployments_router.get("/")
 async def read_deployments() -> list[DeploymentDefinition]:
     """Returns a list of active deployments."""
@@ -35,12 +52,12 @@ async def read_deployments() -> list[DeploymentDefinition]:
 
 
 @deployments_router.get("/{deployment_name}")
-async def read_deployment(deployment_name: str) -> DeploymentDefinition:
+async def read_deployment(
+    deployment: Annotated[Deployment, Depends(deployment)],
+) -> DeploymentDefinition:
     """Returns the details of a specific deployment."""
-    if deployment_name not in manager.deployment_names:
-        raise HTTPException(status_code=404, detail="Deployment not found")
 
-    return DeploymentDefinition(name=deployment_name)
+    return DeploymentDefinition(name=deployment.name)
 
 
 @deployments_router.post("/create")
@@ -59,70 +76,58 @@ async def create_deployment(
 
 @deployments_router.post("/{deployment_name}/tasks/run")
 async def create_deployment_task(
-    deployment_name: str, task_definition: TaskDefinition, session_id: str | None = None
+    deployment: Annotated[Deployment, Depends(deployment)],
+    task_definition: TaskDefinition,
+    session_id: str | None = None,
 ) -> JSONResponse:
     """Create a task for the deployment, wait for result and delete associated session."""
-    deployment = manager.get_deployment(deployment_name)
-    if deployment is None:
-        raise HTTPException(status_code=404, detail="Deployment not found")
 
-    if task_definition.service_id is None:
-        if deployment.default_service is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Service is None and deployment has no default service",
-            )
-        task_definition.service_id = deployment.default_service
-    elif task_definition.service_id not in deployment.service_names:
+    service_id = task_definition.service_id or deployment.default_service
+    if service_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Service is None and deployment has no default service",
+        )
+
+    if service_id not in deployment.service_names:
         raise HTTPException(
             status_code=404,
             detail=f"Service '{task_definition.service_id}' not found in deployment 'deployment_name'",
         )
 
-    workflow = deployment._workflow_services[task_definition.service_id]
-    if session_id:
-        context = deployment._contexts[session_id]
-        result = await workflow.run(
-            context=context, **json.loads(task_definition.input)
-        )
-    else:
-        if task_definition.input:
-            result = await workflow.run(**json.loads(task_definition.input))
-        else:
-            result = await workflow.run()
-
+    run_kwargs = json.loads(task_definition.input) if task_definition.input else {}
+    result = await deployment.run_workflow(
+        service_id=service_id, session_id=session_id, **run_kwargs
+    )
     return JSONResponse(result)
 
 
 @deployments_router.post("/{deployment_name}/tasks/create")
 async def create_deployment_task_nowait(
-    deployment_name: str, task_definition: TaskDefinition, session_id: str | None = None
+    deployment: Annotated[Deployment, Depends(deployment)],
+    task_definition: TaskDefinition,
+    session_id: str | None = None,
 ) -> TaskDefinition:
     """Create a task for the deployment but don't wait for result."""
-    deployment = manager.get_deployment(deployment_name)
-    if deployment is None:
-        raise HTTPException(status_code=404, detail="Deployment not found")
+    service_id = task_definition.service_id or deployment.default_service
+    if service_id is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Service is None and deployment has no default service",
+        )
 
-    if task_definition.service_id is None:
-        if deployment.default_service is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Service is None and deployment has no default service",
-            )
-        task_definition.service_id = deployment.default_service
+    if service_id not in deployment.service_names:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Service '{task_definition.service_id}' not found in deployment 'deployment_name'",
+        )
 
-    workflow = deployment._workflow_services[task_definition.service_id]
-    if session_id:
-        context = deployment._contexts[session_id]
-        handler = workflow.run(context=context, **json.loads(task_definition.input))
-    else:
-        handler = workflow.run(**json.loads(task_definition.input))
-        session_id = generate_id()
-        deployment._contexts[session_id] = handler.ctx or Context(workflow)
+    run_kwargs = json.loads(task_definition.input) if task_definition.input else {}
+    handler_id = deployment.run_workflow_no_wait(
+        service_id=service_id, session_id=session_id, **run_kwargs
+    )
 
-    handler_id = generate_id()
-    deployment._handlers[handler_id] = handler
-    deployment._handler_inputs[handler_id] = task_definition.input
+    print("____", session_id, handler_id)
     task_definition.session_id = session_id
     task_definition.task_id = handler_id
 
@@ -131,16 +136,12 @@ async def create_deployment_task_nowait(
 
 @deployments_router.post("/{deployment_name}/tasks/{task_id}/events")
 async def send_event(
-    deployment_name: str,
+    deployment: Annotated[Deployment, Depends(deployment)],
     task_id: str,
     session_id: str,
     event_def: EventDefinition,
 ) -> EventDefinition:
     """Send a human response event to a service for a specific task and session."""
-    deployment = manager.get_deployment(deployment_name)
-    if deployment is None:
-        raise HTTPException(status_code=404, detail="Deployment not found")
-
     ctx = deployment._contexts[session_id]
     serializer = JsonSerializer()
     event = serializer.deserialize(event_def.event_obj_str)
@@ -151,7 +152,7 @@ async def send_event(
 
 @deployments_router.get("/{deployment_name}/tasks/{task_id}/events")
 async def get_events(
-    deployment_name: str,
+    deployment: Annotated[Deployment, Depends(deployment)],
     session_id: str,
     task_id: str,
     raw_event: bool = False,
@@ -163,9 +164,6 @@ async def get_events(
         raw_event (bool, default=False): Whether to return the raw event object
             or just the event data.
     """
-    deployment = manager.get_deployment(deployment_name)
-    if deployment is None:
-        raise HTTPException(status_code=404, detail="Deployment not found")
 
     async def event_stream(handler: WorkflowHandler) -> AsyncGenerator[str, None]:
         serializer = JsonSerializer()
@@ -187,12 +185,11 @@ async def get_events(
 
 @deployments_router.get("/{deployment_name}/tasks/{task_id}/results")
 async def get_task_result(
-    deployment_name: str, session_id: str, task_id: str
+    deployment: Annotated[Deployment, Depends(deployment)],
+    session_id: str,
+    task_id: str,
 ) -> TaskResult | None:
     """Get the task result associated with a task and session."""
-    deployment = manager.get_deployment(deployment_name)
-    if deployment is None:
-        raise HTTPException(status_code=404, detail="Deployment not found")
 
     handler = deployment._handlers[task_id]
     return TaskResult(task_id=task_id, history=[], result=await handler)
@@ -200,12 +197,9 @@ async def get_task_result(
 
 @deployments_router.get("/{deployment_name}/tasks")
 async def get_tasks(
-    deployment_name: str,
+    deployment: Annotated[Deployment, Depends(deployment)],
 ) -> list[TaskDefinition]:
     """Get all the tasks from all the sessions in a given deployment."""
-    deployment = manager.get_deployment(deployment_name)
-    if deployment is None:
-        raise HTTPException(status_code=404, detail="Deployment not found")
 
     tasks: list[TaskDefinition] = []
     for task_id in deployment._handlers.keys():
@@ -218,32 +212,27 @@ async def get_tasks(
 
 @deployments_router.get("/{deployment_name}/sessions")
 async def get_sessions(
-    deployment_name: str,
+    deployment: Annotated[Deployment, Depends(deployment)],
 ) -> list[SessionDefinition]:
     """Get the active sessions in a deployment and service."""
-    deployment = manager.get_deployment(deployment_name)
-    if deployment is None:
-        raise HTTPException(status_code=404, detail="Deployment not found")
 
     return [SessionDefinition(session_id=k) for k in deployment._contexts.keys()]
 
 
 @deployments_router.get("/{deployment_name}/sessions/{session_id}")
-async def get_session(deployment_name: str, session_id: str) -> SessionDefinition:
+async def get_session(
+    deployment: Annotated[Deployment, Depends(deployment)], session_id: str
+) -> SessionDefinition:
     """Get the definition of a session by ID."""
-    deployment = manager.get_deployment(deployment_name)
-    if deployment is None:
-        raise HTTPException(status_code=404, detail="Deployment not found")
 
     return SessionDefinition(session_id=session_id)
 
 
 @deployments_router.post("/{deployment_name}/sessions/create")
-async def create_session(deployment_name: str) -> SessionDefinition:
+async def create_session(
+    deployment: Annotated[Deployment, Depends(deployment)],
+) -> SessionDefinition:
     """Create a new session for a deployment."""
-    deployment = manager.get_deployment(deployment_name)
-    if deployment is None:
-        raise HTTPException(status_code=404, detail="Deployment not found")
 
     workflow = deployment._workflow_services[deployment.default_service]
     session_id = generate_id()
@@ -253,11 +242,10 @@ async def create_session(deployment_name: str) -> SessionDefinition:
 
 
 @deployments_router.post("/{deployment_name}/sessions/delete")
-async def delete_session(deployment_name: str, session_id: str) -> None:
+async def delete_session(
+    deployment: Annotated[Deployment, Depends(deployment)], session_id: str
+) -> None:
     """Get the active sessions in a deployment and service."""
-    deployment = manager.get_deployment(deployment_name)
-    if deployment is None:
-        raise HTTPException(status_code=404, detail="Deployment not found")
 
     deployment._contexts.pop(session_id)
 
@@ -338,20 +326,15 @@ async def _ws_proxy(ws: WebSocket, upstream_url: str) -> None:
 @deployments_router.websocket("/{deployment_name}/ui")
 async def websocket_proxy(
     websocket: WebSocket,
-    deployment_name: str,
+    deployment: Annotated[Deployment, Depends(deployment)],
     path: str | None = None,
 ) -> None:
-    deployment = manager.get_deployment(deployment_name)
-    if deployment is None:
-        await websocket.close(code=1008, reason="Deployment not found")
-        return
-
     if deployment._config.ui is None:
         raise HTTPException(status_code=404, detail="Deployment has no ui configured")
 
     # Build the upstream WebSocket URL using FastAPI's extracted path parameter
     slash_path = f"/{path}" if path else ""
-    upstream_path = f"/deployments/{deployment_name}/ui{slash_path}"
+    upstream_path = f"/deployments/{deployment.name}/ui{slash_path}"
 
     # Convert to WebSocket URL
     upstream_url = f"ws://localhost:{deployment._config.ui.port}{upstream_path}"
@@ -373,19 +356,15 @@ async def websocket_proxy(
 )
 async def proxy(
     request: Request,
-    deployment_name: str,
+    deployment: Annotated[Deployment, Depends(deployment)],
     path: str | None = None,
 ) -> StreamingResponse:
-    deployment = manager.get_deployment(deployment_name)
-    if deployment is None:
-        raise HTTPException(status_code=404, detail="Deployment not found")
-
     if deployment._config.ui is None:
         raise HTTPException(status_code=404, detail="Deployment has no ui configured")
 
     # Build the upstream URL using FastAPI's extracted path parameter
     slash_path = f"/{path}" if path else ""
-    upstream_path = f"/deployments/{deployment_name}/ui{slash_path}"
+    upstream_path = f"/deployments/{deployment.name}/ui{slash_path}"
 
     upstream_url = httpx.URL(
         f"http://localhost:{deployment._config.ui.port}{upstream_path}"
