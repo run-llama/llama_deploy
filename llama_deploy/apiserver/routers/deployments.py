@@ -8,6 +8,9 @@ import websockets
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, WebSocket
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.background import BackgroundTask
+from workflows import Context
+from workflows.context import JsonSerializer
+from workflows.handler import WorkflowHandler
 
 from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 from llama_deploy.apiserver.server import manager
@@ -17,7 +20,7 @@ from llama_deploy.types import (
     SessionDefinition,
     TaskDefinition,
 )
-from llama_deploy.types.core import TaskResult
+from llama_deploy.types.core import TaskResult, generate_id
 
 deployments_router = APIRouter(
     prefix="/deployments",
@@ -76,18 +79,17 @@ async def create_deployment_task(
             detail=f"Service '{task_definition.service_id}' not found in deployment 'deployment_name'",
         )
 
+    workflow = deployment._workflow_services[task_definition.service_id]
     if session_id:
-        session = await deployment.client.core.sessions.get(session_id)
+        context = deployment._contexts[session_id]
+        result = await workflow.run(
+            context=context, **json.loads(task_definition.input)
+        )
     else:
-        session = await deployment.client.core.sessions.create()
-
-    result = await session.run(
-        task_definition.service_id or "", **json.loads(task_definition.input)
-    )
-
-    # Assume the request does not care about the session if no session_id is provided
-    if session_id is None:
-        await deployment.client.core.sessions.delete(session.id)
+        if task_definition.input:
+            result = await workflow.run(**json.loads(task_definition.input))
+        else:
+            result = await workflow.run()
 
     return JSONResponse(result)
 
@@ -109,16 +111,20 @@ async def create_deployment_task_nowait(
             )
         task_definition.service_id = deployment.default_service
 
+    workflow = deployment._workflow_services[task_definition.service_id]
     if session_id:
-        session = await deployment.client.core.sessions.get(session_id)
+        context = deployment._contexts[session_id]
+        handler = workflow.run(context=context, **json.loads(task_definition.input))
     else:
-        session = await deployment.client.core.sessions.create()
-        session_id = session.id
+        handler = workflow.run(**json.loads(task_definition.input))
+        session_id = generate_id()
+        deployment._contexts[session_id] = handler.ctx or Context(workflow)
 
+    handler_id = generate_id()
+    deployment._handlers[handler_id] = handler
+    deployment._handler_inputs[handler_id] = task_definition.input
     task_definition.session_id = session_id
-    task_definition.task_id = await session.run_nowait(
-        task_definition.service_id or "", **json.loads(task_definition.input)
-    )
+    task_definition.task_id = handler_id
 
     return task_definition
 
@@ -135,9 +141,10 @@ async def send_event(
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    session = await deployment.client.core.sessions.get(session_id)
-
-    await session.send_event_def(task_id=task_id, ev_def=event_def)
+    ctx = deployment._contexts[session_id]
+    serializer = JsonSerializer()
+    event = serializer.deserialize(event_def.event_obj_str)
+    ctx.send_event(event)
 
     return event_def
 
@@ -160,18 +167,20 @@ async def get_events(
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    session = await deployment.client.core.sessions.get(session_id)
-
-    async def event_stream() -> AsyncGenerator[str, None]:
+    async def event_stream(handler: WorkflowHandler) -> AsyncGenerator[str, None]:
+        serializer = JsonSerializer()
         # need to convert back to str to use SSE
-        async for event in session.get_task_result_stream(task_id):
+        async for event in handler.stream_events():
+            data = json.loads(serializer.serialize(event))
             if raw_event:
-                yield json.dumps(event) + "\n"
+                yield json.dumps(data) + "\n"
             else:
-                yield json.dumps(event.get("value")) + "\n"
+                yield json.dumps(data.get("value")) + "\n"
+            await asyncio.sleep(0.01)
+        await handler
 
     return StreamingResponse(
-        event_stream(),
+        event_stream(deployment._handlers[task_id]),
         media_type="application/x-ndjson",
     )
 
@@ -185,8 +194,8 @@ async def get_task_result(
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    session = await deployment.client.core.sessions.get(session_id)
-    return await session.get_task_result(task_id)
+    handler = deployment._handlers[task_id]
+    return TaskResult(task_id=task_id, history=[], result=await handler)
 
 
 @deployments_router.get("/{deployment_name}/tasks")
@@ -199,9 +208,11 @@ async def get_tasks(
         raise HTTPException(status_code=404, detail="Deployment not found")
 
     tasks: list[TaskDefinition] = []
-    for session in await deployment.client.core.sessions.list():
-        for task_def in await session.get_tasks():
-            tasks.append(task_def)
+    for task_id in deployment._handlers.keys():
+        tasks.append(
+            TaskDefinition(task_id=task_id, input=deployment._handler_inputs[task_id])
+        )
+
     return tasks
 
 
@@ -214,8 +225,7 @@ async def get_sessions(
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    sessions = await deployment.client.core.sessions.list()
-    return [SessionDefinition(session_id=s.id) for s in sessions]
+    return [SessionDefinition(session_id=k) for k in deployment._contexts.keys()]
 
 
 @deployments_router.get("/{deployment_name}/sessions/{session_id}")
@@ -225,8 +235,7 @@ async def get_session(deployment_name: str, session_id: str) -> SessionDefinitio
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    session = await deployment.client.core.sessions.get(session_id)
-    return SessionDefinition(session_id=session.id)
+    return SessionDefinition(session_id=session_id)
 
 
 @deployments_router.post("/{deployment_name}/sessions/create")
@@ -236,8 +245,11 @@ async def create_session(deployment_name: str) -> SessionDefinition:
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    session = await deployment.client.core.sessions.create()
-    return SessionDefinition(session_id=session.id)
+    workflow = deployment._workflow_services[deployment.default_service]
+    session_id = generate_id()
+    deployment._contexts[session_id] = Context(workflow)
+
+    return SessionDefinition(session_id=session_id)
 
 
 @deployments_router.post("/{deployment_name}/sessions/delete")
@@ -247,7 +259,7 @@ async def delete_session(deployment_name: str, session_id: str) -> None:
     if deployment is None:
         raise HTTPException(status_code=404, detail="Deployment not found")
 
-    await deployment.client.core.sessions.delete(session_id)
+    deployment._contexts.pop(session_id)
 
 
 async def _ws_proxy(ws: WebSocket, upstream_url: str) -> None:

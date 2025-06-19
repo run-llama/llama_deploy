@@ -1,4 +1,3 @@
-import asyncio
 from pathlib import Path
 
 import pytest
@@ -14,13 +13,12 @@ async def test_stream(apiserver, client):
         deployment = await client.apiserver.deployments.create(
             f, base_path=deployment_fp.parent
         )
-        await asyncio.sleep(5)
 
-    tasks = deployment.tasks
-    task = await tasks.create(TaskDefinition(input='{"a": "b"}'))
+    task = await deployment.tasks.create(TaskDefinition(input='{"a": "b"}'))
+
     read_events = []
     async for ev in task.events():
-        if "text" in ev:
+        if ev and "text" in ev:
             read_events.append(ev)
     assert len(read_events) == 3
     # the workflow produces events sequentially, so here we can assume events arrived in order

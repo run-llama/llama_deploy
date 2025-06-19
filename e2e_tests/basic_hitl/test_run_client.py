@@ -2,7 +2,7 @@ import asyncio
 import time
 
 import pytest
-from llama_index.core.workflow.events import HumanResponseEvent
+from workflows.events import HumanResponseEvent
 
 from llama_deploy.client import Client
 

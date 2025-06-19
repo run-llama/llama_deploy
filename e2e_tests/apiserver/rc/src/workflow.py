@@ -1,13 +1,7 @@
 import asyncio
 
-from llama_index.core.workflow import (
-    Context,
-    Event,
-    StartEvent,
-    StopEvent,
-    Workflow,
-    step,
-)
+from workflows import Context, Workflow, step
+from workflows.events import Event, StartEvent, StopEvent
 
 
 class Message(Event):

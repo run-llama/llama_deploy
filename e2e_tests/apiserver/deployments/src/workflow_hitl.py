@@ -1,12 +1,9 @@
-from llama_index.core.workflow import (
-    StartEvent,
-    StopEvent,
-    Workflow,
-    step,
-)
-from llama_index.core.workflow.events import (
+from workflows import Workflow, step
+from workflows.events import (
     HumanResponseEvent,
     InputRequiredEvent,
+    StartEvent,
+    StopEvent,
 )
 
 
@@ -20,4 +17,4 @@ class HumanInTheLoopWorkflow(Workflow):
         return StopEvent(result=ev.response)
 
 
-workflow = HumanInTheLoopWorkflow()
+workflow = HumanInTheLoopWorkflow(timeout=3)

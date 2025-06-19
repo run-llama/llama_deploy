@@ -6,31 +6,20 @@ import site
 import subprocess
 import sys
 import tempfile
+from asyncio.subprocess import Process
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
 from typing import Type
 
-import httpx
 from dotenv import dotenv_values
-from tenacity import AsyncRetrying, RetryError, wait_exponential
+from workflows import Context, Workflow
+from workflows.handler import WorkflowHandler
 
 from llama_deploy.apiserver.source_managers.base import SyncPolicy
 from llama_deploy.client import Client
-from llama_deploy.control_plane import ControlPlaneServer
-from llama_deploy.message_queues import (
-    AbstractMessageQueue,
-    KafkaMessageQueue,
-    RabbitMQMessageQueue,
-    RedisMessageQueue,
-    SimpleMessageQueue,
-    SimpleMessageQueueConfig,
-)
-from llama_deploy.message_queues.simple import SimpleMessageQueueServer
-from llama_deploy.services import WorkflowService, WorkflowServiceConfig
 
 from .deployment_config_parser import (
     DeploymentConfig,
-    MessageQueueConfig,
     Service,
     SourceType,
 )
@@ -76,25 +65,23 @@ class Deployment:
         self._deployment_path = (
             deployment_path if local else deployment_path / config.name
         )
-        self._queue_client = self._load_message_queue_client(config.message_queue)
-        self._control_plane_config = config.control_plane
-        self._control_plane = ControlPlaneServer(
-            self._queue_client, config=config.control_plane
-        )
         self._client = Client(control_plane_url=config.control_plane.url)
         self._default_service: str | None = None
         self._running = False
         self._service_tasks: list[asyncio.Task] = []
-        self._service_startup_complete = asyncio.Event()
+        self._ui_server_process: Process | None = None
         # Ready to load services
-        self._workflow_services: dict[str, WorkflowService] = self._load_services(
-            config
-        )
+        self._workflow_services: dict[str, Workflow] = self._load_services(config)
+        self._contexts: dict[str, Context] = {}
+        self._handlers: dict[str, WorkflowHandler] = {}
+        self._handler_inputs: dict[str, str] = {}
         self._config = config
         deployment_state.labels(self._name).state("ready")
 
     @property
-    def default_service(self) -> str | None:
+    def default_service(self) -> str:
+        if not self._default_service:
+            self._default_service = list(self._workflow_services.keys())[0]
         return self._default_service
 
     @property
@@ -120,80 +107,27 @@ class Deployment:
         """
         self._running = True
 
-        # Control Plane
-        tasks = await self._start_control_plane()
+        # UI
+        if self._config.ui:
+            await self._start_ui_server()
 
-        # Start the services. It makes no sense for a deployment to have no services but
-        # the configuration allows it, so let's be defensive here.
-        deployment_state.labels(self._name).state("starting_services")
-        if self._workflow_services:
-            tasks.append(asyncio.create_task(self._run_services()))
+    async def reload(self, config: DeploymentConfig) -> None:
+        # Reset default service, it might change across reloads
+        self._default_service = None
+        # Tear down the UI server
+        self._stop_ui_server()
+        # Reload the services
+        self._workflow_services = self._load_services(config)
 
         # UI
         if self._config.ui:
             await self._start_ui_server()
 
-        # Run allthethings
-        deployment_state.labels(self._name).state("running")
-        await asyncio.gather(*tasks)
-        deployment_state.labels(self._name).state("stopped")
-        self._running = False
+    def _stop_ui_server(self) -> None:
+        if self._ui_server_process is None:
+            return
 
-    async def reload(self, config: DeploymentConfig) -> None:
-        """Reload this deployment by restarting its services.
-
-        The reload process consists in cancelling the services tasks
-        and rely on the fact that _run_services() will restart them
-        with the new configuration. This function won't return until
-        _run_services will trigger the _service_startup_complete signal.
-        """
-        self._workflow_services = self._load_services(config)
-        self._default_service = config.default_service
-
-        for t in self._service_tasks:
-            # t is awaited in _run_services(), we don't need to await here
-            t.cancel()
-
-        # Hold until _run_services() has restarted all the tasks
-        await self._service_startup_complete.wait()
-
-    async def _start_control_plane(self) -> list[asyncio.Task]:
-        tasks = []
-        tasks.append(asyncio.create_task(self._control_plane.launch_server()))
-        # Wait for the Control Plane to boot
-        try:
-            async for attempt in AsyncRetrying(
-                wait=wait_exponential(min=1, max=10),
-            ):
-                with attempt:
-                    async with httpx.AsyncClient() as client:
-                        response = await client.get(self._control_plane_config.url)
-                        response.raise_for_status()
-        except RetryError:
-            msg = f"Unable to reach Control Plane at {self._control_plane_config.url}"
-            raise DeploymentError(msg)
-
-        return tasks
-
-    async def _run_services(self) -> None:
-        """Start an asyncio task for each service and gather them.
-
-        For the time self._running holds true, the tasks will be restarted
-        if they are all cancelled. This is to support the reload process
-        (see reload() for more details).
-        """
-        while self._running:
-            self._service_tasks = []
-            # If this is a reload, self._workflow_services contains the updated configurations
-            for name, wfs in self._workflow_services.items():
-                logger.debug(f"Starting service {name}")
-                service_task = asyncio.create_task(wfs.launch_server())
-                self._service_tasks.append(service_task)
-                await wfs.register_to_control_plane(self._control_plane_config.url)
-
-            # If this is a reload, unblock the reload() function signalling that tasks are up and running
-            self._service_startup_complete.set()
-            await asyncio.gather(*self._service_tasks)
+        self._ui_server_process.terminate()
 
     async def _start_ui_server(self) -> None:
         """Creates WorkflowService instances according to the configuration object."""
@@ -224,7 +158,7 @@ class Deployment:
         # Override PORT and force using the one from the deployment.yaml file
         env["PORT"] = str(self._config.ui.port)
 
-        process = await asyncio.create_subprocess_exec(
+        self._ui_server_process = await asyncio.create_subprocess_exec(
             "pnpm",
             "run",
             "dev",
@@ -232,9 +166,9 @@ class Deployment:
             env=env,
         )
 
-        print(f"Started Next.js app with PID {process.pid}")
+        print(f"Started Next.js app with PID {self._ui_server_process.pid}")
 
-    def _load_services(self, config: DeploymentConfig) -> dict[str, WorkflowService]:
+    def _load_services(self, config: DeploymentConfig) -> dict[str, Workflow]:
         """Creates WorkflowService instances according to the configuration object."""
         deployment_state.labels(self._name).state("loading_services")
         workflow_services = {}
@@ -247,19 +181,8 @@ class Deployment:
                 # TODO: possibly start the default service if not running already
                 continue
 
-            # FIXME: Momentarily assuming everything is a workflow
             if service_config.import_path is None:
                 msg = "path field in service definition must be set"
-                raise ValueError(msg)
-
-            if service_config.port is None:
-                # This won't happen if we arrive here from Manager.deploy(), the manager will assign a port
-                msg = "port field in service definition must be set"
-                raise ValueError(msg)
-
-            if service_config.host is None:
-                # This won't happen if we arrive here from Manager.deploy(), the manager will assign a host
-                msg = "host field in service definition must be set"
                 raise ValueError(msg)
 
             # Sync the service source
@@ -285,27 +208,17 @@ class Deployment:
             sys.path.append(str(pythonpath))
 
             module = importlib.import_module(module_name)
+            workflow_services[service_id] = getattr(module, workflow_name)
 
-            workflow = getattr(module, workflow_name)
-            workflow_config = WorkflowServiceConfig(
-                host=service_config.host,
-                port=service_config.port,
-                internal_host="0.0.0.0",
-                internal_port=service_config.port,
-                service_name=service_id,
-            )
-            workflow_services[service_id] = WorkflowService(
-                workflow=workflow,
-                message_queue=self._queue_client,
-                config=workflow_config,
-            )
             service_state.labels(self._name, service_id).state("ready")
 
-        if config.default_service in workflow_services:
-            self._default_service = config.default_service
-        else:
-            msg = f"There is no service with id '{config.default_service}' in this deployment, cannot set default."
-            logger.warning(msg)
+        if config.default_service:
+            if config.default_service in workflow_services:
+                self._default_service = config.default_service
+            else:
+                msg = f"Service with id '{config.default_service}' does not exist, cannot set it as default."
+                logger.warning(msg)
+                self._default_service = None
 
         return workflow_services
 
@@ -428,26 +341,6 @@ class Deployment:
                 msg = f"Unable to install service dependencies using command '{e.cmd}': {e.stderr}"
                 raise DeploymentError(msg) from None
 
-    def _load_message_queue_client(
-        self, cfg: MessageQueueConfig | None
-    ) -> AbstractMessageQueue:
-        # Use the SimpleMessageQueue as the default
-        if cfg is None:
-            # we use model_validate instead of __init__ to avoid static checkers complaining over field aliases
-            cfg = SimpleMessageQueueConfig()
-
-        if cfg.type == "kafka":
-            return KafkaMessageQueue(cfg)
-        elif cfg.type == "rabbitmq":
-            return RabbitMQMessageQueue(cfg)
-        elif cfg.type == "redis":
-            return RedisMessageQueue(cfg)
-        elif cfg.type == "simple":
-            return SimpleMessageQueue(cfg)
-        else:
-            msg = f"Unsupported message queue: {cfg.type}"
-            raise ValueError(msg)
-
 
 class Manager:
     """The Manager orchestrates deployments and their runtime.
@@ -544,33 +437,6 @@ class Manager:
                 msg = "Reached the maximum number of deployments, cannot schedule more"
                 raise ValueError(msg)
 
-            # Set the control plane TCP port in the config where not specified
-            self._assign_control_plane_address(config)
-
-            # Get the message queue configuration
-            msg_queue = config.message_queue or SimpleMessageQueueConfig()
-
-            # Spawn SimpleMessageQueue server if needed
-            if (
-                isinstance(msg_queue, SimpleMessageQueueConfig)
-                and self._simple_message_queue_server is None
-            ):
-                self._simple_message_queue_server = asyncio.create_task(
-                    SimpleMessageQueueServer(msg_queue).launch_server()
-                )
-
-                # the other components need the queue to run in order to start, give the queue some time to start
-                try:
-                    async for attempt in AsyncRetrying(
-                        wait=wait_exponential(min=1, max=10),
-                    ):
-                        with attempt:
-                            async with httpx.AsyncClient() as client:
-                                response = await client.get(msg_queue.base_url)
-                                response.raise_for_status()
-                except RetryError:
-                    msg = f"Unable to reach SimpleMessageQueueServer at {msg_queue.base_url}"
-                    raise DeploymentError(msg)
             deployment = Deployment(
                 config=config,
                 base_path=Path(base_path),
@@ -578,7 +444,7 @@ class Manager:
                 local=local,
             )
             self._deployments[config.name] = deployment
-            self._pool.apply_async(func=asyncio.run, args=(deployment.start(),))
+            await deployment.start()
         else:
             if config.name not in self._deployments:
                 msg = f"Cannot find deployment to reload: {config.name}"
@@ -586,11 +452,3 @@ class Manager:
 
             deployment = self._deployments[config.name]
             await deployment.reload(config)
-
-    def _assign_control_plane_address(self, config: DeploymentConfig) -> None:
-        for service in config.services.values():
-            if not service.port:
-                service.port = self._last_control_plane_port
-                self._last_control_plane_port += 1
-            if not service.host:
-                service.host = "localhost"
