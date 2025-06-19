@@ -37,12 +37,6 @@ class DeploymentError(Exception): ...
 
 
 class Deployment:
-    """A Deployment consists of running services and core component instances.
-
-    Every Deployment is self contained, running a dedicated instance of the control plane
-    and the message queue along with any service defined in the configuration object.
-    """
-
     def __init__(
         self,
         *,
@@ -65,7 +59,7 @@ class Deployment:
         self._deployment_path = (
             deployment_path if local else deployment_path / config.name
         )
-        self._client = Client(control_plane_url=config.control_plane.url)
+        self._client = Client()
         self._default_service: str | None = None
         self._running = False
         self._service_tasks: list[asyncio.Task] = []

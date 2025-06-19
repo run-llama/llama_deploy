@@ -5,11 +5,6 @@ from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 
 def do_assert(config: DeploymentConfig) -> None:
     assert config.name == "MyDeployment"
-
-    assert config.control_plane.port == 8000
-
-    assert config.message_queue is not None
-    assert config.message_queue.type == "simple"
     assert config.default_service == "myworkflow"
 
     wf_config = config.services["myworkflow"]

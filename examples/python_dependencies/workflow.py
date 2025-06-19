@@ -1,9 +1,10 @@
 import asyncio
 
-from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
-from pyfiglet import Figlet
 from cowpy import cow
 from fortune import fortune
+from pyfiglet import Figlet
+from workflows import Workflow, step
+from workflows.events import StartEvent, StopEvent
 
 
 # create a dummy workflow

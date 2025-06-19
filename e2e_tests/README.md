@@ -19,11 +19,11 @@ $ uv run -- pytest ./e2e_tests
 To run a specific scenario:
 
 ```sh
-$ uv run -- pytest e2e_tests/basic_streaming
+$ uv run -- pytest e2e_tests/apiserver
 ```
 
 If you want to see the output of the different services running, pass the `-s` flag to pytest:
 
 ```sh
-$ uv run -- pytest e2e_tests/basic_streaming -s
+$ uv run -- pytest e2e_tests/apiserver/test_deploy.py -s
 ```

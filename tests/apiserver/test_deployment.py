@@ -22,7 +22,6 @@ from llama_deploy.apiserver.deployment_config_parser import (
     SyncPolicy,
     UIService,
 )
-from llama_deploy.control_plane import ControlPlaneConfig
 
 
 @pytest.fixture
@@ -30,7 +29,6 @@ def deployment_config() -> DeploymentConfig:
     return DeploymentConfig(  # type: ignore
         **{  # type: ignore
             "name": "test-deployment",
-            "control-plane": ControlPlaneConfig(),
             "services": {},
         }
     )
@@ -43,7 +41,7 @@ def mock_local_source_manager() -> Generator[mock.MagicMock, Any, None]:
     # Make the mock class return itself when called, as the SOURCE_MANAGERS dict is a dict of factories
     mock_sm.return_value = mock_sm
 
-    SOURCE_MANAGERS[SourceType.local] = mock_sm
+    SOURCE_MANAGERS[SourceType.local] = mock_sm  # type: ignore
     yield mock_sm
     SOURCE_MANAGERS[SourceType.local] = original
 

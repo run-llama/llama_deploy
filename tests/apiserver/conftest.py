@@ -4,7 +4,8 @@ from unittest import mock
 
 import pytest
 from fastapi.testclient import TestClient
-from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
+from workflows import Workflow, step
+from workflows.events import StartEvent, StopEvent
 
 from llama_deploy.apiserver.app import app
 from llama_deploy.apiserver.deployment import Deployment

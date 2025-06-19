@@ -34,7 +34,6 @@ Let's walk through the important files and folders:
 
 The application relies on different components:
 
-- A Redis instance used by the LlamaDeploy message queue
 - A Qdrant instance used by the RAG workflow
 - A LlamaDeploy API server instance managing the deployment
 - The Reflex application serving the UI at http://localhost:3000

@@ -7,7 +7,8 @@ The `src` folder contains a `workflow.py` file defining a trivial workflow:
 
 ```python
 import asyncio
-from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
+from workflows import Context, Workflow, step
+from workflows.events import Event, StartEvent, StopEvent
 
 
 class EchoWorkflow(Workflow):
@@ -61,7 +62,7 @@ ui:
 ```
 
 The YAML code above defines the deployment that LlamaDeploy will create and run as a service. As you can
-see, this deployment has a name, some configuration for the control plane and one service to wrap our workflow. The
+see, this deployment has a name and one service to wrap our workflow. The
 service will look for a Python variable named `echo_workflow` in a Python module named `workflow` and run the workflow.
 
 This example includes a Next.js-based UI interface that allows you to interact with your deployment through a web browser.

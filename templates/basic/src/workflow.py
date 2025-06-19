@@ -1,7 +1,8 @@
 import asyncio
 
-from llama_index.core.workflow import Workflow, StartEvent, StopEvent, step
 from llama_index.llms.openai import OpenAI
+from workflows import Workflow, step
+from workflows.events import StartEvent, StopEvent
 
 
 # create a completion workflow

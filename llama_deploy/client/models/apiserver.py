@@ -11,9 +11,9 @@ import json
 from typing import Any, AsyncGenerator, TextIO
 
 import httpx
-from llama_index.core.workflow.context_serializers import JsonSerializer
-from llama_index.core.workflow.events import Event
 from pydantic import Field
+from workflows.context import JsonSerializer
+from workflows.events import Event
 
 from llama_deploy.types.apiserver import Status, StatusEnum
 from llama_deploy.types.core import (

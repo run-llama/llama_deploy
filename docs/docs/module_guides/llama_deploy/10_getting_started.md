@@ -22,9 +22,6 @@ Run the interactive wizard:
 $ llamactl init
 Project name [llama-deploy-app]: hello-deploy
 Destination directory [.]:
-Control plane port [8000]:
-Select message queue type
-  simple redis rabbitmq kafka [simple]:
 Workflow template:
   basic - Basic workflow with OpenAI integration (recommended)
   none  - Do not create any sample workflow code
@@ -114,5 +111,4 @@ hello-deploy/
 | Change the LLM, add tools or multiple steps | `src/workflow.py` – build with any [LlamaIndex Workflow](https://docs.llamaindex.ai/en/stable/understanding/workflows/). |
 | Add more workflows/services | Duplicate the `example_workflow` block in `deployment.yml` and point to your new workflow. |
 | Set secrets & environment variables | Use `env`/`env_files` inside each service. |
-| Switch message queue (e.g., Redis, Kafka) | Re-run `llamactl init` with a different `--message-queue-type` **or** edit the `message_queue` section manually. |
 | Deploy to production | Containerize your deployment (for example, see the [Google Cloud Run Example](https://github.com/run-llama/llama_deploy/tree/main/examples/google_cloud_run)), then run and scale the deployment anywhere you can run Docker/K8s. |

@@ -10,7 +10,3 @@
 ## API Server functionalities
 
 ::: llama_deploy.client.models.apiserver
-
-## Control Plane functionalities
-
-::: llama_deploy.client.models.core

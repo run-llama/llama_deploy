@@ -2,7 +2,7 @@ import asyncio
 from typing import Any
 
 from .base import _BaseClient
-from .models import ApiServer, Core, make_sync
+from .models import ApiServer, make_sync
 
 
 class Client(_BaseClient):
@@ -42,17 +42,8 @@ class Client(_BaseClient):
         """Access the API Server functionalities."""
         return ApiServer(client=self, id="apiserver")
 
-    @property
-    def core(self) -> Core:
-        """Access the Control Plane functionalities."""
-        return Core(client=self, id="core")
-
 
 class _SyncClient(_BaseClient):
     @property
     def apiserver(self) -> Any:
         return make_sync(ApiServer)(client=self, id="apiserver")
-
-    @property
-    def core(self) -> Any:
-        return make_sync(Core)(client=self, id="core")
