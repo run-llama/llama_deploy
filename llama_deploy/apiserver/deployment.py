@@ -7,6 +7,7 @@ import site
 import subprocess
 import sys
 import tempfile
+import warnings
 from asyncio.subprocess import Process
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
@@ -380,7 +381,12 @@ class Deployment:
         # Dynamically get the start event class -- this is a bit of a hack
         StartEventT = workflow._start_event_class
         if StartEventT is StartEvent:
-            raise ValueError("Must declare a custom StartEvent class in your workflow.")
+            msg = (
+                f"Cannot expose service {service_name} as an MCP tool: "
+                "workflow must declare a custom StartEvent class."
+            )
+            warnings.warn(msg)
+            return
 
         @self._mcp.tool(name=service_name, description=workflow.__doc__)
         async def _workflow_tool(run_args: StartEventT, context: MCPContext) -> Any:  # type:ignore
