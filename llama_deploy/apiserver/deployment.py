@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+import json
 import logging
 import os
 import site
@@ -9,7 +10,7 @@ import tempfile
 from asyncio.subprocess import Process
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from typing import Type
+from typing import Any, Tuple, Type
 
 from dotenv import dotenv_values
 from workflows import Context, Workflow
@@ -17,6 +18,7 @@ from workflows.handler import WorkflowHandler
 
 from llama_deploy.apiserver.source_managers.base import SyncPolicy
 from llama_deploy.client import Client
+from llama_deploy.types.core import generate_id
 
 from .deployment_config_parser import (
     DeploymentConfig,
@@ -92,6 +94,36 @@ class Deployment:
     def service_names(self) -> list[str]:
         """Returns the list of service names in this deployment."""
         return list(self._workflow_services.keys())
+
+    async def run_workflow(
+        self, service_id: str, session_id: str | None = None, **run_kwargs: dict
+    ) -> Any:
+        workflow = self._workflow_services[service_id]
+        if session_id:
+            context = self._contexts[session_id]
+            return await workflow.run(context=context, **run_kwargs)
+
+        if run_kwargs:
+            return await workflow.run(**run_kwargs)
+
+        return await workflow.run()
+
+    def run_workflow_no_wait(
+        self, service_id: str, session_id: str | None = None, **run_kwargs: dict
+    ) -> Tuple[str, str]:
+        workflow = self._workflow_services[service_id]
+        if session_id:
+            context = self._contexts[session_id]
+            handler = workflow.run(context=context, **run_kwargs)
+        else:
+            handler = workflow.run(**run_kwargs)
+            session_id = generate_id()
+            self._contexts[session_id] = handler.ctx or Context(workflow)
+
+        handler_id = generate_id()
+        self._handlers[handler_id] = handler
+        self._handler_inputs[handler_id] = json.dumps(run_kwargs)
+        return handler_id, session_id
 
     async def start(self) -> None:
         """The task that will be launched in this deployment asyncio loop.
