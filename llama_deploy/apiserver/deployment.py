@@ -13,6 +13,8 @@ from pathlib import Path
 from typing import Any, Tuple, Type
 
 from dotenv import dotenv_values
+from fastmcp import FastMCP
+from fastmcp.server.http import StarletteWithLifespan
 from workflows import Context, Workflow
 from workflows.handler import WorkflowHandler
 
@@ -395,6 +397,8 @@ class Manager:
         self._last_control_plane_port = 8002
         self._simple_message_queue_server: asyncio.Task | None = None
         self._serving = False
+        self._mcp = FastMCP("LlamaDeploy")
+        self._mcp_app = self._mcp.http_app(path="/")
 
     @property
     def deployment_names(self) -> list[str]:
@@ -406,6 +410,10 @@ class Manager:
         if self._deployments_path is None:
             raise ValueError("Deployments path not set")
         return self._deployments_path
+
+    @property
+    def mcp_app(self) -> StarletteWithLifespan:
+        return self._mcp_app
 
     def set_deployments_path(self, path: Path | None) -> None:
         self._deployments_path = (
