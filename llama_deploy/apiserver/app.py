@@ -17,7 +17,7 @@ logger = logging.getLogger("uvicorn.info")
 
 
 app = FastAPI(lifespan=lifespan)
-app.mount("/", mcp_app.streamable_http_app())
+app.mount("/", mcp_app.sse_app())
 
 # Setup tracing
 configure_tracing(settings)
