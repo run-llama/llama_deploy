@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Iterator
 from unittest import mock
 
 import pytest
@@ -8,8 +8,6 @@ from workflows import Workflow, step
 from workflows.events import StartEvent, StopEvent
 
 from llama_deploy.apiserver.app import app
-from llama_deploy.apiserver.deployment import Deployment
-from llama_deploy.apiserver.deployment_config_parser import DeploymentConfig
 
 
 class SmallWorkflow(Workflow):
@@ -31,14 +29,6 @@ def mock_importlib() -> Iterator[None]:
 def data_path() -> Path:
     data_p = Path(__file__).parent / "data"
     return data_p.resolve()
-
-
-@pytest.fixture
-def mocked_deployment(data_path: Path, mock_importlib: Any) -> Iterator[Deployment]:
-    config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
-    with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
-        sm_dict["git"] = mock.MagicMock()
-        yield Deployment(config=config, base_path=data_path, deployment_path=Path("."))
 
 
 @pytest.fixture
