@@ -1,4 +1,5 @@
 import asyncio
+import json
 import subprocess
 import sys
 from collections.abc import Generator
@@ -8,6 +9,8 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from workflows import Context, Workflow
+from workflows.handler import WorkflowHandler
 
 from llama_deploy.apiserver.deployment import (
     SOURCE_MANAGERS,
@@ -678,3 +681,233 @@ async def test_start_ui_server_uses_merge_sync_policy(
         run_call = mock_subprocess.call_args_list[1]
         assert run_call.args[:3] == ("pnpm", "run", "dev")
         assert run_call.kwargs["cwd"] == installed_path
+
+
+@pytest.mark.asyncio
+async def test_run_workflow_without_session_without_kwargs(
+    deployment_config: DeploymentConfig, tmp_path: Path
+) -> None:
+    """Test run_workflow with no session_id and no run_kwargs."""
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
+
+    # Mock workflow
+    mock_workflow = mock.MagicMock(spec=Workflow)
+    mock_workflow.run = mock.AsyncMock(return_value="test_result")
+    deployment._workflow_services = {"test_service": mock_workflow}
+
+    result = await deployment.run_workflow("test_service")
+
+    assert result == "test_result"
+    mock_workflow.run.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_run_workflow_without_session_with_kwargs(
+    deployment_config: DeploymentConfig, tmp_path: Path
+) -> None:
+    """Test run_workflow with no session_id but with run_kwargs."""
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
+
+    # Mock workflow
+    mock_workflow = mock.MagicMock(spec=Workflow)
+    mock_workflow.run = mock.AsyncMock(return_value="test_result_with_kwargs")
+    deployment._workflow_services = {"test_service": mock_workflow}
+
+    test_kwargs = {"input": "test_input", "param": 42}
+    result = await deployment.run_workflow("test_service", **test_kwargs)  # type:ignore
+
+    assert result == "test_result_with_kwargs"
+    mock_workflow.run.assert_awaited_once_with(**test_kwargs)
+
+
+@pytest.mark.asyncio
+async def test_run_workflow_with_session_id(
+    deployment_config: DeploymentConfig, tmp_path: Path
+) -> None:
+    """Test run_workflow with session_id."""
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
+
+    # Mock workflow and context
+    mock_workflow = mock.MagicMock(spec=Workflow)
+    mock_workflow.run = mock.AsyncMock(return_value="test_result_with_session")
+    mock_context = mock.MagicMock(spec=Context)
+
+    deployment._workflow_services = {"test_service": mock_workflow}
+    deployment._contexts = {"test_session": mock_context}
+
+    test_kwargs = {"input": "session_test"}
+    result = await deployment.run_workflow(
+        "test_service",
+        "test_session",
+        **test_kwargs,  # type:ignore
+    )
+
+    assert result == "test_result_with_session"
+    mock_workflow.run.assert_awaited_once_with(context=mock_context, **test_kwargs)
+
+
+def test_run_workflow_no_wait_without_session_id(
+    deployment_config: DeploymentConfig, tmp_path: Path
+) -> None:
+    """Test run_workflow_no_wait without session_id."""
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
+
+    # Mock workflow and handler
+    mock_workflow = mock.MagicMock(spec=Workflow)
+    mock_handler = mock.MagicMock(spec=WorkflowHandler)
+    mock_context = mock.MagicMock(spec=Context)
+    mock_handler.ctx = mock_context
+    mock_workflow.run.return_value = mock_handler
+
+    deployment._workflow_services = {"test_service": mock_workflow}
+
+    test_kwargs = {"input": "test_input", "param": 42}
+
+    with mock.patch(
+        "llama_deploy.apiserver.deployment.generate_id"
+    ) as mock_generate_id:
+        mock_generate_id.side_effect = ["session_456", "handler_123"]
+
+        handler_id, session_id = deployment.run_workflow_no_wait(
+            "test_service",
+            None,
+            **test_kwargs,  # type:ignore
+        )
+
+        assert handler_id == "handler_123"
+        assert session_id == "session_456"
+        assert deployment._handlers["handler_123"] == mock_handler
+        assert deployment._contexts["session_456"] == mock_context
+        assert deployment._handler_inputs["handler_123"] == json.dumps(test_kwargs)
+
+        mock_workflow.run.assert_called_once_with(**test_kwargs)
+
+
+def test_run_workflow_no_wait_with_session_id(
+    deployment_config: DeploymentConfig, tmp_path: Path
+) -> None:
+    """Test run_workflow_no_wait with existing session_id."""
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
+
+    # Mock workflow, handler, and context
+    mock_workflow = mock.MagicMock(spec=Workflow)
+    mock_handler = mock.MagicMock(spec=WorkflowHandler)
+    mock_context = mock.MagicMock(spec=Context)
+    mock_workflow.run.return_value = mock_handler
+
+    deployment._workflow_services = {"test_service": mock_workflow}
+    deployment._contexts = {"existing_session": mock_context}
+
+    test_kwargs = {"input": "session_test", "value": 100}
+
+    with mock.patch(
+        "llama_deploy.apiserver.deployment.generate_id"
+    ) as mock_generate_id:
+        mock_generate_id.return_value = "handler_789"
+
+        handler_id, session_id = deployment.run_workflow_no_wait(
+            "test_service",
+            "existing_session",
+            **test_kwargs,  # type:ignore
+        )
+
+        assert handler_id == "handler_789"
+        assert session_id == "existing_session"
+        assert deployment._handlers["handler_789"] == mock_handler
+        assert deployment._handler_inputs["handler_789"] == json.dumps(test_kwargs)
+
+        # Context should not be modified since session existed
+        assert deployment._contexts["existing_session"] == mock_context
+
+        mock_workflow.run.assert_called_once_with(context=mock_context, **test_kwargs)
+
+
+def test_run_workflow_no_wait_empty_kwargs(
+    deployment_config: DeploymentConfig, tmp_path: Path
+) -> None:
+    """Test run_workflow_no_wait with empty run_kwargs."""
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
+
+    # Mock workflow and handler
+    mock_workflow = mock.MagicMock(spec=Workflow)
+    mock_handler = mock.MagicMock(spec=WorkflowHandler)
+    mock_context = mock.MagicMock(spec=Context)
+    mock_handler.ctx = mock_context
+    mock_workflow.run.return_value = mock_handler
+
+    deployment._workflow_services = {"test_service": mock_workflow}
+
+    with mock.patch(
+        "llama_deploy.apiserver.deployment.generate_id"
+    ) as mock_generate_id:
+        mock_generate_id.side_effect = ["session_empty", "handler_empty"]
+
+        handler_id, session_id = deployment.run_workflow_no_wait("test_service")
+
+        assert handler_id == "handler_empty"
+        assert session_id == "session_empty"
+        assert deployment._handlers["handler_empty"] == mock_handler
+        assert deployment._contexts["session_empty"] == mock_context
+        assert deployment._handler_inputs["handler_empty"] == json.dumps({})
+
+        mock_workflow.run.assert_called_once_with()
+
+
+@pytest.mark.asyncio
+async def test_run_workflow_service_not_found(
+    deployment_config: DeploymentConfig, tmp_path: Path
+) -> None:
+    """Test run_workflow raises KeyError when service not found."""
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
+
+    deployment._workflow_services = {}
+
+    with pytest.raises(KeyError):
+        await deployment.run_workflow("nonexistent_service")
+
+
+def test_run_workflow_no_wait_service_not_found(
+    deployment_config: DeploymentConfig, tmp_path: Path
+) -> None:
+    """Test run_workflow_no_wait raises KeyError when service not found."""
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
+
+    deployment._workflow_services = {}
+
+    with pytest.raises(KeyError):
+        deployment.run_workflow_no_wait("nonexistent_service")
+
+
+@pytest.mark.asyncio
+async def test_run_workflow_session_not_found(
+    deployment_config: DeploymentConfig, tmp_path: Path
+) -> None:
+    """Test run_workflow raises KeyError when session not found."""
+    deployment = Deployment(
+        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+    )
+
+    # Mock workflow
+    mock_workflow = mock.MagicMock(spec=Workflow)
+    mock_workflow.run = mock.AsyncMock()
+    deployment._workflow_services = {"test_service": mock_workflow}
+    deployment._contexts = {}
+
+    with pytest.raises(KeyError):
+        await deployment.run_workflow("test_service", "nonexistent_session")
