@@ -123,11 +123,10 @@ async def create_deployment_task_nowait(
         )
 
     run_kwargs = json.loads(task_definition.input) if task_definition.input else {}
-    handler_id = deployment.run_workflow_no_wait(
+    handler_id, session_id = deployment.run_workflow_no_wait(
         service_id=service_id, session_id=session_id, **run_kwargs
     )
 
-    print("____", session_id, handler_id)
     task_definition.session_id = session_id
     task_definition.task_id = handler_id
 

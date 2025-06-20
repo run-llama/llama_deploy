@@ -10,7 +10,7 @@ import tempfile
 from asyncio.subprocess import Process
 from multiprocessing.pool import ThreadPool
 from pathlib import Path
-from typing import Any, Type
+from typing import Any, Tuple, Type
 
 from dotenv import dotenv_values
 from workflows import Context, Workflow
@@ -110,7 +110,7 @@ class Deployment:
 
     def run_workflow_no_wait(
         self, service_id: str, session_id: str | None = None, **run_kwargs: dict
-    ) -> str:
+    ) -> Tuple[str, str]:
         workflow = self._workflow_services[service_id]
         if session_id:
             context = self._contexts[session_id]
@@ -123,7 +123,7 @@ class Deployment:
         handler_id = generate_id()
         self._handlers[handler_id] = handler
         self._handler_inputs[handler_id] = json.dumps(run_kwargs)
-        return handler_id
+        return handler_id, session_id
 
     async def start(self) -> None:
         """The task that will be launched in this deployment asyncio loop.
