@@ -41,7 +41,7 @@ dependencies = [
   "pydantic!=2.10",
   "pydantic-settings>=2.0,<3.0",
   "PyYAML>6",
-  "uvicorn[standard]>=0.12.0",
+  "uvicorn[standard]>=0.34.3",
   "gitpython>=3.1.43,<4",
   "python-multipart>=0.0.18,<0.0.19",
   "typing_extensions>=4.0.0,<5",
@@ -52,7 +52,8 @@ dependencies = [
   "rich>=13.9.4,<14",
   "brotli>=1.1.0",
   "websockets>=15.0.1",
-  "llama-index-workflows>=0.2.1"
+  "llama-index-workflows>=0.2.1",
+  "mcp>=1.9.4"
 ]
 
 [project.optional-dependencies]

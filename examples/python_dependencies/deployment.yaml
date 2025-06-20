@@ -10,7 +10,7 @@ services:
     name: Pretty Echo Workflow
     source:
       type: local
-      name: src
+      name: .
     path: workflow:echo_workflow
     python-dependencies:
       - cowpy

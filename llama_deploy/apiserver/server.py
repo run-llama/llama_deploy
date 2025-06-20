@@ -16,6 +16,8 @@ manager = Manager()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
+    from .routers.mcp import mcp_app
+
     apiserver_state.state("starting")
 
     manager.set_deployments_path(settings.deployments_path)
@@ -39,7 +41,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
                 logger.error(f"Failed to deploy {yaml_file}: {str(e)}")
 
     apiserver_state.state("running")
-    yield
+    async with mcp_app.session_manager.run():
+        yield
 
     t.cancel()
 

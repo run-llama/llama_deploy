@@ -6,6 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 
+from llama_deploy.apiserver.routers.mcp import mcp_app
+
 from .routers import deployments_router, status_router
 from .server import lifespan
 from .settings import settings
@@ -15,6 +17,7 @@ logger = logging.getLogger("uvicorn.info")
 
 
 app = FastAPI(lifespan=lifespan)
+app.mount("/", mcp_app.streamable_http_app())
 
 # Setup tracing
 configure_tracing(settings)
