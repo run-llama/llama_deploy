@@ -13,9 +13,12 @@ from pathlib import Path
 from typing import Any, Tuple, Type
 
 from dotenv import dotenv_values
+from fastmcp import Context as MCPContext
 from fastmcp import FastMCP
 from fastmcp.server.http import StarletteWithLifespan
+from pydantic import BaseModel
 from workflows import Context, Workflow
+from workflows.events import Event, StartEvent, StopEvent
 from workflows.handler import WorkflowHandler
 
 from llama_deploy.apiserver.source_managers.base import SyncPolicy
@@ -47,6 +50,7 @@ class Deployment:
         config: DeploymentConfig,
         base_path: Path,
         deployment_path: Path,
+        mcp: FastMCP,
         local: bool = False,
     ) -> None:
         """Creates a Deployment instance.
@@ -59,6 +63,7 @@ class Deployment:
         self._local = local
         self._name = config.name
         self._base_path = base_path
+        self._mcp = mcp
         # If not local, isolate the deployment in a folder with the same name to avoid conflicts
         self._deployment_path = (
             deployment_path if local else deployment_path / config.name
@@ -236,7 +241,9 @@ class Deployment:
             sys.path.append(str(pythonpath))
 
             module = importlib.import_module(module_name)
-            workflow_services[service_id] = getattr(module, workflow_name)
+            workflow = getattr(module, workflow_name)
+            workflow_services[service_id] = workflow
+            self._make_mcp_service(workflow, service_id)
 
             service_state.labels(self._name, service_id).state("ready")
 
@@ -369,6 +376,34 @@ class Deployment:
                 msg = f"Unable to install service dependencies using command '{e.cmd}': {e.stderr}"
                 raise DeploymentError(msg) from None
 
+    def _make_mcp_service(
+        self, workflow: Workflow, service_name: str, description: str = ""
+    ) -> None:
+        # Dynamically get the start event class -- this is a bit of a hack
+        StartEventT = workflow._start_event_class
+        if StartEventT is StartEvent:
+            raise ValueError("Must declare a custom StartEvent class in your workflow.")
+
+        @self._mcp.tool(name=service_name, description=description)
+        async def _workflow_tool(run_args: StartEventT, context: MCPContext) -> Any:  # type:ignore
+            # Handle edge cases where the start event is an Event or a BaseModel
+            # If the workflow does not have a custom StartEvent class, then we need to handle the event differently
+            if isinstance(run_args, Event) and StartEventT != StartEvent:
+                handler = workflow.run(start_event=run_args)
+            elif isinstance(run_args, BaseModel):
+                handler = workflow.run(**run_args.model_dump())  # type: ignore
+            elif isinstance(run_args, dict):
+                start_event = StartEventT.model_validate(run_args)
+                handler = workflow.run(start_event=start_event)
+            else:
+                raise ValueError(f"Invalid start event type: {type(run_args)}")
+
+            async for event in handler.stream_events():
+                if not isinstance(event, StopEvent):
+                    await context.log(level="info", message=event.model_dump_json())
+
+            return await handler
+
 
 class Manager:
     """The Manager orchestrates deployments and their runtime.
@@ -476,6 +511,7 @@ class Manager:
                 base_path=Path(base_path),
                 deployment_path=self.deployments_path,
                 local=local,
+                mcp=self._mcp,
             )
             self._deployments[config.name] = deployment
             await deployment.start()
