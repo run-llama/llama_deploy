@@ -1,0 +1,24 @@
+name: dependencies
+
+control-plane:
+  port: 8000
+
+default-service: scrape_page
+
+services:
+  scrape_page:
+    name: scrape_page
+    source:
+      type: local
+      name: .
+    path: src.mcp:scraper_workflow
+    python-dependencies:
+      - "."
+  query_knowledge_base:
+    name: query_knowledge_base
+    source:
+      type: local
+      name: .
+    path: src.mcp:search_workflow
+    python-dependencies:
+      - "."
