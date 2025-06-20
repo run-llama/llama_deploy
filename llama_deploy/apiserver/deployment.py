@@ -376,15 +376,13 @@ class Deployment:
                 msg = f"Unable to install service dependencies using command '{e.cmd}': {e.stderr}"
                 raise DeploymentError(msg) from None
 
-    def _make_mcp_service(
-        self, workflow: Workflow, service_name: str, description: str = ""
-    ) -> None:
+    def _make_mcp_service(self, workflow: Workflow, service_name: str) -> None:
         # Dynamically get the start event class -- this is a bit of a hack
         StartEventT = workflow._start_event_class
         if StartEventT is StartEvent:
             raise ValueError("Must declare a custom StartEvent class in your workflow.")
 
-        @self._mcp.tool(name=service_name, description=description)
+        @self._mcp.tool(name=service_name, description=workflow.__doc__)
         async def _workflow_tool(run_args: StartEventT, context: MCPContext) -> Any:  # type:ignore
             # Handle edge cases where the start event is an Event or a BaseModel
             # If the workflow does not have a custom StartEvent class, then we need to handle the event differently
