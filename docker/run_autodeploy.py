@@ -31,18 +31,48 @@ def run_process(args: list[str], cwd: str | None = None) -> None:
 def setup_repo(
     work_dir: Path, source: str, token: str | None = None, force: bool = False
 ) -> None:
-    repo_url = source
-    if token:
-        repo_url = repo_url.replace("https://", f"https://{token}@")
+    repo_url, branch_name = _parse_source(source, token)
 
     dest_dir = work_dir / CLONED_REPO_FOLDER
 
     if not dest_dir.exists() or force:
-        run_process(
-            ["git", "clone", "--depth", "1", repo_url, str(dest_dir.absolute())]
-        )
+        clone_args = ["git", "clone", "--depth", "1"]
+        if branch_name:
+            clone_args.extend(["--branch", branch_name, "--single-branch"])
+        clone_args.extend([repo_url, str(dest_dir.absolute())])
+        run_process(clone_args, cwd=str(work_dir.absolute()))
     else:
-        run_process(["git", "pull", "origin", "main"], cwd=str(dest_dir.absolute()))
+        run_process(
+            ["git", "pull", "origin", branch_name or "main"],
+            cwd=str(dest_dir.absolute()),
+        )
+
+
+def _is_valid_uri(uri: str) -> bool:
+    """Check if string looks like a valid URI"""
+    return "://" in uri and "/" in uri.split("://", 1)[1]
+
+
+def _parse_source(source: str, pat: str | None = None) -> tuple[str, str | None]:
+    """Accept Github urls like https://github.com/run-llama/llama_deploy.git@main
+    or https://user:token@github.com/run-llama/llama_deploy.git@main
+    Returns the final URL (with auth if needed) and branch name"""
+
+    # Try splitting on last @ to see if we have a branch specifier
+    url = source
+    branch_name = None
+
+    if "@" in source:
+        potential_url, potential_branch = source.rsplit("@", 1)
+        if _is_valid_uri(potential_url):
+            url = potential_url
+            branch_name = potential_branch
+
+    # Inject PAT auth if provided and URL doesn't already have auth
+    if pat and "://" in url and "@" not in url:
+        url = url.replace("https://", f"https://{pat}@")
+
+    return url, branch_name
 
 
 def copy_sources(work_dir: Path, deployment_file_path: Path) -> None:
