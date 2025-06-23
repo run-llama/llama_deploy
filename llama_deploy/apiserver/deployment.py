@@ -388,7 +388,9 @@ class Deployment:
             warnings.warn(msg)
             return
 
-        @self._mcp.tool(name=service_name, description=workflow.__doc__)
+        @self._mcp.tool(
+            name=service_name, description=workflow.__doc__
+        )  # pragma: no cover
         async def _workflow_tool(run_args: StartEventT, context: MCPContext) -> Any:  # type:ignore
             # Handle edge cases where the start event is an Event or a BaseModel
             # If the workflow does not have a custom StartEvent class, then we need to handle the event differently
@@ -474,9 +476,7 @@ class Manager:
             # Waits indefinitely since `event` will never be set
             await event.wait()
         except asyncio.CancelledError:
-            if self._simple_message_queue_server is not None:
-                self._simple_message_queue_server.cancel()
-                await self._simple_message_queue_server
+            return
 
     async def deploy(
         self,
