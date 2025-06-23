@@ -19,6 +19,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
     apiserver_state.state("starting")
 
     manager.set_deployments_path(settings.deployments_path)
+    app.mount("/mcp", manager.mcp_app)
+
     t = asyncio.create_task(manager.serve())
     await asyncio.sleep(0)
 
@@ -39,7 +41,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
                 logger.error(f"Failed to deploy {yaml_file}: {str(e)}")
 
     apiserver_state.state("running")
-    yield
+    async with manager.mcp_app.lifespan(app):
+        yield
 
     t.cancel()
 

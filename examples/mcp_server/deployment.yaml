@@ -1,0 +1,12 @@
+name: StatuspageTool
+
+services:
+  status_workflow:
+    name: Statuspage
+    source:
+      type: local
+      name: src
+    python-dependencies:
+      - requests
+
+    path: src/workflow:statuspage_workflow
