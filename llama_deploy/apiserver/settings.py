@@ -23,6 +23,10 @@ class ApiserverSettings(BaseSettings):
         default=None,
         description="Path to the folder where deployments will create their root path, defaults to a temp dir",
     )
+    deployment_file_path: str | None = Field(
+        default=None,
+        description="Optional path, relative to the rc_path, where the deployment file is located. If not provided, will glob all .yml/.yaml files in the rc_path",
+    )
     use_tls: bool = Field(
         default=False,
         description="Use TLS (HTTPS) to communicate with the API Server",

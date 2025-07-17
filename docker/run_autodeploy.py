@@ -101,7 +101,12 @@ if __name__ == "__main__":
 
     setup_repo(work_dir, repo_url, repo_token)
 
-    deployment_file_path = os.environ.get("DEPLOYMENT_FILE_PATH", "deployment.yml")
+    if not settings.deployment_file_path:
+        # first fall back to none LLAMA_DEPLOY_APISERVER_ prefixed env var (settings requires the prefix)
+        settings.deployment_file_path = os.environ.get(
+            "DEPLOYMENT_FILE_PATH", "deployment.yml"
+        )
+    deployment_file_path = settings.deployment_file_path
     deployment_file_abspath = work_dir / CLONED_REPO_FOLDER / deployment_file_path
     if not deployment_file_abspath.exists():
         raise ValueError(f"File {deployment_file_abspath} does not exist")
