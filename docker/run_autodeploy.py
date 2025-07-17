@@ -31,21 +31,25 @@ def run_process(args: list[str], cwd: str | None = None) -> None:
 def setup_repo(
     work_dir: Path, source: str, token: str | None = None, force: bool = False
 ) -> None:
-    repo_url, branch_name = _parse_source(source, token)
-
+    repo_url, ref_name = _parse_source(source, token)
     dest_dir = work_dir / CLONED_REPO_FOLDER
 
-    if not dest_dir.exists() or force:
-        clone_args = ["git", "clone", "--depth", "1"]
-        if branch_name:
-            clone_args.extend(["--branch", branch_name, "--single-branch"])
-        clone_args.extend([repo_url, str(dest_dir.absolute())])
+    # Remove existing repo if force=True
+    if dest_dir.exists() and force:
+        shutil.rmtree(dest_dir)
+
+    if not dest_dir.exists():
+        # need to do a full clone to resolve any kind of ref without exploding in
+        # complexity (tag, branch, commit, short commit)
+        clone_args = ["git", "clone", repo_url, str(dest_dir.absolute())]
         run_process(clone_args, cwd=str(work_dir.absolute()))
     else:
-        run_process(
-            ["git", "pull", "origin", branch_name or "main"],
-            cwd=str(dest_dir.absolute()),
-        )
+        run_process(["git", "fetch", "origin"], cwd=str(dest_dir.absolute()))
+
+    # Checkout the ref (let git resolve it)
+    if ref_name:
+        run_process(["git", "checkout", ref_name], cwd=str(dest_dir.absolute()))
+    # If no ref specified, stay on whatever the clone gave us (default branch)
 
 
 def _is_valid_uri(uri: str) -> bool:
@@ -55,24 +59,24 @@ def _is_valid_uri(uri: str) -> bool:
 
 def _parse_source(source: str, pat: str | None = None) -> tuple[str, str | None]:
     """Accept Github urls like https://github.com/run-llama/llama_deploy.git@main
-    or https://user:token@github.com/run-llama/llama_deploy.git@main
-    Returns the final URL (with auth if needed) and branch name"""
+    or https://user:token@github.com/run-llama/llama_deploy.git@v1.0.0
+    Returns the final URL (with auth if needed) and ref name (branch, tag, or commit SHA)"""
 
-    # Try splitting on last @ to see if we have a branch specifier
+    # Try splitting on last @ to see if we have a ref specifier
     url = source
-    branch_name = None
+    ref_name = None
 
     if "@" in source:
-        potential_url, potential_branch = source.rsplit("@", 1)
+        potential_url, potential_ref = source.rsplit("@", 1)
         if _is_valid_uri(potential_url):
             url = potential_url
-            branch_name = potential_branch
+            ref_name = potential_ref
 
     # Inject PAT auth if provided and URL doesn't already have auth
     if pat and "://" in url and "@" not in url:
         url = url.replace("https://", f"https://{pat}@")
 
-    return url, branch_name
+    return url, ref_name
 
 
 def copy_sources(work_dir: Path, deployment_file_path: Path) -> None:
