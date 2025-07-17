@@ -301,15 +301,18 @@ class Deployment:
                 resolved_dep = source_root / dep
                 install_args.extend(["-r", str(resolved_dep)])
             else:
-                or_resolved = dep
                 if "." in dep or "/" in dep:
                     Deployment._validate_path_is_safe(
                         dep, source_root, "dependency path"
                     )
                     resolved_dep = source_root / dep
-                    if os.path.isfile(resolved_dep):
-                        or_resolved = str(resolved_dep.resolve())
-                install_args.append(or_resolved)
+                    if os.path.isfile(resolved_dep) or os.path.isdir(resolved_dep):
+                        # install as editable, such that sources are left in place, and can reference repository files
+                        install_args.extend(["-e", str(resolved_dep.resolve())])
+                    else:
+                        install_args.append(dep)
+                else:
+                    install_args.append(dep)
 
         # Check if uv is available on the path
         uv_available = False

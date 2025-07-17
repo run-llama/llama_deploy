@@ -156,6 +156,7 @@ def test__install_dependencies_kitchen_sink(data_path: Path) -> None:
             "test<1",
             "-r",
             str(data_path / "bar/requirements.txt"),
+            "-e",
             str(data_path / "foo/bar/"),
         ]
 
@@ -425,6 +426,7 @@ def test__install_dependencies_mixed_path_types(
             "regular-package>=1.0.0",
             "-r",
             str(tmp_path / "test_requirements.txt"),
+            "-e",
             str(tmp_path / "test_project/"),
             "package-with-version<2.0",
         ]
