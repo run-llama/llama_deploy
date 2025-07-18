@@ -26,11 +26,25 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, Any]:
     logger.info(f"rc folder: {settings.rc_path}")
 
     if settings.rc_path.exists():
-        logger.info(
-            f"Browsing the rc folder {settings.rc_path} for deployments to start"
+        if settings.deployment_file_path:
+            logger.info(
+                f"Browsing the rc folder {settings.rc_path} for deployment file {settings.deployment_file_path}"
+            )
+        else:
+            logger.info(
+                f"Browsing the rc folder {settings.rc_path} for deployments to start"
+            )
+
+        # if a deployment_file_path is provided, use it, otherwise glob all .yml/.yaml files
+        # q match both .yml and .yaml files with the glob
+        files = (
+            [settings.rc_path / settings.deployment_file_path]
+            if settings.deployment_file_path
+            else [
+                x for x in settings.rc_path.iterdir() if x.suffix in (".yml", ".yaml")
+            ]
         )
-        # match both .yml and .yaml files with the glob
-        for yaml_file in settings.rc_path.glob("*.y*ml"):
+        for yaml_file in files:
             try:
                 logger.info(f"Deploying startup configuration from {yaml_file}")
                 config = DeploymentConfig.from_yaml(yaml_file)
