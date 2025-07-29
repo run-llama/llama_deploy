@@ -97,8 +97,8 @@ if __name__ == "__main__":
         start_http_server(settings.prometheus_port)
 
     repo_url = os.environ.get("REPO_URL", "")
-    if not repo_url.startswith("https://"):
-        raise ValueError("Git remote must be valid and over HTTPS")
+    if not repo_url.startswith("https://") and not repo_url.startswith("http://"):
+        raise ValueError("Git remote must HTTP(S)")
     repo_token = os.environ.get("GITHUB_PAT")
     work_dir = Path(os.environ.get("WORK_DIR", RC_PATH))
     work_dir.mkdir(exist_ok=True, parents=True)
