@@ -9,6 +9,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from fastmcp import FastMCP
 from workflows import Context, Workflow
 from workflows.handler import WorkflowHandler
 
@@ -53,7 +54,9 @@ def test_deployment_ctor(data_path: Path, mock_importlib: Any, tmp_path: Path) -
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         sm_dict["git"] = mock.MagicMock()
-        d = Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
+        d = Deployment(
+            config=config, base_path=data_path, deployment_path=tmp_path, mcp=FastMCP()
+        )
 
         sm_dict["git"].return_value.sync.assert_called_once()
         assert d.name == "TestDeployment"
@@ -70,7 +73,9 @@ def test_deployment_ctor_missing_service_path(data_path: Path, tmp_path: Path) -
     with pytest.raises(
         ValueError, match="path field in service definition must be set"
     ):
-        Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
+        Deployment(
+            config=config, base_path=data_path, deployment_path=tmp_path, mcp=FastMCP()
+        )
 
 
 def test_deployment_ctor_skip_default_service(
@@ -81,7 +86,9 @@ def test_deployment_ctor_skip_default_service(
 
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         sm_dict["git"] = mock.MagicMock()
-        d = Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
+        d = Deployment(
+            config=config, base_path=data_path, deployment_path=tmp_path, mcp=FastMCP()
+        )
         assert len(d._workflow_services) == 2
 
 
@@ -91,7 +98,9 @@ def test_deployment_ctor_invalid_default_service(
     config = DeploymentConfig.from_yaml(data_path / "local.yaml")
     config.default_service = "does-not-exist"
 
-    Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
+    Deployment(
+        config=config, base_path=data_path, deployment_path=tmp_path, mcp=FastMCP()
+    )
     assert (
         "Service with id 'does-not-exist' does not exist, cannot set it as default."
         in caplog.text
@@ -104,7 +113,9 @@ def test_deployment_ctor_default_service(
     config = DeploymentConfig.from_yaml(data_path / "local.yaml")
     config.default_service = "test-workflow"
 
-    d = Deployment(config=config, base_path=data_path, deployment_path=tmp_path)
+    d = Deployment(
+        config=config, base_path=data_path, deployment_path=tmp_path, mcp=FastMCP()
+    )
     assert d.default_service == "test-workflow"
 
 
@@ -515,7 +526,10 @@ async def test_start_sequence(
     deployment_config: DeploymentConfig, tmp_path: Path
 ) -> None:
     deployment = Deployment(
-        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        config=deployment_config,
+        base_path=Path(),
+        deployment_path=tmp_path,
+        mcp=FastMCP(),
     )
     deployment._start_ui_server = mock.AsyncMock()  # type: ignore
     await deployment.start()
@@ -528,7 +542,7 @@ async def test_start_with_services(data_path: Path, tmp_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "git_service.yaml")
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         deployment = Deployment(
-            config=config, base_path=data_path, deployment_path=tmp_path
+            config=config, base_path=data_path, deployment_path=tmp_path, mcp=FastMCP()
         )
         deployment._start_ui_server = mock.AsyncMock(return_value=[])  # type: ignore
 
@@ -546,7 +560,7 @@ async def test_start_with_services_ui(data_path: Path, tmp_path: Path) -> None:
     config.ui = mock.MagicMock()
     with mock.patch("llama_deploy.apiserver.deployment.SOURCE_MANAGERS") as sm_dict:
         deployment = Deployment(
-            config=config, base_path=data_path, deployment_path=tmp_path
+            config=config, base_path=data_path, deployment_path=tmp_path, mcp=FastMCP()
         )
         deployment._start_ui_server = mock.AsyncMock(return_value=[])  # type: ignore
 
@@ -560,7 +574,7 @@ async def test_start_with_services_ui(data_path: Path, tmp_path: Path) -> None:
 async def test_start_ui_server_success(data_path: Path, tmp_path: Path) -> None:
     config = DeploymentConfig.from_yaml(data_path / "with_ui.yaml")
     deployment = Deployment(
-        config=config, base_path=data_path, deployment_path=tmp_path
+        config=config, base_path=data_path, deployment_path=tmp_path, mcp=FastMCP()
     )
 
     # Mock the necessary components
@@ -611,7 +625,10 @@ async def test_start_ui_server_missing_config(
     """Test that _start_ui_server raises appropriate error when UI config is missing."""
     deployment_config.ui = None
     deployment = Deployment(
-        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        config=deployment_config,
+        base_path=Path(),
+        deployment_path=tmp_path,
+        mcp=FastMCP(),
     )
 
     with pytest.raises(ValueError, match="missing ui configuration settings"):
@@ -625,7 +642,10 @@ async def test_merges_in_path_to_installation(
     """Test that _start_ui_server raises appropriate error when source is missing."""
     deployment_config.ui = mock.MagicMock(source=None)
     deployment = Deployment(
-        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        config=deployment_config,
+        base_path=Path(),
+        deployment_path=tmp_path,
+        mcp=FastMCP(),
     )
 
     with pytest.raises(ValueError, match="source must be defined"):
@@ -662,7 +682,10 @@ async def test_start_ui_server_uses_merge_sync_policy(
         mock_subprocess.return_value.pid = 1234
 
         deployment = Deployment(
-            config=deployment_config, base_path=Path(), deployment_path=tmp_path
+            config=deployment_config,
+            base_path=Path(),
+            deployment_path=tmp_path,
+            mcp=FastMCP(),
         )
 
         await deployment._start_ui_server()
@@ -691,7 +714,10 @@ async def test_run_workflow_without_session_without_kwargs(
 ) -> None:
     """Test run_workflow with no session_id and no run_kwargs."""
     deployment = Deployment(
-        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        config=deployment_config,
+        base_path=Path(),
+        deployment_path=tmp_path,
+        mcp=FastMCP(),
     )
 
     # Mock workflow
@@ -711,7 +737,10 @@ async def test_run_workflow_without_session_with_kwargs(
 ) -> None:
     """Test run_workflow with no session_id but with run_kwargs."""
     deployment = Deployment(
-        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        config=deployment_config,
+        base_path=Path(),
+        deployment_path=tmp_path,
+        mcp=FastMCP(),
     )
 
     # Mock workflow
@@ -732,7 +761,10 @@ async def test_run_workflow_with_session_id(
 ) -> None:
     """Test run_workflow with session_id."""
     deployment = Deployment(
-        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        config=deployment_config,
+        base_path=Path(),
+        deployment_path=tmp_path,
+        mcp=FastMCP(),
     )
 
     # Mock workflow and context
@@ -759,7 +791,10 @@ def test_run_workflow_no_wait_without_session_id(
 ) -> None:
     """Test run_workflow_no_wait without session_id."""
     deployment = Deployment(
-        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        config=deployment_config,
+        base_path=Path(),
+        deployment_path=tmp_path,
+        mcp=FastMCP(),
     )
 
     # Mock workflow and handler
@@ -798,7 +833,10 @@ def test_run_workflow_no_wait_with_session_id(
 ) -> None:
     """Test run_workflow_no_wait with existing session_id."""
     deployment = Deployment(
-        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        config=deployment_config,
+        base_path=Path(),
+        deployment_path=tmp_path,
+        mcp=FastMCP(),
     )
 
     # Mock workflow, handler, and context
@@ -839,7 +877,10 @@ def test_run_workflow_no_wait_empty_kwargs(
 ) -> None:
     """Test run_workflow_no_wait with empty run_kwargs."""
     deployment = Deployment(
-        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        config=deployment_config,
+        base_path=Path(),
+        deployment_path=tmp_path,
+        mcp=FastMCP(),
     )
 
     # Mock workflow and handler
@@ -873,7 +914,10 @@ async def test_run_workflow_service_not_found(
 ) -> None:
     """Test run_workflow raises KeyError when service not found."""
     deployment = Deployment(
-        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        config=deployment_config,
+        base_path=Path(),
+        deployment_path=tmp_path,
+        mcp=FastMCP(),
     )
 
     deployment._workflow_services = {}
@@ -887,7 +931,10 @@ def test_run_workflow_no_wait_service_not_found(
 ) -> None:
     """Test run_workflow_no_wait raises KeyError when service not found."""
     deployment = Deployment(
-        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        config=deployment_config,
+        base_path=Path(),
+        deployment_path=tmp_path,
+        mcp=FastMCP(),
     )
 
     deployment._workflow_services = {}
@@ -902,7 +949,10 @@ async def test_run_workflow_session_not_found(
 ) -> None:
     """Test run_workflow raises KeyError when session not found."""
     deployment = Deployment(
-        config=deployment_config, base_path=Path(), deployment_path=tmp_path
+        config=deployment_config,
+        base_path=Path(),
+        deployment_path=tmp_path,
+        mcp=FastMCP(),
     )
 
     # Mock workflow
