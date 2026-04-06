@@ -22,7 +22,7 @@ dev = [
 
 [project]
 name = "llama-deploy"
-version = "0.9.1"
+version = "0.9.2"
 description = ""
 authors = [
   {name = "Logan Markewich", email = "logan.markewich@live.com"},
