@@ -164,6 +164,25 @@ class TaskCollection(Collection):
         description="The ID of the deployment these tasks belong to."
     )
 
+    async def delete(self, task_id: str) -> None:
+        """Deletes the session with the provided `session_id`.
+
+        Args:
+            task_id: The id of the task that will be removed
+
+        Raises:
+            HTTPException: If the session couldn't be found with the id provided.
+        """
+        delete_url = f"{self.client.api_server_url}/deployments/{self.deployment_id}/tasks/delete"
+
+        await self.client.request(
+            "POST",
+            delete_url,
+            params={"task_id": task_id},
+            verify=not self.client.disable_ssl,
+            timeout=self.client.timeout,
+        )
+
     async def run(self, task: TaskDefinition) -> Any:
         """Runs a task and returns the results once it's done.
 
@@ -222,8 +241,8 @@ class TaskCollection(Collection):
         items = {
             "id": task_model_class(
                 client=self.client,
-                id=task_def.task_id,
-                session_id=task_def.session_id,
+                id=task_def["task_id"],
+                session_id=task_def["session_id"],
                 deployment_id=self.deployment_id,
             )
             for task_def in r.json()

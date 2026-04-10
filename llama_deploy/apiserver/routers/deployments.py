@@ -96,6 +96,7 @@ async def create_deployment_task(
         )
 
     run_kwargs = json.loads(task_definition.input) if task_definition.input else {}
+    session_id = session_id or task_definition.session_id
     result = await deployment.run_workflow(
         service_id=service_id, session_id=session_id, **run_kwargs
     )
@@ -123,6 +124,7 @@ async def create_deployment_task_nowait(
         )
 
     run_kwargs = json.loads(task_definition.input) if task_definition.input else {}
+    session_id = session_id or task_definition.session_id
     handler_id, session_id = deployment.run_workflow_no_wait(
         service_id=service_id, session_id=session_id, **run_kwargs
     )
@@ -176,8 +178,13 @@ async def get_events(
             await asyncio.sleep(0.01)
         await handler
 
+    try:
+        deployment_handler = deployment._handlers[task_id]
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found")
+
     return StreamingResponse(
-        event_stream(deployment._handlers[task_id]),
+        event_stream(deployment_handler),
         media_type="application/x-ndjson",
     )
 
@@ -190,8 +197,27 @@ async def get_task_result(
 ) -> TaskResult | None:
     """Get the task result associated with a task and session."""
 
-    handler = deployment._handlers[task_id]
-    return TaskResult(task_id=task_id, history=[], result=await handler)
+    try:
+        handler = deployment._handlers[task_id]
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Task not found")
+    result = await handler
+    if not isinstance(result, str):
+        result = str(result)
+    return TaskResult(task_id=task_id, history=[], result=result)
+
+
+@deployments_router.post("/{deployment_name}/tasks/delete")
+async def delete_task(
+    deployment: Annotated[Deployment, Depends(deployment)], task_id: str
+) -> None:
+    """Get the active sessions in a deployment and service."""
+
+    if task_id not in deployment._handlers:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    deployment._handlers.pop(task_id)  # noqa: ignore
+    deployment._handler_inputs.pop(task_id, None)  # noqa: ignore
 
 
 @deployments_router.get("/{deployment_name}/tasks")
@@ -224,6 +250,9 @@ async def get_session(
 ) -> SessionDefinition:
     """Get the definition of a session by ID."""
 
+    if session_id not in deployment._contexts:
+        raise HTTPException(status_code=404, detail="Session not found")
+
     return SessionDefinition(session_id=session_id)
 
 
@@ -245,6 +274,9 @@ async def delete_session(
     deployment: Annotated[Deployment, Depends(deployment)], session_id: str
 ) -> None:
     """Get the active sessions in a deployment and service."""
+
+    if session_id not in deployment._contexts:
+        raise HTTPException(status_code=404, detail="Session not found")
 
     deployment._contexts.pop(session_id)
 

@@ -1,5 +1,5 @@
 import io
-from typing import Any
+from typing import Any, Dict
 from unittest import mock
 
 import httpx
@@ -110,6 +110,23 @@ async def test_task_results(client: Any) -> None:
 
 
 @pytest.mark.asyncio
+async def test_task_collection_delete(client: Any) -> None:
+    coll = TaskCollection(
+        client=client,
+        items={},
+        deployment_id="a_deployment",
+    )
+    await coll.delete("a_task")
+    client.request.assert_awaited_with(
+        "POST",
+        "http://localhost:4501/deployments/a_deployment/tasks/delete",
+        params={"task_id": "a_task"},
+        timeout=120.0,
+        verify=True,
+    )
+
+
+@pytest.mark.asyncio
 async def test_task_collection_run(client: Any) -> None:
     client.request.return_value = mock.MagicMock(json=lambda: "some result")
     coll = TaskCollection(
@@ -174,10 +191,8 @@ async def test_task_collection_create(client: Any) -> None:
 @pytest.mark.asyncio
 async def test_task_deployment_tasks(client: Any) -> None:
     d = Deployment(client=client, id="a_deployment")
-    res: list[TaskDefinition] = [
-        TaskDefinition(
-            input='{"arg": "input"}', task_id="a_task", session_id="a_session"
-        )
+    res: list[Dict[str, str]] = [
+        {"input": '{"arg": "input"}', "task_id": "a_task", "session_id": "a_session"}
     ]
     client.request.return_value = mock.MagicMock(json=lambda: res)
 

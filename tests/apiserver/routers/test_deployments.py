@@ -11,6 +11,8 @@ import httpx
 import pytest
 import respx
 from fastapi.testclient import TestClient
+from llama_index.core.agent.workflow import AgentOutput
+from llama_index.core.base.llms.types import ChatMessage
 from workflows.context import JsonSerializer
 from workflows.events import Event
 
@@ -148,6 +150,13 @@ def test_run_deployment_task(
     )
     assert response.status_code == 200
 
+    deployment.reset_mock()
+    response = http_client.post(
+        "/deployments/test-deployment/tasks/run/",
+        json={"input": "{}", "session_id": "84"},
+    )
+    assert response.status_code == 200
+
 
 def test_create_deployment_task(
     http_client: TestClient, data_path: Path, mock_manager: MagicMock
@@ -172,6 +181,13 @@ def test_create_deployment_task(
         "/deployments/test-deployment/tasks/create/",
         json={"input": "{}"},
         params={"session_id": 84},
+    )
+    assert response.status_code == 200
+
+    deployment.reset_mock()
+    response = http_client.post(
+        "/deployments/test-deployment/tasks/create/",
+        json={"input": "{}", "session_id": "84"},
     )
     assert response.status_code == 200
 
@@ -222,6 +238,15 @@ def test_get_event_not_found(
     http_client: TestClient, data_path: Path, mock_manager: MagicMock
 ) -> None:
     mock_manager.get_deployment.return_value = None
+    response = http_client.get(
+        "/deployments/test-deployment/tasks/test_task_id/events",
+        params={"session_id": "42", "task_id": "84"},
+    )
+    assert response.status_code == 404
+
+    deployment = mock.AsyncMock()
+    deployment._handlers = {}
+    mock_manager.get_deployment.return_value = deployment
     response = http_client.get(
         "/deployments/test-deployment/tasks/test_task_id/events",
         params={"session_id": "42", "task_id": "84"},
@@ -319,7 +344,10 @@ async def test_get_event_stream_raw(
 def test_get_task_result_not_found(
     http_client: TestClient, data_path: Path, mock_manager: MagicMock
 ) -> None:
-    mock_manager.get_deployment.return_value = None
+    deployment = mock.AsyncMock()
+    deployment.default_service = "TestService"
+    deployment._handlers = {}
+    mock_manager.get_deployment.return_value = deployment
     response = http_client.get(
         "/deployments/test-deployment/tasks/test_task_id/results/?session_id=42",
     )
@@ -377,6 +405,60 @@ def test_get_task_result(
     assert response.status_code == 200
     assert TaskResult(**response.json()).result == "test_result"
 
+    # Mock the handler to return an AgentOutput
+    class MockAgentOutputHandler:
+        def __await__(self):  # type:ignore
+            async def await_impl():  # type:ignore
+                return AgentOutput(
+                    response=ChatMessage(content="test_result"),
+                    current_agent_name="test_agent",
+                    tool_calls=[],
+                    raw=None,
+                )
+
+            return await_impl().__await__()
+
+    mock_agent_output_handler = MockAgentOutputHandler()
+    deployment._handlers = {"test_task_id": mock_agent_output_handler}
+
+    mock_manager.get_deployment.return_value = deployment
+
+    response = http_client.get(
+        "/deployments/test-deployment/tasks/test_task_id/results/?session_id=42",
+    )
+    assert response.status_code == 200
+    assert TaskResult(**response.json()).result == "test_result"
+
+
+def test_delete_task_not_found(
+    http_client: TestClient, data_path: Path, mock_manager: MagicMock
+) -> None:
+    deployment = mock.AsyncMock()
+    deployment.default_service = "TestService"
+    mock_manager.get_deployment.return_value = deployment
+    response = http_client.post(
+        "/deployments/test-deployment/tasks/delete/?task_id=42",
+    )
+    assert response.status_code == 404
+    assert response.json() == {"detail": "Task not found"}
+
+
+def test_delete_task(
+    http_client: TestClient, data_path: Path, mock_manager: MagicMock
+) -> None:
+    deployment = mock.AsyncMock()
+    deployment.default_service = "TestService"
+    deployment._handlers = {"42": mock.MagicMock()}  # Mock handlers to be deleted
+    deployment._handler_inputs = {"42": "foo"}
+    mock_manager.get_deployment.return_value = deployment
+
+    response = http_client.post(
+        "/deployments/test-deployment/tasks/delete/?task_id=42",
+    )
+    assert response.status_code == 200
+    assert "42" not in deployment._handlers
+    assert "42" not in deployment._handler_inputs
+
 
 def test_get_sessions_not_found(
     http_client: TestClient, data_path: Path, mock_manager: MagicMock
@@ -406,12 +488,14 @@ def test_get_sessions(
 def test_delete_session_not_found(
     http_client: TestClient, data_path: Path, mock_manager: MagicMock
 ) -> None:
-    mock_manager.get_deployment.return_value = None
+    deployment = mock.AsyncMock()
+    deployment.default_service = "TestService"
+    mock_manager.get_deployment.return_value = deployment
     response = http_client.post(
         "/deployments/test-deployment/sessions/delete/?session_id=42",
     )
     assert response.status_code == 404
-    assert response.json() == {"detail": "Deployment not found"}
+    assert response.json() == {"detail": "Session not found"}
 
 
 def test_delete_session(
@@ -431,7 +515,8 @@ def test_delete_session(
 def test_get_session_not_found(
     http_client: TestClient, data_path: Path, mock_manager: MagicMock
 ) -> None:
-    mock_manager.get_deployment.return_value = None
+    deployment = mock.AsyncMock()
+    mock_manager.get_deployment.return_value = deployment
     response = http_client.get(
         "/deployments/test-deployment/sessions/foo",
     )
@@ -444,6 +529,7 @@ def test_get_session(
     deployment = mock.AsyncMock()
     mock_manager.get_deployment.return_value = deployment
     session = mock.AsyncMock(id="foo")
+    deployment._contexts = {"foo": session}
     deployment.client.core.sessions.get.return_value = session
     response = http_client.get("/deployments/test-deployment/sessions/foo")
     assert response.status_code == 200
