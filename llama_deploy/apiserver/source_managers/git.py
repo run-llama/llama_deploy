@@ -1,10 +1,13 @@
 import shutil
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from git import Repo
 
 from .base import SourceManager, SyncPolicy
+
+_ALLOWED_SCHEMES = frozenset({"https", "http"})
 
 
 class GitSourceManager(SourceManager):
@@ -44,5 +47,16 @@ class GitSourceManager(SourceManager):
         url = toks[0]
         if len(toks) > 1:
             branch_name = toks[1]
+
+        parsed = urlparse(url)
+        if parsed.scheme not in _ALLOWED_SCHEMES:
+            raise ValueError(
+                f"Git source URL scheme '{parsed.scheme}' is not allowed. "
+                f"Use one of: {', '.join(sorted(_ALLOWED_SCHEMES))}."
+            )
+        if not parsed.netloc:
+            raise ValueError(
+                "Git source URL must include a valid host (e.g. github.com)."
+            )
 
         return url, branch_name
