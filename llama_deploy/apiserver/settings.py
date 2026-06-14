@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -30,6 +31,12 @@ class ApiserverSettings(BaseSettings):
     use_tls: bool = Field(
         default=False,
         description="Use TLS (HTTPS) to communicate with the API Server",
+    )
+    api_key: Optional[str] = Field(
+        default=None,
+        description="Optional API key for authenticating requests to the API Server. "
+        "When set, all /deployments/* endpoints require an 'Authorization: Bearer <key>' header. "
+        "When unset (default), no authentication is required (suitable for local development only).",
     )
 
     # Metrics collection settings
