@@ -34,6 +34,36 @@ services:
 
 For more details, see the API reference for the deployment [`Config`](../../api_reference/llama_deploy/apiserver.md#llama_deploy.apiserver.deployment_config_parser.DeploymentConfig) object.
 
+### Service source types
+
+Each service declares where LlamaDeploy should load its workflow code from with the `source` field. The currently implemented source managers are `local` and `git`.
+
+Use `local` when the workflow code lives next to the deployment file:
+
+```yaml
+services:
+  my_workflow:
+    name: My Workflow
+    source:
+      type: local
+      location: src
+    import-path: workflow:my_workflow
+```
+
+Use `git` when the workflow code should be cloned from a remote repository. A branch can be selected by appending `@branch_name` to the repository URL:
+
+```yaml
+services:
+  my_workflow:
+    name: My Workflow
+    source:
+      type: git
+      location: https://github.com/example/my-workflow.git@main
+    import-path: src/workflow:my_workflow
+```
+
+`local` sources copy `location` under the deployment directory and import from that relative path. `git` sources clone the repository directly into the deployment directory. For non-local deployments, sources are replaced on sync by default; `local` sources can also use `sync_policy: merge` or `sync_policy: skip` when appropriate.
+
 ## API Server
 
 The API Server is a core component of LlamaDeploy responsible for serving and managing multiple deployments at the same time,
