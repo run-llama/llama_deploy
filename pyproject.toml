@@ -73,7 +73,7 @@ llamactl = "llama_deploy.cli.__main__:main"
 
 [tool.codespell]
 ignore-words-list = "LITS"
-skip = "./examples,*/algolia.js,docs/poetry.lock"
+skip = "./examples,*/algolia.js,docs/poetry.lock,*package-lock.json"
 
 [tool.coverage.run]
 omit = ["__main__.py", "tests/*", "llama_deploy/apiserver/stats.py"]

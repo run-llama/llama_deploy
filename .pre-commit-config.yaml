@@ -33,6 +33,9 @@ repos:
           [
             "llama_deploy[kafka,rabbitmq,redis,awssqs]",
             "llama_index_core",
+            # numpy>=2.5 stubs use PEP 695 `type` statements, which mypy
+            # rejects under --python-version=3.11
+            "numpy<2.5",
             "types-Deprecated",
             "types-PyYAML",
             "types-botocore",
