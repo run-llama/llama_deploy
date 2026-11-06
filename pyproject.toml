@@ -77,3 +77,6 @@ skip = "./examples,*/algolia.js,docs/poetry.lock"
 
 [tool.coverage.run]
 omit = ["__main__.py", "tests/*", "llama_deploy/apiserver/stats.py"]
+
+[tool.uv]
+exclude-newer = "3 days"

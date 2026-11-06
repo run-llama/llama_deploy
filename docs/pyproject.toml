@@ -23,6 +23,7 @@ dependencies = [
 ]
 
 [tool.uv]
+exclude-newer = "3 days"
 package = false
 
 [tool.uv.sources]
