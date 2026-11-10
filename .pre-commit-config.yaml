@@ -42,6 +42,8 @@ repos:
             "types-requests",
             "types-setuptools",
             "types-click",
+            # numpy 2.5 stubs use the 3.12 `type` statement, which mypy rejects under --python-version=3.11
+            "numpy<2.5",
           ]
         args:
           [
